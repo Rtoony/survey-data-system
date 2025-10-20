@@ -42,7 +42,7 @@ Preferred communication style: Simple, everyday language.
 - **Drawings Endpoint**: `/api/drawings` - List and delete drawings with project filtering
 
 **CAD Standards Portal Endpoints:**
-- **Overview**: `/api/standards/overview` - Statistics for all standards tables
+- **Overview**: `/api/standards/overview` - Statistics for all standards tables (17 total)
 - **Layers**: `/api/standards/layers` - Layer standards with colors, linetypes, discipline
 - **Blocks**: `/api/standards/blocks` - Block/symbol definitions with SVG previews
 - **Colors**: `/api/standards/colors` - Color standards with RGB, HEX, ACI values
@@ -50,6 +50,16 @@ Preferred communication style: Simple, everyday language.
 - **Text Styles**: `/api/standards/text` - Text style specifications
 - **Hatches**: `/api/standards/hatches` - Hatch patterns for materials
 - **Details**: `/api/standards/details` - Standard construction details
+- **Abbreviations**: `/api/standards/abbreviations` - Standard CAD abbreviations with full text
+- **Materials**: `/api/standards/materials` - Construction material specifications
+- **Sheet Templates**: `/api/standards/sheets` - Standard sheet sizes and templates
+- **Plot Styles**: `/api/standards/plotstyles` - Plot style standards for printing
+- **Viewports**: `/api/standards/viewports` - Viewport scale standards
+- **Annotations**: `/api/standards/annotations` - Annotation style standards
+- **Symbol Categories**: `/api/standards/categories` - Hierarchical symbol organization
+- **Code References**: `/api/standards/codes` - Building codes and regulatory references
+- **Standard Notes**: `/api/standards/notes` - Pre-approved drawing notes library
+- **Drawing Scales**: `/api/standards/scales` - Standard drawing scales by type
 
 ### Key Design Decisions
 
