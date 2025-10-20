@@ -1,10 +1,13 @@
-# ACAD-GIS Schema Explorer & Data Manager
+# ACAD-GIS Companion Tools
 
 ## Overview
 
-ACAD-GIS Schema Explorer is a Flask-based companion tool for viewing and managing Supabase/PostgreSQL databases used by the main ACAD-GIS system. It provides a web interface for browsing database schemas, managing projects, and viewing drawings. The tool connects directly to a PostgreSQL/PostGIS database and presents data through a Mission Control-themed UI.
+This project contains two Flask-based companion tools for the main ACAD-GIS system:
 
-The application serves as a lightweight administrative interface, distinct from the main ACAD-GIS FastAPI application, focusing specifically on database exploration and basic CRUD operations for projects and drawings.
+1. **Schema Explorer & Data Manager** - Database administration tool for viewing schemas, managing projects, and cleaning up test data
+2. **CAD Standards Portal** - Human-friendly reference portal presenting machine-optimized CAD standards (layers, blocks, colors, etc.) in a readable format for employees
+
+Both tools connect to the same Supabase/PostgreSQL database and present data through a Mission Control-themed UI. They serve as lightweight administrative and reference interfaces, distinct from the main ACAD-GIS FastAPI application.
 
 ## User Preferences
 
@@ -31,10 +34,22 @@ Preferred communication style: Simple, everyday language.
 - **Icons**: Font Awesome 6.4.0
 
 ### API Structure
+
+**Schema Explorer Endpoints:**
 - **Health Endpoint**: `/api/health` - Database connectivity check with table counts
 - **Schema Endpoint**: `/api/schema` - Returns table structures and row counts
 - **Projects Endpoint**: `/api/projects` - List projects with drawing counts, delete operations
 - **Drawings Endpoint**: `/api/drawings` - List and delete drawings with project filtering
+
+**CAD Standards Portal Endpoints:**
+- **Overview**: `/api/standards/overview` - Statistics for all standards tables
+- **Layers**: `/api/standards/layers` - Layer standards with colors, linetypes, discipline
+- **Blocks**: `/api/standards/blocks` - Block/symbol definitions with SVG previews
+- **Colors**: `/api/standards/colors` - Color standards with RGB, HEX, ACI values
+- **Linetypes**: `/api/standards/linetypes` - Linetype patterns and usage
+- **Text Styles**: `/api/standards/text` - Text style specifications
+- **Hatches**: `/api/standards/hatches` - Hatch patterns for materials
+- **Details**: `/api/standards/details` - Standard construction details
 
 ### Key Design Decisions
 
@@ -57,6 +72,13 @@ Preferred communication style: Simple, everyday language.
 - Database errors caught and returned as JSON with error keys
 - Frontend displays user-friendly error messages with icons
 - Connection validation on startup with debug output to console
+
+**CAD Standards Portal Design**
+- Translates machine-optimized database fields into human-readable format
+- Visual presentation: color swatches, SVG symbol previews, organized tables
+- Grouped by discipline/category for easy browsing
+- Read-only reference portal (no editing capabilities)
+- Eventually intended to become standalone company reference website
 
 ## External Dependencies
 
