@@ -124,6 +124,56 @@ def standards_details():
     """Detail standards page"""
     return render_template('standards/details.html')
 
+@app.route('/standards/abbreviations')
+def standards_abbreviations():
+    """Abbreviation standards page"""
+    return render_template('standards/abbreviations.html')
+
+@app.route('/standards/materials')
+def standards_materials():
+    """Material standards page"""
+    return render_template('standards/materials.html')
+
+@app.route('/standards/sheets')
+def standards_sheets():
+    """Sheet template standards page"""
+    return render_template('standards/sheets.html')
+
+@app.route('/standards/plotstyles')
+def standards_plotstyles():
+    """Plot style standards page"""
+    return render_template('standards/plotstyles.html')
+
+@app.route('/standards/viewports')
+def standards_viewports():
+    """Viewport standards page"""
+    return render_template('standards/viewports.html')
+
+@app.route('/standards/annotations')
+def standards_annotations():
+    """Annotation standards page"""
+    return render_template('standards/annotations.html')
+
+@app.route('/standards/categories')
+def standards_categories():
+    """Symbol categories page"""
+    return render_template('standards/categories.html')
+
+@app.route('/standards/codes')
+def standards_codes():
+    """Code references page"""
+    return render_template('standards/codes.html')
+
+@app.route('/standards/notes')
+def standards_notes():
+    """Standard notes page"""
+    return render_template('standards/notes.html')
+
+@app.route('/standards/scales')
+def standards_scales():
+    """Drawing scale standards page"""
+    return render_template('standards/scales.html')
+
 # ============================================
 # API ENDPOINTS
 # ============================================
@@ -277,7 +327,17 @@ def standards_overview():
             'text_styles': 'text_styles',
             'hatches': 'hatch_patterns',
             'details': 'detail_standards',
-            'dimensions': 'dimension_styles'
+            'dimensions': 'dimension_styles',
+            'abbreviations': 'abbreviation_standards',
+            'materials': 'material_standards',
+            'sheets': 'sheet_templates',
+            'plotstyles': 'plot_style_standards',
+            'viewports': 'viewport_standards',
+            'annotations': 'annotation_standards',
+            'categories': 'symbol_categories',
+            'codes': 'code_references',
+            'notes': 'standard_notes',
+            'scales': 'drawing_scale_standards'
         }
         
         for key, table in tables.items():
@@ -471,6 +531,136 @@ def get_detail_standards():
         """
         details = execute_query(query)
         return jsonify(details)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/abbreviations')
+def get_abbreviation_standards():
+    """Get all abbreviation standards"""
+    try:
+        query = """
+            SELECT * FROM abbreviation_standards
+            ORDER BY discipline, abbreviation
+        """
+        abbreviations = execute_query(query)
+        return jsonify(abbreviations)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/materials')
+def get_material_standards():
+    """Get all material standards"""
+    try:
+        query = """
+            SELECT * FROM material_standards
+            ORDER BY category, material_name
+        """
+        materials = execute_query(query)
+        return jsonify(materials)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/sheets')
+def get_sheet_templates():
+    """Get all sheet template standards"""
+    try:
+        query = """
+            SELECT * FROM sheet_templates
+            ORDER BY discipline, sheet_size, template_name
+        """
+        sheets = execute_query(query)
+        return jsonify(sheets)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/plotstyles')
+def get_plotstyle_standards():
+    """Get all plot style standards"""
+    try:
+        query = """
+            SELECT * FROM plot_style_standards
+            ORDER BY style_name
+        """
+        plotstyles = execute_query(query)
+        return jsonify(plotstyles)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/viewports')
+def get_viewport_standards():
+    """Get all viewport standards"""
+    try:
+        query = """
+            SELECT * FROM viewport_standards
+            ORDER BY discipline, scale_factor
+        """
+        viewports = execute_query(query)
+        return jsonify(viewports)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/annotations')
+def get_annotation_standards():
+    """Get all annotation standards"""
+    try:
+        query = """
+            SELECT * FROM annotation_standards
+            ORDER BY discipline, annotation_type, annotation_name
+        """
+        annotations = execute_query(query)
+        return jsonify(annotations)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/categories')
+def get_symbol_categories():
+    """Get all symbol categories"""
+    try:
+        query = """
+            SELECT * FROM symbol_categories
+            ORDER BY sort_order, category_name
+        """
+        categories = execute_query(query)
+        return jsonify(categories)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/codes')
+def get_code_references():
+    """Get all code references"""
+    try:
+        query = """
+            SELECT * FROM code_references
+            ORDER BY code_type, code_name
+        """
+        codes = execute_query(query)
+        return jsonify(codes)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/notes')
+def get_standard_notes():
+    """Get all standard notes"""
+    try:
+        query = """
+            SELECT * FROM standard_notes
+            ORDER BY discipline, note_category, sort_order
+        """
+        notes = execute_query(query)
+        return jsonify(notes)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/scales')
+def get_drawing_scales():
+    """Get all drawing scale standards"""
+    try:
+        query = """
+            SELECT * FROM drawing_scale_standards
+            ORDER BY scale_type, scale_factor
+        """
+        scales = execute_query(query)
+        return jsonify(scales)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

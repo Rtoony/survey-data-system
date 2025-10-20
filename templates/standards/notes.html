@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Standard Notes - ACAD-GIS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="grid-background">
+    <header class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <i class="fas fa-ruler-combined neon-cyan"></i>
+                <div>
+                    <h1 class="orbitron">ACAD-GIS CAD Standards Portal</h1>
+                    <div class="header-subtitle">Engineering Design Standards Reference</div>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="/standards"><i class="fas fa-home"></i> Standards</a>
+                <a href="/"><i class="fas fa-database"></i> Schema</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="panel">
+                <div class="panel-header">
+                    <div><i class="fas fa-sticky-note neon-cyan"></i><h2>Standard Notes Library</h2></div>
+                    <div id="count" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
+                </div>
+                <div class="panel-body">
+                    <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                        Pre-approved standard notes for use on CAD drawings.
+                    </p>
+                    <div id="container">
+                        <div class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin neon-cyan"></i>
+                            <p>Loading standard notes...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        async function load() {
+            try {
+                const response = await fetch('/api/standards/notes');
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                document.getElementById('count').textContent = `${data.length} standard notes`;
+
+                const grouped = {};
+                data.forEach(item => {
+                    const category = item.note_category || 'General';
+                    if (!grouped[category]) grouped[category] = [];
+                    grouped[category].push(item);
+                });
+
+                const container = document.getElementById('container');
+                container.innerHTML = '';
+
+                Object.keys(grouped).sort().forEach(category => {
+                    const section = document.createElement('div');
+                    section.style.marginBottom = '2rem';
+                    
+                    const title = document.createElement('h3');
+                    title.className = 'orbitron';
+                    title.style.color = 'var(--cyan)';
+                    title.style.marginBottom = '1rem';
+                    title.innerHTML = `<i class="fas fa-folder"></i> ${category}`;
+                    section.appendChild(title);
+
+                    grouped[category].forEach(item => {
+                        const noteCard = document.createElement('div');
+                        noteCard.style.background = 'rgba(0, 28, 48, 0.6)';
+                        noteCard.style.border = '1px solid var(--border)';
+                        noteCard.style.borderRadius = '8px';
+                        noteCard.style.padding = '1rem';
+                        noteCard.style.marginBottom = '1rem';
+
+                        noteCard.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
+                                <div style="font-weight: bold; color: var(--cyan);">${item.note_title}</div>
+                                ${item.discipline ? `<span style="background: rgba(0, 255, 255, 0.1); color: var(--cyan); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${item.discipline}</span>` : ''}
+                            </div>
+                            <div style="color: var(--text-primary); margin-bottom: 0.5rem;">${item.note_text}</div>
+                            ${item.usage_context ? `<div style="font-size: 0.85rem; color: var(--text-muted);"><strong>Usage:</strong> ${item.usage_context}</div>` : ''}
+                        `;
+
+                        section.appendChild(noteCard);
+                    });
+
+                    container.appendChild(section);
+                });
+
+            } catch (error) {
+                document.getElementById('container').innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load standard notes: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        load();
+    </script>
+</body>
+</html>

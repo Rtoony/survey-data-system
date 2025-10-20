@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sheet Templates - ACAD-GIS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="grid-background">
+    <header class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <i class="fas fa-ruler-combined neon-cyan"></i>
+                <div>
+                    <h1 class="orbitron">ACAD-GIS CAD Standards Portal</h1>
+                    <div class="header-subtitle">Engineering Design Standards Reference</div>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="/standards"><i class="fas fa-home"></i> Standards</a>
+                <a href="/"><i class="fas fa-database"></i> Schema</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="panel">
+                <div class="panel-header">
+                    <div><i class="fas fa-file neon-cyan"></i><h2>Sheet Template Standards</h2></div>
+                    <div id="count" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
+                </div>
+                <div class="panel-body">
+                    <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                        Standard sheet sizes and templates organized by discipline and sheet type.
+                    </p>
+                    <div id="container">
+                        <div class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin neon-cyan"></i>
+                            <p>Loading sheet templates...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        async function load() {
+            try {
+                const response = await fetch('/api/standards/sheets');
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                document.getElementById('count').textContent = `${data.length} sheet templates`;
+
+                const container = document.getElementById('container');
+                container.innerHTML = `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Template Name</th>
+                                <th>Size</th>
+                                <th>Dimensions</th>
+                                <th>Discipline</th>
+                                <th>Type</th>
+                                <th>Scale</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map(item => `
+                                <tr>
+                                    <td><strong>${item.template_name}</strong></td>
+                                    <td>${item.sheet_size}</td>
+                                    <td>${item.width_inches}" × ${item.height_inches}"</td>
+                                    <td>${item.discipline || '-'}</td>
+                                    <td>${item.sheet_type || '-'}</td>
+                                    <td>${item.standard_scale || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+
+            } catch (error) {
+                document.getElementById('container').innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load sheet templates: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        load();
+    </script>
+</body>
+</html>
