@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Database Schema{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-table"></i>
+            Database Schema
+        </h2>
+        <button onclick="location.reload()" class="btn btn-ghost">
+            <i class="fas fa-sync"></i> Refresh
+        </button>
+    </div>
+
+    <div id="loading" style="text-align: center; padding: 3rem;">
+        <div class="spinner" style="margin: 0 auto;"></div>
+        <p class="loading-text">Loading schema...</p>
+    </div>
+
+    <div id="schema" style="display: none;"></div>
+</div>
+
+<script>
+    async function loadSchema() {
+        try {
+            const response = await fetch('/api/schema');
+            const data = await response.json();
+
+            const schemaDiv = document.getElementById('schema');
+            const loadingDiv = document.getElementById('loading');
+
+            if (data.error) {
+                schemaDiv.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <p>Error loading schema: ${data.error}</p>
+                    </div>
+                `;
+                loadingDiv.style.display = 'none';
+                schemaDiv.style.display = 'block';
+                return;
+            }
+
+            let html = '';
+            const tables = data.tables || {};
+            const counts = data.counts || {};
+
+            for (const [tableName, columns] of Object.entries(tables)) {
+                html += `
+                    <div class="card" style="margin-bottom: var(--spacing-lg);">
+                        <div class="flex-between mb-lg">
+                            <h3 style="color: var(--color-accent-cyan); font-size: 1.25rem;">
+                                <i class="fas fa-table"></i> ${tableName}
+                            </h3>
+                            <span class="badge">
+                                ${counts[tableName] || 0} rows
+                            </span>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Column Name</th>
+                                        <th>Data Type</th>
+                                        <th>Nullable</th>
+                                        <th>Default</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+
+                for (const col of columns) {
+                    html += `
+                        <tr>
+                            <td><strong>${col.name}</strong></td>
+                            <td><code>${col.type}</code></td>
+                            <td>${col.nullable ? '<span class="badge-success badge">YES</span>' : '<span class="badge-danger badge">NO</span>'}</td>
+                            <td><code>${col.default || '-'}</code></td>
+                        </tr>
+                    `;
+                }
+
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            schemaDiv.innerHTML = html;
+            loadingDiv.style.display = 'none';
+            schemaDiv.style.display = 'block';
+
+        } catch (error) {
+            console.error('Error:', error);
+            document.getElementById('schema').innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                    <p>Failed to load schema: ${error.message}</p>
+                </div>
+            `;
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('schema').style.display = 'block';
+        }
+    }
+
+    loadSchema();
+</script>
+{% endblock %}

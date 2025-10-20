@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Drawings Manager{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-file-image"></i>
+            Drawings Manager
+        </h2>
+        <button onclick="location.reload()" class="btn btn-ghost">
+            <i class="fas fa-sync"></i> Refresh
+        </button>
+    </div>
+
+    <div id="loading" style="text-align: center; padding: 3rem;">
+        <div class="spinner" style="margin: 0 auto;"></div>
+        <p class="loading-text">Loading drawings...</p>
+    </div>
+
+    <div id="drawings" style="display: none;"></div>
+</div>
+
+<script>
+    async function loadDrawings() {
+        try {
+            const response = await fetch('/api/drawings');
+            const drawings = await response.json();
+
+            const drawingsDiv = document.getElementById('drawings');
+            const loadingDiv = document.getElementById('loading');
+
+            if (drawings.error) {
+                drawingsDiv.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <p>Error loading drawings: ${drawings.error}</p>
+                    </div>
+                `;
+                loadingDiv.style.display = 'none';
+                drawingsDiv.style.display = 'block';
+                return;
+            }
+
+            if (drawings.length === 0) {
+                drawingsDiv.innerHTML = `
+                    <div style="text-align: center; padding: 3rem; opacity: 0.5;">
+                        <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <p>No drawings found</p>
+                    </div>
+                `;
+            } else {
+                drawingsDiv.innerHTML = `
+                    <div style="margin-bottom: var(--spacing-md); color: var(--color-text-muted);">
+                        Showing ${drawings.length} drawing${drawings.length !== 1 ? 's' : ''}
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Drawing Name</th>
+                                    <th>Number</th>
+                                    <th>Project</th>
+                                    <th>Type</th>
+                                    <th>Has Content</th>
+                                    <th>Created</th>
+                                    <th style="text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${drawings.map(d => `
+                                    <tr>
+                                        <td><strong>${d.drawing_name || '-'}</strong></td>
+                                        <td>${d.drawing_number || '-'}</td>
+                                        <td>${d.project_name || d.project_number || '-'}</td>
+                                        <td>${d.drawing_type || '-'}</td>
+                                        <td>${d.has_content ? '<span class="badge-success badge">YES</span>' : '<span class="badge badge">NO</span>'}</td>
+                                        <td>${formatDate(d.created_at)}</td>
+                                        <td style="text-align: center;">
+                                            <button 
+                                                class="btn btn-icon btn-danger" 
+                                                onclick="deleteItem('/api/drawings', '${d.drawing_id}', '${d.drawing_name}')"
+                                                title="Delete drawing"
+                                            >
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            loadingDiv.style.display = 'none';
+            drawingsDiv.style.display = 'block';
+
+        } catch (error) {
+            console.error('Error:', error);
+            document.getElementById('drawings').innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                    <p>Failed to load drawings: ${error.message}</p>
+                </div>
+            `;
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('drawings').style.display = 'block';
+        }
+    }
+
+    loadDrawings();
+</script>
+{% endblock %}

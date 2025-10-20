@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Projects Manager{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-folder"></i>
+            Projects Manager
+        </h2>
+        <button onclick="location.reload()" class="btn btn-ghost">
+            <i class="fas fa-sync"></i> Refresh
+        </button>
+    </div>
+
+    <div id="loading" style="text-align: center; padding: 3rem;">
+        <div class="spinner" style="margin: 0 auto;"></div>
+        <p class="loading-text">Loading projects...</p>
+    </div>
+
+    <div id="projects" style="display: none;"></div>
+</div>
+
+<script>
+    async function loadProjects() {
+        try {
+            const response = await fetch('/api/projects');
+            const projects = await response.json();
+
+            const projectsDiv = document.getElementById('projects');
+            const loadingDiv = document.getElementById('loading');
+
+            if (projects.error) {
+                projectsDiv.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <p>Error loading projects: ${projects.error}</p>
+                    </div>
+                `;
+                loadingDiv.style.display = 'none';
+                projectsDiv.style.display = 'block';
+                return;
+            }
+
+            if (projects.length === 0) {
+                projectsDiv.innerHTML = `
+                    <div style="text-align: center; padding: 3rem; opacity: 0.5;">
+                        <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <p>No projects found</p>
+                    </div>
+                `;
+            } else {
+                projectsDiv.innerHTML = `
+                    <div style="margin-bottom: var(--spacing-md); color: var(--color-text-muted);">
+                        Showing ${projects.length} project${projects.length !== 1 ? 's' : ''}
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Project Name</th>
+                                    <th>Project Number</th>
+                                    <th>Client</th>
+                                    <th>Drawings</th>
+                                    <th>Created</th>
+                                    <th style="text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${projects.map(p => `
+                                    <tr>
+                                        <td><strong>${p.project_name || '-'}</strong></td>
+                                        <td>${p.project_number || '-'}</td>
+                                        <td>${p.client_name || '-'}</td>
+                                        <td><span class="badge">${p.drawing_count || 0}</span></td>
+                                        <td>${formatDate(p.created_at)}</td>
+                                        <td style="text-align: center;">
+                                            <button 
+                                                class="btn btn-icon btn-danger" 
+                                                onclick="deleteItem('/api/projects', '${p.project_id}', '${p.project_name}')"
+                                                title="Delete project"
+                                            >
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            loadingDiv.style.display = 'none';
+            projectsDiv.style.display = 'block';
+
+        } catch (error) {
+            console.error('Error:', error);
+            document.getElementById('projects').innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                    <p>Failed to load projects: ${error.message}</p>
+                </div>
+            `;
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('projects').style.display = 'block';
+        }
+    }
+
+    loadProjects();
+</script>
+{% endblock %}

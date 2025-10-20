@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-rocket"></i>
+            Welcome to Schema Explorer
+        </h2>
+        <span id="status" class="status-offline">
+            <span class="status-dot"></span>
+            Checking...
+        </span>
+    </div>
+    <div>
+        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-lg);">
+            A companion tool for viewing and managing your ACAD-GIS Supabase database.
+            This tool connects directly to your database and provides real-time visibility into your data.
+        </p>
+
+        <div class="grid grid-3 mb-lg">
+            <div class="stat-card">
+                <div class="stat-value" id="projectCount">-</div>
+                <div class="stat-label">Projects</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="drawingCount">-</div>
+                <div class="stat-label">Drawings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="tableCount">-</div>
+                <div class="stat-label">Tables</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                    <i class="fas fa-table"></i> Schema Viewer
+                </h3>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+                    Explore your database structure, view table schemas, column types, and row counts.
+                </p>
+                <a href="/schema" class="btn btn-primary">
+                    <i class="fas fa-eye"></i> View Schema
+                </a>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                    <i class="fas fa-folder"></i> Projects Manager
+                </h3>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+                    View and manage your projects, delete test data, and see drawing counts.
+                </p>
+                <a href="/projects" class="btn btn-primary">
+                    <i class="fas fa-cog"></i> Manage Projects
+                </a>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                    <i class="fas fa-file-image"></i> Drawings Manager
+                </h3>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+                    Browse all drawings, filter by project, and clean up test drawings.
+                </p>
+                <a href="/drawings" class="btn btn-primary">
+                    <i class="fas fa-cog"></i> Manage Drawings
+                </a>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                    <i class="fas fa-info-circle"></i> About This Tool
+                </h3>
+                <p style="color: var(--color-text-secondary);">
+                    Built as a companion to your main ACAD-GIS tool. Connects directly to Supabase
+                    and auto-updates whenever you make changes elsewhere.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadStats() {
+        try {
+            const healthResponse = await fetch('/api/health');
+            const health = await healthResponse.json();
+            
+            const statusEl = document.getElementById('status');
+            if (health.status === 'connected') {
+                statusEl.className = 'status-online';
+                statusEl.innerHTML = '<span class="status-dot"></span> Connected';
+            } else {
+                statusEl.className = 'status-offline';
+                statusEl.innerHTML = '<span class="status-dot"></span> Offline';
+                return;
+            }
+
+            const [schemaResponse, projectsResponse, drawingsResponse] = await Promise.all([
+                fetch('/api/schema'),
+                fetch('/api/projects'),
+                fetch('/api/drawings')
+            ]);
+
+            const schema = await schemaResponse.json();
+            const projects = await projectsResponse.json();
+            const drawings = await drawingsResponse.json();
+
+            document.getElementById('tableCount').textContent = Object.keys(schema.tables || {}).length;
+            document.getElementById('projectCount').textContent = projects.length || 0;
+            document.getElementById('drawingCount').textContent = drawings.length || 0;
+
+        } catch (error) {
+            console.error('Error loading stats:', error);
+            document.getElementById('status').className = 'status-offline';
+            document.getElementById('status').innerHTML = '<span class="status-dot"></span> Error';
+        }
+    }
+
+    loadStats();
+</script>
+{% endblock %}
