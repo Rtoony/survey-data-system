@@ -81,6 +81,50 @@ def drawings_page():
     return render_template('drawings.html')
 
 # ============================================
+# CAD STANDARDS PORTAL PAGES
+# ============================================
+
+@app.route('/standards')
+def standards_home():
+    """CAD Standards Portal home page"""
+    return render_template('standards/index.html')
+
+@app.route('/standards/layers')
+def standards_layers():
+    """Layer standards page"""
+    return render_template('standards/layers.html')
+
+@app.route('/standards/blocks')
+def standards_blocks():
+    """Block/symbol standards page"""
+    return render_template('standards/blocks.html')
+
+@app.route('/standards/colors')
+def standards_colors():
+    """Color standards page"""
+    return render_template('standards/colors.html')
+
+@app.route('/standards/linetypes')
+def standards_linetypes():
+    """Linetype standards page"""
+    return render_template('standards/linetypes.html')
+
+@app.route('/standards/text')
+def standards_text():
+    """Text style standards page"""
+    return render_template('standards/text.html')
+
+@app.route('/standards/hatches')
+def standards_hatches():
+    """Hatch pattern standards page"""
+    return render_template('standards/hatches.html')
+
+@app.route('/standards/details')
+def standards_details():
+    """Detail standards page"""
+    return render_template('standards/details.html')
+
+# ============================================
 # API ENDPOINTS
 # ============================================
 
@@ -213,6 +257,220 @@ def delete_drawing(drawing_id):
                 cur.execute('DELETE FROM drawings WHERE drawing_id = %s', (drawing_id,))
                 conn.commit()
         return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# CAD STANDARDS API ENDPOINTS
+# ============================================
+
+@app.route('/api/standards/overview')
+def standards_overview():
+    """Get overview of all standards"""
+    try:
+        overview = {}
+        tables = {
+            'layers': 'layer_standards',
+            'blocks': 'block_definitions',
+            'colors': 'color_standards',
+            'linetypes': 'linetype_standards',
+            'text_styles': 'text_styles',
+            'hatches': 'hatch_patterns',
+            'details': 'detail_standards',
+            'dimensions': 'dimension_styles'
+        }
+        
+        for key, table in tables.items():
+            try:
+                result = execute_query(f'SELECT COUNT(*) as count FROM {table}')
+                overview[key] = result[0]['count'] if result else 0
+            except:
+                overview[key] = 0
+        
+        return jsonify(overview)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/layers')
+def get_layer_standards():
+    """Get all layer standards"""
+    try:
+        query = """
+            SELECT 
+                layer_standard_id,
+                layer_name,
+                discipline,
+                category,
+                type,
+                status,
+                color,
+                color_rgb,
+                linetype,
+                lineweight,
+                is_plottable,
+                is_locked,
+                plot_style,
+                transparency,
+                description,
+                usage_context,
+                display_order,
+                tags,
+                standard_reference
+            FROM layer_standards
+            ORDER BY discipline, category, layer_name
+        """
+        layers = execute_query(query)
+        return jsonify(layers)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/blocks')
+def get_block_standards():
+    """Get all block/symbol standards"""
+    try:
+        query = """
+            SELECT 
+                block_id,
+                block_name,
+                block_type,
+                category,
+                domain,
+                description,
+                space_type,
+                svg_content,
+                svg_viewbox,
+                semantic_type,
+                semantic_label,
+                usage_context,
+                tags,
+                is_title_block,
+                is_detail,
+                title_block_size,
+                detail_category
+            FROM block_definitions
+            ORDER BY category, block_name
+        """
+        blocks = execute_query(query)
+        return jsonify(blocks)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/colors')
+def get_color_standards():
+    """Get all color standards"""
+    try:
+        query = """
+            SELECT 
+                color_id,
+                color_index,
+                color_name,
+                color_rgb,
+                hex_code,
+                usage_category,
+                description
+            FROM color_standards
+            ORDER BY color_index
+        """
+        colors = execute_query(query)
+        return jsonify(colors)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/linetypes')
+def get_linetype_standards():
+    """Get all linetype standards"""
+    try:
+        query = """
+            SELECT 
+                linetype_id,
+                linetype_name,
+                description,
+                pattern,
+                dxf_pattern,
+                scale_factor,
+                usage_context
+            FROM linetype_standards
+            ORDER BY linetype_name
+        """
+        linetypes = execute_query(query)
+        return jsonify(linetypes)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/text')
+def get_text_standards():
+    """Get all text style standards"""
+    try:
+        query = """
+            SELECT 
+                style_id,
+                style_name,
+                font_name,
+                font_file,
+                height,
+                width_factor,
+                oblique_angle,
+                is_backward,
+                is_upside_down,
+                is_vertical,
+                usage_context
+            FROM text_styles
+            ORDER BY style_name
+        """
+        text_styles = execute_query(query)
+        return jsonify(text_styles)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/hatches')
+def get_hatch_standards():
+    """Get all hatch pattern standards"""
+    try:
+        query = """
+            SELECT 
+                hatch_id,
+                pattern_name,
+                pattern_type,
+                angle,
+                scale,
+                pattern_definition,
+                material_type,
+                description,
+                usage_context,
+                svg_preview
+            FROM hatch_patterns
+            ORDER BY pattern_name
+        """
+        hatches = execute_query(query)
+        return jsonify(hatches)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/details')
+def get_detail_standards():
+    """Get all detail standards"""
+    try:
+        query = """
+            SELECT 
+                ds.detail_id,
+                ds.detail_number,
+                ds.detail_title,
+                ds.detail_category,
+                ds.applicable_layers,
+                ds.applicable_symbols,
+                ds.scale,
+                ds.description,
+                ds.usage_context,
+                ds.typical_application,
+                ds.code_references,
+                bd.block_name,
+                bd.svg_content
+            FROM detail_standards ds
+            LEFT JOIN block_definitions bd ON ds.block_id = bd.block_id
+            ORDER BY ds.detail_category, ds.detail_number
+        """
+        details = execute_query(query)
+        return jsonify(details)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

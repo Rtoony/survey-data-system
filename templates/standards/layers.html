@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layer Standards - ACAD-GIS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="grid-background">
+    <header class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <i class="fas fa-ruler-combined neon-cyan"></i>
+                <div>
+                    <h1 class="orbitron">ACAD-GIS CAD Standards Portal</h1>
+                    <div class="header-subtitle">Engineering Design Standards Reference</div>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="/standards">
+                    <i class="fas fa-home"></i> Standards
+                </a>
+                <a href="/standards/layers" class="active">
+                    <i class="fas fa-layer-group"></i> Layers
+                </a>
+                <a href="/standards/blocks">
+                    <i class="fas fa-cubes"></i> Blocks
+                </a>
+                <a href="/standards/colors">
+                    <i class="fas fa-palette"></i> Colors
+                </a>
+                <a href="/">
+                    <i class="fas fa-database"></i> Schema
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <i class="fas fa-layer-group neon-cyan"></i>
+                        <h2>Layer Standards</h2>
+                    </div>
+                    <div id="layer-count" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
+                </div>
+                <div class="panel-body">
+                    <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                        Standard layer naming conventions, colors, and properties organized by discipline and category.
+                    </p>
+
+                    <div id="layers-container">
+                        <div class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin neon-cyan"></i>
+                            <p>Loading layer standards...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function parseRGB(rgbString) {
+            if (!rgbString) return null;
+            if (rgbString.startsWith('rgb')) {
+                const match = rgbString.match(/\d+/g);
+                return match ? match.slice(0, 3) : null;
+            }
+            return rgbString.split(',').map(n => n.trim());
+        }
+
+        function rgbToHex(r, g, b) {
+            return '#' + [r, g, b].map(x => {
+                const hex = parseInt(x).toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            }).join('');
+        }
+
+        async function loadLayers() {
+            try {
+                const response = await fetch('/api/standards/layers');
+                const layers = await response.json();
+                
+                if (layers.error) {
+                    throw new Error(layers.error);
+                }
+
+                document.getElementById('layer-count').textContent = `${layers.length} layers`;
+
+                // Group by discipline
+                const grouped = {};
+                layers.forEach(layer => {
+                    const discipline = layer.discipline || 'Other';
+                    if (!grouped[discipline]) {
+                        grouped[discipline] = [];
+                    }
+                    grouped[discipline].push(layer);
+                });
+
+                const container = document.getElementById('layers-container');
+                container.innerHTML = '';
+
+                Object.keys(grouped).sort().forEach(discipline => {
+                    const section = document.createElement('div');
+                    section.style.marginBottom = '2rem';
+                    
+                    const title = document.createElement('h3');
+                    title.className = 'orbitron';
+                    title.style.color = 'var(--cyan)';
+                    title.style.marginBottom = '1rem';
+                    title.innerHTML = `<i class="fas fa-folder"></i> ${discipline}`;
+                    section.appendChild(title);
+
+                    const table = document.createElement('table');
+                    table.className = 'data-table';
+                    table.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>Layer Name</th>
+                                <th>Category</th>
+                                <th>Type</th>
+                                <th>Color</th>
+                                <th>Linetype</th>
+                                <th>Weight</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${grouped[discipline].map(layer => {
+                                let colorSwatch = '';
+                                if (layer.color_rgb) {
+                                    const rgb = parseRGB(layer.color_rgb);
+                                    if (rgb && rgb.length === 3) {
+                                        const hexColor = rgbToHex(rgb[0], rgb[1], rgb[2]);
+                                        colorSwatch = `
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                <div style="width: 30px; height: 20px; background: ${hexColor}; border: 1px solid var(--border); border-radius: 3px;"></div>
+                                                <span style="font-size: 0.85rem;">${layer.color || ''}</span>
+                                            </div>
+                                        `;
+                                    }
+                                } else if (layer.color) {
+                                    colorSwatch = `<span>${layer.color}</span>`;
+                                }
+
+                                return `
+                                    <tr>
+                                        <td><strong>${layer.layer_name}</strong></td>
+                                        <td>${layer.category || '-'}</td>
+                                        <td>${layer.type || '-'}</td>
+                                        <td>${colorSwatch || '-'}</td>
+                                        <td>${layer.linetype || '-'}</td>
+                                        <td>${layer.lineweight || '-'}</td>
+                                        <td style="max-width: 300px;">${layer.description || ''}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    `;
+                    section.appendChild(table);
+                    container.appendChild(section);
+                });
+
+            } catch (error) {
+                document.getElementById('layers-container').innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load layer standards: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        loadLayers();
+    </script>
+</body>
+</html>
