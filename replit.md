@@ -40,6 +40,7 @@ Preferred communication style: Simple, everyday language.
 - **Schema Endpoint**: `/api/schema` - Returns table structures and row counts
 - **Projects Endpoint**: `/api/projects` - List projects with drawing counts, delete operations
 - **Drawings Endpoint**: `/api/drawings` - List and delete drawings with project filtering
+- **Recent Activity**: `/api/recent-activity` - Dashboard data showing 5 most recent projects, 5 most recent drawings, and database stats (cached 60s)
 
 **CAD Standards Portal Endpoints:**
 - **Overview**: `/api/standards/overview` - Statistics for all standards tables (17 total)
@@ -90,10 +91,24 @@ Preferred communication style: Simple, everyday language.
 - Read-only reference portal (no editing capabilities)
 - Eventually intended to become standalone company reference website
 
+**Caching Strategy**
+- Flask-Caching configured with SimpleCache (in-memory)
+- Standards endpoints cached for 10 minutes (600s) - standards data rarely changes
+- Recent activity endpoint cached for 1 minute (60s) - provides fast dashboard loads while staying reasonably fresh
+- Cache reduces database load and improves response times significantly
+
+**Recent Activity Dashboard**
+- Home page displays real-time overview of database activity
+- Shows 4 stat cards: total projects, drawings, layer standards, and block standards
+- Lists 5 most recently created projects with client info and drawing counts
+- Lists 5 most recently created drawings with project context
+- Relative timestamps (e.g., "2h ago", "3d ago") for user-friendly time display
+
 ## External Dependencies
 
 ### Python Libraries
 - **Flask 3.x**: Web framework
+- **Flask-Caching**: Response caching for improved performance
 - **psycopg2-binary**: PostgreSQL adapter
 - **python-dotenv**: Environment variable management
 - **flask-cors**: Cross-Origin Resource Sharing support
