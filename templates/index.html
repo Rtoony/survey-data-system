@@ -20,7 +20,7 @@
             This tool connects directly to your database and provides real-time visibility into your data.
         </p>
 
-        <div class="grid grid-3 mb-lg">
+        <div class="grid grid-4 mb-lg">
             <div class="stat-card">
                 <div class="stat-value" id="projectCount">-</div>
                 <div class="stat-label">Projects</div>
@@ -30,8 +30,32 @@
                 <div class="stat-label">Drawings</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="tableCount">-</div>
-                <div class="stat-label">Tables</div>
+                <div class="stat-value" id="layerCount">-</div>
+                <div class="stat-label">Layer Standards</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="blockCount">-</div>
+                <div class="stat-label">Block Standards</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mb-lg">
+            <div class="card">
+                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                    <i class="fas fa-clock"></i> Recent Projects
+                </h3>
+                <div id="recentProjects" style="color: var(--color-text-secondary);">
+                    Loading...
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                    <i class="fas fa-file"></i> Recent Drawings
+                </h3>
+                <div id="recentDrawings" style="color: var(--color-text-secondary);">
+                    Loading...
+                </div>
             </div>
         </div>
 
@@ -98,6 +122,22 @@
 </div>
 
 <script>
+    function formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return date.toLocaleDateString();
+    }
+
     async function loadStats() {
         try {
             const healthResponse = await fetch('/api/health');
@@ -113,24 +153,69 @@
                 return;
             }
 
-            const [schemaResponse, projectsResponse, drawingsResponse] = await Promise.all([
-                fetch('/api/schema'),
-                fetch('/api/projects'),
-                fetch('/api/drawings')
-            ]);
+            const activityResponse = await fetch('/api/recent-activity');
+            const activity = await activityResponse.json();
 
-            const schema = await schemaResponse.json();
-            const projects = await projectsResponse.json();
-            const drawings = await drawingsResponse.json();
+            if (activity.error) {
+                throw new Error(activity.error);
+            }
 
-            document.getElementById('tableCount').textContent = Object.keys(schema.tables || {}).length;
-            document.getElementById('projectCount').textContent = projects.length || 0;
-            document.getElementById('drawingCount').textContent = drawings.length || 0;
+            const stats = activity.stats || {};
+            document.getElementById('projectCount').textContent = stats.total_projects || 0;
+            document.getElementById('drawingCount').textContent = stats.total_drawings || 0;
+            document.getElementById('layerCount').textContent = stats.total_layers || 0;
+            document.getElementById('blockCount').textContent = stats.total_blocks || 0;
+
+            const recentProjects = activity.recent_projects || [];
+            const recentProjectsEl = document.getElementById('recentProjects');
+            if (recentProjects.length === 0) {
+                recentProjectsEl.innerHTML = '<p style="color: var(--color-text-secondary); font-style: italic;">No projects yet</p>';
+            } else {
+                recentProjectsEl.innerHTML = recentProjects.map(project => `
+                    <div style="padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--color-border);">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <div style="color: var(--color-accent-cyan); font-weight: 500;">${project.project_name || 'Untitled'}</div>
+                                <div style="font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 4px;">
+                                    ${project.client_name || 'No client'} • ${project.drawing_count || 0} drawing${project.drawing_count === 1 ? '' : 's'}
+                                </div>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--color-text-muted); white-space: nowrap;">
+                                ${formatDate(project.created_at)}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const recentDrawings = activity.recent_drawings || [];
+            const recentDrawingsEl = document.getElementById('recentDrawings');
+            if (recentDrawings.length === 0) {
+                recentDrawingsEl.innerHTML = '<p style="color: var(--color-text-secondary); font-style: italic;">No drawings yet</p>';
+            } else {
+                recentDrawingsEl.innerHTML = recentDrawings.map(drawing => `
+                    <div style="padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--color-border);">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <div style="color: var(--color-accent-cyan); font-weight: 500;">${drawing.drawing_name || 'Untitled'}</div>
+                                <div style="font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 4px;">
+                                    ${drawing.project_name || 'No project'} ${drawing.drawing_type ? `• ${drawing.drawing_type}` : ''}
+                                </div>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--color-text-muted); white-space: nowrap;">
+                                ${formatDate(drawing.created_at)}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
 
         } catch (error) {
             console.error('Error loading stats:', error);
             document.getElementById('status').className = 'status-offline';
             document.getElementById('status').innerHTML = '<span class="status-dot"></span> Error';
+            document.getElementById('recentProjects').innerHTML = '<p style="color: var(--color-error);">Error loading data</p>';
+            document.getElementById('recentDrawings').innerHTML = '<p style="color: var(--color-error);">Error loading data</p>';
         }
     }
 

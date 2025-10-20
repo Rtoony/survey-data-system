@@ -5,6 +5,7 @@ A companion tool for viewing and managing your Supabase database
 
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
+from flask_caching import Cache
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
@@ -16,6 +17,11 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+# Configure caching
+app.config['CACHE_TYPE'] = 'SimpleCache'  # In-memory cache
+app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes default
+cache = Cache(app)
 
 # Database configuration
 DB_CONFIG = {
@@ -310,11 +316,69 @@ def delete_drawing(drawing_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/recent-activity')
+@cache.cached(timeout=60)  # Cache for 1 minute
+def get_recent_activity():
+    """Get recent projects and drawings for dashboard"""
+    try:
+        # Get 5 most recent projects
+        projects_query = """
+            SELECT 
+                p.project_id,
+                p.project_name,
+                p.project_number,
+                p.client_name,
+                p.created_at,
+                COUNT(d.drawing_id) as drawing_count
+            FROM projects p
+            LEFT JOIN drawings d ON p.project_id = d.project_id
+            GROUP BY p.project_id, p.project_name, p.project_number, p.client_name, p.created_at
+            ORDER BY p.created_at DESC
+            LIMIT 5
+        """
+        recent_projects = execute_query(projects_query)
+        
+        # Get 5 most recent drawings
+        drawings_query = """
+            SELECT 
+                d.drawing_id,
+                d.drawing_name,
+                d.drawing_number,
+                d.drawing_type,
+                d.created_at,
+                p.project_name,
+                p.project_number
+            FROM drawings d
+            LEFT JOIN projects p ON d.project_id = p.project_id
+            ORDER BY d.created_at DESC
+            LIMIT 5
+        """
+        recent_drawings = execute_query(drawings_query)
+        
+        # Get database stats
+        stats_query = """
+            SELECT 
+                (SELECT COUNT(*) FROM projects) as total_projects,
+                (SELECT COUNT(*) FROM drawings) as total_drawings,
+                (SELECT COUNT(*) FROM layer_standards) as total_layers,
+                (SELECT COUNT(*) FROM block_definitions) as total_blocks
+        """
+        stats = execute_query(stats_query)
+        
+        return jsonify({
+            'recent_projects': recent_projects,
+            'recent_drawings': recent_drawings,
+            'stats': stats[0] if stats else {}
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ============================================
 # CAD STANDARDS API ENDPOINTS
 # ============================================
 
 @app.route('/api/standards/overview')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def standards_overview():
     """Get overview of all standards"""
     try:
@@ -352,6 +416,7 @@ def standards_overview():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/layers')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_layer_standards():
     """Get all layer standards"""
     try:
@@ -385,6 +450,7 @@ def get_layer_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/blocks')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_block_standards():
     """Get all block/symbol standards"""
     try:
@@ -416,6 +482,7 @@ def get_block_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/colors')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_color_standards():
     """Get all color standards"""
     try:
@@ -437,6 +504,7 @@ def get_color_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/linetypes')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_linetype_standards():
     """Get all linetype standards"""
     try:
@@ -458,6 +526,7 @@ def get_linetype_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/text')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_text_standards():
     """Get all text style standards"""
     try:
@@ -483,6 +552,7 @@ def get_text_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/hatches')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_hatch_standards():
     """Get all hatch pattern standards"""
     try:
@@ -507,6 +577,7 @@ def get_hatch_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/details')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_detail_standards():
     """Get all detail standards"""
     try:
@@ -535,6 +606,7 @@ def get_detail_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/abbreviations')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_abbreviation_standards():
     """Get all abbreviation standards"""
     try:
@@ -548,6 +620,7 @@ def get_abbreviation_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/materials')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_material_standards():
     """Get all material standards"""
     try:
@@ -561,6 +634,7 @@ def get_material_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/sheets')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_sheet_templates():
     """Get all sheet template standards"""
     try:
@@ -574,6 +648,7 @@ def get_sheet_templates():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/plotstyles')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_plotstyle_standards():
     """Get all plot style standards"""
     try:
@@ -587,6 +662,7 @@ def get_plotstyle_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/viewports')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_viewport_standards():
     """Get all viewport standards"""
     try:
@@ -600,6 +676,7 @@ def get_viewport_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/annotations')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_annotation_standards():
     """Get all annotation standards"""
     try:
@@ -613,6 +690,7 @@ def get_annotation_standards():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/categories')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_symbol_categories():
     """Get all symbol categories"""
     try:
@@ -626,6 +704,7 @@ def get_symbol_categories():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/codes')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_code_references():
     """Get all code references"""
     try:
@@ -639,6 +718,7 @@ def get_code_references():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/notes')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_standard_notes():
     """Get all standard notes"""
     try:
@@ -652,6 +732,7 @@ def get_standard_notes():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/standards/scales')
+@cache.cached(timeout=600)  # Cache for 10 minutes
 def get_drawing_scales():
     """Get all drawing scale standards"""
     try:
