@@ -11,7 +11,7 @@ import os
 from dotenv import load_dotenv
 from contextlib import contextmanager
 
-# Load environment variables
+# Load environment variables (works with both .env file and Replit secrets)
 load_dotenv()
 
 app = Flask(__name__)
@@ -27,6 +27,15 @@ DB_CONFIG = {
     'sslmode': 'require',
     'connect_timeout': 10
 }
+
+# Debug: Check if DB credentials are available
+print("=" * 50)
+print("Database Configuration Status:")
+print(f"DB_HOST: {'SET' if DB_CONFIG['host'] else 'MISSING'}")
+print(f"DB_USER: {'SET' if DB_CONFIG['user'] else 'MISSING'}")
+print(f"DB_NAME: {'SET' if DB_CONFIG['database'] else 'MISSING'}")
+print(f"DB_PASSWORD: {'SET' if DB_CONFIG['password'] else 'MISSING'}")
+print("=" * 50)
 
 @contextmanager
 def get_db():
