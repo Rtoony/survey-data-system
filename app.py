@@ -1551,28 +1551,25 @@ def schema_relationships():
 def get_schema_relationships():
     """Get table relationships and metadata for visualization"""
     try:
-        # Get all tables with row counts
+        # Get all tables with estimated row counts (much faster than COUNT(*))
         tables_query = """
             SELECT 
                 t.table_name,
                 obj_description((quote_ident(t.table_schema)||'.'||quote_ident(t.table_name))::regclass, 'pg_class') as table_description,
                 (SELECT count(*) FROM information_schema.columns c 
-                 WHERE c.table_name = t.table_name AND c.table_schema = t.table_schema) as column_count
+                 WHERE c.table_name = t.table_name AND c.table_schema = t.table_schema) as column_count,
+                COALESCE(
+                    (SELECT n_live_tup 
+                     FROM pg_stat_user_tables 
+                     WHERE schemaname = 'public' AND relname = t.table_name),
+                    0
+                ) as row_count
             FROM information_schema.tables t
             WHERE t.table_schema = 'public' 
             AND t.table_type = 'BASE TABLE'
             ORDER BY t.table_name
         """
         tables = execute_query(tables_query)
-        
-        # Get row counts for each table
-        for table in tables:
-            try:
-                count_query = f"SELECT COUNT(*) as count FROM {table['table_name']}"
-                result = execute_query(count_query)
-                table['row_count'] = result[0]['count'] if result else 0
-            except:
-                table['row_count'] = 0
         
         # Get foreign key relationships
         fk_query = """

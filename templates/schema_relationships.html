@@ -71,7 +71,7 @@
     </div>
 </div>
 
-<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/vis-network@latest/standalone/umd/vis-network.min.js"></script>
 
 <style>
 .loading-indicator {
@@ -165,21 +165,29 @@ let physicsEnabled = true;
 
 async function loadSchemaData() {
     try {
+        console.log('Starting to load schema data...');
         const response = await fetch('/api/schema/relationships');
+        console.log('API response status:', response.status);
+        
         if (!response.ok) throw new Error('Failed to load schema data');
         
         schemaData = await response.json();
+        console.log('Schema data loaded:', schemaData);
         
         if (schemaData.error) {
             throw new Error(schemaData.error);
         }
         
-        renderNetwork();
-        
+        // Show container BEFORE rendering (Vis.js needs visible container for dimensions)
         document.getElementById('loadingMessage').style.display = 'none';
         document.getElementById('networkContainer').style.display = 'block';
         document.getElementById('legend').style.display = 'block';
+        
+        console.log('Rendering network...');
+        renderNetwork();
+        console.log('Network rendered successfully');
     } catch (error) {
+        console.error('Error in loadSchemaData:', error);
         showError('Error loading schema: ' + error.message);
     }
 }
@@ -193,6 +201,18 @@ function showError(message) {
 
 function renderNetwork() {
     const container = document.getElementById('networkContainer');
+    
+    if (!container) {
+        console.error('Container not found!');
+        return;
+    }
+    
+    // Check if vis is loaded
+    if (typeof vis === 'undefined') {
+        console.error('Vis.js library not loaded!');
+        showError('Visualization library failed to load. Please refresh the page.');
+        return;
+    }
     
     // Create nodes from tables
     const nodes = schemaData.tables.map(table => {
@@ -290,6 +310,12 @@ function renderNetwork() {
     };
     
     network = new vis.Network(container, data, options);
+    
+    // Fit network after stabilization (critical for proper rendering)
+    network.once('stabilizationIterationsDone', function() {
+        network.fit();
+        console.log('Network stabilized and fitted to view');
+    });
     
     // Event listeners
     network.on('click', function(params) {
