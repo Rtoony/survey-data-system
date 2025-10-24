@@ -114,16 +114,17 @@ class DXFExporter:
     def _setup_layers(self, drawing_id: int, doc: ezdxf.document.Drawing,
                       cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Create layers in DXF document."""
-        # Get layers used in this drawing
+        # Get layers used in this drawing by joining through layers table
         query = """
-            SELECT DISTINCT dlu.layer_name, ls.color_rgb, ls.linetype, ls.lineweight
-            FROM drawing_layer_usage dlu
-            LEFT JOIN layer_standards ls ON dlu.layer_name = ls.layer_name
-            WHERE dlu.drawing_id = %s
+            SELECT DISTINCT l.layer_name, l.color, l.linetype,
+                   ls.color_rgb, ls.lineweight
+            FROM layers l
+            LEFT JOIN layer_standards ls ON l.layer_standard_id = ls.layer_standard_id
+            WHERE l.drawing_id = %s
         """
         
         if layer_filter:
-            query += " AND dlu.layer_name = ANY(%s)"
+            query += " AND l.layer_name = ANY(%s)"
             cur.execute(query, (drawing_id, layer_filter))
         else:
             cur.execute(query, (drawing_id,))
@@ -138,9 +139,11 @@ class DXFExporter:
             if layer_name not in doc.layers:
                 dxf_layer = doc.layers.add(layer_name)
                 
-                # Set layer properties from standards if available
-                if layer['color_rgb']:
-                    # Convert RGB to ACI color (simplified)
+                # Set layer properties
+                if layer['color']:
+                    dxf_layer.color = layer['color']  # Use ACI color from layers table
+                elif layer['color_rgb']:
+                    # Fallback to RGB from standards if available
                     dxf_layer.rgb = self._parse_rgb(layer['color_rgb'])
                 
                 if layer['linetype'] and layer['linetype'] in doc.linetypes:
@@ -186,15 +189,16 @@ class DXFExporter:
                          cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export generic entities to DXF layout."""
         query = """
-            SELECT entity_type, layer_name, 
-                   ST_AsText(geometry) as geom_wkt,
-                   color_aci, lineweight, metadata
-            FROM drawing_entities
-            WHERE drawing_id = %s AND space_type = %s
+            SELECT de.entity_type, l.layer_name, 
+                   ST_AsText(de.geometry) as geom_wkt,
+                   de.color_aci, de.lineweight, de.metadata
+            FROM drawing_entities de
+            JOIN layers l ON de.layer_id = l.layer_id
+            WHERE de.drawing_id = %s AND de.space_type = %s
         """
         
         if layer_filter:
-            query += " AND layer_name = ANY(%s)"
+            query += " AND l.layer_name = ANY(%s)"
             cur.execute(query, (drawing_id, space, layer_filter))
         else:
             cur.execute(query, (drawing_id, space))
@@ -280,15 +284,17 @@ class DXFExporter:
                      cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export text entities to DXF layout."""
         query = """
-            SELECT layer_name, text_content,
-                   ST_AsText(insertion_point) as insert_wkt,
-                   text_height, rotation_angle, text_style, justification
-            FROM drawing_text
-            WHERE drawing_id = %s AND space_type = %s
+            SELECT l.layer_name, dt.text_content,
+                   ST_AsText(dt.insertion_point) as insert_wkt,
+                   dt.text_height, dt.rotation_angle, dt.text_style,
+                   dt.horizontal_justification, dt.vertical_justification
+            FROM drawing_text dt
+            JOIN layers l ON dt.layer_id = l.layer_id
+            WHERE dt.drawing_id = %s AND dt.space_type = %s
         """
         
         if layer_filter:
-            query += " AND layer_name = ANY(%s)"
+            query += " AND l.layer_name = ANY(%s)"
             cur.execute(query, (drawing_id, space, layer_filter))
         else:
             cur.execute(query, (drawing_id, space))
@@ -317,15 +323,16 @@ class DXFExporter:
                            cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export dimension entities to DXF layout."""
         query = """
-            SELECT layer_name, dimension_type,
-                   ST_AsText(geometry) as geom_wkt,
-                   measurement_override, dimension_style
-            FROM drawing_dimensions
-            WHERE drawing_id = %s AND space_type = %s
+            SELECT l.layer_name, dd.dimension_type,
+                   ST_AsText(dd.geometry) as geom_wkt,
+                   dd.override_value, dd.dimension_style
+            FROM drawing_dimensions dd
+            JOIN layers l ON dd.layer_id = l.layer_id
+            WHERE dd.drawing_id = %s AND dd.space_type = %s
         """
         
         if layer_filter:
-            query += " AND layer_name = ANY(%s)"
+            query += " AND l.layer_name = ANY(%s)"
             cur.execute(query, (drawing_id, space, layer_filter))
         else:
             cur.execute(query, (drawing_id, space))
@@ -342,7 +349,7 @@ class DXFExporter:
                         p1=coords[0],
                         p2=coords[1],
                         dimstyle=dim['dimension_style'] or 'Standard',
-                        override={'dimtxt': dim['measurement_override']} if dim['measurement_override'] else None,
+                        override={'dimtxt': dim['override_value']} if dim['override_value'] else None,
                         dxfattribs={'layer': dim['layer_name']}
                     )
                     stats['dimensions'] += 1
@@ -353,15 +360,16 @@ class DXFExporter:
                         cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export hatch entities to DXF layout."""
         query = """
-            SELECT layer_name, pattern_name,
-                   ST_AsText(boundary_geometry) as boundary_wkt,
-                   pattern_scale, pattern_angle
-            FROM drawing_hatches
-            WHERE drawing_id = %s AND space_type = %s
+            SELECT l.layer_name, dh.pattern_name,
+                   ST_AsText(dh.boundary_geometry) as boundary_wkt,
+                   dh.pattern_scale, dh.pattern_angle
+            FROM drawing_hatches dh
+            JOIN layers l ON dh.layer_id = l.layer_id
+            WHERE dh.drawing_id = %s AND dh.space_type = %s
         """
         
         if layer_filter:
-            query += " AND layer_name = ANY(%s)"
+            query += " AND l.layer_name = ANY(%s)"
             cur.execute(query, (drawing_id, space, layer_filter))
         else:
             cur.execute(query, (drawing_id, space))
@@ -485,6 +493,9 @@ class DXFExporter:
                 'include_paperspace': True
             }
             
+            # Convert sets to counts for JSON serialization
+            layers_count = len(stats['layers']) if isinstance(stats['layers'], set) else stats['layers']
+            
             metrics = {
                 'entities': stats['entities'],
                 'text': stats['text'],
@@ -492,24 +503,23 @@ class DXFExporter:
                 'hatches': stats['hatches'],
                 'blocks': stats['blocks'],
                 'viewports': stats['viewports'],
-                'layers': stats['layers']
+                'layers': layers_count
             }
             
             status = 'completed' if not stats['errors'] else 'failed'
-            error_log = '\n'.join(stats['errors']) if stats['errors'] else None
+            error_message = '\n'.join(stats['errors']) if stats['errors'] else None
             
             cur.execute("""
                 INSERT INTO export_jobs (
                     drawing_id, export_format, dxf_version, status,
-                    export_config, output_file_path, metrics, error_log,
-                    started_at, completed_at
+                    output_file_path, entities_exported, text_exported,
+                    dimensions_exported, hatches_exported, error_message, completed_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 drawing_id, 'DXF', dxf_version, status,
-                json.dumps(export_config), output_path,
-                json.dumps(metrics), error_log,
-                datetime.now(), datetime.now()
+                output_path, metrics['entities'], metrics['text'],
+                metrics['dimensions'], metrics['hatches'], error_message, datetime.now()
             ))
             
             conn.commit()
