@@ -1,0 +1,697 @@
+{% extends "base.html" %}
+
+{% block title %}DXF Import/Export - ACAD-GIS Tools{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-file-export"></i> DXF Import/Export</h1>
+    <p>Import CAD drawings into the database or export stored drawings to DXF files</p>
+</div>
+
+<div class="tools-container">
+    <!-- Import Section -->
+    <div class="tool-card">
+        <div class="tool-header">
+            <h2><i class="fas fa-file-import"></i> Import DXF File</h2>
+            <p>Upload a DXF file and import entities into the database</p>
+        </div>
+        
+        <div class="tool-body">
+            <div class="form-group">
+                <label for="importDrawingSelect">Select Drawing</label>
+                <select id="importDrawingSelect" class="form-control">
+                    <option value="">Loading drawings...</option>
+                </select>
+                <small>Choose which drawing to associate imported entities with</small>
+            </div>
+
+            <div class="form-group">
+                <label for="dxfFileInput">DXF File</label>
+                <input type="file" id="dxfFileInput" accept=".dxf" class="form-control">
+                <small>Select a DXF file to import</small>
+            </div>
+
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="importModelspace" checked>
+                    <span>Import Model Space</span>
+                </label>
+                <label>
+                    <input type="checkbox" id="importPaperspace" checked>
+                    <span>Import Paper Space Layouts</span>
+                </label>
+            </div>
+
+            <button id="importButton" class="btn btn-primary" disabled>
+                <i class="fas fa-upload"></i> Import DXF
+            </button>
+
+            <div id="importProgress" class="progress-section" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <p class="progress-text">Importing...</p>
+            </div>
+
+            <div id="importResults" class="results-section" style="display: none;">
+                <h3>Import Results</h3>
+                <div id="importStats"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Section -->
+    <div class="tool-card">
+        <div class="tool-header">
+            <h2><i class="fas fa-file-export"></i> Export to DXF File</h2>
+            <p>Export stored drawing entities to a DXF file</p>
+        </div>
+        
+        <div class="tool-body">
+            <div class="form-group">
+                <label for="exportDrawingSelect">Select Drawing</label>
+                <select id="exportDrawingSelect" class="form-control">
+                    <option value="">Loading drawings...</option>
+                </select>
+                <small>Choose which drawing to export</small>
+            </div>
+
+            <div class="form-group">
+                <label for="dxfVersionSelect">DXF Version</label>
+                <select id="dxfVersionSelect" class="form-control">
+                    <option value="AC1027">AutoCAD 2013 (AC1027)</option>
+                    <option value="AC1032">AutoCAD 2018 (AC1032)</option>
+                    <option value="AC1035">AutoCAD 2021 (AC1035)</option>
+                </select>
+            </div>
+
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="exportModelspace" checked>
+                    <span>Include Model Space</span>
+                </label>
+                <label>
+                    <input type="checkbox" id="exportPaperspace" checked>
+                    <span>Include Paper Space Layouts</span>
+                </label>
+            </div>
+
+            <button id="exportButton" class="btn btn-success" disabled>
+                <i class="fas fa-download"></i> Export DXF
+            </button>
+
+            <div id="exportProgress" class="progress-section" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <p class="progress-text">Exporting...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Job History -->
+<div class="data-section">
+    <div class="section-header">
+        <h2><i class="fas fa-history"></i> Export Job History</h2>
+    </div>
+    
+    <div class="table-container">
+        <table id="jobsTable">
+            <thead>
+                <tr>
+                    <th>Job ID</th>
+                    <th>Drawing</th>
+                    <th>Format</th>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Entities</th>
+                    <th>Started</th>
+                    <th>Completed</th>
+                </tr>
+            </thead>
+            <tbody id="jobsTableBody">
+                <tr>
+                    <td colspan="8" class="loading">Loading export history...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.tools-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.tool-card {
+    background: rgba(13, 71, 161, 0.1);
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.tool-header {
+    background: rgba(0, 229, 255, 0.1);
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.3);
+}
+
+.tool-header h2 {
+    margin: 0 0 0.5rem 0;
+    color: var(--cyan);
+}
+
+.tool-header p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.tool-body {
+    padding: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--cyan);
+    font-weight: 500;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.checkbox-group {
+    margin-bottom: 1.5rem;
+}
+
+.checkbox-group label {
+    display: block;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+    cursor: pointer;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: var(--cyan);
+    color: var(--dark-bg);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #00d4e6;
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+}
+
+.btn-success {
+    background: #4CAF50;
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #45a049;
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+}
+
+.progress-section {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+}
+
+.progress-bar {
+    height: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--cyan);
+    width: 0%;
+    animation: progress 2s ease-in-out infinite;
+}
+
+@keyframes progress {
+    0%, 100% { width: 0%; }
+    50% { width: 100%; }
+}
+
+.progress-text {
+    margin: 0;
+    text-align: center;
+    color: var(--cyan);
+    font-weight: 500;
+}
+
+.results-section {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    border-radius: 4px;
+}
+
+.results-section h3 {
+    margin: 0 0 1rem 0;
+    color: #4CAF50;
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+}
+
+.stat-item .value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--cyan);
+}
+
+.stat-item .label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.error-list {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    border-radius: 4px;
+}
+
+.error-list h4 {
+    margin: 0 0 0.5rem 0;
+    color: #F44336;
+}
+
+.error-list ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: var(--text-secondary);
+}
+
+.data-section {
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.section-header h2 {
+    margin: 0 0 1rem 0;
+    color: var(--cyan);
+}
+
+.table-container {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead th {
+    background: rgba(0, 229, 255, 0.1);
+    padding: 1rem;
+    text-align: left;
+    color: var(--cyan);
+    font-weight: 500;
+    border-bottom: 2px solid rgba(0, 229, 255, 0.3);
+}
+
+tbody td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+tbody tr:hover {
+    background: rgba(0, 229, 255, 0.05);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.status-completed {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+}
+
+.status-failed {
+    background: rgba(244, 67, 54, 0.2);
+    color: #F44336;
+}
+
+.loading {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 2rem;
+}
+</style>
+
+<script>
+let drawings = [];
+let jobs = [];
+
+// Load drawings on page load
+async function loadDrawings() {
+    try {
+        const response = await fetch('/api/dxf/drawings');
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Error loading drawings:', data.error);
+            return;
+        }
+        
+        drawings = data.drawings;
+        populateDrawingSelects();
+    } catch (error) {
+        console.error('Failed to load drawings:', error);
+    }
+}
+
+function populateDrawingSelects() {
+    const importSelect = document.getElementById('importDrawingSelect');
+    const exportSelect = document.getElementById('exportDrawingSelect');
+    
+    const options = drawings.map(d => {
+        const entityInfo = d.entity_count > 0 ? ` (${d.entity_count} entities)` : ' (empty)';
+        return `<option value="${d.drawing_id}">${d.drawing_name} - ${d.project_name || 'No Project'}${entityInfo}</option>`;
+    }).join('');
+    
+    importSelect.innerHTML = '<option value="">Select a drawing...</option>' + options;
+    exportSelect.innerHTML = '<option value="">Select a drawing...</option>' + options;
+}
+
+// Load export jobs
+async function loadExportJobs() {
+    try {
+        const response = await fetch('/api/dxf/export-jobs');
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Error loading jobs:', data.error);
+            return;
+        }
+        
+        jobs = data.jobs;
+        displayExportJobs();
+    } catch (error) {
+        console.error('Failed to load export jobs:', error);
+    }
+}
+
+function displayExportJobs() {
+    const tbody = document.getElementById('jobsTableBody');
+    
+    if (jobs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">No export jobs yet</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = jobs.map(job => {
+        const metrics = typeof job.metrics === 'string' ? JSON.parse(job.metrics) : job.metrics;
+        const totalEntities = (metrics.entities || 0) + (metrics.text || 0) + 
+                             (metrics.dimensions || 0) + (metrics.hatches || 0);
+        
+        const startedAt = new Date(job.started_at).toLocaleString();
+        const completedAt = job.completed_at ? new Date(job.completed_at).toLocaleString() : '-';
+        const statusClass = job.status === 'completed' ? 'status-completed' : 'status-failed';
+        
+        return `
+            <tr>
+                <td>#${job.export_job_id}</td>
+                <td>${job.drawing_name || 'Unknown'}</td>
+                <td>${job.export_format}</td>
+                <td>${job.dxf_version}</td>
+                <td><span class="status-badge ${statusClass}">${job.status}</span></td>
+                <td>${totalEntities}</td>
+                <td>${startedAt}</td>
+                <td>${completedAt}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Enable/disable buttons based on selection
+document.getElementById('importDrawingSelect').addEventListener('change', (e) => {
+    const fileInput = document.getElementById('dxfFileInput');
+    const importBtn = document.getElementById('importButton');
+    importBtn.disabled = !e.target.value || !fileInput.files.length;
+});
+
+document.getElementById('dxfFileInput').addEventListener('change', (e) => {
+    const drawingSelect = document.getElementById('importDrawingSelect');
+    const importBtn = document.getElementById('importButton');
+    importBtn.disabled = !e.target.files.length || !drawingSelect.value;
+});
+
+document.getElementById('exportDrawingSelect').addEventListener('change', (e) => {
+    document.getElementById('exportButton').disabled = !e.target.value;
+});
+
+// Import DXF
+document.getElementById('importButton').addEventListener('click', async () => {
+    const drawingId = document.getElementById('importDrawingSelect').value;
+    const fileInput = document.getElementById('dxfFileInput');
+    const importModelspace = document.getElementById('importModelspace').checked;
+    const importPaperspace = document.getElementById('importPaperspace').checked;
+    
+    const file = fileInput.files[0];
+    if (!file || !drawingId) return;
+    
+    // Show progress
+    const progressDiv = document.getElementById('importProgress');
+    const resultsDiv = document.getElementById('importResults');
+    const importBtn = document.getElementById('importButton');
+    
+    progressDiv.style.display = 'block';
+    resultsDiv.style.display = 'none';
+    importBtn.disabled = true;
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('drawing_id', drawingId);
+    formData.append('import_modelspace', importModelspace);
+    formData.append('import_paperspace', importPaperspace);
+    
+    try {
+        const response = await fetch('/api/dxf/import', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Import failed: ' + data.error);
+            return;
+        }
+        
+        // Display results
+        displayImportResults(data.stats);
+        
+        // Reload drawings and jobs
+        await loadDrawings();
+        await loadExportJobs();
+        
+    } catch (error) {
+        alert('Import failed: ' + error.message);
+    } finally {
+        progressDiv.style.display = 'none';
+        importBtn.disabled = false;
+    }
+});
+
+function displayImportResults(stats) {
+    const resultsDiv = document.getElementById('importResults');
+    const statsDiv = document.getElementById('importStats');
+    
+    let html = `
+        <div class="stat-grid">
+            <div class="stat-item">
+                <span class="value">${stats.entities}</span>
+                <span class="label">Entities</span>
+            </div>
+            <div class="stat-item">
+                <span class="value">${stats.text}</span>
+                <span class="label">Text</span>
+            </div>
+            <div class="stat-item">
+                <span class="value">${stats.dimensions}</span>
+                <span class="label">Dimensions</span>
+            </div>
+            <div class="stat-item">
+                <span class="value">${stats.hatches}</span>
+                <span class="label">Hatches</span>
+            </div>
+            <div class="stat-item">
+                <span class="value">${stats.blocks}</span>
+                <span class="label">Blocks</span>
+            </div>
+            <div class="stat-item">
+                <span class="value">${stats.viewports}</span>
+                <span class="label">Viewports</span>
+            </div>
+            <div class="stat-item">
+                <span class="value">${stats.layers}</span>
+                <span class="label">Layers</span>
+            </div>
+        </div>
+    `;
+    
+    if (stats.errors && stats.errors.length > 0) {
+        html += `
+            <div class="error-list">
+                <h4><i class="fas fa-exclamation-triangle"></i> Warnings</h4>
+                <ul>
+                    ${stats.errors.map(e => `<li>${e}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    statsDiv.innerHTML = html;
+    resultsDiv.style.display = 'block';
+}
+
+// Export DXF
+document.getElementById('exportButton').addEventListener('click', async () => {
+    const drawingId = document.getElementById('exportDrawingSelect').value;
+    const dxfVersion = document.getElementById('dxfVersionSelect').value;
+    const includeModelspace = document.getElementById('exportModelspace').checked;
+    const includePaperspace = document.getElementById('exportPaperspace').checked;
+    
+    if (!drawingId) return;
+    
+    // Show progress
+    const progressDiv = document.getElementById('exportProgress');
+    const exportBtn = document.getElementById('exportButton');
+    
+    progressDiv.style.display = 'block';
+    exportBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/dxf/export', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                drawing_id: parseInt(drawingId),
+                dxf_version: dxfVersion,
+                include_modelspace: includeModelspace,
+                include_paperspace: includePaperspace
+            })
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            alert('Export failed: ' + (data.error || 'Unknown error'));
+            return;
+        }
+        
+        // Download file
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `drawing_${drawingId}.dxf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        // Reload export jobs
+        await loadExportJobs();
+        
+        alert('DXF file exported successfully!');
+        
+    } catch (error) {
+        alert('Export failed: ' + error.message);
+    } finally {
+        progressDiv.style.display = 'none';
+        exportBtn.disabled = false;
+    }
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadDrawings();
+    loadExportJobs();
+});
+</script>
+{% endblock %}

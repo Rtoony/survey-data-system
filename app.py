@@ -14,6 +14,9 @@ import io
 import uuid
 from dotenv import load_dotenv
 from contextlib import contextmanager
+from werkzeug.utils import secure_filename
+from dxf_importer import DXFImporter
+from dxf_exporter import DXFExporter
 
 # Load environment variables (works with both .env file and Replit secrets)
 load_dotenv()
@@ -1630,6 +1633,163 @@ def get_schema_relationships():
             'relationships': relationships,
             'columns': columns_by_table
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# DXF IMPORT/EXPORT
+# ============================================
+
+@app.route('/dxf-tools')
+def dxf_tools_page():
+    """DXF Import/Export tools page"""
+    return render_template('dxf_tools.html')
+
+@app.route('/api/dxf/import', methods=['POST'])
+def import_dxf():
+    """Import DXF file into database"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.dxf'):
+            return jsonify({'error': 'File must be a DXF file'}), 400
+        
+        # Get parameters
+        drawing_id = request.form.get('drawing_id')
+        if not drawing_id:
+            return jsonify({'error': 'drawing_id is required'}), 400
+        
+        drawing_id = int(drawing_id)
+        import_modelspace = request.form.get('import_modelspace', 'true') == 'true'
+        import_paperspace = request.form.get('import_paperspace', 'true') == 'true'
+        
+        # Save uploaded file temporarily
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join('/tmp', f'{uuid.uuid4()}_{filename}')
+        file.save(temp_path)
+        
+        try:
+            # Import DXF
+            importer = DXFImporter(DB_CONFIG)
+            stats = importer.import_dxf(
+                temp_path,
+                drawing_id,
+                import_modelspace=import_modelspace,
+                import_paperspace=import_paperspace
+            )
+            
+            return jsonify({
+                'success': len(stats['errors']) == 0,
+                'stats': stats
+            })
+        
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dxf/export', methods=['POST'])
+def export_dxf():
+    """Export drawing to DXF file"""
+    try:
+        data = request.get_json()
+        
+        drawing_id = data.get('drawing_id')
+        if not drawing_id:
+            return jsonify({'error': 'drawing_id is required'}), 400
+        
+        drawing_id = int(drawing_id)
+        dxf_version = data.get('dxf_version', 'AC1027')
+        include_modelspace = data.get('include_modelspace', True)
+        include_paperspace = data.get('include_paperspace', True)
+        layer_filter = data.get('layer_filter')
+        
+        # Generate output file
+        output_filename = f'drawing_{drawing_id}_{uuid.uuid4().hex[:8]}.dxf'
+        output_path = os.path.join('/tmp', output_filename)
+        
+        # Export DXF
+        exporter = DXFExporter(DB_CONFIG)
+        stats = exporter.export_dxf(
+            drawing_id,
+            output_path,
+            dxf_version=dxf_version,
+            include_modelspace=include_modelspace,
+            include_paperspace=include_paperspace,
+            layer_filter=layer_filter
+        )
+        
+        if not os.path.exists(output_path):
+            return jsonify({'error': 'Export failed - file not created'}), 500
+        
+        # Send file for download
+        return send_file(
+            output_path,
+            as_attachment=True,
+            download_name=output_filename,
+            mimetype='application/dxf'
+        )
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dxf/drawings', methods=['GET'])
+def get_drawings_for_dxf():
+    """Get list of drawings for DXF tools"""
+    try:
+        query = """
+            SELECT 
+                d.drawing_id,
+                d.drawing_name,
+                p.project_name,
+                p.client_name,
+                d.created_at,
+                (SELECT COUNT(*) FROM drawing_entities WHERE drawing_id = d.drawing_id) as entity_count,
+                (SELECT COUNT(*) FROM drawing_text WHERE drawing_id = d.drawing_id) as text_count
+            FROM drawings d
+            LEFT JOIN projects p ON d.project_id = p.project_id
+            ORDER BY d.created_at DESC
+            LIMIT 100
+        """
+        
+        drawings = execute_query(query)
+        return jsonify({'drawings': drawings})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dxf/export-jobs', methods=['GET'])
+def get_export_jobs():
+    """Get export job history"""
+    try:
+        query = """
+            SELECT 
+                ej.export_job_id,
+                ej.drawing_id,
+                d.drawing_name,
+                ej.export_format,
+                ej.dxf_version,
+                ej.status,
+                ej.metrics,
+                ej.started_at,
+                ej.completed_at
+            FROM export_jobs ej
+            LEFT JOIN drawings d ON ej.drawing_id = d.drawing_id
+            ORDER BY ej.started_at DESC
+            LIMIT 50
+        """
+        
+        jobs = execute_query(query)
+        return jsonify({'jobs': jobs})
+    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

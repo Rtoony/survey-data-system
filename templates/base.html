@@ -36,6 +36,9 @@
                 <a href="/data-manager" {% if request.path.startswith('/data-manager') %}class="active"{% endif %}>
                     <i class="fas fa-database"></i> Data Manager
                 </a>
+                <a href="/dxf-tools" {% if request.path == '/dxf-tools' %}class="active"{% endif %}>
+                    <i class="fas fa-file-export"></i> DXF Tools
+                </a>
             </nav>
         </div>
     </header>
