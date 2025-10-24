@@ -1550,6 +1550,16 @@ def schema_relationships():
     """Render the Schema Relationships visualization page"""
     return render_template('schema_relationships.html')
 
+@app.route('/why-this-matters')
+def why_this_matters():
+    """Render the Why This Matters comparison page"""
+    return render_template('why_this_matters.html')
+
+@app.route('/architecture')
+def architecture():
+    """Render the System Architecture diagram page"""
+    return render_template('architecture.html')
+
 @app.route('/api/schema/relationships', methods=['GET'])
 def get_schema_relationships():
     """Get table relationships and metadata for visualization"""
