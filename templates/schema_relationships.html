@@ -434,7 +434,22 @@ function showTableDetails(tableName) {
                 <span class="stat-value">${relationships.length}</span>
             </div>
         </div>
-        
+    `;
+    
+    // Add natural language description if available
+    const description = tableDescriptions[tableName];
+    if (description) {
+        html += `
+            <div class="table-description">
+                <h4 style="color: var(--accent-cyan); margin: 0 0 10px 0;">
+                    <i class="fas fa-info-circle"></i> What This Table Does
+                </h4>
+                <p>${description}</p>
+            </div>
+        `;
+    }
+    
+    html += `
         <h4 style="color: var(--text-primary); margin: 20px 0 10px 0;">
             <i class="fas fa-columns"></i> Columns
         </h4>
