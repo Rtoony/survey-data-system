@@ -1538,5 +1538,103 @@ def export_details_csv():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============================================================================
+# SCHEMA RELATIONSHIPS ROUTES
+# ============================================================================
+
+@app.route('/schema/relationships')
+def schema_relationships():
+    """Render the Schema Relationships visualization page"""
+    return render_template('schema_relationships.html')
+
+@app.route('/api/schema/relationships', methods=['GET'])
+def get_schema_relationships():
+    """Get table relationships and metadata for visualization"""
+    try:
+        # Get all tables with row counts
+        tables_query = """
+            SELECT 
+                t.table_name,
+                obj_description((quote_ident(t.table_schema)||'.'||quote_ident(t.table_name))::regclass, 'pg_class') as table_description,
+                (SELECT count(*) FROM information_schema.columns c 
+                 WHERE c.table_name = t.table_name AND c.table_schema = t.table_schema) as column_count
+            FROM information_schema.tables t
+            WHERE t.table_schema = 'public' 
+            AND t.table_type = 'BASE TABLE'
+            ORDER BY t.table_name
+        """
+        tables = execute_query(tables_query)
+        
+        # Get row counts for each table
+        for table in tables:
+            try:
+                count_query = f"SELECT COUNT(*) as count FROM {table['table_name']}"
+                result = execute_query(count_query)
+                table['row_count'] = result[0]['count'] if result else 0
+            except:
+                table['row_count'] = 0
+        
+        # Get foreign key relationships
+        fk_query = """
+            SELECT
+                tc.table_name as source_table,
+                kcu.column_name as source_column,
+                ccu.table_name AS target_table,
+                ccu.column_name AS target_column,
+                tc.constraint_name
+            FROM information_schema.table_constraints AS tc
+            JOIN information_schema.key_column_usage AS kcu
+                ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.constraint_column_usage AS ccu
+                ON ccu.constraint_name = tc.constraint_name
+                AND ccu.table_schema = tc.table_schema
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+            AND tc.table_schema = 'public'
+            ORDER BY tc.table_name
+        """
+        relationships = execute_query(fk_query)
+        
+        # Get column details for each table
+        columns_query = """
+            SELECT 
+                c.table_name,
+                c.column_name,
+                c.data_type,
+                c.is_nullable,
+                CASE 
+                    WHEN pk.column_name IS NOT NULL THEN true 
+                    ELSE false 
+                END as is_primary_key
+            FROM information_schema.columns c
+            LEFT JOIN (
+                SELECT ku.table_name, ku.column_name
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage ku
+                    ON tc.constraint_name = ku.constraint_name
+                WHERE tc.constraint_type = 'PRIMARY KEY'
+                AND tc.table_schema = 'public'
+            ) pk ON c.table_name = pk.table_name AND c.column_name = pk.column_name
+            WHERE c.table_schema = 'public'
+            ORDER BY c.table_name, c.ordinal_position
+        """
+        all_columns = execute_query(columns_query)
+        
+        # Group columns by table
+        columns_by_table = {}
+        for col in all_columns:
+            table_name = col['table_name']
+            if table_name not in columns_by_table:
+                columns_by_table[table_name] = []
+            columns_by_table[table_name].append(col)
+        
+        return jsonify({
+            'tables': tables,
+            'relationships': relationships,
+            'columns': columns_by_table
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
