@@ -1,0 +1,532 @@
+{% extends "base.html" %}
+
+{% block title %}Blocks Manager - Data Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-cube"></i> Blocks Manager</h1>
+            <p class="subtitle">Manage CAD block symbols and definitions</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-cube"></i> Block Symbols Library</h2>
+            <div class="button-group">
+                <button onclick="addNewBlock()" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New
+                </button>
+                <label for="csvUpload" class="btn btn-secondary">
+                    <i class="fas fa-file-upload"></i> Import CSV
+                </label>
+                <input type="file" id="csvUpload" accept=".csv" style="display: none;" onchange="uploadCSV(event)">
+                <button onclick="exportCSV()" class="btn btn-secondary">
+                    <i class="fas fa-file-download"></i> Export CSV
+                </button>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search blocks, categories, or descriptions..." onkeyup="filterTable()">
+            </div>
+
+            <div id="loadingMessage" class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i> Loading blocks...
+            </div>
+
+            <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+            <div id="tableContainer" style="display: none; overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">Preview</th>
+                            <th>Block Name</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="blocksTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="blockModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Block</h2>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="blockForm" onsubmit="saveBlock(event)">
+            <input type="hidden" id="blockId">
+            
+            <div class="form-group">
+                <label for="blockName">Block Name</label>
+                <input type="text" id="blockName" required placeholder="e.g., SYM_STRM_MNHL_24IN">
+            </div>
+
+            <div class="form-group">
+                <label for="category">Category</label>
+                <input type="text" id="category" required placeholder="e.g., Storm Drainage - Manholes">
+            </div>
+
+            <div class="form-group">
+                <label for="domain">Domain (optional)</label>
+                <input type="text" id="domain" placeholder="e.g., Civil, Structural">
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Description of block symbol"></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.search-box {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.search-box i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+}
+
+.search-box input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    background: rgba(255,255,255,0.08);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.data-table th {
+    background: rgba(0,255,255,0.1);
+    color: var(--accent-cyan);
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--accent-cyan);
+    position: sticky;
+    top: 0;
+}
+
+.data-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-primary);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0,255,255,0.05);
+}
+
+.svg-preview {
+    width: 60px;
+    height: 60px;
+    border: 1px solid rgba(0,255,255,0.3);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.svg-preview svg {
+    max-width: 50px;
+    max-height: 50px;
+}
+
+.no-preview {
+    color: var(--text-dim);
+    font-size: 12px;
+    text-align: center;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: var(--bg-dark);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--accent-cyan);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 0 30px rgba(0,255,255,0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    border-bottom: 1px solid rgba(0,255,255,0.2);
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: var(--accent-cyan);
+    font-size: 24px;
+}
+
+.close {
+    color: var(--text-dim);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.close:hover {
+    color: var(--accent-cyan);
+}
+
+.modal-content form {
+    padding: 25px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 10px 15px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    background: rgba(255,255,255,0.08);
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 14px;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #c82333, #bd2130);
+}
+
+.loading-indicator {
+    text-align: center;
+    padding: 40px;
+    color: var(--accent-cyan);
+    font-size: 18px;
+}
+
+.alert {
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.alert-error {
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    color: #ff6b6b;
+}
+
+.alert-success {
+    background: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    color: #51cf66;
+}
+</style>
+
+<script>
+let blocksData = [];
+
+async function loadBlocks() {
+    try {
+        const response = await fetch('/api/data-manager/blocks');
+        if (!response.ok) throw new Error('Failed to load blocks');
+        
+        const data = await response.json();
+        blocksData = data.blocks || [];
+        
+        renderTable();
+        
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+    } catch (error) {
+        showError('Error loading blocks: ' + error.message);
+    }
+}
+
+function showError(message) {
+    document.getElementById('loadingMessage').style.display = 'none';
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+}
+
+function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type}`;
+    notification.textContent = message;
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.right = '20px';
+    notification.style.zIndex = '2000';
+    notification.style.minWidth = '300px';
+    document.body.appendChild(notification);
+    
+    setTimeout(() => notification.remove(), 4000);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function renderTable() {
+    const tbody = document.getElementById('blocksTableBody');
+    tbody.innerHTML = '';
+    
+    blocksData.forEach(item => {
+        const row = tbody.insertRow();
+        
+        // SVG Preview
+        const svgCell = row.insertCell();
+        const svgPreview = document.createElement('div');
+        svgPreview.className = 'svg-preview';
+        
+        if (item.svg_content) {
+            svgPreview.innerHTML = item.svg_content;
+        } else {
+            svgPreview.innerHTML = '<div class="no-preview">No SVG</div>';
+        }
+        svgCell.appendChild(svgPreview);
+        
+        // Rest of the cells
+        row.innerHTML += `
+            <td><strong>${escapeHtml(item.block_name || '')}</strong></td>
+            <td>${escapeHtml(item.category || '')}</td>
+            <td>${escapeHtml(item.description || '')}</td>
+            <td>
+                <button onclick="editBlock('${item.block_id}')" class="btn btn-secondary btn-sm" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteBlock('${item.block_id}', '${escapeHtml(item.block_name)}')" class="btn btn-danger btn-sm" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+    });
+}
+
+function filterTable() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const tbody = document.getElementById('blocksTableBody');
+    const rows = tbody.getElementsByTagName('tr');
+    
+    for (let row of rows) {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(search) ? '' : 'none';
+    }
+}
+
+function addNewBlock() {
+    document.getElementById('modalTitle').textContent = 'Add New Block';
+    document.getElementById('blockForm').reset();
+    document.getElementById('blockId').value = '';
+    document.getElementById('blockModal').style.display = 'block';
+}
+
+function editBlock(id) {
+    const item = blocksData.find(b => b.block_id == id);
+    if (!item) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Block';
+    document.getElementById('blockId').value = item.block_id;
+    document.getElementById('blockName').value = item.block_name || '';
+    document.getElementById('category').value = item.category || '';
+    document.getElementById('domain').value = item.domain || '';
+    document.getElementById('description').value = item.description || '';
+    document.getElementById('blockModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('blockModal').style.display = 'none';
+}
+
+async function saveBlock(event) {
+    event.preventDefault();
+    
+    const blockId = document.getElementById('blockId').value;
+    const blockData = {
+        block_name: document.getElementById('blockName').value,
+        category: document.getElementById('category').value,
+        domain: document.getElementById('domain').value,
+        description: document.getElementById('description').value
+    };
+    
+    try {
+        const url = blockId 
+            ? `/api/data-manager/blocks/${blockId}`
+            : '/api/data-manager/blocks';
+        const method = blockId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(blockData)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to save block');
+        }
+        
+        closeModal();
+        await loadBlocks();
+        showNotification(`Block ${blockId ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+        alert('Error saving block: ' + error.message);
+    }
+}
+
+async function deleteBlock(id, name) {
+    if (!confirm(`Are you sure you want to delete block "${name}"?`)) return;
+    
+    try {
+        const response = await fetch(`/api/data-manager/blocks/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete block');
+        }
+        
+        await loadBlocks();
+        showNotification('Block deleted successfully!');
+    } catch (error) {
+        alert('Error deleting block: ' + error.message);
+    }
+}
+
+async function uploadCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch('/api/data-manager/blocks/import-csv', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to import CSV');
+        }
+        
+        const result = await response.json();
+        await loadBlocks();
+        showNotification(`CSV imported successfully! ${result.imported || 0} new records, ${result.updated || 0} updated.`, 'success');
+    } catch (error) {
+        alert('Error importing CSV: ' + error.message);
+    } finally {
+        event.target.value = '';
+    }
+}
+
+async function exportCSV() {
+    try {
+        window.location.href = '/api/data-manager/blocks/export-csv';
+    } catch (error) {
+        alert('Error exporting CSV: ' + error.message);
+    }
+}
+
+// Load blocks on page load
+document.addEventListener('DOMContentLoaded', loadBlocks);
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('blockModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+{% endblock %}

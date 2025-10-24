@@ -1143,5 +1143,200 @@ def export_layers_csv():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============================================================================
+# BLOCKS MANAGER ROUTES
+# ============================================================================
+
+@app.route('/data-manager/blocks')
+def blocks_manager():
+    """Render the Blocks Manager page"""
+    return render_template('data_manager/blocks.html')
+
+@app.route('/api/data-manager/blocks', methods=['GET'])
+def get_blocks():
+    """Get all blocks"""
+    try:
+        query = """
+            SELECT block_id, block_name, block_type, category, domain, 
+                   description, svg_content, svg_viewbox
+            FROM block_definitions
+            ORDER BY category, block_name
+        """
+        blocks = execute_query(query)
+        return jsonify({'blocks': blocks})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/blocks', methods=['POST'])
+def create_block():
+    """Create a new block"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO block_definitions 
+                    (block_name, category, domain, description)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING block_id
+                """, (
+                    data.get('block_name'),
+                    data.get('category'),
+                    data.get('domain'),
+                    data.get('description')
+                ))
+                block_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'block_id': block_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/blocks/<block_id>', methods=['PUT'])
+def update_block(block_id):
+    """Update an existing block"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE block_definitions
+                    SET block_name = %s, category = %s, domain = %s, description = %s
+                    WHERE block_id = %s
+                """, (
+                    data.get('block_name'),
+                    data.get('category'),
+                    data.get('domain'),
+                    data.get('description'),
+                    block_id
+                ))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/blocks/<block_id>', methods=['DELETE'])
+def delete_block(block_id):
+    """Delete a block"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM block_definitions WHERE block_id = %s", (block_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/blocks/import-csv', methods=['POST'])
+def import_blocks_csv():
+    """Import blocks from CSV file"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Read CSV file
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_reader = csv.DictReader(stream)
+        
+        imported_count = 0
+        updated_count = 0
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                for row in csv_reader:
+                    # Map CSV columns to database columns
+                    # CSV: Block_Name, Type_Prefix, Discipline, Element, Size_Variant, Category, Description
+                    # DB: block_name, category, domain, description
+                    
+                    block_name = row.get('Block_Name', '').strip()
+                    category = row.get('Category', '').strip()
+                    discipline = row.get('Discipline', '').strip()
+                    description = row.get('Description', '').strip()
+                    
+                    if not block_name:
+                        continue
+                    
+                    # Check if block already exists
+                    cur.execute("""
+                        SELECT block_id FROM block_definitions 
+                        WHERE LOWER(block_name) = LOWER(%s)
+                    """, (block_name,))
+                    
+                    existing = cur.fetchone()
+                    
+                    if existing:
+                        # Update existing record
+                        cur.execute("""
+                            UPDATE block_definitions
+                            SET category = %s, domain = %s, description = %s
+                            WHERE block_id = %s
+                        """, (category, discipline, description, existing[0]))
+                        updated_count += 1
+                    else:
+                        # Insert new record
+                        cur.execute("""
+                            INSERT INTO block_definitions (block_name, category, domain, description)
+                            VALUES (%s, %s, %s, %s)
+                        """, (block_name, category, discipline, description))
+                        imported_count += 1
+                
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({
+            'imported': imported_count,
+            'updated': updated_count
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/blocks/export-csv', methods=['GET'])
+def export_blocks_csv():
+    """Export blocks to CSV file"""
+    try:
+        query = """
+            SELECT block_name, category, domain, description
+            FROM block_definitions
+            ORDER BY category, block_name
+        """
+        data = execute_query(query)
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        if data:
+            fieldnames = ['Block_Name', 'Category', 'Domain', 'Description']
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for row in data:
+                writer.writerow({
+                    'Block_Name': row.get('block_name', ''),
+                    'Category': row.get('category', ''),
+                    'Domain': row.get('domain', ''),
+                    'Description': row.get('description', '')
+                })
+        
+        # Convert to bytes
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name='blocks.csv'
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
