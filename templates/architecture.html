@@ -1,0 +1,683 @@
+{% extends "base.html" %}
+
+{% block title %}System Architecture - Schema Explorer{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-sitemap"></i> System Architecture</h1>
+            <p class="subtitle">How the ACAD-GIS ecosystem components work together</p>
+        </div>
+    </div>
+
+    <!-- Overview -->
+    <div class="card" style="margin-bottom: 30px;">
+        <div class="card-body">
+            <h2 style="color: var(--accent-cyan); margin: 0 0 20px 0;">
+                <i class="fas fa-cubes"></i> Three-Tier Architecture
+            </h2>
+            <p style="font-size: 16px; line-height: 1.8; color: var(--text-primary);">
+                The ACAD-GIS system is composed of three specialized applications working in harmony, all connected to a single 
+                <strong style="color: var(--accent-cyan);">PostgreSQL + PostGIS database</strong> that serves as the central source of truth. 
+                Each component has a distinct purpose: production API operations, database administration, and human reference.
+            </p>
+        </div>
+    </div>
+
+    <!-- Main Architecture Diagram -->
+    <div class="card" style="margin-bottom: 30px;">
+        <div class="card-header">
+            <h2><i class="fas fa-project-diagram"></i> Component Diagram</h2>
+        </div>
+        <div class="card-body">
+            <div class="architecture-container">
+                <!-- Row 1: Client Applications -->
+                <div class="arch-row">
+                    <div class="arch-component client-component">
+                        <div class="component-icon">
+                            <i class="fas fa-desktop"></i>
+                        </div>
+                        <h3>CAD Software</h3>
+                        <p>AutoCAD, BricsCAD, DWG viewers</p>
+                        <div class="tech-badge">DXF/DWG Files</div>
+                    </div>
+
+                    <div class="arch-component client-component">
+                        <div class="component-icon">
+                            <i class="fas fa-globe"></i>
+                        </div>
+                        <h3>GIS Software</h3>
+                        <p>QGIS, ArcGIS, PostGIS clients</p>
+                        <div class="tech-badge">Spatial Queries</div>
+                    </div>
+
+                    <div class="arch-component client-component">
+                        <div class="component-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <h3>Team Members</h3>
+                        <p>Drafters, engineers, reviewers</p>
+                        <div class="tech-badge">Web Browser</div>
+                    </div>
+                </div>
+
+                <!-- Arrow Down -->
+                <div class="connection-arrow down">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+
+                <!-- Row 2: Application Layer -->
+                <div class="arch-row">
+                    <div class="arch-component app-component primary-app">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);">
+                                <i class="fas fa-rocket"></i>
+                            </div>
+                            <div>
+                                <h3>ACAD-GIS API</h3>
+                                <span class="port-badge">Port 8000</span>
+                            </div>
+                        </div>
+                        <p class="component-desc">Production FastAPI application</p>
+                        
+                        <div class="features-list">
+                            <div class="feature-item"><i class="fas fa-upload"></i> DXF Import Pipeline</div>
+                            <div class="feature-item"><i class="fas fa-download"></i> DXF Export Engine</div>
+                            <div class="feature-item"><i class="fas fa-code"></i> REST API Endpoints</div>
+                            <div class="feature-item"><i class="fas fa-check-double"></i> Standards Validation</div>
+                            <div class="feature-item"><i class="fas fa-map"></i> GIS Coordinate Transforms</div>
+                        </div>
+                        
+                        <div class="tech-stack">
+                            <span class="tech-badge">FastAPI</span>
+                            <span class="tech-badge">Python</span>
+                            <span class="tech-badge">ezdxf</span>
+                            <span class="tech-badge">PostGIS</span>
+                        </div>
+                    </div>
+
+                    <div class="arch-component app-component secondary-app">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: linear-gradient(135deg, #00ffff 0%, #00bcd4 100%);">
+                                <i class="fas fa-tools"></i>
+                            </div>
+                            <div>
+                                <h3>Schema Explorer</h3>
+                                <span class="port-badge">Port 5000</span>
+                            </div>
+                        </div>
+                        <p class="component-desc">Database admin & visualization tool (You are here!)</p>
+                        
+                        <div class="features-list">
+                            <div class="feature-item"><i class="fas fa-table"></i> Schema Browser</div>
+                            <div class="feature-item"><i class="fas fa-project-diagram"></i> Relationship Map</div>
+                            <div class="feature-item"><i class="fas fa-edit"></i> Data Manager (CRUD)</div>
+                            <div class="feature-item"><i class="fas fa-trash-alt"></i> Test Data Cleanup</div>
+                            <div class="feature-item"><i class="fas fa-chart-line"></i> Usage Analytics</div>
+                        </div>
+                        
+                        <div class="tech-stack">
+                            <span class="tech-badge">Flask</span>
+                            <span class="tech-badge">Python</span>
+                            <span class="tech-badge">Vis.js</span>
+                            <span class="tech-badge">PostgreSQL</span>
+                        </div>
+                    </div>
+
+                    <div class="arch-component app-component secondary-app">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: linear-gradient(135deg, #ffd700 0%, #f59f00 100%);">
+                                <i class="fas fa-book"></i>
+                            </div>
+                            <div>
+                                <h3>CAD Standards Portal</h3>
+                                <span class="port-badge">Port 5000</span>
+                            </div>
+                        </div>
+                        <p class="component-desc">Human-friendly reference library</p>
+                        
+                        <div class="features-list">
+                            <div class="feature-item"><i class="fas fa-layer-group"></i> Layer Standards</div>
+                            <div class="feature-item"><i class="fas fa-cubes"></i> Block Library</div>
+                            <div class="feature-item"><i class="fas fa-palette"></i> Color Swatches</div>
+                            <div class="feature-item"><i class="fas fa-text-height"></i> Text Styles</div>
+                            <div class="feature-item"><i class="fas fa-font"></i> Abbreviations</div>
+                        </div>
+                        
+                        <div class="tech-stack">
+                            <span class="tech-badge">Flask</span>
+                            <span class="tech-badge">Jinja2</span>
+                            <span class="tech-badge">Mission Control UI</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arrow Down -->
+                <div class="connection-arrow down">
+                    <div style="display: flex; justify-content: space-around; width: 100%;">
+                        <div style="text-align: center;">
+                            <i class="fas fa-arrow-down"></i>
+                            <div style="font-size: 12px; margin-top: 5px;">Write/Read</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <i class="fas fa-arrow-down"></i>
+                            <div style="font-size: 12px; margin-top: 5px;">Admin/Query</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <i class="fas fa-arrow-down"></i>
+                            <div style="font-size: 12px; margin-top: 5px;">Read Only</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Database Layer -->
+                <div class="arch-row">
+                    <div class="arch-component database-component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);">
+                                <i class="fas fa-database"></i>
+                            </div>
+                            <div>
+                                <h3>PostgreSQL + PostGIS Database</h3>
+                                <span class="port-badge">Port 5432</span>
+                            </div>
+                        </div>
+                        <p class="component-desc" style="text-align: center; margin: 15px 0;">
+                            <strong style="color: var(--accent-cyan);">Single Source of Truth</strong> - All components connect to the same database
+                        </p>
+                        
+                        <div class="database-sections">
+                            <div class="db-section">
+                                <h4><i class="fas fa-folder"></i> Organization</h4>
+                                <ul>
+                                    <li>projects (2 tables)</li>
+                                    <li>drawings</li>
+                                </ul>
+                            </div>
+                            <div class="db-section">
+                                <h4><i class="fas fa-shapes"></i> CAD Content</h4>
+                                <ul>
+                                    <li>drawing_entities</li>
+                                    <li>drawing_text</li>
+                                    <li>drawing_dimensions</li>
+                                    <li>drawing_hatches</li>
+                                    <li>layout_viewports</li>
+                                    <li>block_inserts</li>
+                                </ul>
+                            </div>
+                            <div class="db-section">
+                                <h4><i class="fas fa-ruler-combined"></i> Standards</h4>
+                                <ul>
+                                    <li>layer_standards</li>
+                                    <li>block_standards</li>
+                                    <li>dimension_styles</li>
+                                    <li>hatch_patterns</li>
+                                    <li>+ 13 more standards tables</li>
+                                </ul>
+                            </div>
+                            <div class="db-section">
+                                <h4><i class="fas fa-link"></i> Instances</h4>
+                                <ul>
+                                    <li>layers</li>
+                                    <li>drawing_layer_usage</li>
+                                    <li>drawing_linetype_usage</li>
+                                </ul>
+                            </div>
+                            <div class="db-section">
+                                <h4><i class="fas fa-history"></i> Tracking</h4>
+                                <ul>
+                                    <li>export_jobs</li>
+                                    <li>Created/Updated timestamps</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="tech-stack" style="justify-content: center; margin-top: 20px;">
+                            <span class="tech-badge">PostgreSQL 12+</span>
+                            <span class="tech-badge">PostGIS Extension</span>
+                            <span class="tech-badge">53+ Tables</span>
+                            <span class="tech-badge">Spatial Indexing</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Flow Diagram -->
+    <div class="card" style="margin-bottom: 30px;">
+        <div class="card-header">
+            <h2><i class="fas fa-exchange-alt"></i> Data Flow: Round-Trip Workflow</h2>
+        </div>
+        <div class="card-body">
+            <div class="data-flow">
+                <div class="flow-step">
+                    <div class="flow-number">1</div>
+                    <div class="flow-content">
+                        <h3><i class="fas fa-file-code"></i> DXF Upload</h3>
+                        <p>User uploads DXF file via ACAD-GIS API</p>
+                        <code>POST /api/dxf/import</code>
+                    </div>
+                </div>
+
+                <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+
+                <div class="flow-step">
+                    <div class="flow-number">2</div>
+                    <div class="flow-content">
+                        <h3><i class="fas fa-cogs"></i> Parse & Normalize</h3>
+                        <p>ezdxf parses DXF, DXFLookupService resolves layer names → UUIDs</p>
+                        <code>dxf_importer.py + dxf_lookup_service.py</code>
+                    </div>
+                </div>
+
+                <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+
+                <div class="flow-step">
+                    <div class="flow-number">3</div>
+                    <div class="flow-content">
+                        <h3><i class="fas fa-database"></i> Store as PostGIS</h3>
+                        <p>Geometry → WKT → GeometryZ with spatial indexes</p>
+                        <code>INSERT INTO drawing_entities ...</code>
+                    </div>
+                </div>
+
+                <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+
+                <div class="flow-step">
+                    <div class="flow-number">4</div>
+                    <div class="flow-content">
+                        <h3><i class="fas fa-search"></i> Query & Analyze</h3>
+                        <p>SQL spatial queries, GIS overlay, analytics</p>
+                        <code>SELECT * FROM drawing_entities WHERE ...</code>
+                    </div>
+                </div>
+
+                <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+
+                <div class="flow-step">
+                    <div class="flow-number">5</div>
+                    <div class="flow-content">
+                        <h3><i class="fas fa-download"></i> Export DXF</h3>
+                        <p>Query with JOINs, reconstruct DXF via ezdxf</p>
+                        <code>POST /api/dxf/export</code>
+                    </div>
+                </div>
+
+                <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+
+                <div class="flow-step success-step">
+                    <div class="flow-number">✓</div>
+                    <div class="flow-content">
+                        <h3><i class="fas fa-check-circle"></i> Perfect Fidelity</h3>
+                        <p>Exported DXF matches original exactly</p>
+                        <code>Zero data loss verified</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Component Responsibilities -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-clipboard-list"></i> Component Responsibilities</h2>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+                <div class="responsibility-card">
+                    <h3 style="color: #51cf66;"><i class="fas fa-rocket"></i> ACAD-GIS API (FastAPI)</h3>
+                    <p><strong>Primary Role:</strong> Production API for programmatic access</p>
+                    <ul>
+                        <li>Handle DXF import/export operations</li>
+                        <li>Provide REST API for external integrations</li>
+                        <li>Enforce business logic and validation</li>
+                        <li>Perform coordinate system transformations</li>
+                        <li>Run scheduled jobs and background tasks</li>
+                    </ul>
+                    <p><strong>Users:</strong> Developers, automation scripts, integrations</p>
+                </div>
+
+                <div class="responsibility-card">
+                    <h3 style="color: var(--accent-cyan);"><i class="fas fa-tools"></i> Schema Explorer (Flask)</h3>
+                    <p><strong>Primary Role:</strong> Database administration and visualization</p>
+                    <ul>
+                        <li>Browse and understand database schema</li>
+                        <li>Manage test data and cleanup operations</li>
+                        <li>CRUD operations on standards tables</li>
+                        <li>Visualize table relationships</li>
+                        <li>Monitor database health and usage</li>
+                    </ul>
+                    <p><strong>Users:</strong> Database admins, developers, technical leads</p>
+                </div>
+
+                <div class="responsibility-card">
+                    <h3 style="color: #ffd700;"><i class="fas fa-book"></i> CAD Standards Portal (Flask)</h3>
+                    <p><strong>Primary Role:</strong> Human-readable standards reference</p>
+                    <ul>
+                        <li>Display layer standards with color swatches</li>
+                        <li>Show block library with SVG previews</li>
+                        <li>Provide abbreviation dictionary</li>
+                        <li>Present dimension and text style guides</li>
+                        <li>Educate team on company CAD standards</li>
+                    </ul>
+                    <p><strong>Users:</strong> Drafters, engineers, new team members</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.architecture-container {
+    padding: 20px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+}
+
+.arch-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.arch-component {
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 25px;
+    border: 2px solid rgba(255,255,255,0.1);
+    transition: all 0.3s;
+}
+
+.arch-component:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0,255,255,0.2);
+}
+
+.client-component {
+    border-color: rgba(100,100,100,0.3);
+}
+
+.app-component {
+    border-color: rgba(0,255,255,0.5);
+}
+
+.primary-app {
+    border-color: #51cf66;
+    border-width: 3px;
+}
+
+.database-component {
+    grid-column: 1 / -1;
+    border-color: #9c27b0;
+    border-width: 3px;
+}
+
+.component-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.component-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: white;
+    background: linear-gradient(135deg, rgba(0,255,255,0.5) 0%, rgba(0,200,200,0.5) 100%);
+    flex-shrink: 0;
+}
+
+.arch-component h3 {
+    color: var(--accent-cyan);
+    font-size: 20px;
+    margin: 0;
+}
+
+.port-badge {
+    display: inline-block;
+    background: rgba(0,255,255,0.2);
+    color: var(--accent-cyan);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    border: 1px solid var(--accent-cyan);
+}
+
+.component-desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.features-list {
+    display: grid;
+    gap: 8px;
+    margin: 20px 0;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(0,255,255,0.05);
+    border-left: 3px solid rgba(0,255,255,0.5);
+    border-radius: 4px;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.feature-item i {
+    color: var(--accent-cyan);
+    width: 16px;
+}
+
+.tech-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.tech-badge {
+    background: rgba(0,255,255,0.2);
+    color: var(--accent-cyan);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    border: 1px solid rgba(0,255,255,0.3);
+}
+
+.connection-arrow {
+    text-align: center;
+    font-size: 32px;
+    color: var(--accent-cyan);
+    padding: 10px 0;
+}
+
+.connection-arrow.down i {
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(10px); }
+}
+
+.database-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.db-section {
+    background: rgba(0,0,0,0.3);
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 3px solid var(--accent-cyan);
+}
+
+.db-section h4 {
+    color: var(--accent-cyan);
+    font-size: 14px;
+    margin: 0 0 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.db-section ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.db-section li {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 4px 0;
+}
+
+.data-flow {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    overflow-x: auto;
+    padding: 20px 0;
+}
+
+.flow-step {
+    min-width: 200px;
+    background: rgba(0,0,0,0.3);
+    border: 2px solid rgba(0,255,255,0.3);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+}
+
+.flow-step.success-step {
+    border-color: #51cf66;
+}
+
+.flow-number {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 30px;
+    height: 30px;
+    background: linear-gradient(135deg, var(--accent-cyan) 0%, #00bcd4 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    font-size: 14px;
+}
+
+.success-step .flow-number {
+    background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+}
+
+.flow-content h3 {
+    color: var(--accent-cyan);
+    font-size: 16px;
+    margin: 10px 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.flow-content p {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+.flow-content code {
+    display: block;
+    background: rgba(0,0,0,0.4);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #ffd700;
+    overflow-x: auto;
+}
+
+.flow-arrow {
+    font-size: 24px;
+    color: var(--accent-cyan);
+    min-width: 40px;
+    text-align: center;
+}
+
+.responsibility-card {
+    background: rgba(0,0,0,0.2);
+    padding: 20px;
+    border-radius: 12px;
+    border: 2px solid rgba(0,255,255,0.2);
+}
+
+.responsibility-card h3 {
+    font-size: 18px;
+    margin: 0 0 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.responsibility-card p {
+    color: var(--text-primary);
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+.responsibility-card strong {
+    color: var(--accent-cyan);
+}
+
+.responsibility-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 15px 0;
+}
+
+.responsibility-card li {
+    padding: 8px 0 8px 25px;
+    color: var(--text-dim);
+    position: relative;
+}
+
+.responsibility-card li:before {
+    content: "▸";
+    position: absolute;
+    left: 5px;
+    color: var(--accent-cyan);
+}
+
+@media (max-width: 1400px) {
+    .data-flow {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .flow-arrow {
+        transform: rotate(90deg);
+        min-width: 20px;
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
