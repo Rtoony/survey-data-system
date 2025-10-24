@@ -1,0 +1,478 @@
+Category,Layer_Name,Color_RGB,Color_Name,Description,Detail_Series,Primary_Abbreviations,Notes
+Topography,E-GRAD-CONTOUR-MAJOR,"255,255",Cyan,Major contour lines (5' or 10' interval),DET-GRAD-355,"CONTOUR, MAJOR, EL, ELEV",Existing major contours
+Topography,E-GRAD-CONTOUR-MINOR,"100,200,255",Light Blue,Minor contour lines (1' or 2' interval),DET-GRAD-355,"CONTOUR, MINOR, EL, ELEV",Existing minor contours
+Topography,E-GRAD-SPOT-ELEV,"176,224,230",Powder Blue,Spot elevation points,DET-GRAD-355,"SPOT ELEV, EL, EG",Existing grade elevations
+Topography,E-GRAD-BREAKLINE,"191,255",Deep Sky Blue,Surface breaklines,DET-GRAD-355,"BREAKLINE, GR",Surface discontinuities
+Topography,E-GRAD-RIDGE,"191,255",Deep Sky Blue,Ridge lines,DET-GRAD-355,"RIDGE, GR",Drainage ridge lines
+Topography,E-GRAD-VALLEY,"191,255",Deep Sky Blue,Valley lines,DET-GRAD-355,"VALLEY, GR",Drainage valley lines
+Topography,E-GRAD-NATGRADE,"100,200,255",Light Blue,Existing natural grade,DET-GRAD-355,"NAT GR, EG",Natural existing grade
+Topography,E-GRAD-EDGE-PAVEMENT,"191,255",Deep Sky Blue,Edge of pavement,DET-PAVE-835,"EDG, PVMT, EG",Edge of existing pavement
+Topography,E-GRAD-EDGE-SHOULDER,"100,200,255",Light Blue,Edge of shoulder,DET-PAVE-835,"EDG, SHLDR, EG",Edge of shoulder
+Topography,E-GRAD-WATER-EDGE,"255,255",Cyan,Edge of water bodies,DET-GRAD-355,"WATER, EDG, EG",Edge of water bodies
+Topography,E-GRAD-STREAM,"255,255",Cyan,Streams/creeks,DET-STRM-170,"STREAM, WATER",Streams/creeks
+Topography,E-GRAD-WETLAND,"64,224,208",Turquoise,Wetland boundaries,DET-GRAD-355,"WETLAND, BNDRY",Wetland boundaries
+Survey,E-SURV-BENCHMARK,"138,43,226",Blue Violet,Survey benchmarks (vertical control),DET-GRAD-355,"BM, ELEV, VERT",Vertical control monuments
+Survey,E-SURV-CONTROL-HORIZ,"138,43,226",Blue Violet,Horizontal control monuments,DET-GRAD-355,"HORIZ, CONTROL, MON",Horizontal control
+Survey,E-SURV-CONTROL-VERT,"138,43,226",Blue Violet,Vertical control points,DET-GRAD-355,"VERT, CONTROL, BM",Vertical control points
+Survey,E-SURV-GPS,"138,43,226",Blue Violet,GPS control points,DET-GRAD-355,"GPS, CONTROL",GPS control stations
+Survey,E-SURV-CONTROL-POINT,"138,43,226",Blue Violet,General control points,DET-GRAD-355,"CONTROL PT, MON",General control points
+Survey,E-SURV-TRAVERSE,"100,200,255",Light Blue,Traverse lines,DET-GRAD-355,"TRAVERSE, LINE",Survey traverse lines
+Survey,E-SURV-PROPERTY-LINE,"138,43,226",Blue Violet,Property boundaries,DET-GRAD-355,"PROP LINE, BNDRY",Property boundaries
+Survey,E-SURV-LEGAL,"147,112,219",Medium Purple,Legal description elements,DET-GRAD-355,"LEGAL, BNDRY",Legal description elements
+Survey,E-SURV-DEED,"147,112,219",Medium Purple,Deed dimensions,DET-GRAD-355,"DEED, DIM",Deed dimensions
+Survey,E-SURV-EASEMENT,"147,112,219",Medium Purple,Easement lines,DET-GRAD-355,"EASEMENT, BNDRY",Easement boundaries
+Survey,E-SURV-ROW,"147,112,219",Medium Purple,Right-of-way lines,DET-GRAD-355,"ROW, BNDRY",Right-of-way lines
+Survey,E-SURV-CENTERLINE,"100,200,255",Light Blue,Road/street centerlines,DET-GRAD-355,"℄, CL, EXIST",Road centerlines (use symbol)
+Survey,E-SURV-BEARINGS,"176,224,230",Powder Blue,Bearing annotations,DET-GRAD-355,"BRG, BEARING",Survey bearings
+Survey,E-SURV-DISTANCES,"176,224,230",Powder Blue,Distance annotations,DET-GRAD-355,"DIST, DIM",Survey distances
+Survey,E-SURV-FENCE,"123,104,238",Medium Slate Blue,Existing fences,DET-SITE-530,"FNC, EXIST",Existing fences
+Survey,E-SURV-WALL,"123,104,238",Medium Slate Blue,Existing walls,DET-GRAD-410,"WALL, EXIST",Existing walls
+Grading,P-GRAD-CONTOUR-MAJOR,"255,255,0",Yellow,Proposed major contours,DET-GRAD-360,"CONTOUR, MAJOR, EL, ELEV",Proposed 5'/10' contours
+Grading,P-GRAD-CONTOUR-MINOR,"255,200,100",Light Orange,Proposed minor contours,DET-GRAD-360,"CONTOUR, MINOR, EL, ELEV",Proposed 1'/2' contours
+Grading,P-GRAD-SPOT-ELEV,"255,228,181",Moccasin,Proposed spot elevations,DET-GRAD-360,"SPOT ELEV, EL, FG",Proposed spot elevations
+Grading,P-GRAD-FINGRADE,"255,200,100",Light Orange,Finished grade elevations,DET-GRAD-360,"FIN GR, FG, ELEV",Finished grade elevations
+Grading,P-GRAD-BREAKLINE,"255,140,0",Dark Orange,Proposed breaklines,DET-GRAD-360,"BREAKLINE, GR",Proposed breaklines
+Grading,P-GRAD-RIDGE,"255,140,0",Dark Orange,Proposed ridge lines,DET-GRAD-360,"RIDGE, GR",Proposed ridge lines
+Grading,P-GRAD-VALLEY,"255,140,0",Dark Orange,Proposed valley lines,DET-GRAD-360,"VALLEY, GR",Proposed valley lines
+Grading,P-GRAD-SWALE-SURFACE,"255,215,0",Gold,Surface swales,DET-GRAD-420,"SWALE, SURF, DRNAG",Surface drainage swales
+Grading,P-GRAD-SWALE-UNDERGROUND,"255,165,0",Orange,Underground swales,DET-GRAD-420,"SWALE, UG, DRNAG",Subsurface swales
+Grading,P-GRAD-SLOPE-LIMIT,"255,140,0",Dark Orange,Limits of grading,DET-GRAD-370,"SLP, LIMIT, GRDG",Limits of grading work
+Grading,P-GRAD-CUT,"255,99,71",Tomato,Cut areas,DET-GRAD-390,"CUT, EXC",Cut/excavation areas
+Grading,P-GRAD-FILL,"255,140,0",Dark Orange,Fill areas,DET-GRAD-400,"FILL, EMBANK",Fill/embankment areas
+Grading,P-GRAD-BORROW,"255,200,100",Light Orange,Borrow areas,DET-GRAD-400,"BORR, FILL",Borrow material areas
+Grading,P-GRAD-STOCKPILE,"255,200,100",Light Orange,Stockpile areas,DET-GRAD-400,"STOCKPILE, MATERIAL",Stockpile locations
+Grading,P-GRAD-EROSION-CONTROL,"255,215,0",Gold,Erosion control measures,DET-GRAD-430,"EROS CTRL, TEMP",Erosion control measures
+Grading,P-GRAD-RETWALL,"255,99,71",Tomato,Retaining walls,DET-GRAD-410,"RET WALL, WALL",Retaining walls
+Grading,P-GRAD-SLOPE,"255,140,0",Dark Orange,Slope indicators/arrows,DET-GRAD-380,"SLP, RATIO, GRADE",Slope indicators/arrows
+Storm Drainage,E-STRM-PIPE,"147,112,219",Medium Purple,Storm drain pipes (general),DET-STRM-110,"SD, PIPE, EXIST",Storm drain pipes (general)
+Storm Drainage,E-STRM-PIPE-6IN,"147,112,219",Medium Purple,"6"" storm pipes",DET-STRM-110,"6"" SD, PIPE",6-inch storm pipes
+Storm Drainage,E-STRM-PIPE-8IN,"147,112,219",Medium Purple,"8"" storm pipes",DET-STRM-110,"8"" SD, PIPE",8-inch storm pipes
+Storm Drainage,E-STRM-PIPE-12IN,"147,112,219",Medium Purple,"12"" storm pipes",DET-STRM-110,"12"" SD, PIPE",12-inch storm pipes
+Storm Drainage,E-STRM-PIPE-15IN,"147,112,219",Medium Purple,"15"" storm pipes",DET-STRM-110,"15"" SD, PIPE",15-inch storm pipes
+Storm Drainage,E-STRM-PIPE-18IN,"147,112,219",Medium Purple,"18"" storm pipes",DET-STRM-110,"18"" SD, PIPE",18-inch storm pipes
+Storm Drainage,E-STRM-PIPE-24IN,"147,112,219",Medium Purple,"24"" storm pipes",DET-STRM-110,"24"" SD, PIPE",24-inch storm pipes
+Storm Drainage,E-STRM-PIPE-30IN,"147,112,219",Medium Purple,"30"" storm pipes",DET-STRM-110,"30"" SD, PIPE",30-inch storm pipes
+Storm Drainage,E-STRM-PIPE-36IN,"147,112,219",Medium Purple,"36"" storm pipes",DET-STRM-110,"36"" SD, PIPE",36-inch storm pipes
+Storm Drainage,E-STRM-MH,"138,43,226",Blue Violet,Storm manholes,DET-STRM-130,"MH, SDMH, EXIST",Storm manholes
+Storm Drainage,E-STRM-INLET,"138,43,226",Blue Violet,Storm inlets,DET-STRM-140,"INL, EXIST",Storm inlets (general)
+Storm Drainage,E-STRM-CB,"138,43,226",Blue Violet,Catch basins,DET-STRM-120,"CB, EXIST",Catch basins
+Storm Drainage,E-STRM-DRAINAGEBOX,"138,43,226",Blue Violet,Drainage boxes,DET-STRM-150,"DRNAG BOX, JB",Drainage boxes
+Storm Drainage,E-STRM-CLEANOUT,"147,112,219",Medium Purple,Cleanouts,DET-STRM-110,"CO, CLNOUT",Storm cleanouts
+Storm Drainage,E-STRM-OUTFALL,"255,255",Cyan,Outfall structures,DET-STRM-110,"OUTFALL, OUT",Outfall structures
+Storm Drainage,E-STRM-CULVERT,"147,112,219",Medium Purple,Culverts,DET-STRM-110,"CLVT, PIPE",Culverts
+Storm Drainage,E-STRM-HEADWALL,"123,104,238",Medium Slate Blue,Headwalls,DET-STRM-110,"HW, WALL",Culvert headwalls
+Storm Drainage,E-STRM-ENDWALL,"123,104,238",Medium Slate Blue,Endwalls,DET-STRM-110,"ENDWALL, WALL",Culvert endwalls
+Storm Drainage,E-STRM-DETENTION,"255,255",Cyan,Detention basins,DET-STRM-180,"DET BSN, POND",Detention basins
+Storm Drainage,E-STRM-RETENTION,"255,255",Cyan,Retention basins,DET-STRM-180,"RETN BSN, POND",Retention basins
+Storm Drainage,E-STRM-SWALE,"64,224,208",Turquoise,Drainage swales,DET-STRM-170,"SWALE, CHAN",Drainage swales
+Storm Drainage,E-STRM-DITCH,"64,224,208",Turquoise,Drainage ditches,DET-STRM-170,"DTH, DITCH",Drainage ditches
+Storm Drainage,E-STRM-CHANNEL,"255,255",Cyan,Drainage channels,DET-STRM-170,"CHAN, CH",Drainage channels
+Storm Drainage,P-STRM-PIPE,"255,20,147",Deep Pink,Storm drain pipes (general),DET-STRM-110,"SD, PIPE, PROP",Storm drain pipes (general)
+Storm Drainage,P-STRM-PIPE-6IN,"255,20,147",Deep Pink,"6"" storm pipes",DET-STRM-110,"6"" SD, RCP, PVC",6-inch pipes
+Storm Drainage,P-STRM-PIPE-8IN,"255,20,147",Deep Pink,"8"" storm pipes",DET-STRM-110,"8"" SD, RCP, PVC",8-inch pipes
+Storm Drainage,P-STRM-PIPE-12IN,"255,20,147",Deep Pink,"12"" storm pipes",DET-STRM-110,"12"" SD, RCP, HDPE",12-inch pipes
+Storm Drainage,P-STRM-PIPE-15IN,"255,20,147",Deep Pink,"15"" storm pipes",DET-STRM-110,"15"" SD, RCP, HDPE",15-inch pipes
+Storm Drainage,P-STRM-PIPE-18IN,"255,20,147",Deep Pink,"18"" storm pipes",DET-STRM-110,"18"" SD, RCP, HDPE",18-inch pipes
+Storm Drainage,P-STRM-PIPE-24IN,"255,20,147",Deep Pink,"24"" storm pipes",DET-STRM-110,"24"" SD, RCP, HDPE",24-inch pipes
+Storm Drainage,P-STRM-PIPE-30IN,"255,20,147",Deep Pink,"30"" storm pipes",DET-STRM-110,"30"" SD, RCP, HDPE",30-inch pipes
+Storm Drainage,P-STRM-PIPE-36IN,"255,20,147",Deep Pink,"36"" storm pipes",DET-STRM-110,"36"" SD, RCP, HDPE",36-inch pipes
+Storm Drainage,P-STRM-PIPE-42IN,"255,20,147",Deep Pink,"42"" storm pipes",DET-STRM-110,"42"" SD, RCP, HDPE",42-inch pipes
+Storm Drainage,P-STRM-PIPE-48IN,"255,20,147",Deep Pink,"48"" storm pipes",DET-STRM-110,"48"" SD, RCP, HDPE",48-inch pipes
+Storm Drainage,P-STRM-PIPE-54IN,"255,20,147",Deep Pink,"54"" storm pipes",DET-STRM-110,"54"" SD, RCP",54-inch pipes
+Storm Drainage,P-STRM-PIPE-60IN,"255,20,147",Deep Pink,"60"" storm pipes",DET-STRM-110,"60"" SD, RCP",60-inch pipes
+Storm Drainage,P-STRM-MH,"255,105,180",Hot Pink,Storm manholes,DET-STRM-130,"MH, SDMH, PROP",Storm manholes
+Storm Drainage,P-STRM-INLET,"255,105,180",Hot Pink,Storm inlets (general),DET-STRM-140,"INL, PROP",Storm inlets (general)
+Storm Drainage,P-STRM-INLET-CURB,"255,105,180",Hot Pink,Curb inlets,DET-STRM-140,"CI, INL",Curb inlets
+Storm Drainage,P-STRM-INLET-AREA,"255,105,180",Hot Pink,Area inlets,DET-STRM-160,"AI, AD",Area drains/inlets
+Storm Drainage,P-STRM-CB,"255,105,180",Hot Pink,Catch basins,DET-STRM-120,"CB, PROP",Catch basins
+Storm Drainage,P-STRM-DRAINAGEBOX,"255,105,180",Hot Pink,Drainage boxes,DET-STRM-150,"DRNAG BOX, JB",Drainage boxes
+Storm Drainage,P-STRM-CLEANOUT,"255,20,147",Deep Pink,Cleanouts,DET-STRM-110,"CO, CLNOUT",Storm cleanouts
+Storm Drainage,P-STRM-OUTFALL,"255,215,0",Gold,Outfall structures,DET-STRM-110,"OUTFALL, OUT",Outfall structures
+Storm Drainage,P-STRM-CULVERT,"255,20,147",Deep Pink,Culverts,DET-STRM-110,"CLVT, PIPE",Culverts
+Storm Drainage,P-STRM-HEADWALL,"255,99,71",Tomato,Headwalls,DET-STRM-110,"HW, WALL",Culvert headwalls
+Storm Drainage,P-STRM-ENDWALL,"255,99,71",Tomato,Endwalls,DET-STRM-110,"ENDWALL, WALL",Culvert endwalls
+Storm Drainage,P-STRM-DETENTION,"255,215,0",Gold,Detention basins,DET-STRM-180,"DET BSN, POND",Detention basins
+Storm Drainage,P-STRM-RETENTION,"255,215,0",Gold,Retention basins,DET-STRM-180,"RETN BSN, POND",Retention basins
+Storm Drainage,P-STRM-BIORETENTION,"255,215,0",Gold,Bioretention facilities (LID),DET-STRM-180,"BIORET, LID",Bioretention facilities (LID)
+Storm Drainage,P-STRM-SWALE,"255,215,0",Gold,Drainage swales,DET-STRM-170,"SWALE, BIOSW",Drainage swales
+Storm Drainage,P-STRM-DITCH,"255,215,0",Gold,Drainage ditches,DET-STRM-170,"DTH, DITCH",Drainage ditches
+Storm Drainage,P-STRM-CHANNEL,"255,215,0",Gold,Drainage channels,DET-STRM-170,"CHAN, CH",Drainage channels
+Storm Drainage,P-STRM-UNDERDRAIN,"255,20,147",Deep Pink,Underdrains,DET-STRM-110,"UNDERDRN, DR",Underdrains
+Storm Drainage,P-STRM-TRENCH-DRAIN,"255,20,147",Deep Pink,Trench drains,DET-STRM-110,"TD, TRNCH DR",Trench drains
+Storm Drainage,P-STRM-ROOF-DRAIN,"255,20,147",Deep Pink,Roof drain connections,DET-STRM-160,"ROOF DR, DNSPOUT",Roof drain connections
+Storm Drainage,P-STRM-FOOTING-DRAIN,"255,20,147",Deep Pink,Footing drains,DET-STRM-160,"FTG DR, PERF",Footing drains
+Water Utility,E-WATR-MAIN,"147,112,219",Medium Purple,Water main (general),DET-WATR-210,"WM, WATER, EXIST",Water main (general)
+Water Utility,E-WATR-MAIN-2IN,"147,112,219",Medium Purple,"2"" water main",DET-WATR-210,"2"" WM, DIP",2-inch water main
+Water Utility,E-WATR-MAIN-4IN,"147,112,219",Medium Purple,"4"" water main",DET-WATR-210,"4"" WM, DIP",4-inch water main
+Water Utility,E-WATR-MAIN-6IN,"147,112,219",Medium Purple,"6"" water main",DET-WATR-210,"6"" WM, DIP",6-inch water main
+Water Utility,E-WATR-MAIN-8IN,"147,112,219",Medium Purple,"8"" water main",DET-WATR-210,"8"" WM, DIP",8-inch water main
+Water Utility,E-WATR-MAIN-10IN,"147,112,219",Medium Purple,"10"" water main",DET-WATR-210,"10"" WM, DIP",10-inch water main
+Water Utility,E-WATR-MAIN-12IN,"147,112,219",Medium Purple,"12"" water main",DET-WATR-210,"12"" WM, DIP",12-inch water main
+Water Utility,E-WATR-MAIN-16IN,"147,112,219",Medium Purple,"16"" water main",DET-WATR-210,"16"" WM, DIP",16-inch water main
+Water Utility,E-WATR-MAIN-20IN,"147,112,219",Medium Purple,"20"" water main",DET-WATR-210,"20"" WM, DIP",20-inch water main
+Water Utility,E-WATR-LATERAL,"147,112,219",Medium Purple,Water service laterals,DET-WATR-240,"LAT, SVC, EXIST",Water service laterals
+Water Utility,E-WATR-VALVE,"138,43,226",Blue Violet,Water valves,DET-WATR-230,"GV, VLV, EXIST",Water valves
+Water Utility,E-WATR-METER,"138,43,226",Blue Violet,Water meters,DET-WATR-250,"MTR, MB, EXIST",Water meters
+Water Utility,E-WATR-HYDRANT,"138,43,226",Blue Violet,Fire hydrants,DET-WATR-220,"FH, HYD, EXIST",Fire hydrants
+Water Utility,E-WATR-BACKFLOW,"138,43,226",Blue Violet,Backflow preventers,DET-WATR-260,"BFP, EXIST",Backflow preventers
+Water Utility,E-WATR-BLOW-OFF,"147,112,219",Medium Purple,Blow-off valves,DET-WATR-230,"BO, VLV",Blow-off valves
+Water Utility,E-WATR-AIR-RELEASE,"147,112,219",Medium Purple,Air release valves,DET-WATR-230,"ARV, VLV",Air release valves
+Water Utility,P-WATR-MAIN,"255,20,147",Deep Pink,Water main (general),DET-WATR-210,"WM, WATER, PROP",Water main (general)
+Water Utility,P-WATR-MAIN-2IN,"255,20,147",Deep Pink,"2"" water main",DET-WATR-210,"2"" WM, DIP",2-inch water main
+Water Utility,P-WATR-MAIN-4IN,"255,20,147",Deep Pink,"4"" water main",DET-WATR-210,"4"" WM, DIP",4-inch water main
+Water Utility,P-WATR-MAIN-6IN,"255,20,147",Deep Pink,"6"" water main",DET-WATR-210,"6"" WM, DIP, HDPE",6-inch water main
+Water Utility,P-WATR-MAIN-8IN,"255,20,147",Deep Pink,"8"" water main",DET-WATR-210,"8"" WM, DIP, HDPE",8-inch water main
+Water Utility,P-WATR-MAIN-10IN,"255,20,147",Deep Pink,"10"" water main",DET-WATR-210,"10"" WM, DIP, HDPE",10-inch water main
+Water Utility,P-WATR-MAIN-12IN,"255,20,147",Deep Pink,"12"" water main",DET-WATR-210,"12"" WM, DIP, HDPE",12-inch water main
+Water Utility,P-WATR-MAIN-16IN,"255,20,147",Deep Pink,"16"" water main",DET-WATR-210,"16"" WM, DIP",16-inch water main
+Water Utility,P-WATR-MAIN-20IN,"255,20,147",Deep Pink,"20"" water main",DET-WATR-210,"20"" WM, DIP",20-inch water main
+Water Utility,P-WATR-LATERAL,"255,20,147",Deep Pink,Water service laterals,DET-WATR-240,"LAT, SVC, PROP",Water service laterals
+Water Utility,P-WATR-VALVE,"255,105,180",Hot Pink,Water valves,DET-WATR-230,"GV, BV, VLV",Water valves
+Water Utility,P-WATR-METER,"255,105,180",Hot Pink,Water meters,DET-WATR-250,"MTR, MB, MV",Water meters
+Water Utility,P-WATR-HYDRANT,"255,105,180",Hot Pink,Fire hydrants,DET-WATR-220,"FH, HYD, PROP",Fire hydrants
+Water Utility,P-WATR-BACKFLOW,"255,105,180",Hot Pink,Backflow preventers,DET-WATR-260,"BFP, RP, DCV",Backflow preventers
+Water Utility,P-WATR-BLOW-OFF,"255,20,147",Deep Pink,Blow-off valves,DET-WATR-230,"BO, VLV",Blow-off valves
+Water Utility,P-WATR-AIR-RELEASE,"255,20,147",Deep Pink,Air release valves,DET-WATR-230,"ARV, AVV, VLV",Air release valves
+Water Utility,P-WATR-THRUST-BLOCK,"255,99,71",Tomato,Thrust blocks,DET-WATR-280,"TB, CONC",Thrust blocks
+Sanitary Sewer,E-SAN_-MAIN,"147,112,219",Medium Purple,Sanitary sewer main (general),DET-SAN_-310,"SAN, SSR, EXIST",RENAMED from E-SNTY
+Sanitary Sewer,E-SAN_-MAIN-4IN,"147,112,219",Medium Purple,"4"" sanitary main",DET-SAN_-310,"4"" SAN, PVC",4-inch sanitary main
+Sanitary Sewer,E-SAN_-MAIN-6IN,"147,112,219",Medium Purple,"6"" sanitary main",DET-SAN_-310,"6"" SAN, PVC, VCP",6-inch sanitary main
+Sanitary Sewer,E-SAN_-MAIN-8IN,"147,112,219",Medium Purple,"8"" sanitary main",DET-SAN_-310,"8"" SAN, PVC, VCP",8-inch sanitary main
+Sanitary Sewer,E-SAN_-MAIN-10IN,"147,112,219",Medium Purple,"10"" sanitary main",DET-SAN_-310,"10"" SAN, PVC",10-inch sanitary main
+Sanitary Sewer,E-SAN_-MAIN-12IN,"147,112,219",Medium Purple,"12"" sanitary main",DET-SAN_-310,"12"" SAN, PVC, RCP",12-inch sanitary main
+Sanitary Sewer,E-SAN_-MAIN-15IN,"147,112,219",Medium Purple,"15"" sanitary main",DET-SAN_-310,"15"" SAN, RCP",15-inch sanitary main
+Sanitary Sewer,E-SAN_-MAIN-18IN,"147,112,219",Medium Purple,"18"" sanitary main",DET-SAN_-310,"18"" SAN, RCP",18-inch sanitary main
+Sanitary Sewer,E-SAN_-MAIN-21IN,"147,112,219",Medium Purple,"21"" sanitary main",DET-SAN_-310,"21"" SAN, RCP",21-inch sanitary main
+Sanitary Sewer,E-SAN_-LATERAL,"147,112,219",Medium Purple,Sanitary service laterals,DET-SAN_-330,"LAT, SVC, EXIST",Service laterals
+Sanitary Sewer,E-SAN_-MH,"138,43,226",Blue Violet,Sanitary manholes,DET-SAN_-320,"MH, SSMH, EXIST",Sanitary manholes
+Sanitary Sewer,E-SAN_-CLEANOUT,"147,112,219",Medium Purple,Cleanouts,DET-SAN_-340,"CO, CLNOUT",Cleanouts
+Sanitary Sewer,E-SAN_-LIFT-STATION,"138,43,226",Blue Violet,Lift stations,DET-SAN_-360,"LS, PS",Lift stations
+Sanitary Sewer,E-SAN_-FORCE-MAIN,"147,112,219",Medium Purple,Force mains,DET-SAN_-350,"FM, DIP",Force mains
+Sanitary Sewer,P-SAN_-MAIN,"255,20,147",Deep Pink,Sanitary sewer main (general),DET-SAN_-310,"SAN, SSR, PROP",RENAMED from P-SNTY
+Sanitary Sewer,P-SAN_-MAIN-4IN,"255,20,147",Deep Pink,"4"" sanitary main",DET-SAN_-310,"4"" SAN, PVC",4-inch (min per code)
+Sanitary Sewer,P-SAN_-MAIN-6IN,"255,20,147",Deep Pink,"6"" sanitary main",DET-SAN_-310,"6"" SAN, PVC",6-inch sanitary main
+Sanitary Sewer,P-SAN_-MAIN-8IN,"255,20,147",Deep Pink,"8"" sanitary main",DET-SAN_-310,"8"" SAN, PVC, HDPE",8-inch sanitary main
+Sanitary Sewer,P-SAN_-MAIN-10IN,"255,20,147",Deep Pink,"10"" sanitary main",DET-SAN_-310,"10"" SAN, PVC, HDPE",10-inch sanitary main
+Sanitary Sewer,P-SAN_-MAIN-12IN,"255,20,147",Deep Pink,"12"" sanitary main",DET-SAN_-310,"12"" SAN, PVC, RCP",12-inch sanitary main
+Sanitary Sewer,P-SAN_-MAIN-15IN,"255,20,147",Deep Pink,"15"" sanitary main",DET-SAN_-310,"15"" SAN, RCP, HDPE",15-inch sanitary main
+Sanitary Sewer,P-SAN_-MAIN-18IN,"255,20,147",Deep Pink,"18"" sanitary main",DET-SAN_-310,"18"" SAN, RCP, HDPE",18-inch sanitary main
+Sanitary Sewer,P-SAN_-MAIN-21IN,"255,20,147",Deep Pink,"21"" sanitary main",DET-SAN_-310,"21"" SAN, RCP",21-inch sanitary main
+Sanitary Sewer,P-SAN_-LATERAL,"255,20,147",Deep Pink,Sanitary service laterals,DET-SAN_-330,"LAT, SVC, HSE CONN",Service laterals
+Sanitary Sewer,P-SAN_-MH,"255,105,180",Hot Pink,Sanitary manholes,DET-SAN_-320,"MH, SSMH, PROP",Sanitary manholes
+Sanitary Sewer,P-SAN_-CLEANOUT,"255,20,147",Deep Pink,Cleanouts,DET-SAN_-340,"CO, CLNOUT",Cleanouts
+Sanitary Sewer,P-SAN_-LIFT-STATION,"255,105,180",Hot Pink,Lift stations,DET-SAN_-360,"LS, PS, PROP",Lift stations
+Sanitary Sewer,P-SAN_-FORCE-MAIN,"255,20,147",Deep Pink,Force mains,DET-SAN_-350,"FM, DIP, HDPE",Force mains
+Sanitary Sewer,P-SAN_-GREASE-TRAP,"255,105,180",Hot Pink,Grease traps/interceptors,DET-SAN_-330,"GT, GI, GREASE INT",Grease traps/interceptors
+Other Utilities,E-UTIL-GAS,"147,112,219",Medium Purple,Gas lines,N/A,"GAS, LINE",Gas lines
+Other Utilities,E-UTIL-ELECTRIC,"147,112,219",Medium Purple,Electric lines (general),N/A,"ELEC, LINE",Electric lines (general)
+Other Utilities,E-UTIL-ELECTRIC-OH,"147,112,219",Medium Purple,Overhead electric,N/A,"OH, ELEC",Overhead electric
+Other Utilities,E-UTIL-ELECTRIC-UG,"147,112,219",Medium Purple,Underground electric,N/A,"UG, ELEC",Underground electric
+Other Utilities,E-UTIL-TELEPHONE,"147,112,219",Medium Purple,Telephone lines,N/A,"TEL, PHONE",Telephone lines
+Other Utilities,E-UTIL-CABLE,"147,112,219",Medium Purple,Cable TV lines,N/A,"CATV, CABLE",Cable TV lines
+Other Utilities,E-UTIL-FIBER,"147,112,219",Medium Purple,Fiber optic lines,N/A,"FIBER, FO",Fiber optic lines
+Other Utilities,E-UTIL-CONDUIT,"147,112,219",Medium Purple,Utility conduit,N/A,"CNDT, CONDUIT",Utility conduit
+Other Utilities,E-UTIL-POLE,"138,43,226",Blue Violet,Utility poles,N/A,"POLE, UP",Utility poles
+Other Utilities,E-UTIL-TRANSFORMER,"138,43,226",Blue Violet,Transformers,N/A,"XFMR, TRANS",Transformers
+Other Utilities,E-UTIL-PEDESTAL,"138,43,226",Blue Violet,Utility pedestals,N/A,"PED, PEDESTAL",Utility pedestals
+Other Utilities,E-UTIL-VAULT,"138,43,226",Blue Violet,Utility vaults,N/A,"VAULT, VLT",Utility vaults
+Other Utilities,E-UTIL-HANDHOLE,"138,43,226",Blue Violet,Handholes,N/A,"HH, HANDHOLE",Handholes
+Other Utilities,P-UTIL-GAS,"255,20,147",Deep Pink,Gas lines,N/A,"GAS, LINE",Gas lines
+Other Utilities,P-UTIL-ELECTRIC,"255,20,147",Deep Pink,Electric lines (general),N/A,"ELEC, LINE",Electric lines (general)
+Other Utilities,P-UTIL-ELECTRIC-OH,"255,20,147",Deep Pink,Overhead electric,N/A,"OH, ELEC",Overhead electric
+Other Utilities,P-UTIL-ELECTRIC-UG,"255,20,147",Deep Pink,Underground electric,N/A,"UG, ELEC",Underground electric
+Other Utilities,P-UTIL-TELEPHONE,"255,20,147",Deep Pink,Telephone lines,N/A,"TEL, PHONE",Telephone lines
+Other Utilities,P-UTIL-CABLE,"255,20,147",Deep Pink,Cable TV lines,N/A,"CATV, CABLE",Cable TV lines
+Other Utilities,P-UTIL-FIBER,"255,20,147",Deep Pink,Fiber optic lines,N/A,"FIBER, FO",Fiber optic lines
+Other Utilities,P-UTIL-CONDUIT,"255,20,147",Deep Pink,Utility conduit,N/A,"CNDT, CONDUIT",Utility conduit
+Other Utilities,P-UTIL-POLE,"255,105,180",Hot Pink,Utility poles,N/A,"POLE, UP",Utility poles
+Other Utilities,P-UTIL-TRANSFORMER,"255,105,180",Hot Pink,Transformers,N/A,"XFMR, TRANS",Transformers
+Other Utilities,P-UTIL-PEDESTAL,"255,105,180",Hot Pink,Utility pedestals,N/A,"PED, PEDESTAL",Utility pedestals
+Other Utilities,P-UTIL-VAULT,"255,105,180",Hot Pink,Utility vaults,N/A,"VAULT, VLT",Utility vaults
+Other Utilities,P-UTIL-HANDHOLE,"255,105,180",Hot Pink,Handholes,N/A,"HH, HANDHOLE",Handholes
+Other Utilities,P-UTIL-DUCT-BANK,"255,20,147",Deep Pink,Duct banks,N/A,"DUCT BANK, DB",Duct banks
+Site Improvements,E-SITE-BUILDING,"123,104,238",Medium Slate Blue,Existing buildings,DET-SITE-510,"BLDG, EXIST",Existing buildings
+Site Improvements,E-SITE-STRUCTURE,"123,104,238",Medium Slate Blue,Existing structures,DET-SITE-510,"STRUCT, EXIST",Existing structures
+Site Improvements,E-SITE-PARKING,"100,200,255",Light Blue,Existing parking areas,DET-SITE-520,"PKG, EXIST",Existing parking areas
+Site Improvements,E-SITE-SIDEWALK,"100,200,255",Light Blue,Existing sidewalks,DET-SITE-530,"SDWK, SW, EXIST",Existing sidewalks
+Site Improvements,E-SITE-CURB,"191,255",Deep Sky Blue,Existing curbs,DET-SITE-530,"CURB, EXIST",Existing curbs
+Site Improvements,E-SITE-DRIVEWAY,"100,200,255",Light Blue,Existing driveways,DET-SITE-530,"DW, DRIVEWAY, EXIST",Existing driveways
+Site Improvements,E-SITE-PAVEMENT,"100,200,255",Light Blue,Existing pavement (general),DET-SITE-530,"PVMT, EXIST",Existing pavement (general)
+Site Improvements,E-SITE-ISLAND,"64,224,208",Turquoise,Existing islands,DET-SITE-530,"ISLAND, EXIST",Existing islands
+Site Improvements,E-SITE-SIGN,"147,112,219",Medium Purple,Existing signs,DET-SITE-540,"SIGN, EXIST",Existing signs
+Site Improvements,E-SITE-LIGHT,"147,112,219",Medium Purple,Existing light poles,DET-SITE-540,"LIGHT, LP, EXIST",Existing light poles
+Site Improvements,E-SITE-BOLLARD,"123,104,238",Medium Slate Blue,Existing bollards,DET-SITE-530,"BOLL, EXIST",Existing bollards
+Site Improvements,E-SITE-RETAINING-WALL,"123,104,238",Medium Slate Blue,Existing retaining walls,DET-GRAD-410,"RET WALL, EXIST",Existing retaining walls
+Site Improvements,E-SITE-STAIRS,"123,104,238",Medium Slate Blue,Existing stairs,DET-SITE-550,"STAIRS, EXIST",Existing stairs
+Site Improvements,E-SITE-RAMP,"123,104,238",Medium Slate Blue,Existing ramps,DET-SITE-550,"RAMP, EXIST",Existing ramps
+Site Improvements,P-SITE-BUILDING,"255,99,71",Tomato,Proposed buildings,DET-SITE-510,"BLDG, PROP",Proposed buildings
+Site Improvements,P-SITE-STRUCTURE,"255,99,71",Tomato,Proposed structures,DET-SITE-510,"STRUCT, PROP",Proposed structures
+Site Improvements,P-SITE-HARDSCAPE,"255,200,100",Light Orange,General hardscape features,DET-SITE-530,"HARDSCAPE, HS",General hardscape features
+Site Improvements,P-SITE-PARKING,"255,200,100",Light Orange,Proposed parking areas,DET-SITE-520,"PKG, PROP",Proposed parking areas
+Site Improvements,P-SITE-PARKING-STRIPE,"255,228,181",Moccasin,Parking striping,DET-SITE-520,"PKG STRIPE, STRP",Parking striping
+Site Improvements,P-SITE-PARKING-STALL,"255,200,100",Light Orange,Parking stall lines,DET-SITE-520,"STALL, PKG",Parking stall lines
+Site Improvements,P-SITE-SIDEWALK-CONC,"255,200,100",Light Orange,Concrete sidewalks,DET-SITE-530,"SDWK, SW, CONC",Concrete sidewalks
+Site Improvements,P-SITE-SIDEWALK-PAVER,"255,200,100",Light Orange,Paver sidewalks,DET-SITE-530,"SDWK, PAVER",Paver sidewalks
+Site Improvements,P-SITE-CURB,"255,140,0",Dark Orange,Proposed curbs,DET-SITE-530,"CURB, PROP",Proposed curbs
+Site Improvements,P-SITE-DRIVEWAY,"255,200,100",Light Orange,Proposed driveways,DET-SITE-530,"DW, DRIVEWAY, PROP",Proposed driveways
+Site Improvements,P-SITE-PAVEMENT-ASPH,"255,200,100",Light Orange,Asphalt pavement,DET-SITE-530,"AC, ASPH",Asphalt pavement
+Site Improvements,P-SITE-PAVEMENT-CONC,"255,200,100",Light Orange,Concrete pavement,DET-SITE-530,"PCC, CONC",Concrete pavement
+Site Improvements,P-SITE-PAVEMENT-GRVL,"255,200,100",Light Orange,Gravel surface,DET-SITE-530,"GRVL, GRAVEL",Gravel surface
+Site Improvements,P-SITE-ISLAND,"255,215,0",Gold,Proposed islands,DET-SITE-530,"ISLAND, PROP",Proposed islands
+Site Improvements,P-SITE-SIGN,"255,20,147",Deep Pink,Proposed signs,DET-SITE-540,"SIGN, PROP",Proposed signs
+Site Improvements,P-SITE-LIGHT,"255,20,147",Deep Pink,Proposed light poles,DET-SITE-540,"LIGHT, LP, PROP",Proposed light poles
+Site Improvements,P-SITE-BOLLARD,"255,99,71",Tomato,Proposed bollards,DET-SITE-530,"BOLL, PROP",Proposed bollards
+Site Improvements,P-SITE-BARRIER,"255,99,71",Tomato,Barriers/guardrails,DET-SITE-530,"BARRIER, RAIL",Barriers/guardrails
+Site Improvements,P-SITE-RETAINING-WALL,"255,99,71",Tomato,Proposed retaining walls,DET-GRAD-410,"RET WALL, PROP",Proposed retaining walls
+Site Improvements,P-SITE-STAIRS,"255,99,71",Tomato,Proposed stairs,DET-SITE-550,"STAIRS, PROP",Proposed stairs
+Site Improvements,P-SITE-RAMP,"255,99,71",Tomato,Proposed ramps (non-ADA),DET-SITE-550,"RAMP, PROP",Proposed ramps (non-ADA)
+Site Improvements,P-SITE-FENCE,"255,99,71",Tomato,Proposed fencing,DET-SITE-530,"FNC, FENCE",Proposed fencing
+Site Improvements,P-SITE-GATE,"255,99,71",Tomato,Proposed gates,DET-SITE-530,"GATE, PROP",Proposed gates
+Site Improvements,P-SITE-FURNITURE,"255,20,147",Deep Pink,Site furniture (benches/tables),DET-SITE-540,"FURN, BENCH",Site furniture (benches/tables)
+Site Improvements,P-SITE-AMENITY,"255,20,147",Deep Pink,Amenities (fountains/kiosks),DET-SITE-540,"AMENITY, FOUNTAIN",Amenities (fountains/kiosks)
+Site Improvements,P-SITE-TRASH,"255,20,147",Deep Pink,Trash receptacles,DET-SITE-540,"TRASH, RECEPT",Trash receptacles
+Site Improvements,P-SITE-BIKE-RACK,"255,20,147",Deep Pink,Bike racks,DET-SITE-540,"BIKE RACK, BR",Bike racks
+ADA Compliance,E-ADA-CURBRAMP,"138,43,226",Blue Violet,Existing curb ramps,DET-ADA-850,"CR, CURB RAMP, EXIST",⭐ Existing curb ramps
+ADA Compliance,E-ADA-DETWARN,"138,43,226",Blue Violet,Existing detectable warnings,DET-ADA-860,"DW, TRUNC DOME, EXIST",⭐ Existing detectable warnings
+ADA Compliance,E-ADA-ACCROUTE,"100,200,255",Light Blue,Existing accessible routes,DET-ADA-870,"ACC ROUTE, 48"" MIN",⭐ Existing accessible routes
+ADA Compliance,E-ADA-ACCPKG,"100,200,255",Light Blue,Existing accessible parking,DET-ADA-880,"ACC PKG, ADA PKG",⭐ Existing accessible parking
+ADA Compliance,P-ADA-CURBRAMP,"255,140,0",Dark Orange,Proposed curb ramps,DET-ADA-850,"CR, CURB RAMP, PROP",⭐ Proposed curb ramps
+ADA Compliance,P-ADA-DETWARN,"255,140,0",Dark Orange,Detectable warning surfaces,DET-ADA-860,"DW, TRUNC DOME, PROP",⭐ Truncated dome surfaces
+ADA Compliance,P-ADA-ACCROUTE,"255,200,100",Light Orange,"Accessible routes (48"" clear)",DET-ADA-870,"ACC ROUTE, 48"" MIN","⭐ Accessible routes (48"" clear)"
+ADA Compliance,P-ADA-ACCPKG-STD,"255,200,100",Light Orange,"Standard accessible parking (96"")",DET-ADA-880,"ACC PKG, 96"" MIN","⭐ Standard accessible (96"" wide)"
+ADA Compliance,P-ADA-ACCPKG-VAN,"255,200,100",Light Orange,"Van accessible parking (132"")",DET-ADA-880,"VAN ACC, 132"" MIN","⭐ Van accessible (132"" wide)"
+ADA Compliance,P-ADA-ACCAISLE,"255,228,181",Moccasin,"Access aisle (60"" min)",DET-ADA-880,"ACC AISLE, 60"" MIN","⭐ Access aisle (60"" min)"
+ADA Compliance,P-ADA-RAMP,"255,140,0",Dark Orange,Accessible ramps,DET-ADA-890,"RMP, ACC RAMP, PROP",⭐ Accessible ramps
+ADA Compliance,P-ADA-LANDING,"255,200,100",Light Orange,Ramp/door landings,DET-ADA-890,"LNDG, 60""x60""",⭐ Ramp/door landings
+ADA Compliance,P-ADA-XSLOPE,"255,20,147",Deep Pink,Cross slope indicators,DET-ADA-870,"X-SLP, MAX 2.0%",⭐ Cross slope indicators
+ADA Compliance,P-ADA-RUNSLOPE,"255,20,147",Deep Pink,Running slope indicators,DET-ADA-870,"RUN SLP, MAX 5.0%",⭐ Running slope indicators
+ADA Compliance,P-ADA-CLEARZONE,"255,228,181",Moccasin,Clear floor/ground space,DET-ADA-870,"CLR SPC, 60"" DIA",⭐ Clear floor/ground space
+ADA Compliance,P-ADA-PUSHBUTTON,"255,105,180",Hot Pink,Accessible ped signals,DET-ADA-895,"PUSH BUTTON, APS",⭐ Accessible ped signals
+ADA Compliance,P-ADA-SIGNAGE,"255,105,180",Hot Pink,ADA signage locations,DET-ADA-895,"SIGN, ACC SIGN",⭐ ADA signage locations
+Paving,E-PAVE-CENTERLINE,"100,200,255",Light Blue,Road centerline,DET-PAVE-810,"℄, CL, EXIST",Use ℄ symbol preferred
+Paving,E-PAVE-EDGE-TRAVEL,"191,255",Deep Sky Blue,Edge of travel lane,DET-PAVE-835,"EDG, TW, EXIST",Edge of travel lane
+Paving,E-PAVE-EDGE-SHOULDER,"100,200,255",Light Blue,Edge of shoulder,DET-PAVE-835,"EDG, SHLDR, EXIST",Edge of shoulder
+Paving,E-PAVE-CURB,"191,255",Deep Sky Blue,Road curb,DET-PAVE-830,"CURB, EXIST",Road curb
+Paving,E-PAVE-GUTTER,"100,200,255",Light Blue,Gutter,DET-PAVE-830,"GTR, GUTTER, EXIST",Gutter
+Paving,E-PAVE-STRIPE,"176,224,230",Powder Blue,Road striping,DET-TRFC-910,"STRP, EXIST",Road striping
+Paving,E-PAVE-MARKING,"176,224,230",Powder Blue,Pavement markings,DET-TRFC-920,"MKG, MARKING, EXIST",Pavement markings
+Paving,E-PAVE-AC,"100,200,255",Light Blue,Existing asphalt concrete,DET-PAVE-810,"AC, ASPH, EXIST",Existing asphalt
+Paving,E-PAVE-PCC,"100,200,255",Light Blue,Existing Portland cement concrete,DET-PAVE-820,"PCC, CONC, EXIST",Existing concrete
+Paving,P-PAVE-CENTERLINE,"255,200,100",Light Orange,Road centerline,DET-PAVE-810,"℄, CL, PROP",Use ℄ symbol preferred
+Paving,P-PAVE-EDGE-TRAVEL,"255,140,0",Dark Orange,Edge of travel lane,DET-PAVE-835,"EDG, TW, PROP",Edge of travel lane
+Paving,P-PAVE-EDGE-SHOULDER,"255,200,100",Light Orange,Edge of shoulder,DET-PAVE-835,"EDG, SHLDR, PROP",Edge of shoulder
+Paving,P-PAVE-CURB,"255,140,0",Dark Orange,Road curb,DET-PAVE-830,"CURB, PROP",Road curb
+Paving,P-PAVE-CURBGUT,"255,140,0",Dark Orange,Curb and gutter combined,DET-PAVE-830,"C&G, CURB, GTR",Combined curb & gutter
+Paving,P-PAVE-GUTTER,"255,200,100",Light Orange,Gutter,DET-PAVE-830,"GTR, GUTTER, PROP",Gutter
+Paving,P-PAVE-AC,"255,200,100",Light Orange,Asphalt concrete pavement,DET-PAVE-810,"AC, ASPH, PROP",AC pavement sections
+Paving,P-PAVE-PCC,"255,200,100",Light Orange,Portland cement concrete pavement,DET-PAVE-820,"PCC, CONC, PROP",PCC pavement sections
+Paving,P-PAVE-BASE,"255,165,0",Orange,Aggregate base,DET-PAVE-825,"AB, BASE, CAB",Aggregate base course
+Paving,P-PAVE-JOINT,"255,140,0",Dark Orange,Pavement joints,DET-PAVE-840,"JT, JOINT",Pavement joints
+Paving,P-PAVE-OVERLAY,"255,165,0",Orange,Pavement overlay,DET-PAVE-845,"OVLY, AC OVLY",Pavement overlay
+Paving,P-PAVE-MEDIAN,"255,215,0",Gold,Medians,DET-PAVE-830,"MEDIAN, ISLAND",Medians
+Paving,P-PAVE-ISLAND,"255,215,0",Gold,Traffic islands,DET-PAVE-830,"ISLAND, MEDIAN",Traffic islands
+Paving,P-PAVE-ROUNDABOUT,"255,140,0",Dark Orange,Roundabouts,DET-PAVE-810,"ROUNDABOUT, CIRCLE",Roundabouts
+Traffic Control,E-TRFC-SIGN-REG,"147,112,219",Medium Purple,Regulatory signs (R-series),DET-TRFC-930,"SIGN, REG, R-SERIES",RENAMED from E-TRAF
+Traffic Control,E-TRFC-SIGN-WARN,"147,112,219",Medium Purple,Warning signs (W-series),DET-TRFC-930,"SIGN, WARN, W-SERIES",Warning signs
+Traffic Control,E-TRFC-SIGN-GUIDE,"147,112,219",Medium Purple,Guide signs (G-series),DET-TRFC-930,"SIGN, GUIDE, G-SERIES",Guide signs
+Traffic Control,E-TRFC-SIGNAL,"138,43,226",Blue Violet,Traffic signals,DET-TRFC-940,"SIG, TRFC SIG",Traffic signals
+Traffic Control,E-TRFC-BEACON,"138,43,226",Blue Violet,Beacons,DET-TRFC-940,"BEACON, FLASHER",Beacons
+Traffic Control,E-TRFC-DETECTOR,"147,112,219",Medium Purple,Vehicle detectors,DET-TRFC-960,"DETECTOR, LOOP",Vehicle detectors
+Traffic Control,P-TRFC-STRIPE,"255,228,181",Moccasin,Striping (general),DET-TRFC-910,"STRP, LINE",RENAMED from P-TRAF
+Traffic Control,P-TRFC-STRIPE-YEL,"255,255,0",Yellow,Yellow striping,DET-TRFC-910,"YEL STRP, 6"" YEL",Yellow striping
+Traffic Control,P-TRFC-STRIPE-WHT,"255,228,181",Moccasin,White striping,DET-TRFC-910,"WHT STRP, 4"" WHT",White striping
+Traffic Control,P-TRFC-MARKING,"255,228,181",Moccasin,Pavement markings,DET-TRFC-920,"MKG, LEG, SYM",Pavement markings
+Traffic Control,P-TRFC-XWALK,"255,228,181",Moccasin,Crosswalks,DET-TRFC-925,"XWALK, PED XING",Crosswalks
+Traffic Control,P-TRFC-STOP-BAR,"255,228,181",Moccasin,Stop bars,DET-TRFC-920,"LIMIT LN, STOP BAR",Stop bars
+Traffic Control,P-TRFC-SIGN-REG,"255,20,147",Deep Pink,Regulatory signs,DET-TRFC-930,"SIGN, REG, R-SERIES",Regulatory signs
+Traffic Control,P-TRFC-SIGN-WARN,"255,20,147",Deep Pink,Warning signs,DET-TRFC-930,"SIGN, WARN, W-SERIES",Warning signs
+Traffic Control,P-TRFC-SIGN-GUIDE,"255,20,147",Deep Pink,Guide signs,DET-TRFC-930,"SIGN, GUIDE, G-SERIES",Guide signs
+Traffic Control,P-TRFC-SIGNAL,"255,105,180",Hot Pink,Traffic signals,DET-TRFC-940,"SIG, TRFC SIG",Traffic signals
+Traffic Control,P-TRFC-BEACON,"255,105,180",Hot Pink,Beacons,DET-TRFC-940,"BEACON, FLASHER",Beacons
+Traffic Control,P-TRFC-DETECTOR,"255,20,147",Deep Pink,Vehicle detectors,DET-TRFC-960,"DETECTOR, LOOP, VIDEO",Vehicle detectors
+Traffic Control,P-TRFC-CONTROLLER,"255,105,180",Hot Pink,Signal controllers,DET-TRFC-940,"CTRL, SIG CTRL",Signal controllers
+Traffic Control,P-TRFC-CONDUIT,"255,20,147",Deep Pink,Signal conduit,DET-TRFC-940,"CNDT, CONDUIT",Signal conduit
+Landscape,E-LNDS-TREE-DECID,"64,224,208",Turquoise,Deciduous trees,DET-LNDS-460,"TR, DECID, EXIST",Deciduous trees
+Landscape,E-LNDS-TREE-CONIF,"64,224,208",Turquoise,Coniferous trees,DET-LNDS-460,"TR, CONIF, EVERGR",Coniferous trees
+Landscape,E-LNDS-TREE-PALM,"64,224,208",Turquoise,Palm trees,DET-LNDS-460,"TR, PALM, EXIST",Palm trees
+Landscape,E-LNDS-SHRUB,"64,224,208",Turquoise,Shrubs,DET-LNDS-470,"SH, SHRUB, EXIST",Shrubs
+Landscape,E-LNDS-GROUND-COVER,"64,224,208",Turquoise,Ground cover,DET-LNDS-480,"GC, GCOVER, EXIST",Ground cover
+Landscape,E-LNDS-GRASS,"64,224,208",Turquoise,Grass/turf areas,DET-LNDS-490,"GRASS, TURF, EXIST",Grass/turf areas
+Landscape,E-LNDS-MULCH,"100,200,255",Light Blue,Mulch beds,DET-LNDS-470,"MLCH, MULCH, EXIST",Mulch beds
+Landscape,E-LNDS-PLANTER,"123,104,238",Medium Slate Blue,Planters,DET-LNDS-470,"PLNTR, EXIST",Planters
+Landscape,P-LNDS-TREE-DECID,"255,215,0",Gold,Deciduous trees,DET-LNDS-460,"TR, DECID, CAL",Deciduous trees
+Landscape,P-LNDS-TREE-CONIF,"255,215,0",Gold,Coniferous trees,DET-LNDS-460,"TR, CONIF, EVERGR",Coniferous trees
+Landscape,P-LNDS-TREE-PALM,"255,215,0",Gold,Palm trees,DET-LNDS-460,"TR, PALM, PROP",Palm trees
+Landscape,P-LNDS-SHRUB,"255,215,0",Gold,Shrubs,DET-LNDS-470,"SH, 5 GAL, PROP",Shrubs
+Landscape,P-LNDS-GROUND-COVER,"255,215,0",Gold,Ground cover,DET-LNDS-480,"GC, FLAT, 4"" POT",Ground cover
+Landscape,P-LNDS-GRASS,"255,215,0",Gold,Grass/turf areas,DET-LNDS-490,"GRASS, TURF, SOD",Grass/turf areas
+Landscape,P-LNDS-MULCH,"255,200,100",Light Orange,Mulch beds,DET-LNDS-470,"MLCH, 3"", BARK","Mulch beds (3"" depth)"
+Landscape,P-LNDS-PLANTER,"255,99,71",Tomato,Planters,DET-LNDS-470,"PLNTR, RAISED, CONC",Planters
+Landscape,P-LNDS-PLANTING-BED,"255,215,0",Gold,Planting beds (ground level),DET-LNDS-470,"PLNTG BED, PROP",Ground-level planting beds
+Landscape,P-LNDS-ROCKERY,"255,200,100",Light Orange,Rock features,DET-LNDS-470,"RCKRY, COBBLE",Rock features
+Irrigation,P-IRRG-MAIN,"255,20,147",Deep Pink,Irrigation mainline,DET-IRRG-710,"ML, IRRG MAIN",NEW CATEGORY - Irrigation mainline
+Irrigation,P-IRRG-LATERAL,"255,20,147",Deep Pink,Irrigation lateral lines,DET-IRRG-720,"LAT, IRRG LAT",Lateral lines
+Irrigation,P-IRRG-VALVE,"255,105,180",Hot Pink,Remote control valves (RCV),DET-IRRG-730,"RCV, CTRL VLV",Control valves
+Irrigation,P-IRRG-VALVEBOX,"255,105,180",Hot Pink,Valve boxes,DET-IRRG-730,"VB, VALVE BOX",Valve boxes
+Irrigation,P-IRRG-HEAD-ROT,"255,105,180",Hot Pink,Rotary sprinkler heads,DET-IRRG-735,"ROT, ROTOR, 15'",Rotary sprinkler heads
+Irrigation,P-IRRG-HEAD-SPY,"255,105,180",Hot Pink,Spray heads (fixed pattern),DET-IRRG-735,"SPY, SPRAY, 12'",Spray heads
+Irrigation,P-IRRG-HEAD-BUBB,"255,105,180",Hot Pink,Bubbler heads,DET-IRRG-735,"BUBB, BUBBLER",Bubbler heads
+Irrigation,P-IRRG-DRIP,"255,20,147",Deep Pink,Drip irrigation lines,DET-IRRG-740,"DRIP, ½"" POLY",Drip irrigation lines
+Irrigation,P-IRRG-EMITTER,"255,105,180",Hot Pink,Drip emitters,DET-IRRG-740,"DE, DRIP EMITTER",Drip emitters
+Irrigation,P-IRRG-CTRL,"255,105,180",Hot Pink,Controller location,DET-IRRG-745,"CTRL, CONTROLLER",Controller location
+Irrigation,P-IRRG-SLEEVE,"255,140,0",Dark Orange,Irrigation sleeve (under pavement),DET-IRRG-720,"SLV, SLEEVE",Sleeve under pavement
+Irrigation,P-IRRG-QUICKCOUPLER,"255,105,180",Hot Pink,Quick coupler valves,DET-IRRG-730,"QC, QUICK COUPLER",Quick coupler valves
+Annotation,E-ANNO-TEXT,"176,224,230",Powder Blue,General text,N/A,"TEXT, EXIST",General text
+Annotation,E-ANNO-LABEL,"176,224,230",Powder Blue,Labels,N/A,"LABEL, TAG, EXIST",Labels
+Annotation,E-ANNO-DIMENSION,"176,224,230",Powder Blue,Dimensions,N/A,"DIM, EXIST",Dimensions
+Annotation,E-ANNO-LEADER,"176,224,230",Powder Blue,Leaders/callouts,N/A,"LEADER, CALLOUT",Leaders/callouts
+Annotation,E-ANNO-NOTE,"176,224,230",Powder Blue,Notes,N/A,"NOTE, EXIST",Notes
+Annotation,E-ANNO-SYMBOL,"138,43,226",Blue Violet,Symbols,N/A,"SYM, SYMBOL, EXIST",Symbols
+Annotation,E-ANNO-TAG,"176,224,230",Powder Blue,Tags/identifiers,N/A,"TAG, ID, EXIST",Tags/identifiers
+Annotation,P-ANNO-TEXT,"255,228,181",Moccasin,General text,N/A,"TEXT, PROP",General text
+Annotation,P-ANNO-LABEL,"255,228,181",Moccasin,Labels,N/A,"LABEL, TAG, PROP",Labels
+Annotation,P-ANNO-DIMENSION,"255,228,181",Moccasin,Dimensions,N/A,"DIM, PROP",Dimensions
+Annotation,P-ANNO-LEADER,"255,228,181",Moccasin,Leaders/callouts,N/A,"LEADER, CALLOUT",Leaders/callouts
+Annotation,P-ANNO-NOTE,"255,228,181",Moccasin,Notes,N/A,"NOTE, PROP",Notes
+Annotation,P-ANNO-SYMBOL,"255,105,180",Hot Pink,Symbols,N/A,"SYM, SYMBOL, PROP",Symbols
+Annotation,P-ANNO-TAG,"255,228,181",Moccasin,Tags/identifiers,N/A,"TAG, ID, PROP",Tags/identifiers
+Annotation,E-ANNO-STRM,"176,224,230",Powder Blue,Storm drainage annotations,DET-STRM-###,"SD, TEXT, PIPE SIZE",NEW - Storm annotations
+Annotation,P-ANNO-STRM,"255,228,181",Moccasin,Storm drainage annotations,DET-STRM-###,"SD, TEXT, INV, MH",Storm annotations
+Annotation,E-ANNO-WATR,"176,224,230",Powder Blue,Water utility annotations,DET-WATR-###,"WM, TEXT, VALVE",NEW - Water annotations
+Annotation,P-ANNO-WATR,"255,228,181",Moccasin,Water utility annotations,DET-WATR-###,"WM, TEXT, FH, GV",Water annotations
+Annotation,E-ANNO-SAN_,"176,224,230",Powder Blue,Sanitary sewer annotations,DET-SAN_-###,"SAN, TEXT, INV",NEW - Sewer annotations
+Annotation,P-ANNO-SAN_,"255,228,181",Moccasin,Sanitary sewer annotations,DET-SAN_-###,"SAN, TEXT, MH, CO",Sewer annotations
+Annotation,P-ANNO-GRAD,"255,228,181",Moccasin,Grading annotations,DET-GRAD-###,"FG, EL, GRAD, SLP",NEW - Grading annotations
+Annotation,P-ANNO-ADA_,"255,228,181",Moccasin,ADA compliance annotations,DET-ADA-###,"ACC, ADA, SLP",⭐ NEW - ADA annotations
+Annotation,P-ANNO-TRFC,"255,228,181",Moccasin,Traffic control annotations,DET-TRFC-###,"STRP, SIGN, MKG",NEW - Traffic annotations
+Reference,BORD-TITLEBLOCK,"255,255,255",White,Title block,N/A,"TB, TITLE BLOCK",Title block
+Reference,BORD-VIEWPORT,"128,128,128",Gray,Viewport borders,N/A,"VP, VIEWPORT",Viewport borders
+Reference,BORD-SHEET-EDGE,"192,192,192",Silver,Sheet edge/limits,N/A,"SHEET EDGE, LIMIT",Sheet edge/limits
+Reference,BORD-MATCHLINE,"255,255,255",White,Match lines,N/A,"MATCHLINE, MATCH",Match lines
+Reference,BORD-REFERENCE-LINE,"192,192,192",Silver,Reference lines,N/A,"REF LINE, GRID",Reference lines
+Reference,XREF-ARCH,"128,128,128",Gray,Architectural xref,N/A,"ARCH, XREF",Architectural xref
+Reference,XREF-STRUCT,"128,128,128",Gray,Structural xref,N/A,"STRUCT, XREF",Structural xref
+Reference,XREF-SURVEY,"128,128,128",Gray,Survey xref,N/A,"SURV, XREF",Survey xref
+Reference,XREF-GIS,"128,128,128",Gray,GIS data xref,N/A,"GIS, XREF",GIS data xref
+Reference,XREF-UTILITY,"128,128,128",Gray,Utility xref,N/A,"UTIL, XREF",Utility xref
+Reference,DEFPOINTS,"255,255,255",White,Definition points (non-plotting),N/A,DEFPOINTS,Definition points (non-plotting)
+Demolition,D-SITE-BUILDING,"255,0,0",Red,Buildings to be demolished,N/A,"DEMO, BLDG, REMOVE",Buildings to demolish
+Demolition,D-SITE-STRUCTURE,"255,0,0",Red,Structures to be removed,N/A,"DEMO, STRUCT, REMOVE",Structures to remove
+Demolition,D-SITE-PAVEMENT,"255,100,100",Light Red,Pavement to be removed,N/A,"DEMO, PVMT, REMOVE",Pavement removal
+Demolition,D-SITE-CURB,"255,0,0",Red,Curbs to be removed,N/A,"DEMO, CURB, REMOVE",Curb removal
+Demolition,D-SITE-SIDEWALK,"255,100,100",Light Red,Sidewalks to be removed,N/A,"DEMO, SDWK, REMOVE",Sidewalk removal
+Demolition,D-STRM-PIPE,"255,0,100",Red-Pink,Storm pipes to be removed,N/A,"DEMO, SD, REMOVE",Storm pipe removal
+Demolition,D-STRM-STRUCTURE,"255,0,0",Red,Storm structures to be removed,N/A,"DEMO, CB, MH, REMOVE",Storm structure removal
+Demolition,D-WATR-MAIN,"255,0,100",Red-Pink,Water mains to be removed,N/A,"DEMO, WM, REMOVE",Water main removal
+Demolition,D-WATR-LATERAL,"255,0,100",Red-Pink,Water laterals to be removed,N/A,"DEMO, LAT, REMOVE",Water lateral removal
+Demolition,D-SAN_-MAIN,"255,0,100",Red-Pink,Sanitary mains to be removed,N/A,"DEMO, SAN, REMOVE",RENAMED - Sanitary removal
+Demolition,D-SAN_-LATERAL,"255,0,100",Red-Pink,Sanitary laterals to be removed,N/A,"DEMO, LAT, REMOVE",RENAMED - Lateral removal
+Demolition,D-UTIL-POLE,"255,0,0",Red,Utility poles to be removed,N/A,"DEMO, POLE, REMOVE",Utility pole removal
+Demolition,D-LNDS-TREE,"255,50,50",Red,Trees to be removed,N/A,"DEMO, TR, REMOVE",Tree removal
+Demolition,D-LNDS-SHRUB,"255,100,100",Light Red,Shrubs to be removed,N/A,"DEMO, SH, REMOVE",Shrub removal
+Demolition,D-ANNO-TEXT,"255,150,150",Pink,Demolition notes,N/A,"DEMO, TEXT, NOTE",Demolition notes
+Temporary,T-SITE-FENCE,"200,200,0",Yellow-Green,Temporary fencing,N/A,"TEMP FNC, CONST FNC",Temporary fencing
+Temporary,T-SITE-ACCESS,"200,200,0",Yellow-Green,Temporary access roads,N/A,"TEMP ACCESS, CONST",Temporary access roads
+Temporary,T-SITE-STAGING,"200,200,0",Yellow-Green,Staging areas,N/A,"STAGING, TEMP",Staging areas
+Temporary,T-SITE-TRAILER,"200,200,0",Yellow-Green,Construction trailers,N/A,"TRAILER, TEMP",Construction trailers
+Temporary,T-SITE-STORAGE,"200,200,0",Yellow-Green,Storage areas,N/A,"STORAGE, TEMP",Storage areas
+Temporary,T-UTIL-POWER,"200,200,0",Yellow-Green,Temporary power,N/A,"TEMP PWR, CONST PWR",Temporary power
+Temporary,T-UTIL-WATER,"200,200,0",Yellow-Green,Temporary water,N/A,"TEMP WTR, CONST WTR",Temporary water
+Temporary,T-EROS-SILT-FENCE,"200,200,0",Yellow-Green,Silt fence,N/A,"SILT FNC, TEMP",Silt fence
+Temporary,T-EROS-INLET-PROTECT,"200,200,0",Yellow-Green,Inlet protection,N/A,"INLET PROT, BMP",Inlet protection
+Temporary,T-EROS-DIVERSION,"200,200,0",Yellow-Green,Temporary diversions,N/A,"DIVERSION, TEMP",Temporary diversions
+Temporary,T-ANNO-TEXT,"220,220,100",Light Yellow,Temporary notes,N/A,"TEMP, TEXT, NOTE",Temporary notes
+Utility Coordination,UTIL-CONFLICT,"255,0,0",Red,Utility conflicts,N/A,"CONFLICT, CLASH",Utility conflicts
+Utility Coordination,UTIL-CROSSING-OVER,"255,165,0",Orange,Utility crossing over,N/A,"OVER, CROSSING",Utility crossing over
+Utility Coordination,UTIL-CROSSING-UNDER,"255,200,100",Light Orange,Utility crossing under,N/A,"UNDER, CROSSING",Utility crossing under
+Utility Coordination,UTIL-SEPARATION,"255,228,181",Moccasin,Separation lines,N/A,"SEPARATION, CLR",Separation lines
+Utility Coordination,UTIL-POTHOLE,"255,105,180",Hot Pink,Pothole locations,N/A,"POTHOLE, DIG",Pothole locations
+Utility Coordination,UTIL-ABANDON,"128,128,128",Gray,Utilities to abandon,N/A,"ABANDON, ABANDON IN PLACE",Utilities to abandon
+Construction,P-CNST-EXCAVATION,"255,140,0",Dark Orange,Excavation limits,N/A,"EXC, EXCAVATION",Excavation limits
+Construction,P-CNST-LIMIT-WORK,"255,140,0",Dark Orange,Limits of work,N/A,"LIMIT WORK, LOW",Limits of work
+Construction,P-CNST-CLEARING,"255,200,100",Light Orange,Clearing limits,N/A,"CLEARING, LIMIT",Clearing limits
+Construction,P-CNST-TREE-PROTECT,"255,215,0",Gold,Tree protection zones,N/A,"TPZ, TREE PROT",Tree protection zones
+Construction,P-CNST-HAUL-ROUTE,"255,165,0",Orange,Haul routes,N/A,"HAUL ROUTE, ACCESS",Haul routes
+Construction,P-CNST-BENCH,"255,140,0",Dark Orange,Benches/berms,N/A,"BENCH, BERM",Benches/berms
+Construction,P-CNST-KEYWAY,"255,140,0",Dark Orange,Keyways,N/A,"KEYWAY, KEY",Keyways
+Construction,P-CNST-GEOTEXTILE,"255,200,100",Light Orange,Geotextile fabric,N/A,"GEOTEXTILE, FABRIC",Geotextile fabric
+Construction,P-CNST-AGGREGATE,"255,200,100",Light Orange,Aggregate base,N/A,"AB, AGGREGATE BASE",Aggregate base
+Environmental,E-ENVR-WETLAND,"64,224,208",Turquoise,Wetlands,N/A,"WETLAND, WL",Wetlands
+Environmental,E-ENVR-FLOODPLAIN,"255,255",Cyan,Floodplain boundaries,N/A,"FLOODPLAIN, 100-YR",Floodplain boundaries
+Environmental,E-ENVR-FLOODWAY,"255,255",Cyan,Floodway,N/A,"FLOODWAY, FW",Floodway
+Environmental,E-ENVR-RIPARIAN,"64,224,208",Turquoise,Riparian zones,N/A,"RIPARIAN, BUFFER",Riparian zones
+Environmental,E-ENVR-HABITAT,"64,224,208",Turquoise,Critical habitat,N/A,"HABITAT, CRITICAL",Critical habitat
+Environmental,E-ENVR-BUFFER,"100,200,255",Light Blue,Environmental buffers,N/A,"BUFFER, SETBACK",Environmental buffers
+Environmental,P-ENVR-MITIGATION,"255,215,0",Gold,Mitigation areas,N/A,"MITIGATION, MIT",Mitigation areas
+Environmental,P-ENVR-RESTORATION,"255,215,0",Gold,Restoration areas,N/A,"RESTORATION, REST",Restoration areas
+Environmental,P-ENVR-BUFFER,"255,200,100",Light Orange,Environmental buffers,N/A,"BUFFER, SETBACK",Environmental buffers
+Environmental,P-ENVR-MONITORING,"255,105,180",Hot Pink,Monitoring points,N/A,"MONITORING, MON PT",Monitoring points
+Profile,PROF-GRID-MAJOR,"128,128,128",Gray,Major profile grid,N/A,"GRID, MAJOR",Major profile grid
+Profile,PROF-GRID-MINOR,"80,80,80",Dark Gray,Minor profile grid,N/A,"GRID, MINOR",Minor profile grid
+Profile,E-PROF-GROUND,"191,255",Deep Sky Blue,Existing ground line,N/A,"EG, GROUND",Existing ground line
+Profile,P-PROF-GRADE,"255,140,0",Dark Orange,Proposed grade line,N/A,"FG, GRADE",Proposed grade line
+Profile,P-PROF-PIPE-STORM,"255,20,147",Deep Pink,Storm pipe profile,N/A,"SD, PROFILE",Storm pipe profile
+Profile,P-PROF-PIPE-WATER,"255,20,147",Deep Pink,Water pipe profile,N/A,"WM, PROFILE",Water pipe profile
+Profile,P-PROF-PIPE-SANITARY,"255,20,147",Deep Pink,Sanitary pipe profile,N/A,"SAN, PROFILE",Sanitary pipe profile
+Profile,PROF-STATION,"255,255,255",White,Station labels,N/A,"STA, STATION",Station labels
+Profile,PROF-ELEVATION,"255,255,255",White,Elevation labels,N/A,"ELEV, EL",Elevation labels
+Cross-Section,XSEC-GRID,"128,128,128",Gray,Cross-section grid,N/A,"GRID, XSEC",Cross-section grid
+Cross-Section,E-XSEC-GROUND,"191,255",Deep Sky Blue,Existing ground,N/A,"EG, GROUND",Existing ground
+Cross-Section,P-XSEC-GRADE,"255,140,0",Dark Orange,Proposed grade,N/A,"FG, GRADE",Proposed grade
+Cross-Section,P-XSEC-PAVEMENT,"255,200,100",Light Orange,Pavement layers,N/A,"PVMT, PAVEMENT",Pavement layers
+Cross-Section,P-XSEC-SUBGRADE,"255,165,0",Orange,Subgrade,N/A,"SUBGRADE, SG",Subgrade
+Cross-Section,P-XSEC-PIPE,"255,20,147",Deep Pink,Utility pipes,N/A,"PIPE, UTILITY",Utility pipes
+Cross-Section,XSEC-STATION,"255,255,255",White,Station labels,N/A,"STA, STATION",Station labels
+Cross-Section,XSEC-DIMENSION,"255,228,181",Moccasin,Dimensions,N/A,"DIM, DIMENSION",Dimensions
+Hydrology,HYDR-WATERSHED,"255,255",Cyan,Watershed boundaries,N/A,"WATERSHED, WS",Watershed boundaries
+Hydrology,HYDR-SUBBASIN,"100,200,255",Light Blue,Subbasin boundaries,N/A,"SUBBASIN, SB",Subbasin boundaries
+Hydrology,HYDR-FLOWPATH,"191,255",Deep Sky Blue,Flow paths,N/A,"FLOW PATH, FP",Flow paths
+Hydrology,HYDR-FLOWLINE,"255,255",Cyan,Stream flowlines,N/A,"FLOWLINE, FL",Stream flowlines
+Hydrology,HYDR-NODE,"138,43,226",Blue Violet,Calculation nodes,N/A,"NODE, CALC NODE",Calculation nodes
+Hydrology,HYDR-TIME-CONC,"176,224,230",Powder Blue,Time of concentration,N/A,"TC, TIME CONC",Time of concentration
+Hydrology,HYDR-FLOOD-ELEV,"255,255",Cyan,Flood elevations,N/A,"FLOOD ELEV, WSEL",Flood elevations
+Detail Reference,DETAIL-REFER,"255,228,181",Moccasin,Detail reference bubbles,ALL,"DET, DTL, BUBBLE",NEW - Detail bubbles
+Detail Reference,DETAIL-CUT,"255,140,0",Dark Orange,Section/detail cut lines,ALL,"CUT LINE, SECTION",NEW - Cut lines
+Detail Reference,DETAIL-MATCH,"255,255,255",White,Detail matchlines,ALL,"MATCHLINE, MATCH",NEW - Matchlines
+Detail Reference,DETAIL-KEYNOTE,"255,228,181",Moccasin,Keynote tags,ALL,"KEYNOTE, TAG",NEW - Keynote tags
+Detail Reference,DETAIL-GRID,"128,128,128",Gray,Detail grid lines,ALL,"GRID, REFERENCE",NEW - Grid lines
+Detail Reference,DETAIL-CALLOUT,"255,228,181",Moccasin,Detail callout bubbles (general),ALL,"CALLOUT, BUBBLE",NEW - General callouts
+Detail Reference,SECTION-CUT,"255,140,0",Dark Orange,Section cut lines,ALL,"X-SEC, SECTION",Section cuts
+Miscellaneous,LEGEND,"255,255,255",White,Legend information,N/A,"LEGEND, KEY",Legend information
+Miscellaneous,SCHEDULE,"255,255,255",White,Schedules/tables,N/A,"SCHEDULE, TABLE",Schedules/tables
+Miscellaneous,HATCH-EXISTING,"100,200,255",Light Blue,Existing hatches,N/A,"HATCH, EXIST",Existing hatches
+Miscellaneous,HATCH-PROPOSED,"255,200,100",Light Orange,Proposed hatches,N/A,"HATCH, PROP",Proposed hatches
+Miscellaneous,HATCH-DEMOLITION,"255,100,100",Light Red,Demolition hatches,N/A,"HATCH, DEMO",Demolition hatches
+Miscellaneous,PATTERN-CONCRETE,"192,192,192",Silver,Concrete pattern,N/A,"CONC, PATTERN",Concrete pattern
+Miscellaneous,PATTERN-ASPHALT,"128,128,128",Gray,Asphalt pattern,N/A,"AC, ASPH, PATTERN",Asphalt pattern
+Miscellaneous,PATTERN-GRAVEL,"160,160,160",Light Gray,Gravel pattern,N/A,"GRAVEL, PATTERN",Gravel pattern
+Miscellaneous,PATTERN-SOIL,"139,90,43",Brown,Soil pattern,N/A,"SOIL, PATTERN",Soil pattern
+Miscellaneous,NORTH-ARROW,"255,255,255",White,North arrows,N/A,"NORTH, ARROW",North arrows
+Miscellaneous,SCALE-BAR,"255,255,255",White,Scale bars,N/A,"SCALE, BAR",Scale bars
+Miscellaneous,REVISION-CLOUD,"255,0,0",Red,Revision clouds,N/A,"REVISION, CLOUD",Revision clouds
+Miscellaneous,REVISION-TRIANGLE,"255,0,0",Red,Revision triangles,N/A,"REVISION, DELTA",Revision triangles
+Miscellaneous,BENCHMARK-SYMBOL,"138,43,226",Blue Violet,Benchmark symbols,N/A,"BM, SYMBOL",Benchmark symbols
+Miscellaneous,GRAPHIC,"255,255,255",White,General graphics,N/A,"GRAPHIC, IMAGE",General graphics
+Zoning,ZONE-BOUNDARY,"138,43,226",Blue Violet,Zoning boundaries,N/A,"ZONE, BOUNDARY",Zoning boundaries
+Zoning,ZONE-LABEL,"176,224,230",Powder Blue,Zoning labels,N/A,"ZONE, LABEL",Zoning labels
+Zoning,ZONE-SETBACK,"147,112,219",Medium Purple,Setback lines,N/A,"SETBACK, SB",Setback lines
+Zoning,ZONE-HEIGHT-LIMIT,"147,112,219",Medium Purple,Height limit planes,N/A,"HEIGHT LIMIT, HL",Height limit planes
+Zoning,ZONE-PARKING-COUNT,"176,224,230",Powder Blue,Parking calculations,N/A,"PARKING COUNT, PKG",Parking calculations
+Zoning,ZONE-FAR,"176,224,230",Powder Blue,Floor area ratio,N/A,"FAR, FLOOR AREA",Floor area ratio
+Zoning,ZONE-COVERAGE,"147,112,219",Medium Purple,Building coverage,N/A,"COVERAGE, BC",Building coverage
+Specialty Aviation,E-AIRP-RUNWAY,"191,255",Deep Sky Blue,Existing runway,N/A,"RWY, RUNWAY",Existing runway
+Specialty Aviation,P-AIRP-RUNWAY,"255,140,0",Dark Orange,Proposed runway,N/A,"RWY, RUNWAY",Proposed runway
+Specialty Aviation,E-AIRP-TAXIWAY,"100,200,255",Light Blue,Existing taxiway,N/A,"TWY, TAXIWAY",Existing taxiway
+Specialty Aviation,P-AIRP-TAXIWAY,"255,200,100",Light Orange,Proposed taxiway,N/A,"TWY, TAXIWAY",Proposed taxiway
+Specialty Aviation,AIRP-MARKING,"255,255,0",Yellow,Pavement markings,N/A,"MARKING, AIRFIELD",Airfield pavement markings
+Specialty Aviation,AIRP-LIGHT,"255,20,147",Deep Pink,Airfield lighting,N/A,"LIGHT, AIRFIELD",Airfield lighting
+Specialty Rail,E-RAIL-TRACK,"191,255",Deep Sky Blue,Existing rail track,N/A,"TRACK, RAIL",Existing rail track
+Specialty Rail,P-RAIL-TRACK,"255,140,0",Dark Orange,Proposed rail track,N/A,"TRACK, RAIL",Proposed rail track
+Specialty Rail,E-RAIL-CROSSING,"123,104,238",Medium Slate Blue,Existing crossings,N/A,"XING, RAIL XING",Existing crossings
+Specialty Rail,P-RAIL-CROSSING,"255,99,71",Tomato,Proposed crossings,N/A,"XING, RAIL XING",Proposed crossings
+Specialty Rail,RAIL-SIGNAL,"255,105,180",Hot Pink,Rail signals,N/A,"SIGNAL, RAIL",Rail signals
+Specialty Marine,E-MAR-PIER,"123,104,238",Medium Slate Blue,Existing piers,N/A,"PIER, WHARF",Existing piers
+Specialty Marine,P-MAR-PIER,"255,99,71",Tomato,Proposed piers,N/A,"PIER, WHARF",Proposed piers
+Specialty Marine,E-MAR-DOCK,"123,104,238",Medium Slate Blue,Existing docks,N/A,"DOCK, MARINA",Existing docks
+Specialty Marine,P-MAR-DOCK,"255,99,71",Tomato,Proposed docks,N/A,"DOCK, MARINA",Proposed docks
+Specialty Marine,MAR-WATER-DEPTH,"255,255",Cyan,Water depth contours,N/A,"DEPTH, BATHYMETRY",Water depth contours
+Specialty Marine,MAR-NAVIGATION,"176,224,230",Powder Blue,Navigation lines,N/A,"NAV, NAVIGATION",Navigation lines

@@ -1,0 +1,707 @@
+Category,Full_Term,Abbreviation,Context_Usage_Notes,ADA_Critical,Conflict_Risk
+General Terms,Accessible,ACC,ADA compliance - legally defined term,YES,Low
+General Terms,Adjustment,ADJ,Utility adjustments grade adjustments,NO,Low
+General Terms,Aggregate Base,AB,Pavement section component,NO,Low
+General Terms,Alternate,ALT,Bid alternates alternative details,NO,Low
+General Terms,Approximate,APPROX,Dimensioning quantities,NO,Low
+General Terms,As-Built,ASBUILT,Drawing type - use ASBUILT to avoid AB conflict,NO,Low
+General Terms,Assembly,ASSY,Hardware valve assemblies,NO,Low
+General Terms,At,@,Universal location indicator,NO,Low
+General Terms,Average,AVG,Statistical measurements,NO,Low
+General Terms,Backfill,BFILL,Trench backfill structural backfill,NO,Low
+General Terms,Bearing,BRG,Directional bearings structural bearings,NO,Low
+General Terms,Below,BLW,Vertical relationships,NO,Low
+General Terms,Benchmark,BM,Survey control point,NO,Low
+General Terms,Between,BTWN,Spatial relationships,NO,Low
+General Terms,Bituminous,BIT,Asphalt materials,NO,Low
+General Terms,Block,BLK,CAD blocks concrete blocks (CMU),NO,Low
+General Terms,Bottom,BOT,Vertical reference,NO,Low
+General Terms,Boundary,BNDRY,Property lines project limits,NO,Low
+General Terms,Building,BLDG,Structures,NO,Low
+General Terms,California,CA,State abbreviation - never Cal,NO,Low
+General Terms,Casting,CSTG,Manhole castings utility frames,NO,Low
+General Terms,Catch Basin,CB,Storm drainage structure,NO,Low
+General Terms,Center,CTR or ℄,Centerline symbol preferred,NO,Medium
+General Terms,Centerline,CL or ℄,"Primary abbreviation CL, symbol ℄ also acceptable",NO,Low
+General Terms,Check,CHK,Verification notes,NO,Low
+General Terms,Class,CLS,Material classifications,NO,Low
+General Terms,Cleanout,CO,Sanitary sewer access point,NO,Low
+General Terms,Clear,CLR,Clearances clear space,YES,Low
+General Terms,Compacted,COMP,Soil compaction,NO,Medium
+General Terms,Concrete,CONC,Never CNC or CC,NO,Low
+General Terms,Connection,CONN,Utility connections,NO,Low
+General Terms,Construction,CONST,General construction notes,NO,Low
+General Terms,Continuous,CONT,Continuous elements,NO,Low
+General Terms,Control,CTRL,Survey control traffic control,NO,Low
+General Terms,Corner,COR,Property corners building corners,NO,Low
+General Terms,Corrugated,CORR,Pipe materials,NO,Low
+General Terms,Cross Section,X-SEC,Drawing references,NO,Low
+General Terms,Datum,DAT,Vertical reference,NO,Low
+General Terms,Degree,° or DEG,Angular measurements,NO,Low
+General Terms,Demolition,DEMO,Removal work,NO,Low
+General Terms,Department,DEPT,Agency references,NO,Low
+General Terms,Detail,DET or DTL,Drawing references - DET preferred,NO,Low
+General Terms,Diameter,⌀ or DIA,Symbol preferred especially for pipes,NO,Low
+General Terms,Dimension,DIM,Measurement references,NO,Low
+General Terms,Direction,DIR,Orientations,NO,Low
+General Terms,Distance,DIST,Linear measurements,NO,Low
+General Terms,Ditch,DTH,Drainage features,NO,Low
+General Terms,Down,DN,Vertical direction slope direction,NO,Low
+General Terms,Downspout,DS,Building drainage,NO,Medium - conflicts with Design Storm
+General Terms,Drawing,DWG,Sheet references,NO,Low
+General Terms,Each,EA,Quantity units,NO,Low
+General Terms,East,E,Cardinal direction,NO,Low
+General Terms,Edge,EDG,Pavement edges slab edges,NO,Low
+General Terms,Elevation,EL or ELEV,Vertical dimensions - EL preferred,NO,Low
+General Terms,Embankment,EMBANK,Grading features,NO,Low
+General Terms,Emergency,EMER,Emergency access systems,NO,Low
+General Terms,Engineer,ENGR,Professional references,NO,Low
+General Terms,Equipment,EQUIP,Site equipment utility equipment,NO,Low
+General Terms,Estimated,EST,Preliminary quantities,NO,Low
+General Terms,Excavation,EXC,Earthwork,NO,Low
+General Terms,Existing,EXST or EX,Existing conditions - EXST preferred,NO,Medium
+General Terms,Expansion,EXP,Expansion joints,NO,Medium - conflicts with Export
+General Terms,Exterior,EXT,Building relationships,NO,Low
+General Terms,Face,F/,Face of curb (F/C) face of wall,NO,Low
+General Terms,Feet,FT or ',Linear measurement - symbol preferred,NO,Low
+General Terms,Fence,FNC,Site barriers,NO,Low
+General Terms,Finished,FIN,Finished grade finished floor,NO,Low
+General Terms,Fire Hydrant,FH,Water system component,NO,Low
+General Terms,Flange,FLG,Pipe connections,NO,Low
+General Terms,Floor,FLR,Building reference,NO,Low
+General Terms,Foundation,FDN,Structural elements,NO,Low
+General Terms,Frame,FR,Utility covers structural frames,NO,Low
+General Terms,Frequency,FREQ,Technical specifications,NO,Low
+General Terms,Galvanized,GALV,Metal coatings,NO,Low
+General Terms,Grade,GR,Surface elevations,NO,Medium - conflicts with Grass
+General Terms,Grate,GRT,Drainage grates,NO,Low
+General Terms,Ground,GND,Electrical ground ground surface,NO,Low
+General Terms,Height,HT or H,Vertical dimensions,NO,Low
+General Terms,Horizontal,HORIZ,Directional reference,NO,Low
+General Terms,Inch,"IN or """,Linear measurement - symbol preferred,NO,Low
+General Terms,Include/Including,INCL,Specification language,NO,Low
+General Terms,Information,INFO,General notes,NO,Low
+General Terms,Inside,INS,Interior references,NO,Low
+ADA Compliance,Accessible Parking,ADA PKG,Never just HC - specify ADA,YES,High
+ADA Compliance,Accessible Route,ACC ROUTE,Path of travel - legal term,YES,High
+ADA Compliance,Accessible Space,ACC SPC,Parking maneuvering areas,YES,High
+ADA Compliance,Braille,spell out,Never abbreviate - ADA signage,YES,Critical
+ADA Compliance,Blind,spell out,Refers to people - never abbreviate,YES,Critical
+ADA Compliance,Curb Ramp,CR,California prefers curb ramp over ramp,YES,Low
+ADA Compliance,Cross Slope,X-SLP,Maximum 2.0% for accessible routes,YES,Low
+ADA Compliance,Detectable Warning,DETWARN,Truncated domes - ADA required surface,YES,Low
+ADA Compliance,Disabled,avoid,Use accessible or person with disability,YES,Critical
+ADA Compliance,Domed Surface,spell out,Detectable warning surface,YES,Low
+ADA Compliance,Exterior Accessible Route,EXT ACC ROUTE,Outside paths of travel,YES,Low
+ADA Compliance,Flared Side,FLRD SIDE,Curb ramp side slopes,YES,Low
+ADA Compliance,Grab Bar,GB,Restroom accessories,YES,Low
+ADA Compliance,Grade Break,GRD BRK,Slope transition point,YES,Low
+ADA Compliance,Handrail,HR,Ramp/stair safety feature,YES,Low
+ADA Compliance,Handicapped,avoid,Outdated term - use accessible,YES,Critical
+ADA Compliance,Interior Accessible Route,INT ACC ROUTE,Inside building paths,YES,Low
+ADA Compliance,Landing,LNDG,Ramp platforms door landings,YES,Low
+ADA Compliance,Level,LVL,Flat surface requirement,YES,Low
+ADA Compliance,Level Change,LVL CHG,Vertical transitions,YES,Low
+ADA Compliance,Maximum,MAX,Upper limits - critical for slopes,YES,Low
+ADA Compliance,Minimum,MIN,Lower limits - critical for clearances,YES,Low
+ADA Compliance,Maneuvering Clearance,MANEUV CLR,Door approach spaces,YES,Low
+ADA Compliance,Mobility,spell out,Person-first language,YES,Critical
+ADA Compliance,Parallel,PAR,Parking approach type,YES,Low
+ADA Compliance,Passenger Loading Zone,PASS LOAD,Drop-off areas,YES,Low
+ADA Compliance,Perpendicular,PERP,Parking approach type,YES,Low
+ADA Compliance,Protruding Object,PROT OBJ,Overhead/side clearance hazard,YES,Low
+ADA Compliance,Public Right-of-Way,PROW,Accessible route context,YES,Low
+ADA Compliance,Ramp,RMP,Accessible slope - see also Curb Ramp,YES,Low
+ADA Compliance,Reach Range,RCH RNG,Forward/side reach limits,YES,Low
+ADA Compliance,Running Slope,RUN SLP,Direction of travel slope,YES,Low
+ADA Compliance,Side Flare,SIDE FLARE,Curb ramp wing slope (10:1 max),YES,Low
+ADA Compliance,Sidewalk,SDWK or SW,Pedestrian path - SW preferred,YES,Low
+ADA Compliance,Signage,SIGN,Wayfinding identification,YES,Low
+ADA Compliance,Slope,SLP,Grade percentage or ratio,YES,Low
+ADA Compliance,Tactile,TACT,Detectable warning Braille,YES,Low
+ADA Compliance,Transition,TRANS,Slope/surface changes,YES,Low
+ADA Compliance,Truncated Dome,TRUNC DOME,Specific detectable warning type,YES,Low
+ADA Compliance,Van Accessible,VAN ACC,"98"" min clear height parking",YES,High
+ADA Compliance,Wheelchair,WC,Mobility device - person-first language,YES,Low
+Materials,Aggregate,AGG,General term for crushed rock,NO,Low
+Materials,Aggregate Base,AB,Class 2 Class 3 base materials,NO,High - conflicts with As-Built
+Materials,Aluminum,AL or ALUM,Metal material - AL matches periodic table,NO,Low
+Materials,Asphalt,ASPH,Paving material,NO,Low
+Materials,Asphalt Concrete,AC,Hot-mix asphalt pavement,NO,High - conflicts with Asphalt Cement
+Materials,Asphalt Cement,AC,Binder - conflicts with Asphalt Concrete,NO,High
+Materials,Bedding,BED,Pipe bedding material,NO,Low
+Materials,Bituminous,BIT,Asphalt-based materials,NO,Low
+Materials,Block,BLK,Concrete masonry units (CMU),NO,Low
+Materials,Brass,BRAS,Valve/fitting material,NO,Low
+Materials,Brick,BRK,Masonry units,NO,Low
+Materials,Bronze,BRZ,Valve/fitting material,NO,Low
+Materials,Cast Iron,CI,Pipe material utility frames,NO,Low
+Materials,Cast-in-Place,CIP,Concrete construction method,NO,Low
+Materials,Cement,CEM,Portland cement Type II etc,NO,Low
+Materials,Clay,CLY,Soil type pipe material,NO,Low
+Materials,Coarse,CSE,Aggregate gradation,NO,Low
+Materials,Cobble,COB,Large aggregate decorative stone,NO,Low
+Materials,Compacted,COMP,Soil/base compaction state,NO,Medium
+Materials,Composite,CMPS,Multi-material products,NO,Low
+Materials,Concrete,CONC,Cement-based material,NO,Low
+Materials,Concrete Masonry Unit,CMU,Concrete block,NO,Low
+Materials,Corrugated Metal Pipe,CMP,Drainage pipe type,NO,Low
+Materials,Crushed,CRSH,Aggregate processing method,NO,Low
+Materials,Crushed Aggregate Base,CAB,Compacted roadway base,NO,Low
+Materials,Ductile Iron,DI,Pipe material (modern CI replacement),NO,Low
+Materials,Ductile Iron Pipe,DIP,Water/sewer pipe,NO,Low
+Materials,Emulsion,EMUL,Asphalt tack coat fog seal,NO,Low
+Materials,Epoxy,EPX,Coating/adhesive material,NO,Low
+Materials,Fabric,FAB,Geotextile filter fabric,NO,Low
+Materials,Fiber,FBR,Concrete reinforcement optical fiber,NO,Low
+Materials,Fiberglass,FG or FBRG,Composite material - FG preferred,NO,Low
+Materials,Filter Fabric,FF,Geotextile separation/filtration,NO,Low
+Materials,Fine,FN,Aggregate gradation,NO,Low
+Materials,Finish,FIN,Surface treatment,NO,Low
+Materials,Galvanized,GALV,Zinc coating on steel,NO,Low
+Materials,Geogrid,GGRD,Soil reinforcement,NO,Low
+Materials,Geotextile,GTXT,Separation/stabilization fabric,NO,Low
+Materials,Glass,GL,Window material fiberglass component,NO,Low
+Materials,Graded,GRD,Aggregate sizing earthwork,NO,Low
+Materials,Granite,GRNT,Natural stone,NO,Low
+Materials,Gravel,GRVL,Coarse aggregate,NO,Low
+Materials,Heavy Duty,HD,Load classification,NO,Low
+Materials,High Density Polyethylene,HDPE,Plastic pipe material,NO,Low
+Materials,Hot Mix Asphalt,HMA,Paving material (same as AC),NO,Low
+Materials,Impervious,IMPERV,Non-draining material,NO,Low
+Materials,Iron,IRN,Ferrous metal,NO,Low
+Materials,Joint Sealant,JT SLNT,Expansion/construction joint filler,NO,Low
+Materials,Limestone,LMST,Natural stone aggregate,NO,Low
+Materials,Masonry,MAS,Brick/block construction,NO,Low
+Materials,Metal,MTL,General metallic materials,NO,Low
+Materials,Native,NAT,In-situ soil material,NO,Medium - conflicts with Natural
+Materials,Natural,NAT,Undisturbed material,NO,Medium - conflicts with Native
+Materials,Non-Woven,NW,Geotextile type,NO,Low
+Materials,Oil,OIL,Asphalt component lubricant,NO,Low
+Materials,Paint,PNT,Surface coating,NO,Low
+Materials,Pavement,PVMT,Roadway surface,NO,Low
+Materials,Pea Gravel,PEA GRVL,"Small aggregate (3/8"" typical)",NO,Low
+Materials,Permeable,PERM,Draining material,NO,Low
+Materials,Pipe,spell out,Always spell out for clarity,NO,Low
+Materials,Plastic,PLSTC,Polymer materials,NO,Low
+Materials,Polyethylene,PE or POLY,Plastic material - PE preferred,NO,Low
+Materials,Polymer,PLMR,Synthetic materials,NO,Low
+Materials,Polyvinyl Chloride,PVC,Plastic pipe/conduit material,NO,Low
+Materials,Portland Cement,PC,Concrete binder,NO,Medium - conflicts with Precast
+Materials,Portland Cement Concrete,PCC,Rigid pavement structural concrete,NO,Low
+Materials,Post-Tensioned,PT,Concrete reinforcement method,NO,Low
+Materials,Precast,PREC,Factory-made concrete elements,NO,Low
+Materials,Prestressed,PS,Concrete reinforcement method,NO,Low
+Materials,Primer,PRMR,Surface preparation coating,NO,Low
+Materials,Quarry,QRY,Stone source,NO,Low
+Materials,Rebar,REBAR,Reinforcing bar (already abbreviated),NO,Low
+Materials,Recycled,RCYL,Reclaimed materials,NO,Low
+Materials,Reinforced,REINF,Strengthened materials,NO,Low
+Materials,Reinforced Concrete,RC,Steel-reinforced concrete,NO,Medium - conflicts with Relative Compaction
+Materials,Reinforced Concrete Pipe,RCP,Drainage pipe type,NO,Low
+Materials,Reinforcing,REINF,Rebar mesh fiber,NO,Low
+Materials,Rock,RCK,Natural stone material,NO,Low
+Materials,Rubber,RBR,Elastomeric materials,NO,Low
+Materials,Sand,SD,Fine aggregate,NO,High - conflicts with Storm Drain
+Materials,Sealant,SLNT,Joint/crack sealing material,NO,Low
+Materials,Silt,SLT,Fine soil particles,NO,Low
+Materials,Soil,spell out,Geotechnical material - avoid abbreviation,NO,Low
+Materials,Stainless Steel,SS,Corrosion-resistant steel,NO,Low
+Materials,Steel,STL,Structural metal,NO,Low
+Materials,Stone,STN,Natural rock material,NO,Low
+Materials,Structural,STR,Load-bearing designation,NO,Low
+Materials,Sub-Base,SB,Pavement layer below base,NO,Low
+Materials,Surfacing,SURF,Top layer material,NO,Low
+Materials,Tar,TAR,Bituminous material (avoid in modern specs),NO,Low
+Materials,Thermoplastic,THRMPLS,Traffic striping plastic pipe,NO,Low
+Materials,Topsoil,TPSL,Planting soil,NO,Low
+Materials,Treated,TRTD,Chemically/mechanically modified,NO,Low
+Materials,Type,TY,Material classification,NO,Low
+Materials,Untreated,UNTRTD,Natural state material,NO,Low
+Materials,Vinyl,VNL,Plastic material,NO,Low
+Materials,Welded Wire Fabric,WWF,Concrete reinforcement mesh,NO,Low
+Materials,Wood,WD,Timber materials,NO,Low
+Materials,Woven,WV,Geotextile type,NO,Low
+Storm Drainage,Area Drain,AD,Surface drainage inlet,NO,Low
+Storm Drainage,Basin,BSN,Drainage basin watershed,NO,Low
+Storm Drainage,Beehive,BH,Grate type for catch basins,NO,Low
+Storm Drainage,Bioretention,BIORET,Low impact development feature,NO,Low
+Storm Drainage,Bioswale,BIOSW,Vegetated drainage channel,NO,Low
+Storm Drainage,Catch Basin,CB,Storm drain inlet structure,NO,Low
+Storm Drainage,Channel,CH or CHAN,Open drainage conveyance - CHAN preferred,NO,Medium - conflicts with Traffic
+Storm Drainage,Clean Out,CO,Access point,NO,High - conflicts with Sanitary
+Storm Drainage,Collector,COLL,Storm drain collector system,NO,Low
+Storm Drainage,Compound,CMPD,Compound pipes/slopes,NO,Low
+Storm Drainage,Concentrate,CONC,Use CONCEN to avoid conflict with Concrete,NO,High
+Storm Drainage,Concentration,CONCEN,Flow convergence point,NO,Low
+Storm Drainage,Conduit,CNDT,Enclosed drainage conveyance,NO,Low
+Storm Drainage,Connection,CONN,Pipe connections lateral ties,NO,Low
+Storm Drainage,Connector,CNTR,Structure connecting pipes,NO,Low
+Storm Drainage,Corrugated Metal Pipe,CMP,Drainage pipe material,NO,Low
+Storm Drainage,Culvert,CLVT,Cross-drainage structure,NO,Low
+Storm Drainage,Curb Inlet,CI,Curb-opening storm drain,NO,Low
+Storm Drainage,Curb Opening,CI,Drainage inlet type,NO,Low
+Storm Drainage,Design Storm,DSTORM,"Return period storm event (e.g., 100-YR DSTORM)",NO,Low
+Storm Drainage,Detention,DET,Temporary storage,NO,Medium - conflicts with Detail
+Storm Drainage,Detention Basin,DET BSN,Stormwater storage facility,NO,Low
+Storm Drainage,Discharge,DISCH,Outlet flow,NO,Low
+Storm Drainage,Dispersion,DISP,Flow spreading,NO,Low
+Storm Drainage,Ditch,DTH,Open drainage channel,NO,Low
+Storm Drainage,Downspout,DS,Roof drainage element,NO,Low
+Storm Drainage,Drain,DR,General drainage element,NO,Low
+Storm Drainage,Drainage,DRNG or DRNAG,Avoid DRN - not standard,NO,Low
+Storm Drainage,Drop,DRP,Vertical fall in structure,NO,Low
+Storm Drainage,Drop Inlet,DI,Vertical storm drain inlet,NO,Low
+Storm Drainage,Dry Well,DRYWL,Infiltration structure,NO,Low
+Storm Drainage,Energy Dissipator,ED,Outlet protection,NO,Low
+Storm Drainage,Filter,FLTR,Sediment/pollutant removal,NO,Low
+Storm Drainage,Flap Gate,FG,Backflow prevention,NO,Low
+Storm Drainage,Flow,FLW,Hydraulic flow,NO,Low
+Storm Drainage,Flow Line,FL,Invert elevation of pipe,NO,Medium - conflicts with Fire Line
+Storm Drainage,French Drain,FR DR,Subsurface drainage,NO,Low
+Storm Drainage,Grate,GRT,Inlet cover,NO,Low
+Storm Drainage,Grated Inlet,GI,Surface drain with grate,NO,Medium - conflicts with Grease Interceptor
+Storm Drainage,Gutter,GTR,Street edge drainage,NO,Low
+Storm Drainage,Head Wall,HW,Culvert end structure,NO,Medium - conflicts with High Water
+Storm Drainage,High Water,HW,Maximum water elevation,NO,Medium - conflicts with Head Wall
+Storm Drainage,Hydraulic,HYD,Water flow calculations,NO,Low
+Storm Drainage,Inlet,INL,Storm drain entrance,NO,Low
+Storm Drainage,Invert,INV,Inside bottom of pipe,NO,Low
+Storm Drainage,Junction,JCT,Pipe connection point,NO,Low
+Storm Drainage,Junction Box,JB,Storm drain structure,NO,Low
+Storm Drainage,Lateral,LAT,Branch drainage line,NO,Medium - conflicts with other utilities
+Storm Drainage,Low Impact Development,LID,Sustainable drainage approach,NO,Low
+Storm Drainage,Main,MN,Primary drainage line,NO,Low
+Storm Drainage,Manhole,MH,Access structure,NO,Low
+Storm Drainage,Outlet,OUT,Discharge point,NO,Low
+Storm Drainage,Overflow,OFL,Emergency spillway,NO,Low
+Storm Drainage,Perforated,PERF,Drainage pipe type,NO,Low
+Storm Drainage,Pipe,spell out,Avoid abbreviation for clarity,NO,Low
+Storm Drainage,Precast,PREC,Factory-made structures,NO,Low
+Storm Drainage,Riser,RSR,Vertical pipe section,NO,Low
+Storm Drainage,Retention,RETN,Permanent storage,NO,Low
+Storm Drainage,Retention Basin,RETN BSN,Permanent water storage,NO,Low
+Storm Drainage,Riprap,RIP,Erosion protection stone,NO,Low
+Storm Drainage,Runoff,RO,Stormwater flow,NO,Low
+Storm Drainage,Sediment,SED,Soil particles in water,NO,Low
+Storm Drainage,Sedimentation,SEDIM,Settling process,NO,Low
+Storm Drainage,Slotted,SLOT,Drain pipe opening type,NO,Low
+Storm Drainage,Storm Drain,SD,Storm drainage system,NO,Low
+Storm Drainage,Storm Sewer,SS,Avoid - conflicts with Sanitary Sewer,NO,Critical - use SD instead
+Storm Drainage,Stormwater,STRM,Rainwater runoff,NO,Low
+Storm Drainage,Swale,SWL,Vegetated drainage channel,NO,Low
+Storm Drainage,Trench Drain,TD,Linear surface drain,NO,Low
+Storm Drainage,Type,TY,Structure/inlet classification,NO,Low
+Storm Drainage,Underground,UG,Below-grade drainage,NO,Low
+Storm Drainage,Water Quality,WQ,Pollutant treatment,NO,Low
+Storm Drainage,Weir,spell out,Overflow structure - avoid abbreviation,NO,Low
+Water Utility,Air Relief Valve,ARV,Automatic air release,NO,Low
+Water Utility,Air Vacuum Valve,AVV,Combination air valve,NO,Low
+Water Utility,Backflow Preventer,BFP,Cross-connection control device,NO,Low
+Water Utility,Blow-Off,BO,Drainage valve assembly,NO,Low
+Water Utility,Branch,BR,Lateral water line,NO,Low
+Water Utility,Butterfly Valve,BV,Quarter-turn valve type,NO,Low
+Water Utility,Cap,spell out,Pipe end closure,NO,Low
+Water Utility,Check Valve,CV,One-way flow valve,NO,Medium - conflicts with Control Valve
+Water Utility,Chlorination,CHLOR,Water disinfection,NO,Low
+Water Utility,Combination,COMB,Multi-function assemblies,NO,Low
+Water Utility,Compound Meter,CM,Large service meter,NO,Low
+Water Utility,Connection,CONN,Service tap line tie,NO,Low
+Water Utility,Corporation Stop,CORP,Service line valve at main,NO,Low
+Water Utility,Cross,X or CROSS,Four-way pipe fitting,NO,Low
+Water Utility,Curb Stop,CS,Service shutoff at property line,NO,Low
+Water Utility,Detector Check,DC,Backflow device with bypass,NO,Low
+Water Utility,Diameter,⌀ or DIA,Pipe size - symbol preferred,NO,Low
+Water Utility,Disinfection,DISINF,Water treatment,NO,Low
+Water Utility,Distribution,DIST,Water delivery system,NO,Low
+Water Utility,Domestic,DOM,Potable water service,NO,Low
+Water Utility,Double Check Valve,DCV,Backflow prevention assembly,NO,Low
+Water Utility,Ductile Iron,DI,Pipe material,NO,Low
+Water Utility,Ductile Iron Pipe,DIP,Water main material,NO,Low
+Water Utility,Elbow,ELL or EL,90° or 45° pipe fitting,NO,Low
+Water Utility,Fire Department Connection,FDC,Standpipe/sprinkler connection,NO,Low
+Water Utility,Fire Hydrant,FH,Emergency water supply,NO,Low
+Water Utility,Fire Line,FL,Dedicated fire protection line,NO,Medium - conflicts with Flow Line
+Water Utility,Fire Service,FS,Fire protection water supply,NO,Medium - conflicts with Fog Seal
+Water Utility,Fitting,FTG,Pipe connectors,NO,Low
+Water Utility,Flange,FLG,Bolted pipe connection,NO,Low
+Water Utility,Flow,FLW,Water movement,NO,Low
+Water Utility,Flush,FLSH,System cleaning,NO,Low
+Water Utility,Gate Valve,GV,Isolation valve,NO,Low
+Water Utility,High Density Polyethylene,HDPE,Plastic pipe material,NO,Low
+Water Utility,Hydrant,HYD,Fire hydrant,NO,Low
+Water Utility,Irrigation,IRR,Landscape water system,NO,Low
+Water Utility,Lateral,LAT,Service line branch line,NO,Medium
+Water Utility,Main,MN,Primary distribution pipe,NO,Low
+Water Utility,Mechanical Joint,MJ,Pipe connection type,NO,Low
+Water Utility,Meter,MTR,Flow measurement device,NO,Low
+Water Utility,Meter Box,MB,Service meter vault,NO,Low
+Water Utility,Meter Vault,MV,Meter enclosure structure,NO,Medium - conflicts with Master Valve
+Water Utility,Potable,POT,Drinking water quality,NO,Low
+Water Utility,Pressure,PRESS or PSI,Water pressure measurement,NO,Low
+Water Utility,Pressure Reducing Valve,PRV,Pressure regulation device,NO,High - conflicts with Pressure Relief
+Water Utility,Pressure Relief Valve,PRV,Safety valve,NO,High - conflicts with Pressure Reducing
+Water Utility,Public,PUB,Public system ownership,NO,Low
+Water Utility,Reduced Pressure,RP,Backflow preventer type,NO,Low
+Water Utility,Reducer,RED,Pipe size transition,NO,Low
+Water Utility,Saddle,SAD,Tap-on fitting,NO,Low
+Water Utility,Service,SERV or SVC,Water service connection - SVC preferred,NO,Low
+Water Utility,Sleeve,SLV,Pipe protection/carrier,NO,Low
+Water Utility,Tapping,TAP,Connection to existing main,NO,Low
+Water Utility,Tee,T or TEE,Three-way pipe fitting,NO,Low
+Water Utility,Thrust Block,TB,Concrete pipe restraint,NO,Low
+Water Utility,Valve,V or VLV,Flow control device - VLV preferred,NO,Low
+Water Utility,Valve Box,VB,Access to buried valve,NO,Low
+Water Utility,Water,W or WTR,General water system - WTR preferred,NO,Low
+Water Utility,Water Main,WMAIN,Water distribution pipe,NO,Low
+Water Utility,Water Meter,WM,Water measurement device,NO,Low
+Sanitary Sewer,Branch,BR,Utility lateral line (water/sewer),NO,Medium - conflicts with water
+Sanitary Sewer,Building Sewer,BLDG SWR,Private property service line,NO,Low
+Sanitary Sewer,Cap,spell out,Pipe end closure,NO,Low
+Sanitary Sewer,Cleanout,CO,Access point for maintenance,NO,High - conflicts with storm
+Sanitary Sewer,Collection,COLL,Sewer gathering system,NO,Low
+Sanitary Sewer,Combination,COMB,Multi-function structures,NO,Low
+Sanitary Sewer,Connection,CONN,Service tap line tie,NO,Low
+Sanitary Sewer,Diameter,⌀ or DIA,Pipe size - symbol preferred,NO,Low
+Sanitary Sewer,Discharge,DISCH,Wastewater outlet,NO,Low
+Sanitary Sewer,Domestic,DOM,Residential wastewater,NO,Low
+Sanitary Sewer,Drop,DRP,Vertical fall in structure,NO,Low
+Sanitary Sewer,Drop Connection,DROP CONN,Service with vertical offset,NO,Low
+Sanitary Sewer,Drop Manhole,DROP MH,MH with internal drop pipe,NO,Low
+Sanitary Sewer,Ductile Iron,DI,Pipe material (force mains),NO,Low
+Sanitary Sewer,Ductile Iron Pipe,DIP,Pressure sewer material,NO,Low
+Sanitary Sewer,Effluent,EFF,Treated wastewater,NO,Low
+Sanitary Sewer,Flow,FLW,Wastewater movement,NO,Low
+Sanitary Sewer,Force Main,FM,Pressurized sewer line,NO,Low
+Sanitary Sewer,Grease Interceptor,GI,FOG separation device,NO,High - conflicts with Grated Inlet
+Sanitary Sewer,Grease Trap,GT,Small FOG device,NO,Low
+Sanitary Sewer,Gravity,GRAV,Non-pressure sewer flow,NO,Low
+Sanitary Sewer,High Density Polyethylene,HDPE,Plastic pipe material,NO,Low
+Sanitary Sewer,House Connection,HC,Building service,NO,High - conflicts with Handicapped
+Sanitary Sewer,Industrial,IND,Non-domestic wastewater,NO,Low
+Sanitary Sewer,Inlet,INL,Flow entrance point,NO,Low
+Sanitary Sewer,Invert,INV,Inside bottom of pipe elevation,NO,Low
+Sanitary Sewer,Junction,JCT,Pipe connection point,NO,Low
+Sanitary Sewer,Lamphole,LH,Small access structure,NO,Low
+Sanitary Sewer,Lateral,LAT,Service line branch line,NO,Medium
+Sanitary Sewer,Lift Station,LS,Pumping station,NO,Low
+Sanitary Sewer,Main,MN,Trunk sewer line,NO,Low
+Sanitary Sewer,Manhole,MH,Access structure,NO,Low
+Sanitary Sewer,Outlet,OUT,Discharge point,NO,Low
+Sanitary Sewer,Outside Drop,OD,External drop connection,NO,Low
+Sanitary Sewer,Overflow,OFL,Emergency relief,NO,Low
+Sanitary Sewer,Pipe,spell out,Avoid abbreviation for clarity,NO,Low
+Sanitary Sewer,Polyvinyl Chloride,PVC,Plastic pipe material,NO,Low
+Sanitary Sewer,Private,PRIV,Private property system,NO,Low
+Sanitary Sewer,Public,PUB,Public system ownership,NO,Low
+Sanitary Sewer,Pump Station,PS,Sewage pumping facility,NO,Low
+Sanitary Sewer,Pumping,PMP,Mechanical conveyance,NO,Low
+Sanitary Sewer,Reducer,RED,Pipe size transition,NO,Low
+Sanitary Sewer,Reinforced Concrete Pipe,RCP,Gravity sewer material,NO,Low
+Sanitary Sewer,Sanitary,SAN,Wastewater system designation,NO,Critical - preferred over SS
+Sanitary Sewer,Sanitary Sewer,SAN,,NO,Low
+Sanitary Sewer,Septic,SEPT,On-site treatment system,NO,Low
+Sanitary Sewer,Service,SERV or SVC,Building connection - SVC preferred,NO,Low
+Sanitary Sewer,Sewer,SWR,Wastewater conveyance,NO,Low
+Sanitary Sewer,Side Sewer,SIDE SWR,Private service lateral,NO,Low
+Sanitary Sewer,Slope,SLP,Pipe gradient,NO,Low
+Sanitary Sewer,Trunk,TRK,Major collector line,NO,Low
+Sanitary Sewer,Vacuum,VAC,Vacuum collection system,NO,Low
+Sanitary Sewer,Vent,VNT,Odor/gas release,NO,Low
+Sanitary Sewer,Wastewater,WW,Sewage flow,NO,Low
+Sanitary Sewer,Wye,Y or WYE,Y-shaped pipe fitting,NO,Low
+Site Improvements,Above Ground,AG,Utility/structure location,NO,Low
+Site Improvements,Access,ACCESS,"Entry points, pathways - spell out to avoid ADA conflict",NO,High - conflicts with Accessible
+Site Improvements,Amenity,AMEN,Site features facilities,NO,Low
+Site Improvements,Approach,APPR,Entry areas access routes,NO,Low
+Site Improvements,Arbor,ARB,Landscape structure,NO,Low
+Site Improvements,Barrier,BARR,Physical obstacles protection,NO,Low
+Site Improvements,Bench,spell out,Site furniture - avoid abbreviation,NO,Low
+Site Improvements,Bike Rack,BIKE RACK,Bicycle parking,NO,Low
+Site Improvements,Bollard,BOLL,Protective post barrier,NO,Low
+Site Improvements,Border,BRDR,Edge treatment planting bed,NO,Low
+Site Improvements,Boundary,BNDRY,Property limits area edges,NO,Low
+Site Improvements,Canopy,CNPY,Overhead shade structure,NO,Low
+Site Improvements,Column,COL,Structural support,NO,Low
+Site Improvements,Court,CRT,Paved recreation area,NO,Low
+Site Improvements,Courtyard,CTYD,Enclosed outdoor space,NO,Low
+Site Improvements,Driveway,DW,Vehicular access route,NO,Low
+Site Improvements,Edge,EDG,Boundary transition,NO,Low
+Site Improvements,Enclosure,ENCL,Fenced/screened area,NO,Low
+Site Improvements,Entry,ENTRY,Primary access point,NO,Low
+Site Improvements,Exhibit,EXHIB,Display areas,NO,Low
+Site Improvements,Fence,FNC,Barrier enclosure,NO,Low
+Site Improvements,Finish,FIN,Surface treatment final grade,NO,Low
+Site Improvements,Flagpole,FP,Flag display structure,NO,Low
+Site Improvements,Fountain,FTN,Water feature,NO,Low
+Site Improvements,Furniture,FURN,Site amenities,NO,Low
+Site Improvements,Garden,GRDN,Planting area,NO,Low
+Site Improvements,Gate,GT,Fence opening vehicular entry,NO,Low
+Site Improvements,Gazebo,GAZ,Open-air structure,NO,Low
+Site Improvements,Grating,GRTG,Metal surface covering,NO,Low
+Site Improvements,Guardrail,GR,Safety barrier,NO,Medium - conflicts with Grade/Grass
+Site Improvements,Hardscape,HDSCP,Non-plant site features,NO,Low
+Site Improvements,Kiosk,KIOSK,Information structure,NO,Low
+Site Improvements,Landing,LNDG,Platform transition area,NO,Low
+Site Improvements,Landscape,LDSCP or L,Site planting - LDSCP preferred,NO,Low
+Site Improvements,Lattice,LAT,Screen material,NO,High - conflicts with Lateral
+Site Improvements,Lighting,LTG,Site illumination,NO,Low
+Site Improvements,Lot,spell out,Parking lot property lot,NO,Low
+Site Improvements,Mall,MALL,Pedestrian circulation space,NO,Low
+Site Improvements,Memorial,MEM,Commemorative feature,NO,Low
+Site Improvements,Monument,MON,Marker significant feature,NO,Low
+Site Improvements,Ornamental,ORN,Decorative elements,NO,Low
+Site Improvements,Overhang,OH,Projecting element,NO,Low
+Site Improvements,Pad,spell out,Equipment pad sitting area,NO,Low
+Site Improvements,Panel,PNL,Wall section fence section,NO,Low
+Site Improvements,Parking,PKG,Vehicle storage,NO,Low
+Site Improvements,Parking Space,PKG SPC,Individual parking stall,NO,Low
+Site Improvements,Path,spell out,Pedestrian route,NO,Low
+Site Improvements,Patio,PATIO,Outdoor sitting area,NO,Low
+Site Improvements,Pavement,PVMT,Hard surface,NO,Low
+Site Improvements,Pavilion,PAV,Covered outdoor structure,NO,Low
+Site Improvements,Pedestrian,PED,Walking facilities,NO,Low
+Site Improvements,Pergola,PERG,Overhead structure,NO,Low
+Site Improvements,Picnic,PIC,Recreation facility,NO,Low
+Site Improvements,Planter,PLNTR,Raised planting bed,NO,Low
+Site Improvements,Playground,PLYGND,Children's play area,NO,Low
+Site Improvements,Plaza,PLZ,Open paved gathering space,NO,Low
+Site Improvements,Post,spell out,Vertical support element,NO,Low
+Site Improvements,Railing,RLG,Safety barrier handrail,NO,Low
+Site Improvements,Recreation,REC,Activity areas,NO,Low
+Site Improvements,Recreational Vehicle,RV,Large vehicle parking,NO,Low
+Site Improvements,Refuse,REF,Waste collection,NO,Low
+Site Improvements,Retaining Wall,RET WALL,Earth retention structure,NO,Low
+Site Improvements,Rockery,RCKRY,Decorative stone feature,NO,Low
+Site Improvements,Sandbox,SNDBX,Play feature,NO,Low
+Site Improvements,Seating,SEAT,Sitting areas benches,NO,Low
+Site Improvements,Shade,SHD,Sun protection elements,NO,Low
+Site Improvements,Shade Structure,SHD STR,Overhead protection,NO,Low
+Site Improvements,Shelter,SHLTR,Weather protection,NO,Low
+Site Improvements,Sidewalk,SW,Pedestrian pathway,NO,Low
+Site Improvements,Signage,SIGN,Wayfinding identification,NO,Low
+Site Improvements,Site,spell out,Project location,NO,Low
+Site Improvements,Softball,SFTBL,Sports facility,NO,Low
+Site Improvements,Stair,STAIR,Vertical circulation element,NO,Low
+Site Improvements,Stairway,STWY,Multi-step access,NO,Low
+Site Improvements,Structure,STR,"Built elements, structural designation",NO,Low
+Site Improvements,Table,TBL,Picnic table furniture,NO,Low
+Site Improvements,Tennis,TENN,Sports facility,NO,Low
+Site Improvements,Terrace,TERR,Stepped outdoor area,NO,Low
+Site Improvements,Trash,TRSH,Waste receptacle,NO,Low
+Site Improvements,Trellis,TREL,Plant support structure,NO,Low
+Site Improvements,Turf,spell out,Grass surface,NO,Low
+Site Improvements,Vehicular,VEH,Vehicle-related,NO,Low
+Site Improvements,Wall,spell out,Vertical barrier - avoid abbreviation,NO,Low
+Site Improvements,Walkway,WKWY,Pedestrian path,NO,Low
+Grading Earthwork,Backfill,BFILL,Material placed after excavation,NO,Low
+Grading Earthwork,Batter,BATT,Slope face retaining wall face,NO,Low
+Grading Earthwork,Bedding,BED,Pipe bedding material layer,NO,Low
+Grading Earthwork,Bench,BNCH,Grading bench cut/fill transition,NO,Low
+Grading Earthwork,Berm,BERM,Earthen mound drainage ridge,NO,Low
+Grading Earthwork,Borrow,BORR,Imported fill material,NO,Low
+Grading Earthwork,Bottom,BOT,Base of excavation trench bottom,NO,Low
+Grading Earthwork,Boulder,BLDR,"Large rock (>12"" diameter)",NO,Low
+Grading Earthwork,Built Up,BU,Fill placement method,NO,Low
+Grading Earthwork,Clay,CLY,Fine-grained soil type,NO,Low
+Grading Earthwork,Cobble,COB,"Rock 3""-12"" diameter",NO,Low
+Grading Earthwork,Compaction,COMP,Soil densification process,NO,Medium
+Grading Earthwork,Compacted,COMP,Densified soil state,NO,Medium
+Grading Earthwork,Cut,spell out,Excavation area - avoid abbreviation,NO,Low
+Grading Earthwork,Cut & Fill,C&F,Combined grading operations,NO,Low
+Grading Earthwork,Density,DENS,Soil compaction measurement,NO,Low
+Grading Earthwork,Drain,DR,Drainage element,NO,Low
+Grading Earthwork,Drainage,DRNAG,Water removal system,NO,Low
+Grading Earthwork,Embankment,EMBANK,Constructed fill slope,NO,Low
+Grading Earthwork,Erosion,EROS,Soil loss process,NO,Low
+Grading Earthwork,Excavate,EXC,Soil removal,NO,Low
+Grading Earthwork,Excavation,EXC,Removal operation,NO,Low
+Grading Earthwork,Export,EXP,Off-site disposal,NO,High - conflicts with Expansion
+Grading Earthwork,Fill,spell out,Placed soil - avoid abbreviation,NO,Low
+Grading Earthwork,Filter Fabric,FF,Geotextile separator,NO,Low
+Grading Earthwork,Fine Grade,FG,Final surface preparation,NO,High - conflicts with Finished Grade
+Grading Earthwork,Finished Grade,FG,Final elevation,NO,High - conflicts with Fine Grade
+Grading Earthwork,Geogrid,GGRD,Soil reinforcement material,NO,Low
+Grading Earthwork,Geotextile,GTXT,Fabric separator/stabilizer,NO,Low
+Grading Earthwork,Grade,GR or GRD,Surface elevation - GR preferred,NO,Medium
+Grading Earthwork,Graded,GRD,Shaped surface,NO,Medium
+Grading Earthwork,Grading,GRDG,Earthwork shaping,NO,Low
+Grading Earthwork,Gravel,GRVL,Coarse aggregate soil,NO,Low
+Grading Earthwork,Import,IMP,Brought-in fill material,NO,Low
+Grading Earthwork,Native,NAT,Existing in-place soil,NO,Medium
+Grading Earthwork,Natural Grade,NAT GR,Existing ground elevation,NO,Low
+Grading Earthwork,Optimum,OPT,Maximum compaction moisture,NO,Low
+Grading Earthwork,Overexcavation,OVEREXC,Removal below required depth,NO,Low
+Grading Earthwork,Relative Compaction,RC,Compaction percentage,NO,High - conflicts with Reinforced Concrete
+Grading Earthwork,Rock,RCK,Hard geological material,NO,Low
+Grading Earthwork,Sand,SD,Granular soil type,NO,High - conflicts with Storm Drain
+Grading Earthwork,Silt,SLT,Fine soil particles,NO,Low
+Grading Earthwork,Slope,SLP,Inclined surface,NO,Low
+Grading Earthwork,Soil,spell out,Earthen material - avoid abbreviation,NO,Low
+Grading Earthwork,Subgrade,SUBGR,Prepared surface below pavement,NO,Low
+Grading Earthwork,Topsoil,TPSL,Planting soil layer,NO,Low
+Grading Earthwork,Trench,TRNCH,Linear excavation,NO,Low
+Grading Earthwork,Unsuitable,UNSUIT,Soil to be removed/replaced,NO,Low
+Landscape Irrigation,Aeration,AERATE,Soil treatment,NO,Low
+Landscape Irrigation,Amendment,AMEND,Soil improvement material,NO,Low
+Landscape Irrigation,Annual,ANN,Plant life cycle classification,NO,Low
+Landscape Irrigation,Automatic,AUTO,Irrigation controller type,NO,Low
+Landscape Irrigation,Backflow Preventer,BFP,Irrigation system protection,NO,Low
+Landscape Irrigation,Bark,BRK,Mulch material,NO,Medium - conflicts with Brick
+Landscape Irrigation,Basin,BSN,Irrigation watering method,NO,Low
+Landscape Irrigation,Biennial,BIEN,Two-year plant cycle,NO,Low
+Landscape Irrigation,Branch,BR,Lateral irrigation line,NO,High - conflicts with utilities
+Landscape Irrigation,Broadcast,BRDCST,Seeding method,NO,Low
+Landscape Irrigation,Bubbler,BUBB,Low-flow irrigation head,NO,Low
+Landscape Irrigation,Bulb,BLB,Plant type,NO,Low
+Landscape Irrigation,Caliper,CAL,Tree trunk measurement,NO,Low
+Landscape Irrigation,Container,CONT,Plant size designation,NO,Low
+Landscape Irrigation,Control Valve,CV,Irrigation zone valve,NO,High - conflicts with Check Valve
+Landscape Irrigation,Controller,CTRL,Irrigation timer/computer,NO,Low
+Landscape Irrigation,Deciduous,DECID,Leaf-dropping plants,NO,Low
+Landscape Irrigation,Decomposed Granite,DG,Pathway/mulch material,NO,Low
+Landscape Irrigation,Diameter,⌀ or DIA,Pipe/trunk size - symbol preferred,NO,Low
+Landscape Irrigation,Drain,DR,Drainage element,NO,Low
+Landscape Irrigation,Drainage,DRNAG,Water removal,NO,Low
+Landscape Irrigation,Drip,spell out,Low-volume irrigation,NO,Low
+Landscape Irrigation,Drip Emitter,DE,Point-source irrigation,NO,Low
+Landscape Irrigation,Drip Line,DL,Outer edge of tree canopy,NO,Low
+Landscape Irrigation,Erosion Control,EROS CTRL,Slope stabilization,NO,Low
+Landscape Irrigation,Evergreen,EVERGR,Year-round foliage plants,NO,Low
+Landscape Irrigation,Fertilizer,FERT,Plant nutrients,NO,Low
+Landscape Irrigation,Filter,FLTR,Irrigation system component,NO,Low
+Landscape Irrigation,Flower,FLR,Bloom flowering plant,NO,Low
+Landscape Irrigation,Gallon,GAL,Container size (5 GAL 15 GAL),NO,Low
+Landscape Irrigation,Grass,GR,Turf lawn,NO,High - conflicts with Grade
+Landscape Irrigation,Groundcover,GC,Low spreading plants,NO,Low
+Landscape Irrigation,Gravel,GRVL,Mulch/drainage material,NO,Low
+Landscape Irrigation,Herbaceous,HERB,Non-woody plants,NO,Low
+Landscape Irrigation,Hose Bibb,HB,Water faucet,NO,Low
+Landscape Irrigation,Hydrozone,HZ,Irrigation water use zone,NO,Low
+Landscape Irrigation,Inch,"IN or """,Plant/pipe size - symbol preferred,NO,Low
+Landscape Irrigation,Irrigation,IRRG,Watering system,NO,Low
+Landscape Irrigation,Lateral,LAT,Branch line side line,NO,Medium
+Landscape Irrigation,Lawn,spell out,Turf grass area,NO,Low
+Landscape Irrigation,Mainline,ML,Primary irrigation pipe,NO,Low
+Landscape Irrigation,Manual,MAN,Non-automatic control,NO,Low
+Landscape Irrigation,Master Valve,MV,Main irrigation shutoff,NO,High - conflicts with Meter Vault
+Landscape Irrigation,Moisture,MOIST,Soil water content,NO,Low
+Landscape Irrigation,Mulch,MLCH,Surface covering material,NO,Low
+Landscape Irrigation,Native,NAT,Indigenous plants/soil,NO,Medium
+Landscape Irrigation,Ornamental,ORN,Decorative plants,NO,Low
+Landscape Irrigation,Perennial,PEREN,Multi-year plant,NO,Low
+Landscape Irrigation,Plant,PLT or PL,Vegetation - PLT preferred,NO,Low
+Landscape Irrigation,Planter,PLNTR,Raised planting bed,NO,Low
+Landscape Irrigation,Planting,PLNTG,Installation planting area,NO,Low
+Landscape Irrigation,Planting Bed,PLNTG BED,Ground-level planted area,NO,Low
+Landscape Irrigation,Polyvinyl Chloride,PVC,Irrigation pipe material,NO,Low
+Landscape Irrigation,Precipitation Rate,PR,Sprinkler application rate,NO,High - conflicts with Pressure Regulator
+Landscape Irrigation,Pressure,PRESS or PSI,Water pressure - PSI preferred,NO,Low
+Landscape Irrigation,Pressure Regulator,PR,Pressure control device,NO,High - conflicts with Precipitation Rate
+Landscape Irrigation,Quick Coupler,QC,Hose connection valve,NO,Low
+Landscape Irrigation,Rain Sensor,RS,Automatic shutoff device,NO,Low
+Landscape Irrigation,Reclaimed Water,RECLM,Recycled irrigation water,NO,Low
+Landscape Irrigation,Remote Control Valve,RCV,Electric irrigation valve,NO,Low
+Landscape Irrigation,Root Ball,RB,Tree/shrub root mass,NO,Low
+Landscape Irrigation,Rotary,ROT,Sprinkler head type,NO,Low
+Landscape Irrigation,Schedule,SCHED,Planting schedule valve schedule,NO,Low
+Landscape Irrigation,Seed,SD,Planting material,NO,High - conflicts with Storm Drain
+Landscape Irrigation,Shrub,SH,Multi-stem woody plant,NO,Low
+Landscape Irrigation,Sleeve,SLV,Pipe protection conduit,NO,Low
+Landscape Irrigation,Solenoid,SOL,Electric valve actuator,NO,Low
+Landscape Irrigation,Spray,SPY,Fixed spray irrigation head,NO,Low
+Landscape Irrigation,Sprinkler,SPKLR or SPK,Irrigation head - SPK preferred,NO,Low
+Landscape Irrigation,Station,STA,Irrigation valve zone,NO,Low
+Landscape Irrigation,Tree,TR,Single-trunk woody plant,NO,Low
+Landscape Irrigation,Trunk,TRK,Main tree stem,NO,Medium - conflicts with Trunk Sewer
+Landscape Irrigation,Turf,spell out,Grass/lawn area,NO,Low
+Landscape Irrigation,Valve,VLV or V,Flow control - VLV preferred,NO,Low
+Landscape Irrigation,Valve Box,VB,Irrigation valve enclosure,NO,Low
+Landscape Irrigation,Vine,VN,Climbing plant,NO,Low
+Landscape Irrigation,Water,WTR or W,Irrigation water - WTR preferred,NO,Low
+Landscape Irrigation,Watering,WTR,Irrigation application,NO,Low
+Paving Roads,Aggregate Base,AB,Pavement base course,NO,High
+Paving Roads,Alley,ALY,Secondary roadway,NO,Low
+Paving Roads,Arterial,ART,Major roadway classification,NO,Low
+Paving Roads,Asphalt,ASPH,Paving material,NO,Low
+Paving Roads,Asphalt Concrete,AC,Hot-mix asphalt pavement,NO,High
+Paving Roads,Avenue,AVE,Street type designation,NO,Low
+Paving Roads,Base,spell out,Pavement base layer,NO,Low
+Paving Roads,Bicycle,BIKE,Bike lane bike path,NO,Low
+Paving Roads,Bituminous,BIT,Asphalt-based materials,NO,Low
+Paving Roads,Boulevard,BLVD,Wide street type,NO,Low
+Paving Roads,Centerline,℄ or CL,Road centerline - symbol preferred,NO,High
+Paving Roads,Class,CLS,Material classification,NO,High - conflicts with Centerline
+Paving Roads,Collector,COLL,Roadway classification,NO,Low
+Paving Roads,Concrete,CONC,Cement pavement material,NO,Low
+Paving Roads,Crown,CRN,Road high point/camber,NO,Low
+Paving Roads,Curb,spell out,Edge barrier - avoid abbreviation,NO,Low
+Paving Roads,Curb and Gutter,C&G,Combined curb/gutter,NO,Low
+Paving Roads,Dike,spell out,Pavement edge barrier,NO,Low
+Paving Roads,Drive,DR,Driveway street type,NO,Low
+Paving Roads,Driveway,DW,Property access,NO,High - DW conflicts with Detectable Warning
+Paving Roads,Edge,EDG,Pavement edge,NO,Low
+Paving Roads,Expressway,EXPWY,High-speed roadway,NO,Low
+Paving Roads,Fog Seal,FS,Asphalt maintenance,NO,Medium - conflicts with Fire Service
+Paving Roads,Freeway,FWY,Limited-access highway,NO,Low
+Paving Roads,Gutter,GTR,Edge drainage channel,NO,Low
+Paving Roads,Highway,HWY,Major roadway,NO,Low
+Paving Roads,Hot Mix Asphalt,HMA,Same as AC,NO,Low
+Paving Roads,Joint,JT,Pavement joint,NO,Low
+Paving Roads,Lane,LN,Travel lane parking lane,NO,Low
+Paving Roads,Local,LOC,Residential street classification,NO,Low
+Paving Roads,Overlay,OVLY,Pavement rehabilitation,NO,Low
+Paving Roads,Parkway,PKWY,Landscaped roadway,NO,Low
+Paving Roads,Pavement,PVMT,Road surface,NO,Low
+Paving Roads,Portland Cement Concrete,PCC,Rigid pavement,NO,Low
+Paving Roads,Road,RD,Roadway street type,NO,Low
+Paving Roads,Roadway,RDWY,Traveled way,NO,Low
+Paving Roads,Rubberized,RUB,Rubberized asphalt,NO,Low
+Paving Roads,Seal Coat,SC,Asphalt surface treatment,NO,High - conflicts with Sanitary/Cross Section
+Paving Roads,Shoulder,SHLDR,Road edge area,NO,Low
+Paving Roads,Sidewalk,SW,Pedestrian path,NO,Low
+Paving Roads,Slurry Seal,SLRY SEAL,Road Area,NO,Critical - conflicts with Sewer
+Paving Roads,Street,ST,Roadway street type,NO,Low
+Paving Roads,Subgrade,SUBGR,Prepared soil beneath pavement,NO,Low
+Paving Roads,Tack Coat,TC,Asphalt adhesive layer,NO,Low
+Paving Roads,Traveled Way,TW,Portion of roadway for vehicles,NO,Low
+Paving Roads,Wearing Course,WC,Top pavement layer,NO,Low
+Paving Roads,Width,W,Dimensional measurement,NO,Low
+Traffic Control,Advance Warning,ADV WARN,Sign placement category,NO,Low
+Traffic Control,Arrow,ARW,Directional pavement marking,NO,Low
+Traffic Control,Barricade,BARR,Temporary traffic barrier,NO,Low
+Traffic Control,Bicycle,BIKE,Bike lane bike symbol,NO,Low
+Traffic Control,Channelization,CHAN,Traffic flow separation,NO,Medium - conflicts with Channel
+Traffic Control,Crosswalk,XWALK,Pedestrian crossing,NO,Low
+Traffic Control,Delineator,DELIN,Roadway edge marker,NO,Low
+Traffic Control,Diagonal,DIAG,Angled striping pattern,NO,Low
+Traffic Control,Double,DBL,Double line configuration,NO,Low
+Traffic Control,Edge Line,EL,Pavement edge stripe,NO,Medium - conflicts with Elevation
+Traffic Control,Fluorescent,FLUOR,Sign sheeting material,NO,Low
+Traffic Control,Guide Sign,GS,Directional/informational sign,NO,Low
+Traffic Control,Handicapped,avoid,Use ACCESSIBLE,YES,Critical
+Traffic Control,High Intensity,HI,Reflective sheeting Type III-IV,NO,Low
+Traffic Control,Lane Line,LL,Lane separation stripe,NO,High - conflicts with Limit Line
+Traffic Control,Legend,LEG,Pavement word/symbol,NO,Low
+Traffic Control,Limit Line,LL,Stop bar,NO,High - conflicts with Lane Line
+Traffic Control,Longitudinal,LONG,Direction of travel marking,NO,Low
+Traffic Control,Marking,MKG,Pavement surface marking,NO,Low
+Traffic Control,Object Marker,OM,Obstruction warning,NO,Low
+Traffic Control,Overhead,OH,Overhead sign structure,NO,Low
+Traffic Control,Parking,PKG,Parking stall striping,NO,Low
+Traffic Control,Pedestrian,PED,Pedestrian facilities/signs,NO,Low
+Traffic Control,Post,spell out,Sign support - avoid abbreviation,NO,Low
+Traffic Control,Raised,RSD,Raised pavement marker,NO,Low
+Traffic Control,Reflective,REFL,Sign sheeting material,NO,Low
+Traffic Control,Regulatory,REG,Regulatory sign category,NO,Low
+Traffic Control,School,SCH,School zone designation,NO,Low
+Traffic Control,Sign,spell out,Traffic sign - avoid abbreviation,NO,Low
+Traffic Control,Signal,SIG,Traffic signal,NO,Medium
+Traffic Control,Single,SGL,Single line configuration,NO,Low
+Traffic Control,Striping,STRP,Pavement line markings,NO,Low
+Traffic Control,Symbol,SYM,Graphic pavement marking,NO,Low
+Traffic Control,Thermoplastic,THERMO,Durable marking material,NO,Low
+Traffic Control,Traffic,TRFC,Traffic control elements,NO,Low
+Traffic Control,Transverse,TRANS,Perpendicular to travel,NO,Low
+Traffic Control,Warning,WARN,Warning sign category,NO,Low
+Traffic Control,Yellow,YEL or Y,Color designation - YEL preferred,NO,Low
