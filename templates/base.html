@@ -30,6 +30,9 @@
                 <a href="/drawings" {% if request.path == '/drawings' %}class="active"{% endif %}>
                     <i class="fas fa-file-image"></i> Drawings
                 </a>
+                <a href="/data-manager" {% if request.path.startswith('/data-manager') %}class="active"{% endif %}>
+                    <i class="fas fa-database"></i> Data Manager
+                </a>
             </nav>
         </div>
     </header>

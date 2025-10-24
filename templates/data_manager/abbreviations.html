@@ -1,0 +1,502 @@
+{% extends "base.html" %}
+
+{% block title %}Abbreviations Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-font neon-cyan"></i> Abbreviations Manager</h2>
+    <p class="subtitle">Manage CAD abbreviations and terminology</p>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h3 class="orbitron"><i class="fas fa-list"></i> Abbreviations Library</h3>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="showAddModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add New
+            </button>
+            <button onclick="document.getElementById('csvUpload').click()" class="btn btn-secondary">
+                <i class="fas fa-upload"></i> Import CSV
+            </button>
+            <button onclick="exportCSV()" class="btn btn-secondary">
+                <i class="fas fa-download"></i> Export CSV
+            </button>
+            <input type="file" id="csvUpload" accept=".csv" style="display: none;" onchange="handleCSVUpload(event)">
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="searchInput" placeholder="Search abbreviations, full terms, or descriptions..." 
+               onkeyup="filterTable()" 
+               style="width: 100%; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+    </div>
+
+    <div id="loadingMessage" class="alert" style="text-align: center;">
+        <i class="fas fa-spinner fa-spin"></i> Loading abbreviations...
+    </div>
+
+    <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+    <div id="tableContainer" style="display: none; overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Abbreviation</th>
+                    <th>Full Term</th>
+                    <th>Description</th>
+                    <th style="width: 120px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="abbreviationsTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <div id="emptyMessage" class="alert" style="display: none; text-align: center;">
+        <i class="fas fa-inbox"></i> No abbreviations found. Add your first abbreviation or import from CSV.
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="abbreviationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="orbitron" id="modalTitle">Add Abbreviation</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="abbreviationForm" onsubmit="saveAbbreviation(event)">
+            <input type="hidden" id="abbreviationId">
+            
+            <div class="form-group">
+                <label for="discipline">Category</label>
+                <input type="text" id="discipline" required placeholder="e.g., General Terms, ADA Compliance, Materials">
+            </div>
+
+            <div class="form-group">
+                <label for="abbreviation">Abbreviation</label>
+                <input type="text" id="abbreviation" required placeholder="e.g., CONC, EL, MAX">
+            </div>
+
+            <div class="form-group">
+                <label for="fullText">Full Term</label>
+                <input type="text" id="fullText" required placeholder="e.g., Concrete, Elevation, Maximum">
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Usage notes, context, or additional information"></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 20, 40, 0.4);
+}
+
+.data-table th {
+    background: rgba(0, 100, 150, 0.3);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+    font-weight: 600;
+}
+
+.data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(0, 20, 40, 0.95) 0%, rgba(0, 40, 80, 0.95) 100%);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--neon-cyan);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 0 30px rgba(0, 200, 255, 0.3);
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--neon-cyan);
+}
+
+.close {
+    color: var(--text-secondary);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.close:hover {
+    color: var(--neon-cyan);
+}
+
+.modal form {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--neon-cyan);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0, 20, 40, 0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0, 200, 255, 0.3);
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 20px;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: var(--neon-cyan);
+    color: var(--bg-dark);
+}
+
+.btn-primary:hover {
+    box-shadow: 0 0 15px var(--neon-cyan);
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background: rgba(100, 100, 100, 0.3);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: rgba(100, 100, 100, 0.5);
+    border-color: var(--neon-cyan);
+}
+
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 0.85em;
+}
+
+.btn-danger {
+    background: rgba(255, 50, 50, 0.2);
+    color: #ff6b6b;
+    border: 1px solid #ff6b6b;
+}
+
+.btn-danger:hover {
+    background: rgba(255, 50, 50, 0.4);
+    box-shadow: 0 0 10px rgba(255, 50, 50, 0.5);
+}
+
+.alert {
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.alert-error {
+    background: rgba(255, 50, 50, 0.2);
+    border-left: 3px solid #ff6b6b;
+    color: #ff6b6b;
+}
+
+.alert-success {
+    background: rgba(50, 255, 50, 0.2);
+    border-left: 3px solid var(--neon-green);
+    color: var(--neon-green);
+}
+</style>
+
+<script>
+let abbreviationsData = [];
+
+async function loadAbbreviations() {
+    try {
+        const response = await fetch('/api/standards/abbreviations');
+        if (!response.ok) throw new Error('Failed to load abbreviations');
+        
+        abbreviationsData = await response.json();
+        renderTable();
+        
+        document.getElementById('loadingMessage').style.display = 'none';
+        if (abbreviationsData.length === 0) {
+            document.getElementById('emptyMessage').style.display = 'block';
+        } else {
+            document.getElementById('tableContainer').style.display = 'block';
+        }
+    } catch (error) {
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('errorMessage').textContent = 'Error loading abbreviations: ' + error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+    }
+}
+
+function renderTable() {
+    const tbody = document.getElementById('abbreviationsTableBody');
+    tbody.innerHTML = '';
+    
+    abbreviationsData.forEach(item => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${escapeHtml(item.category || '')}</td>
+            <td><strong>${escapeHtml(item.abbreviation || '')}</strong></td>
+            <td>${escapeHtml(item.full_text || '')}</td>
+            <td>${escapeHtml(item.context_usage_notes || '')}</td>
+            <td>
+                <button onclick="editAbbreviation('${item.abbreviation_id}')" class="btn btn-secondary btn-sm" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteAbbreviation('${item.abbreviation_id}', '${escapeHtml(item.abbreviation)}')" class="btn btn-danger btn-sm" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+    });
+}
+
+function filterTable() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const tbody = document.getElementById('abbreviationsTableBody');
+    const rows = tbody.getElementsByTagName('tr');
+    
+    for (let row of rows) {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(search) ? '' : 'none';
+    }
+}
+
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add Abbreviation';
+    document.getElementById('abbreviationForm').reset();
+    document.getElementById('abbreviationId').value = '';
+    document.getElementById('abbreviationModal').style.display = 'block';
+}
+
+function editAbbreviation(id) {
+    const item = abbreviationsData.find(a => a.abbreviation_id == id);
+    if (!item) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Abbreviation';
+    document.getElementById('abbreviationId').value = item.abbreviation_id;
+    document.getElementById('discipline').value = item.category || '';
+    document.getElementById('abbreviation').value = item.abbreviation || '';
+    document.getElementById('fullText').value = item.full_text || '';
+    document.getElementById('description').value = item.context_usage_notes || '';
+    document.getElementById('abbreviationModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('abbreviationModal').style.display = 'none';
+}
+
+async function saveAbbreviation(event) {
+    event.preventDefault();
+    
+    const id = document.getElementById('abbreviationId').value;
+    const data = {
+        discipline: document.getElementById('discipline').value,
+        abbreviation: document.getElementById('abbreviation').value,
+        full_text: document.getElementById('fullText').value,
+        description: document.getElementById('description').value
+    };
+    
+    try {
+        const url = id ? `/api/data-manager/abbreviations/${id}` : '/api/data-manager/abbreviations';
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to save abbreviation');
+        }
+        
+        closeModal();
+        await loadAbbreviations();
+        showNotification('Abbreviation saved successfully!', 'success');
+    } catch (error) {
+        alert('Error saving abbreviation: ' + error.message);
+    }
+}
+
+async function deleteAbbreviation(id, abbr) {
+    if (!confirm(`Are you sure you want to delete abbreviation "${abbr}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/data-manager/abbreviations/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete abbreviation');
+        }
+        
+        await loadAbbreviations();
+        showNotification('Abbreviation deleted successfully!', 'success');
+    } catch (error) {
+        alert('Error deleting abbreviation: ' + error.message);
+    }
+}
+
+async function handleCSVUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch('/api/data-manager/abbreviations/import-csv', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to import CSV');
+        }
+        
+        const result = await response.json();
+        await loadAbbreviations();
+        showNotification(`CSV imported successfully! ${result.imported || 0} new records, ${result.updated || 0} updated.`, 'success');
+    } catch (error) {
+        alert('Error importing CSV: ' + error.message);
+    } finally {
+        event.target.value = '';
+    }
+}
+
+async function exportCSV() {
+    try {
+        const response = await fetch('/api/data-manager/abbreviations/export-csv');
+        if (!response.ok) throw new Error('Failed to export CSV');
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `abbreviations_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        showNotification('CSV exported successfully!', 'success');
+    } catch (error) {
+        alert('Error exporting CSV: ' + error.message);
+    }
+}
+
+function showNotification(message, type = 'success') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+    alertDiv.style.position = 'fixed';
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '2000';
+    alertDiv.style.minWidth = '300px';
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('abbreviationModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+loadAbbreviations();
+</script>
+{% endblock %}

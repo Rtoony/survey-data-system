@@ -3,12 +3,15 @@ ACAD-GIS Schema Explorer & Data Manager
 A companion tool for viewing and managing your Supabase database
 """
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file
 from flask_cors import CORS
 from flask_caching import Cache
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
+import csv
+import io
+import uuid
 from dotenv import load_dotenv
 from contextlib import contextmanager
 
@@ -85,6 +88,35 @@ def projects_page():
 def drawings_page():
     """Drawings manager page"""
     return render_template('drawings.html')
+
+# ============================================
+# DATA MANAGER PAGES
+# ============================================
+
+@app.route('/data-manager')
+def data_manager_home():
+    """Data Manager home page"""
+    return render_template('data_manager/index.html')
+
+@app.route('/data-manager/abbreviations')
+def data_manager_abbreviations():
+    """Abbreviations data manager page"""
+    return render_template('data_manager/abbreviations.html')
+
+@app.route('/data-manager/layers')
+def data_manager_layers():
+    """Layers data manager page"""
+    return render_template('data_manager/layers.html')
+
+@app.route('/data-manager/blocks')
+def data_manager_blocks():
+    """Blocks data manager page"""
+    return render_template('data_manager/blocks.html')
+
+@app.route('/data-manager/details')
+def data_manager_details():
+    """Details data manager page"""
+    return render_template('data_manager/details.html')
 
 # ============================================
 # CAD STANDARDS PORTAL PAGES
@@ -742,6 +774,175 @@ def get_drawing_scales():
         """
         scales = execute_query(query)
         return jsonify(scales)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# DATA MANAGER API ENDPOINTS
+# ============================================
+
+# ABBREVIATIONS CRUD
+
+@app.route('/api/data-manager/abbreviations', methods=['POST'])
+def create_abbreviation():
+    """Create a new abbreviation"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO abbreviation_standards (category, discipline, abbreviation, full_text, context_usage_notes)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING abbreviation_id
+                """, (data.get('discipline'), 'civil', data.get('abbreviation'), 
+                      data.get('full_text'), data.get('description')))
+                abbreviation_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True, 'abbreviation_id': abbreviation_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/abbreviations/<int:abbreviation_id>', methods=['PUT'])
+def update_abbreviation(abbreviation_id):
+    """Update an existing abbreviation"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE abbreviation_standards
+                    SET category = %s, abbreviation = %s, full_text = %s, context_usage_notes = %s
+                    WHERE abbreviation_id = %s
+                """, (data.get('discipline'), data.get('abbreviation'), data.get('full_text'), 
+                      data.get('description'), abbreviation_id))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/abbreviations/<int:abbreviation_id>', methods=['DELETE'])
+def delete_abbreviation(abbreviation_id):
+    """Delete an abbreviation"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM abbreviation_standards WHERE abbreviation_id = %s", (abbreviation_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/abbreviations/import-csv', methods=['POST'])
+def import_abbreviations_csv():
+    """Import abbreviations from CSV file"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Read CSV file
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_reader = csv.DictReader(stream)
+        
+        imported_count = 0
+        updated_count = 0
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                for row in csv_reader:
+                    # Map CSV columns to database columns
+                    # CSV: Category, Full_Term, Abbreviation, Context_Usage_Notes
+                    # DB: category, discipline, abbreviation, full_text, context_usage_notes
+                    
+                    category = row.get('Category', '').strip()
+                    abbreviation_text = row.get('Abbreviation', '').strip()
+                    full_text = row.get('Full_Term', '').strip()
+                    context_notes = row.get('Context_Usage_Notes', '').strip()
+                    
+                    if not abbreviation_text:
+                        continue
+                    
+                    # Check if abbreviation already exists
+                    cur.execute("""
+                        SELECT abbreviation_id FROM abbreviation_standards 
+                        WHERE LOWER(abbreviation) = LOWER(%s) AND LOWER(category) = LOWER(%s)
+                    """, (abbreviation_text, category))
+                    
+                    existing = cur.fetchone()
+                    
+                    if existing:
+                        # Update existing record
+                        cur.execute("""
+                            UPDATE abbreviation_standards
+                            SET full_text = %s, context_usage_notes = %s
+                            WHERE abbreviation_id = %s
+                        """, (full_text, context_notes, existing[0]))
+                        updated_count += 1
+                    else:
+                        # Insert new record (discipline defaults to 'civil')
+                        cur.execute("""
+                            INSERT INTO abbreviation_standards (category, discipline, abbreviation, full_text, context_usage_notes)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (category, 'civil', abbreviation_text, full_text, context_notes))
+                        imported_count += 1
+                
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({
+            'success': True, 
+            'imported': imported_count, 
+            'updated': updated_count,
+            'total': imported_count + updated_count
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/abbreviations/export-csv', methods=['GET'])
+def export_abbreviations_csv():
+    """Export abbreviations to CSV file"""
+    try:
+        query = """
+            SELECT category, abbreviation, full_text, context_usage_notes
+            FROM abbreviation_standards
+            ORDER BY category, abbreviation
+        """
+        data = execute_query(query)
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        if data:
+            fieldnames = ['Category', 'Abbreviation', 'Full_Term', 'Context_Usage_Notes']
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for row in data:
+                writer.writerow({
+                    'Category': row.get('category', ''),
+                    'Abbreviation': row.get('abbreviation', ''),
+                    'Full_Term': row.get('full_text', ''),
+                    'Context_Usage_Notes': row.get('context_usage_notes', '')
+                })
+        
+        # Convert to bytes
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name='abbreviations.csv'
+        )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

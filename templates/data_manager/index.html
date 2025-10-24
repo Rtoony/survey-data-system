@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Data Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-database neon-cyan"></i> Data Manager</h2>
+    <p class="subtitle">Import, export, and manage CAD standards data</p>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px;">
+    <a href="/data-manager/abbreviations" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-cyan);">
+            <i class="fas fa-font"></i>
+        </div>
+        <div class="stat-label">Abbreviations</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage CAD abbreviations and their full terms
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-cyan); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Data
+        </div>
+    </a>
+
+    <a href="/data-manager/layers" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-yellow);">
+            <i class="fas fa-layer-group"></i>
+        </div>
+        <div class="stat-label">Layer Standards</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage layer naming, colors, and properties
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-yellow); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Data
+        </div>
+    </a>
+
+    <a href="/data-manager/blocks" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-green);">
+            <i class="fas fa-cube"></i>
+        </div>
+        <div class="stat-label">Block Definitions</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage CAD block symbols and categories
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-green); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Data
+        </div>
+    </a>
+
+    <a href="/data-manager/details" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-magenta);">
+            <i class="fas fa-file-alt"></i>
+        </div>
+        <div class="stat-label">Detail Standards</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage standard construction details library
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-magenta); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Data
+        </div>
+    </a>
+</div>
+
+<div class="panel">
+    <h3 class="orbitron"><i class="fas fa-info-circle"></i> About Data Manager</h3>
+    <div style="line-height: 1.8; margin-top: 20px;">
+        <p>The Data Manager allows you to maintain your CAD standards data through a user-friendly interface. You can:</p>
+        <ul style="margin-top: 15px; margin-left: 25px;">
+            <li><strong>Add/Edit/Delete</strong> individual records through the web interface</li>
+            <li><strong>Import CSV files</strong> to bulk upload or update data (upsert mode)</li>
+            <li><strong>Export CSV files</strong> to backup or share your standards</li>
+            <li><strong>Search and filter</strong> records to find what you need quickly</li>
+        </ul>
+        <div class="alert" style="margin-top: 25px; padding: 15px; background: rgba(255, 215, 0, 0.1); border-left: 3px solid var(--neon-yellow); border-radius: 4px;">
+            <i class="fas fa-exclamation-triangle" style="color: var(--neon-yellow);"></i>
+            <strong>Note on CSV Imports:</strong> CSV uploads perform upsert operations (add new or update existing records). They do not delete existing data. If you need to purge a table before uploading, use the Schema page or contact your database administrator.
+        </div>
+    </div>
+</div>
+{% endblock %}
