@@ -104,6 +104,20 @@ Preferred communication style: Simple, everyday language.
 - Lists 5 most recently created drawings with project context
 - Relative timestamps (e.g., "2h ago", "3d ago") for user-friendly time display
 
+**Schema Relationships Visualization (Added October 2025)**
+- Interactive network graph showing database table relationships using Vis.js library
+- Backend API `/api/schema/relationships` queries PostgreSQL foreign keys via information_schema
+- Visualizes 53 tables and 40 foreign key relationships with physics-based layout
+- Features:
+  - Color-coded nodes by table type (projects, drawings, standards, etc.)
+  - Node size reflects row count (logarithmic scale)
+  - Interactive zoom, pan, drag, and click functionality
+  - Detailed table information panel shows columns, relationships, and stats
+  - Pause/Resume animation and Reset View controls
+  - Relationship arrows indicate foreign key direction with column names on hover
+- Performance optimized using pg_stat_user_tables for fast row count estimates
+- Accessible via Relationships navigation menu item
+
 **Data Manager (Added October 2025)**
 - Complete CRUD interface for managing CAD standards data directly in the database
 - Four data management sections: Abbreviations, Layers, Blocks, and Details

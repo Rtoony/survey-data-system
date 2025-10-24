@@ -31,7 +31,7 @@
 
             <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
 
-            <div id="networkContainer" style="display: none; height: 600px; border: 1px solid rgba(0,255,255,0.3); border-radius: 8px; background: rgba(0,0,0,0.3);"></div>
+            <div id="networkContainer" style="display: none; width: 100%; height: 600px; border: 1px solid rgba(0,255,255,0.3); border-radius: 8px; background: rgba(0,0,0,0.3);"></div>
 
             <div id="legend" style="display: none; margin-top: 20px; padding: 20px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 8px;">
                 <h3 style="margin: 0 0 15px 0; color: var(--accent-cyan);"><i class="fas fa-info-circle"></i> Legend</h3>
@@ -165,27 +165,30 @@ let physicsEnabled = true;
 
 async function loadSchemaData() {
     try {
-        console.log('Starting to load schema data...');
         const response = await fetch('/api/schema/relationships');
-        console.log('API response status:', response.status);
         
         if (!response.ok) throw new Error('Failed to load schema data');
         
         schemaData = await response.json();
-        console.log('Schema data loaded:', schemaData);
         
         if (schemaData.error) {
             throw new Error(schemaData.error);
         }
         
         // Show container BEFORE rendering (Vis.js needs visible container for dimensions)
-        document.getElementById('loadingMessage').style.display = 'none';
-        document.getElementById('networkContainer').style.display = 'block';
-        document.getElementById('legend').style.display = 'block';
+        const loading = document.getElementById('loadingMessage');
+        const container = document.getElementById('networkContainer');
+        const legend = document.getElementById('legend');
         
-        console.log('Rendering network...');
+        loading.style.display = 'none';
+        container.style.display = 'block';
+        legend.style.display = 'block';
+        
+        // Force browser reflow to ensure visual update
+        void container.offsetHeight;
+        
+        console.log('Rendering network with', schemaData.tables.length, 'tables and', schemaData.relationships.length, 'relationships');
         renderNetwork();
-        console.log('Network rendered successfully');
     } catch (error) {
         console.error('Error in loadSchemaData:', error);
         showError('Error loading schema: ' + error.message);
