@@ -1338,5 +1338,205 @@ def export_blocks_csv():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============================================================================
+# DETAILS MANAGER ROUTES
+# ============================================================================
+
+@app.route('/data-manager/details')
+def details_manager():
+    """Render the Details Manager page"""
+    return render_template('data_manager/details.html')
+
+@app.route('/api/data-manager/details', methods=['GET'])
+def get_details():
+    """Get all details"""
+    try:
+        query = """
+            SELECT detail_id, detail_number, detail_title, detail_category, 
+                   scale, description, usage_context, typical_application
+            FROM detail_standards
+            ORDER BY detail_category, detail_number
+        """
+        details = execute_query(query)
+        return jsonify({'details': details})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/details', methods=['POST'])
+def create_detail():
+    """Create a new detail"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO detail_standards 
+                    (detail_number, detail_title, detail_category, scale, description)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING detail_id
+                """, (
+                    data.get('detail_number'),
+                    data.get('detail_title'),
+                    data.get('detail_category'),
+                    data.get('scale'),
+                    data.get('description')
+                ))
+                detail_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'detail_id': detail_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/details/<detail_id>', methods=['PUT'])
+def update_detail(detail_id):
+    """Update an existing detail"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE detail_standards
+                    SET detail_number = %s, detail_title = %s, detail_category = %s, 
+                        scale = %s, description = %s
+                    WHERE detail_id = %s
+                """, (
+                    data.get('detail_number'),
+                    data.get('detail_title'),
+                    data.get('detail_category'),
+                    data.get('scale'),
+                    data.get('description'),
+                    detail_id
+                ))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/details/<detail_id>', methods=['DELETE'])
+def delete_detail(detail_id):
+    """Delete a detail"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM detail_standards WHERE detail_id = %s", (detail_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/details/import-csv', methods=['POST'])
+def import_details_csv():
+    """Import details from CSV file"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Read CSV file
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_reader = csv.DictReader(stream)
+        
+        imported_count = 0
+        updated_count = 0
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                for row in csv_reader:
+                    # Map CSV columns to database columns
+                    # CSV: Detail_Number, Detail_Title, Category, Scale, Description
+                    # DB: detail_number, detail_title, detail_category, scale, description
+                    
+                    detail_number = row.get('Detail_Number', '').strip()
+                    detail_title = row.get('Detail_Title', '').strip()
+                    category = row.get('Category', '').strip()
+                    scale = row.get('Scale', '').strip()
+                    description = row.get('Description', '').strip()
+                    
+                    if not detail_number:
+                        continue
+                    
+                    # Check if detail already exists
+                    cur.execute("""
+                        SELECT detail_id FROM detail_standards 
+                        WHERE LOWER(detail_number) = LOWER(%s)
+                    """, (detail_number,))
+                    
+                    existing = cur.fetchone()
+                    
+                    if existing:
+                        # Update existing record
+                        cur.execute("""
+                            UPDATE detail_standards
+                            SET detail_title = %s, detail_category = %s, scale = %s, description = %s
+                            WHERE detail_id = %s
+                        """, (detail_title, category, scale, description, existing[0]))
+                        updated_count += 1
+                    else:
+                        # Insert new record
+                        cur.execute("""
+                            INSERT INTO detail_standards (detail_number, detail_title, detail_category, scale, description)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (detail_number, detail_title, category, scale, description))
+                        imported_count += 1
+                
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({
+            'imported': imported_count,
+            'updated': updated_count
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/details/export-csv', methods=['GET'])
+def export_details_csv():
+    """Export details to CSV file"""
+    try:
+        query = """
+            SELECT detail_number, detail_title, detail_category, scale, description
+            FROM detail_standards
+            ORDER BY detail_category, detail_number
+        """
+        data = execute_query(query)
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        if data:
+            fieldnames = ['Detail_Number', 'Detail_Title', 'Category', 'Scale', 'Description']
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for row in data:
+                writer.writerow({
+                    'Detail_Number': row.get('detail_number', ''),
+                    'Detail_Title': row.get('detail_title', ''),
+                    'Category': row.get('detail_category', ''),
+                    'Scale': row.get('scale', ''),
+                    'Description': row.get('description', '')
+                })
+        
+        # Convert to bytes
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name='details.csv'
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
