@@ -31,10 +31,35 @@
 
             <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
 
-            <div id="networkContainer" style="display: none; width: 100%; height: 600px; border: 1px solid rgba(0,255,255,0.3); border-radius: 8px; background: rgba(0,0,0,0.3);"></div>
-
-            <div id="legend" style="display: none; margin-top: 20px; padding: 20px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 8px;">
+            <div id="legend" style="display: none; margin-bottom: 20px; padding: 20px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 8px;">
                 <h3 style="margin: 0 0 15px 0; color: var(--accent-cyan);"><i class="fas fa-info-circle"></i> Legend</h3>
+                
+                <div style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                    <strong style="color: var(--text-primary); display: block; margin-bottom: 10px;">Table Colors:</strong>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: #ff6b6b; border: 2px solid #fff;"></span>
+                            <span style="color: var(--text-dim);">Projects (top-level organization)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: #51cf66; border: 2px solid #fff;"></span>
+                            <span style="color: var(--text-dim);">Drawings (CAD files & content)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: #ffd700; border: 2px solid #fff;"></span>
+                            <span style="color: var(--text-dim);">Standards (company-wide rules)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: #ff9800; border: 2px solid #fff;"></span>
+                            <span style="color: var(--text-dim);">Blocks & Layers (instances)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: #00ffff; border: 2px solid #fff;"></span>
+                            <span style="color: var(--text-dim);">Other tables</span>
+                        </div>
+                    </div>
+                </div>
+                
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
                     <div>
                         <strong style="color: var(--text-primary);">Nodes (Tables):</strong>
@@ -62,6 +87,8 @@
                     </div>
                 </div>
             </div>
+
+            <div id="networkContainer" style="display: none; width: 100%; height: 600px; border: 1px solid rgba(0,255,255,0.3); border-radius: 8px; background: rgba(0,0,0,0.3);"></div>
 
             <div id="tableDetails" style="display: none; margin-top: 20px; padding: 20px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 8px;">
                 <h3 style="margin: 0 0 15px 0; color: var(--accent-cyan);"><i class="fas fa-table"></i> <span id="detailTableName"></span></h3>
