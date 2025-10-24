@@ -160,6 +160,24 @@ Preferred communication style: Simple, everyday language.
   - Layout/paperspace inclusion
   - Job status tracking and error handling
 
+**DXF Import/Export Tools (Added October 2025 - In Progress)**
+- UI and infrastructure built for DXF file import/export functionality
+- Components implemented:
+  1. **dxf_importer.py** - Module for parsing DXF files using ezdxf library
+  2. **dxf_exporter.py** - Module for generating DXF files from database
+  3. **Flask API endpoints** - /api/dxf/import, /api/dxf/export, /api/dxf/drawings, /api/dxf/export-jobs
+  4. **UI page** - /dxf-tools with file upload, export configuration, and job history
+  5. **Navigation** - DXF Tools menu item added to main navigation
+- Current status:
+  - Schema mismatch identified: Importer/exporter assume denormalized layer_name columns, but schema uses normalized UUID foreign keys (layer_id, dimension_style_id, pattern_id, etc.)
+  - Need resolver layer to map DXF string names to database UUIDs
+- Next steps (Architect recommendation):
+  1. Create DXFLookupService to resolve/create layers, linetypes, styles by name and cache UUIDs
+  2. Refactor importer to use resolver for layer_id/style_id lookups
+  3. Update exporter queries to join through FK tables to recover layer names
+  4. Add integration tests for round-trip import/export verification
+- Dependencies: ezdxf library installed for DXF parsing and generation
+
 ## External Dependencies
 
 ### Python Libraries
