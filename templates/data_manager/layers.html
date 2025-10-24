@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block title %}Layers Manager - Data Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-layer-group"></i> Layers Manager</h1>
+            <p class="subtitle">Manage CAD layer standards and properties</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-layer-group"></i> Layer Standards Library</h2>
+            <div class="button-group">
+                <button onclick="addNewLayer()" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New
+                </button>
+                <label for="csvUpload" class="btn btn-secondary">
+                    <i class="fas fa-file-upload"></i> Import CSV
+                </label>
+                <input type="file" id="csvUpload" accept=".csv" style="display: none;" onchange="uploadCSV(event)">
+                <button onclick="exportCSV()" class="btn btn-secondary">
+                    <i class="fas fa-file-download"></i> Export CSV
+                </button>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search layers, categories, colors, or descriptions..." onkeyup="filterTable()">
+            </div>
+
+            <div id="loadingMessage" class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i> Loading layers...
+            </div>
+
+            <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+            <div id="tableContainer" style="display: none; overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Layer Name</th>
+                            <th>Color</th>
+                            <th>Description</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="layersTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="layerModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Layer</h2>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="layerForm" onsubmit="saveLayer(event)">
+            <input type="hidden" id="layerId">
+            
+            <div class="form-group">
+                <label for="category">Category</label>
+                <input type="text" id="category" required placeholder="e.g., Topography, Survey, Grading">
+            </div>
+
+            <div class="form-group">
+                <label for="layerName">Layer Name</label>
+                <input type="text" id="layerName" required placeholder="e.g., E-GRAD-CONTOUR-MAJOR">
+            </div>
+
+            <div class="form-group">
+                <label for="colorRgb">Color RGB</label>
+                <input type="text" id="colorRgb" placeholder="e.g., 255,255,0">
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Description of layer purpose"></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.search-box {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.search-box i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+}
+
+.search-box input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    background: rgba(255,255,255,0.08);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.data-table th {
+    background: rgba(0,255,255,0.1);
+    color: var(--accent-cyan);
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--accent-cyan);
+    position: sticky;
+    top: 0;
+}
+
+.data-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-primary);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0,255,255,0.05);
+}
+
+.color-swatch {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.3);
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: var(--bg-dark);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--accent-cyan);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 0 30px rgba(0,255,255,0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    border-bottom: 1px solid rgba(0,255,255,0.2);
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: var(--accent-cyan);
+    font-size: 24px;
+}
+
+.close {
+    color: var(--text-dim);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.close:hover {
+    color: var(--accent-cyan);
+}
+
+.modal-content form {
+    padding: 25px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px 15px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    background: rgba(255,255,255,0.08);
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 14px;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #c82333, #bd2130);
+}
+
+.loading-indicator {
+    text-align: center;
+    padding: 40px;
+    color: var(--accent-cyan);
+    font-size: 18px;
+}
+
+.alert {
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.alert-error {
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    color: #ff6b6b;
+}
+
+.alert-success {
+    background: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    color: #51cf66;
+}
+</style>
+
+<script>
+let layersData = [];
+
+async function loadLayers() {
+    try {
+        const response = await fetch('/api/data-manager/layers');
+        if (!response.ok) throw new Error('Failed to load layers');
+        
+        const data = await response.json();
+        layersData = data.layers || [];
+        
+        renderTable();
+        
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+    } catch (error) {
+        showError('Error loading layers: ' + error.message);
+    }
+}
+
+function showError(message) {
+    document.getElementById('loadingMessage').style.display = 'none';
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+}
+
+function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type}`;
+    notification.textContent = message;
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.right = '20px';
+    notification.style.zIndex = '2000';
+    notification.style.minWidth = '300px';
+    document.body.appendChild(notification);
+    
+    setTimeout(() => notification.remove(), 4000);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function renderTable() {
+    const tbody = document.getElementById('layersTableBody');
+    tbody.innerHTML = '';
+    
+    layersData.forEach(item => {
+        const colorStyle = item.color_rgb ? `background-color: rgb(${item.color_rgb});` : '';
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${escapeHtml(item.category || '')}</td>
+            <td><strong>${escapeHtml(item.layer_name || '')}</strong></td>
+            <td>
+                ${colorStyle ? `<span class="color-swatch" style="${colorStyle}"></span>` : ''}
+            </td>
+            <td>${escapeHtml(item.description || '')}</td>
+            <td>
+                <button onclick="editLayer('${item.layer_standard_id}')" class="btn btn-secondary btn-sm" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteLayer('${item.layer_standard_id}', '${escapeHtml(item.layer_name)}')" class="btn btn-danger btn-sm" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+    });
+}
+
+function filterTable() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const tbody = document.getElementById('layersTableBody');
+    const rows = tbody.getElementsByTagName('tr');
+    
+    for (let row of rows) {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(search) ? '' : 'none';
+    }
+}
+
+function addNewLayer() {
+    document.getElementById('modalTitle').textContent = 'Add New Layer';
+    document.getElementById('layerForm').reset();
+    document.getElementById('layerId').value = '';
+    document.getElementById('layerModal').style.display = 'block';
+}
+
+function editLayer(id) {
+    const item = layersData.find(l => l.layer_standard_id == id);
+    if (!item) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Layer';
+    document.getElementById('layerId').value = item.layer_standard_id;
+    document.getElementById('category').value = item.category || '';
+    document.getElementById('layerName').value = item.layer_name || '';
+    document.getElementById('colorRgb').value = item.color_rgb || '';
+    document.getElementById('description').value = item.description || '';
+    document.getElementById('layerModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('layerModal').style.display = 'none';
+}
+
+async function saveLayer(event) {
+    event.preventDefault();
+    
+    const layerId = document.getElementById('layerId').value;
+    const layerData = {
+        category: document.getElementById('category').value,
+        layer_name: document.getElementById('layerName').value,
+        color_rgb: document.getElementById('colorRgb').value,
+        description: document.getElementById('description').value
+    };
+    
+    try {
+        const url = layerId 
+            ? `/api/data-manager/layers/${layerId}`
+            : '/api/data-manager/layers';
+        const method = layerId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(layerData)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to save layer');
+        }
+        
+        closeModal();
+        await loadLayers();
+        showNotification(`Layer ${layerId ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+        alert('Error saving layer: ' + error.message);
+    }
+}
+
+async function deleteLayer(id, name) {
+    if (!confirm(`Are you sure you want to delete layer "${name}"?`)) return;
+    
+    try {
+        const response = await fetch(`/api/data-manager/layers/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete layer');
+        }
+        
+        await loadLayers();
+        showNotification('Layer deleted successfully!');
+    } catch (error) {
+        alert('Error deleting layer: ' + error.message);
+    }
+}
+
+async function uploadCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch('/api/data-manager/layers/import-csv', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to import CSV');
+        }
+        
+        const result = await response.json();
+        await loadLayers();
+        showNotification(`CSV imported successfully! ${result.imported || 0} new records, ${result.updated || 0} updated.`, 'success');
+    } catch (error) {
+        alert('Error importing CSV: ' + error.message);
+    } finally {
+        event.target.value = '';
+    }
+}
+
+async function exportCSV() {
+    try {
+        window.location.href = '/api/data-manager/layers/export-csv';
+    } catch (error) {
+        alert('Error exporting CSV: ' + error.message);
+    }
+}
+
+// Load layers on page load
+document.addEventListener('DOMContentLoaded', loadLayers);
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('layerModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+{% endblock %}

@@ -946,5 +946,202 @@ def export_abbreviations_csv():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============================================================================
+# LAYERS MANAGER ROUTES
+# ============================================================================
+
+@app.route('/data-manager/layers')
+def layers_manager():
+    """Render the Layers Manager page"""
+    return render_template('data_manager/layers.html')
+
+@app.route('/api/data-manager/layers', methods=['GET'])
+def get_layers():
+    """Get all layers"""
+    try:
+        query = """
+            SELECT layer_standard_id, category, discipline, layer_name, color_rgb, 
+                   description, linetype, lineweight, plot_style
+            FROM layer_standards
+            ORDER BY category, layer_name
+        """
+        layers = execute_query(query)
+        return jsonify({'layers': layers})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/layers', methods=['POST'])
+def create_layer():
+    """Create a new layer"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO layer_standards 
+                    (category, discipline, layer_name, color_rgb, description)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING layer_standard_id
+                """, (
+                    data.get('category'),
+                    data.get('discipline', 'CIVIL'),
+                    data.get('layer_name'),
+                    data.get('color_rgb'),
+                    data.get('description')
+                ))
+                layer_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'layer_standard_id': layer_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/layers/<layer_id>', methods=['PUT'])
+def update_layer(layer_id):
+    """Update an existing layer"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE layer_standards
+                    SET category = %s, layer_name = %s, color_rgb = %s, description = %s
+                    WHERE layer_standard_id = %s
+                """, (
+                    data.get('category'),
+                    data.get('layer_name'),
+                    data.get('color_rgb'),
+                    data.get('description'),
+                    layer_id
+                ))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/layers/<layer_id>', methods=['DELETE'])
+def delete_layer(layer_id):
+    """Delete a layer"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM layer_standards WHERE layer_standard_id = %s", (layer_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/layers/import-csv', methods=['POST'])
+def import_layers_csv():
+    """Import layers from CSV file"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Read CSV file
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_reader = csv.DictReader(stream)
+        
+        imported_count = 0
+        updated_count = 0
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                for row in csv_reader:
+                    # Map CSV columns to database columns
+                    # CSV: Category, Layer_Name, Color_RGB, Color_Name, Description
+                    # DB: category, discipline, layer_name, color_rgb, color_name, description
+                    
+                    category = row.get('Category', '').strip()
+                    layer_name = row.get('Layer_Name', '').strip()
+                    color_rgb = row.get('Color_RGB', '').strip()
+                    color_name = row.get('Color_Name', '').strip()
+                    description = row.get('Description', '').strip()
+                    
+                    if not layer_name:
+                        continue
+                    
+                    # Check if layer already exists
+                    cur.execute("""
+                        SELECT layer_standard_id FROM layer_standards 
+                        WHERE LOWER(layer_name) = LOWER(%s)
+                    """, (layer_name,))
+                    
+                    existing = cur.fetchone()
+                    
+                    if existing:
+                        # Update existing record
+                        cur.execute("""
+                            UPDATE layer_standards
+                            SET category = %s, color_rgb = %s, description = %s
+                            WHERE layer_standard_id = %s
+                        """, (category, color_rgb, description, existing[0]))
+                        updated_count += 1
+                    else:
+                        # Insert new record (discipline defaults to 'CIVIL')
+                        cur.execute("""
+                            INSERT INTO layer_standards (category, discipline, layer_name, color_rgb, description)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (category, 'CIVIL', layer_name, color_rgb, description))
+                        imported_count += 1
+                
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({
+            'imported': imported_count,
+            'updated': updated_count
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/layers/export-csv', methods=['GET'])
+def export_layers_csv():
+    """Export layers to CSV file"""
+    try:
+        query = """
+            SELECT category, layer_name, color_rgb, description
+            FROM layer_standards
+            ORDER BY category, layer_name
+        """
+        data = execute_query(query)
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        if data:
+            fieldnames = ['Category', 'Layer_Name', 'Color_RGB', 'Description']
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for row in data:
+                writer.writerow({
+                    'Category': row.get('category', ''),
+                    'Layer_Name': row.get('layer_name', ''),
+                    'Color_RGB': row.get('color_rgb', ''),
+                    'Description': row.get('description', '')
+                })
+        
+        # Convert to bytes
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name='layers.csv'
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
