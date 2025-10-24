@@ -160,23 +160,27 @@ Preferred communication style: Simple, everyday language.
   - Layout/paperspace inclusion
   - Job status tracking and error handling
 
-**DXF Import/Export Tools (Added October 2025 - In Progress)**
-- UI and infrastructure built for DXF file import/export functionality
+**DXF Import/Export Tools (Completed October 2025)**
+- ✅ Fully functional DXF round-trip workflow: import DXF → store in PostGIS database → export DXF
 - Components implemented:
-  1. **dxf_importer.py** - Module for parsing DXF files using ezdxf library
-  2. **dxf_exporter.py** - Module for generating DXF files from database
-  3. **Flask API endpoints** - /api/dxf/import, /api/dxf/export, /api/dxf/drawings, /api/dxf/export-jobs
-  4. **UI page** - /dxf-tools with file upload, export configuration, and job history
-  5. **Navigation** - DXF Tools menu item added to main navigation
-- Current status:
-  - Schema mismatch identified: Importer/exporter assume denormalized layer_name columns, but schema uses normalized UUID foreign keys (layer_id, dimension_style_id, pattern_id, etc.)
-  - Need resolver layer to map DXF string names to database UUIDs
-- Next steps (Architect recommendation):
-  1. Create DXFLookupService to resolve/create layers, linetypes, styles by name and cache UUIDs
-  2. Refactor importer to use resolver for layer_id/style_id lookups
-  3. Update exporter queries to join through FK tables to recover layer names
-  4. Add integration tests for round-trip import/export verification
-- Dependencies: ezdxf library installed for DXF parsing and generation
+  1. **dxf_importer.py** - Parses DXF files using ezdxf, converts entities to PostGIS GeometryZ, uses lookup service for FK resolution
+  2. **dxf_exporter.py** - Queries database with JOIN statements through FK tables, generates valid DXF files using ezdxf
+  3. **dxf_lookup_service.py** - Resolver layer that maps DXF string names (layers, linetypes, styles) to normalized UUID FKs with transaction-aware caching
+  4. **create_dxf_export_schema.sql** - Complete database schema with 16 tables for DXF content storage
+  5. **Flask API endpoints** - /api/dxf/import, /api/dxf/export, /api/dxf/drawings, /api/dxf/export-jobs
+  6. **UI page** - /dxf-tools with file upload, export configuration, job history, and progress tracking
+  7. **Navigation** - DXF Tools menu item in main navigation
+- Architecture decisions:
+  - Normalized FK structure (layer_id, dimension_style_id, pattern_id) instead of denormalized layer_name columns
+  - DXFLookupService resolver handles name-to-UUID mapping with caching for performance
+  - Explicit UUID casting (::uuid) in SQL INSERT statements for psycopg2 compatibility
+  - PostGIS GeometryZ for 3D coordinate storage
+- Test results:
+  - Successfully imports entities (LINE, LWPOLYLINE, CIRCLE, ARC), text, dimensions, and layers
+  - Successfully exports all data back to valid DXF files
+  - Export jobs recorded in database with complete metrics
+  - Zero errors in end-to-end round-trip testing
+- Dependencies: ezdxf library for DXF parsing and generation
 
 ## External Dependencies
 
