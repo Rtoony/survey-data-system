@@ -104,6 +104,20 @@ Preferred communication style: Simple, everyday language.
 - Lists 5 most recently created drawings with project context
 - Relative timestamps (e.g., "2h ago", "3d ago") for user-friendly time display
 
+**Data Manager (Added October 2025)**
+- Complete CRUD interface for managing CAD standards data directly in the database
+- Four data management sections: Abbreviations, Layers, Blocks, and Details
+- Features per manager:
+  - Searchable tables with real-time filtering
+  - Add/Edit/Delete individual records via modal forms
+  - CSV Import: Upsert mode (adds new records or updates existing based on unique identifiers)
+  - CSV Export: Download current data for backup or editing
+  - SVG preview capability for block symbols
+  - Color swatch display for layer standards
+- All managers follow consistent UI/UX patterns with Mission Control theme
+- Cache clearing on data modifications to ensure fresh reads
+- Proper field mapping between CSV columns and database fields
+
 ## External Dependencies
 
 ### Python Libraries
