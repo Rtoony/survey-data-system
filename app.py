@@ -1744,7 +1744,6 @@ def import_dxf():
         if not drawing_id:
             return jsonify({'error': 'drawing_id is required'}), 400
         
-        drawing_id = int(drawing_id)
         import_modelspace = request.form.get('import_modelspace', 'true') == 'true'
         import_paperspace = request.form.get('import_paperspace', 'true') == 'true'
         
@@ -1786,7 +1785,6 @@ def export_dxf():
         if not drawing_id:
             return jsonify({'error': 'drawing_id is required'}), 400
         
-        drawing_id = int(drawing_id)
         dxf_version = data.get('dxf_version', 'AC1027')
         include_modelspace = data.get('include_modelspace', True)
         include_paperspace = data.get('include_paperspace', True)
