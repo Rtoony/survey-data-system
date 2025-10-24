@@ -9,105 +9,422 @@
             <i class="fas fa-folder"></i>
             Projects Manager
         </h2>
-        <button onclick="location.reload()" class="btn btn-ghost">
-            <i class="fas fa-sync"></i> Refresh
-        </button>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="openCreateModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Project
+            </button>
+            <button id="bulkDeleteBtn" onclick="bulkDelete()" class="btn btn-danger" style="display: none;">
+                <i class="fas fa-trash"></i> Delete Selected
+            </button>
+            <button onclick="location.reload()" class="btn btn-ghost">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
     </div>
 
-    <div id="loading" style="text-align: center; padding: 3rem;">
-        <div class="spinner" style="margin: 0 auto;"></div>
-        <p class="loading-text">Loading projects...</p>
-    </div>
+    <div class="card-body">
+        <div style="margin-bottom: 20px;">
+            <input 
+                type="text" 
+                id="searchInput" 
+                placeholder="Search projects by name, number, or client..." 
+                style="width: 100%; max-width: 500px; padding: 10px; border: 2px solid rgba(0,255,255,0.3); background: rgba(0,0,0,0.3); color: var(--text-primary); border-radius: 8px; font-family: 'Rajdhani', sans-serif;"
+                oninput="filterProjects()"
+            >
+        </div>
 
-    <div id="projects" style="display: none;"></div>
+        <div id="loading" style="text-align: center; padding: 3rem;">
+            <div class="spinner" style="margin: 0 auto;"></div>
+            <p class="loading-text">Loading projects...</p>
+        </div>
+
+        <div id="projects" style="display: none;"></div>
+    </div>
 </div>
 
+<div id="createModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="fas fa-folder-plus"></i> Create New Project</h2>
+            <button class="modal-close" onclick="closeCreateModal()">&times;</button>
+        </div>
+        <form id="createForm" onsubmit="createProject(event)">
+            <div class="form-group">
+                <label for="project_name">Project Name <span style="color: #ff6b6b;">*</span></label>
+                <input type="text" id="project_name" name="project_name" required placeholder="e.g., Main Street Renovation">
+            </div>
+            <div class="form-group">
+                <label for="client_name">Client Name</label>
+                <input type="text" id="client_name" name="client_name" placeholder="e.g., ACME Corporation">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Create Project
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #1a2332 0%, #0d1117 100%);
+    margin: 5% auto;
+    padding: 0;
+    border: 2px solid var(--accent-cyan);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 10px 50px rgba(0,255,255,0.3);
+    animation: slideDown 0.3s;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header {
+    padding: 25px 30px;
+    border-bottom: 2px solid rgba(0,255,255,0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: var(--accent-cyan);
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 32px;
+    cursor: pointer;
+    transition: all 0.3s;
+    line-height: 1;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+}
+
+.modal-close:hover {
+    color: var(--accent-cyan);
+    transform: rotate(90deg);
+}
+
+.modal-content form {
+    padding: 30px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--accent-cyan);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 15px;
+    background: rgba(0,0,0,0.3);
+    border: 2px solid rgba(0,255,255,0.3);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 15px rgba(0,255,255,0.3);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding-top: 20px;
+    border-top: 2px solid rgba(0,255,255,0.2);
+}
+
+table input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent-cyan);
+}
+
+.highlighted-row {
+    background: rgba(0,255,255,0.1) !important;
+}
+</style>
+
 <script>
-    async function loadProjects() {
-        try {
-            const response = await fetch('/api/projects');
-            const projects = await response.json();
+let allProjects = [];
+let selectedProjects = new Set();
 
-            const projectsDiv = document.getElementById('projects');
-            const loadingDiv = document.getElementById('loading');
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/projects');
+        allProjects = await response.json();
 
-            if (projects.error) {
-                projectsDiv.innerHTML = `
-                    <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                        <p>Error loading projects: ${projects.error}</p>
-                    </div>
-                `;
-                loadingDiv.style.display = 'none';
-                projectsDiv.style.display = 'block';
-                return;
-            }
+        const projectsDiv = document.getElementById('projects');
+        const loadingDiv = document.getElementById('loading');
 
-            if (projects.length === 0) {
-                projectsDiv.innerHTML = `
-                    <div style="text-align: center; padding: 3rem; opacity: 0.5;">
-                        <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                        <p>No projects found</p>
-                    </div>
-                `;
-            } else {
-                projectsDiv.innerHTML = `
-                    <div style="margin-bottom: var(--spacing-md); color: var(--color-text-muted);">
-                        Showing ${projects.length} project${projects.length !== 1 ? 's' : ''}
-                    </div>
-                    <div style="overflow-x: auto;">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Project Name</th>
-                                    <th>Project Number</th>
-                                    <th>Client</th>
-                                    <th>Drawings</th>
-                                    <th>Created</th>
-                                    <th style="text-align: center;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${projects.map(p => `
-                                    <tr>
-                                        <td><strong>${p.project_name || '-'}</strong></td>
-                                        <td>${p.project_number || '-'}</td>
-                                        <td>${p.client_name || '-'}</td>
-                                        <td><span class="badge">${p.drawing_count || 0}</span></td>
-                                        <td>${formatDate(p.created_at)}</td>
-                                        <td style="text-align: center;">
-                                            <button 
-                                                class="btn btn-icon btn-danger" 
-                                                onclick="deleteItem('/api/projects', '${p.project_id}', '${p.project_name}')"
-                                                title="Delete project"
-                                            >
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            }
-
-            loadingDiv.style.display = 'none';
-            projectsDiv.style.display = 'block';
-
-        } catch (error) {
-            console.error('Error:', error);
-            document.getElementById('projects').innerHTML = `
+        if (allProjects.error) {
+            projectsDiv.innerHTML = `
                 <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
                     <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                    <p>Failed to load projects: ${error.message}</p>
+                    <p>Error loading projects: ${allProjects.error}</p>
                 </div>
             `;
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('projects').style.display = 'block';
+            loadingDiv.style.display = 'none';
+            projectsDiv.style.display = 'block';
+            return;
         }
+
+        renderProjects(allProjects);
+
+        loadingDiv.style.display = 'none';
+        projectsDiv.style.display = 'block';
+
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('projects').innerHTML = `
+            <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
+                <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                <p>Failed to load projects: ${error.message}</p>
+            </div>
+        `;
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('projects').style.display = 'block';
+    }
+}
+
+function renderProjects(projects) {
+    const projectsDiv = document.getElementById('projects');
+    
+    if (projects.length === 0) {
+        projectsDiv.innerHTML = `
+            <div style="text-align: center; padding: 3rem; opacity: 0.5;">
+                <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                <p>No projects found</p>
+            </div>
+        `;
+        return;
     }
 
-    loadProjects();
+    projectsDiv.innerHTML = `
+        <div style="margin-bottom: var(--spacing-md); color: var(--color-text-muted); display: flex; justify-content: space-between; align-items: center;">
+            <span>Showing ${projects.length} project${projects.length !== 1 ? 's' : ''}</span>
+            ${selectedProjects.size > 0 ? `<span style="color: var(--accent-cyan);">${selectedProjects.size} selected</span>` : ''}
+        </div>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)">
+                        </th>
+                        <th>Project Name</th>
+                        <th>Client</th>
+                        <th>Drawings</th>
+                        <th>Created</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${projects.map(p => `
+                        <tr class="${selectedProjects.has(p.project_id) ? 'highlighted-row' : ''}">
+                            <td>
+                                <input 
+                                    type="checkbox" 
+                                    ${selectedProjects.has(p.project_id) ? 'checked' : ''} 
+                                    onchange="toggleSelect('${p.project_id}')"
+                                >
+                            </td>
+                            <td><strong>${p.project_name || '-'}</strong></td>
+                            <td>${p.client_name || '-'}</td>
+                            <td><span class="badge">${p.drawing_count || 0}</span></td>
+                            <td>${formatDate(p.created_at)}</td>
+                            <td style="text-align: center;">
+                                <button 
+                                    class="btn btn-icon btn-danger" 
+                                    onclick="deleteItem('/api/projects', '${p.project_id}', '${p.project_name}')"
+                                    title="Delete project"
+                                >
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function filterProjects() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    
+    if (!searchTerm) {
+        renderProjects(allProjects);
+        return;
+    }
+
+    const filtered = allProjects.filter(p => 
+        (p.project_name && p.project_name.toLowerCase().includes(searchTerm)) ||
+        (p.client_name && p.client_name.toLowerCase().includes(searchTerm))
+    );
+
+    renderProjects(filtered);
+}
+
+function toggleSelect(projectId) {
+    if (selectedProjects.has(projectId)) {
+        selectedProjects.delete(projectId);
+    } else {
+        selectedProjects.add(projectId);
+    }
+    
+    const bulkBtn = document.getElementById('bulkDeleteBtn');
+    bulkBtn.style.display = selectedProjects.size > 0 ? 'block' : 'none';
+    
+    renderProjects(allProjects.filter(p => 
+        !document.getElementById('searchInput').value || 
+        (p.project_name && p.project_name.toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase())) ||
+        (p.client_name && p.client_name.toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase()))
+    ));
+}
+
+function toggleSelectAll(checked) {
+    const visibleProjects = allProjects.filter(p => {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        return !searchTerm || 
+            (p.project_name && p.project_name.toLowerCase().includes(searchTerm)) ||
+            (p.client_name && p.client_name.toLowerCase().includes(searchTerm));
+    });
+
+    if (checked) {
+        visibleProjects.forEach(p => selectedProjects.add(p.project_id));
+    } else {
+        selectedProjects.clear();
+    }
+    
+    const bulkBtn = document.getElementById('bulkDeleteBtn');
+    bulkBtn.style.display = selectedProjects.size > 0 ? 'block' : 'none';
+    
+    renderProjects(visibleProjects);
+}
+
+async function bulkDelete() {
+    const count = selectedProjects.size;
+    if (!confirm(`Are you sure you want to delete ${count} project${count !== 1 ? 's' : ''}? This will also delete all associated drawings.`)) {
+        return;
+    }
+
+    const deletePromises = Array.from(selectedProjects).map(id => 
+        fetch(`/api/projects/${id}`, { method: 'DELETE' })
+    );
+
+    try {
+        await Promise.all(deletePromises);
+        selectedProjects.clear();
+        document.getElementById('bulkDeleteBtn').style.display = 'none';
+        location.reload();
+    } catch (error) {
+        alert(`Error deleting projects: ${error.message}`);
+    }
+}
+
+function openCreateModal() {
+    document.getElementById('createModal').style.display = 'block';
+    document.getElementById('project_name').focus();
+}
+
+function closeCreateModal() {
+    document.getElementById('createModal').style.display = 'none';
+    document.getElementById('createForm').reset();
+}
+
+async function createProject(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const data = {
+        project_name: formData.get('project_name'),
+        client_name: formData.get('client_name') || null
+    };
+
+    try {
+        const response = await fetch('/api/projects', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            closeCreateModal();
+            location.reload();
+        } else {
+            const error = await response.json();
+            alert(`Error: ${error.error || 'Failed to create project'}`);
+        }
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('createModal');
+    if (event.target == modal) {
+        closeCreateModal();
+    }
+}
+
+loadProjects();
 </script>
 {% endblock %}

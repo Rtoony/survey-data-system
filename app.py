@@ -301,6 +301,39 @@ def get_projects():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/projects', methods=['POST'])
+def create_project():
+    """Create a new project"""
+    try:
+        data = request.get_json()
+        project_name = data.get('project_name')
+        client_name = data.get('client_name')
+
+        if not project_name:
+            return jsonify({'error': 'project_name is required'}), 400
+
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO projects (project_name, client_name)
+                    VALUES (%s, %s)
+                    RETURNING project_id, project_name, client_name, created_at
+                    """,
+                    (project_name, client_name)
+                )
+                result = cur.fetchone()
+                conn.commit()
+                
+                return jsonify({
+                    'project_id': str(result[0]),
+                    'project_name': result[1],
+                    'client_name': result[2],
+                    'created_at': result[3].isoformat() if result[3] else None
+                })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/projects/<project_id>', methods=['DELETE'])
 def delete_project(project_id):
     """Delete a project"""
@@ -336,6 +369,43 @@ def get_drawings():
         """
         drawings = execute_query(query)
         return jsonify(drawings)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/drawings', methods=['POST'])
+def create_drawing():
+    """Create a new drawing"""
+    try:
+        data = request.get_json()
+        drawing_name = data.get('drawing_name')
+        drawing_number = data.get('drawing_number')
+        project_id = data.get('project_id')
+        cad_units = data.get('cad_units', 'Feet')
+        scale_factor = data.get('scale_factor', 1.0)
+
+        if not drawing_name:
+            return jsonify({'error': 'drawing_name is required'}), 400
+
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO drawings (drawing_name, drawing_number, project_id, cad_units, scale_factor)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING drawing_id, drawing_name, drawing_number, project_id, created_at
+                    """,
+                    (drawing_name, drawing_number, project_id if project_id else None, cad_units, scale_factor)
+                )
+                result = cur.fetchone()
+                conn.commit()
+                
+                return jsonify({
+                    'drawing_id': str(result[0]),
+                    'drawing_name': result[1],
+                    'drawing_number': result[2],
+                    'project_id': str(result[3]) if result[3] else None,
+                    'created_at': result[4].isoformat() if result[4] else None
+                })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
