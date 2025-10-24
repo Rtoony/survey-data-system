@@ -132,6 +132,34 @@ Preferred communication style: Simple, everyday language.
 - Cache clearing on data modifications to ensure fresh reads
 - Proper field mapping between CSV columns and database fields
 
+**DXF/GIS Export Schema (Added October 2025)**
+- Enhanced database schema to support complete DXF/DWG export capability
+- 8 new tables added for storing actual drawing content and export tracking:
+  1. **drawing_entities** - Generic CAD primitives (lines, polylines, arcs, circles, ellipses, splines) with PostGIS geometry
+  2. **drawing_text** - Text annotations with insertion points, styles, rotation, and justification
+  3. **drawing_dimensions** - Dimension annotations (linear, aligned, angular, radial, diametric, ordinate)
+  4. **drawing_hatches** - Hatch pattern instances with boundary geometry
+  5. **layout_viewports** - Paperspace viewport configurations with scale, view center, and frozen layers
+  6. **export_jobs** - DXF/DWG export operation tracking with status, metrics, and output files
+  7. **drawing_layer_usage** - Tracks which layers are actively used in each drawing
+  8. **drawing_linetype_usage** - Tracks which linetypes are actively used in each drawing
+- All entity tables support:
+  - PostGIS GeometryZ for 3D coordinates
+  - DXF handle preservation for round-trip consistency
+  - Model/Paper space designation
+  - Visual properties (color ACI, lineweight, transparency)
+  - JSONB metadata for flexibility
+- Existing tables (drawings, block_inserts, layers) already provide:
+  - Drawing-level georeferencing and coordinate systems
+  - Block instance tracking with transformations
+  - Layer-to-standard relationships
+- Export workflow supports:
+  - Multiple DXF versions (AC1027/AutoCAD 2013 and newer)
+  - Coordinate system transformation
+  - Layer and entity type filtering
+  - Layout/paperspace inclusion
+  - Job status tracking and error handling
+
 ## External Dependencies
 
 ### Python Libraries
