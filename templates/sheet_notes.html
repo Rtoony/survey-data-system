@@ -1,0 +1,727 @@
+{% extends "base.html" %}
+
+{% block title %}Sheet Note Manager - ACAD-GIS Tools{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-sticky-note"></i> Sheet Note Manager</h1>
+    <p>Manage construction drawing notes, create note sets, and assign notes to sheets</p>
+</div>
+
+<div id="sheet-note-app" class="sheet-note-container">
+    <div class="loading-message">
+        <i class="fas fa-spinner fa-spin"></i> Loading Sheet Note Manager...
+    </div>
+</div>
+
+<style>
+.sheet-note-container {
+    min-height: 600px;
+    background: rgba(0, 20, 40, 0.3);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.loading-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+    color: var(--cyan);
+    font-size: 1.2rem;
+    gap: 12px;
+}
+
+.three-panel-layout {
+    display: grid;
+    grid-template-columns: 25% 45% 30%;
+    gap: 20px;
+    height: calc(100vh - 250px);
+}
+
+.panel {
+    background: rgba(0, 40, 80, 0.5);
+    border: 1px solid var(--cyan);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+}
+
+.panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    color: var(--cyan);
+    margin: 0;
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: rgba(0, 60, 120, 0.3);
+    border: 1px solid var(--cyan);
+    border-radius: 8px;
+}
+
+.top-bar-left {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.top-bar-right {
+    display: flex;
+    gap: 12px;
+}
+
+.stat-badge {
+    padding: 8px 16px;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--cyan);
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.stat-badge-label {
+    color: var(--gray);
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+}
+
+.stat-badge-value {
+    color: var(--cyan);
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.note-item {
+    padding: 12px;
+    margin-bottom: 8px;
+    background: rgba(0, 20, 40, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.note-item:hover {
+    background: rgba(0, 40, 80, 0.7);
+    border-color: var(--cyan);
+}
+
+.note-item.selected {
+    background: rgba(0, 255, 255, 0.2);
+    border-color: var(--gold);
+}
+
+.note-code {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--cyan);
+    color: var(--dark-blue);
+    font-weight: bold;
+    border-radius: 3px;
+    margin-right: 8px;
+}
+
+.note-title {
+    color: var(--white);
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.note-preview {
+    color: var(--gray);
+    font-size: 0.85rem;
+    max-height: 40px;
+    overflow: hidden;
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    border-radius: 3px;
+    margin-left: 8px;
+}
+
+.badge-standard {
+    background: rgba(0, 255, 255, 0.2);
+    color: var(--cyan);
+    border: 1px solid var(--cyan);
+}
+
+.badge-custom {
+    background: rgba(255, 215, 0, 0.2);
+    color: var(--gold);
+    border: 1px solid var(--gold);
+}
+
+.badge-modified {
+    background: rgba(255, 100, 0, 0.2);
+    color: #ff9933;
+    border: 1px solid #ff9933;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(0, 20, 40, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.5);
+    border-radius: 4px;
+    color: var(--white);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.3);
+}
+
+.btn {
+    padding: 8px 16px;
+    border: 1px solid;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: var(--cyan);
+    color: var(--dark-blue);
+    border-color: var(--cyan);
+}
+
+.btn-primary:hover {
+    background: transparent;
+    color: var(--cyan);
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.4);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--cyan);
+    border-color: var(--cyan);
+}
+
+.btn-secondary:hover {
+    background: rgba(0, 255, 255, 0.1);
+}
+
+.btn-danger {
+    background: transparent;
+    color: #ff6b6b;
+    border-color: #ff6b6b;
+}
+
+.btn-danger:hover {
+    background: rgba(255, 107, 107, 0.1);
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--dark-blue);
+    border: 2px solid var(--cyan);
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+}
+
+.modal-title {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--cyan);
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--gray);
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.modal-close:hover {
+    color: var(--cyan);
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--cyan);
+    font-size: 0.9rem;
+}
+
+textarea.form-control {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.category-group {
+    margin-bottom: 20px;
+}
+
+.category-header {
+    padding: 8px 12px;
+    background: rgba(0, 255, 255, 0.1);
+    border-left: 3px solid var(--cyan);
+    color: var(--cyan);
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--gray);
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: rgba(0, 255, 255, 0.3);
+    margin-bottom: 16px;
+}
+
+.search-box {
+    margin-bottom: 16px;
+}
+
+.search-box input {
+    width: 100%;
+}
+
+.usage-count {
+    display: inline-block;
+    padding: 2px 6px;
+    background: rgba(0, 255, 255, 0.2);
+    border-radius: 3px;
+    font-size: 0.75rem;
+    color: var(--cyan);
+}
+</style>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+{% raw %}
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+// Main Sheet Note Manager App
+function SheetNoteApp() {
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    
+    // State
+    const [projects, setProjects] = useState([]);
+    const [selectedProjectId, setSelectedProjectId] = useState(null);
+    const [sets, setSets] = useState([]);
+    const [selectedSetId, setSelectedSetId] = useState(null);
+    const [standardNotes, setStandardNotes] = useState([]);
+    const [projectNotes, setProjectNotes] = useState([]);
+    const [selectedProjectNoteId, setSelectedProjectNoteId] = useState(null);
+    const [assignments, setAssignments] = useState([]);
+    const [stats, setStats] = useState({ totalSets: 0, totalNotes: 0, totalAssignments: 0 });
+    
+    // Load projects on mount
+    useEffect(() => {
+        loadProjects();
+        loadStandardNotes();
+    }, []);
+    
+    // Load sets when project changes
+    useEffect(() => {
+        if (selectedProjectId) {
+            loadSets(selectedProjectId);
+        } else {
+            setSets([]);
+            setSelectedSetId(null);
+        }
+    }, [selectedProjectId]);
+    
+    // Load notes when set changes
+    useEffect(() => {
+        if (selectedSetId) {
+            loadProjectNotes(selectedSetId);
+        } else {
+            setProjectNotes([]);
+            setSelectedProjectNoteId(null);
+        }
+    }, [selectedSetId]);
+    
+    // Load assignments when project note changes
+    useEffect(() => {
+        if (selectedProjectNoteId) {
+            loadAssignments(selectedProjectNoteId);
+        } else {
+            setAssignments([]);
+        }
+    }, [selectedProjectNoteId]);
+    
+    const loadProjects = async () => {
+        try {
+            const response = await fetch('/api/projects');
+            const data = await response.json();
+            setProjects(data.projects || []);
+            setLoading(false);
+        } catch (err) {
+            setError('Failed to load projects');
+            setLoading(false);
+        }
+    };
+    
+    const loadStandardNotes = async () => {
+        try {
+            const response = await fetch('/api/standards/notes');
+            const data = await response.json();
+            setStandardNotes(data.notes || []);
+        } catch (err) {
+            console.error('Failed to load standard notes:', err);
+        }
+    };
+    
+    const loadSets = async (projectId) => {
+        try {
+            const response = await fetch(`/api/sheet-note-sets?project_id=${projectId}`);
+            const data = await response.json();
+            const fetchedSets = data.sets || [];
+            setSets(fetchedSets);
+            
+            // Update stats
+            setStats(prev => ({ ...prev, totalSets: fetchedSets.length }));
+            
+            if (fetchedSets.length > 0) {
+                const activeSet = fetchedSets.find(s => s.is_active) || fetchedSets[0];
+                setSelectedSetId(activeSet.set_id);
+            }
+        } catch (err) {
+            console.error('Failed to load sets:', err);
+        }
+    };
+    
+    const loadProjectNotes = async (setId) => {
+        try {
+            const response = await fetch(`/api/project-sheet-notes?set_id=${setId}`);
+            const data = await response.json();
+            const fetchedNotes = data.notes || [];
+            setProjectNotes(fetchedNotes);
+            
+            // Update stats - calculate total assignments from usage_count
+            const totalAssignments = fetchedNotes.reduce((sum, note) => sum + (note.usage_count || 0), 0);
+            setStats(prev => ({ 
+                ...prev, 
+                totalNotes: fetchedNotes.length,
+                totalAssignments: totalAssignments
+            }));
+        } catch (err) {
+            console.error('Failed to load project notes:', err);
+        }
+    };
+    
+    const loadAssignments = async (projectNoteId) => {
+        try {
+            const response = await fetch(`/api/sheet-note-assignments?project_note_id=${projectNoteId}`);
+            const data = await response.json();
+            setAssignments(data.assignments || []);
+        } catch (err) {
+            console.error('Failed to load assignments:', err);
+        }
+    };
+    
+    if (loading) {
+        return (
+            <div className="loading-message">
+                <i className="fas fa-spinner fa-spin"></i> Loading Sheet Note Manager...
+            </div>
+        );
+    }
+    
+    if (error) {
+        return (
+            <div className="empty-state">
+                <i className="fas fa-exclamation-triangle"></i>
+                <p>{error}</p>
+            </div>
+        );
+    }
+    
+    return (
+        <div>
+            <TopBar 
+                projects={projects}
+                selectedProjectId={selectedProjectId}
+                onProjectChange={setSelectedProjectId}
+                sets={sets}
+                selectedSetId={selectedSetId}
+                onSetChange={setSelectedSetId}
+                stats={stats}
+            />
+            
+            <div className="three-panel-layout">
+                <StandardNotesPanel 
+                    standardNotes={standardNotes}
+                    selectedSetId={selectedSetId}
+                    onAddToSet={loadProjectNotes}
+                />
+                
+                <ProjectNotesPanel 
+                    projectNotes={projectNotes}
+                    selectedProjectNoteId={selectedProjectNoteId}
+                    onSelectNote={setSelectedProjectNoteId}
+                    onNotesChange={() => loadProjectNotes(selectedSetId)}
+                />
+                
+                <AssignmentsPanel 
+                    assignments={assignments}
+                    selectedProjectNoteId={selectedProjectNoteId}
+                    onAssignmentsChange={() => loadAssignments(selectedProjectNoteId)}
+                />
+            </div>
+        </div>
+    );
+}
+
+// Top Bar Component
+function TopBar({ projects, selectedProjectId, onProjectChange, sets, selectedSetId, onSetChange, stats }) {
+    return (
+        <div className="top-bar">
+            <div className="top-bar-left">
+                <div className="form-group" style={{marginBottom: 0, minWidth: '200px'}}>
+                    <select 
+                        className="form-control" 
+                        value={selectedProjectId || ''}
+                        onChange={(e) => onProjectChange(e.target.value || null)}
+                    >
+                        <option value="">Select Project...</option>
+                        {projects.map(p => (
+                            <option key={p.project_id} value={p.project_id}>
+                                {p.project_name} - {p.client_name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                
+                {selectedProjectId && (
+                    <div className="form-group" style={{marginBottom: 0, minWidth: '200px'}}>
+                        <select 
+                            className="form-control"
+                            value={selectedSetId || ''}
+                            onChange={(e) => onSetChange(e.target.value || null)}
+                        >
+                            <option value="">Select Note Set...</option>
+                            {sets.map(s => (
+                                <option key={s.set_id} value={s.set_id}>
+                                    {s.set_name} {s.is_active ? '(Active)' : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+            </div>
+            
+            <div className="top-bar-right">
+                <div className="stat-badge">
+                    <div className="stat-badge-label">Sets</div>
+                    <div className="stat-badge-value">{sets.length}</div>
+                </div>
+                <div className="stat-badge">
+                    <div className="stat-badge-label">Notes</div>
+                    <div className="stat-badge-value">{stats.totalNotes}</div>
+                </div>
+                <div className="stat-badge">
+                    <div className="stat-badge-label">Assignments</div>
+                    <div className="stat-badge-value">{stats.totalAssignments}</div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Standard Notes Panel (Left)
+function StandardNotesPanel({ standardNotes, selectedSetId, onAddToSet }) {
+    const [searchTerm, setSearchTerm] = useState('');
+    
+    const filteredNotes = standardNotes.filter(note => 
+        note.note_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        note.note_text?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        note.note_category?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    return (
+        <div className="panel">
+            <div className="panel-header">
+                <h2 className="panel-title">Standard Notes Library</h2>
+            </div>
+            
+            <div className="search-box">
+                <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="Search notes..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            
+            {filteredNotes.length === 0 ? (
+                <div className="empty-state">
+                    <i className="fas fa-search"></i>
+                    <p>No notes found</p>
+                </div>
+            ) : (
+                filteredNotes.map(note => (
+                    <div key={note.note_id} className="note-item">
+                        <div>
+                            <span className="note-title">{note.note_title || 'Untitled'}</span>
+                            {note.note_category && <span className="badge badge-standard">{note.note_category}</span>}
+                        </div>
+                        <div className="note-preview">
+                            {(note.note_text || '').substring(0, 80)}...
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
+    );
+}
+
+// Project Notes Panel (Center)
+function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, onSelectNote, onNotesChange }) {
+    return (
+        <div className="panel">
+            <div className="panel-header">
+                <h2 className="panel-title">Project Notes</h2>
+                <button className="btn btn-primary btn-sm">
+                    <i className="fas fa-plus"></i> Add Note
+                </button>
+            </div>
+            
+            {projectNotes.length === 0 ? (
+                <div className="empty-state">
+                    <i className="fas fa-sticky-note"></i>
+                    <p>No notes in this set. Add notes from the library or create custom notes.</p>
+                </div>
+            ) : (
+                projectNotes.map(note => (
+                    <div 
+                        key={note.project_note_id} 
+                        className={`note-item ${selectedProjectNoteId === note.project_note_id ? 'selected' : ''}`}
+                        onClick={() => onSelectNote(note.project_note_id)}
+                    >
+                        <div>
+                            <span className="note-code">{note.display_code}</span>
+                            <span className="note-title">
+                                {note.custom_title || note.standard_title || 'Untitled'}
+                            </span>
+                            {!note.standard_note_id && <span className="badge badge-custom">Custom</span>}
+                            {note.is_modified && <span className="badge badge-modified">Modified</span>}
+                            <span className="usage-count">
+                                <i className="fas fa-file"></i> {note.usage_count || 0}
+                            </span>
+                        </div>
+                        <div className="note-preview">
+                            {(note.custom_text || note.standard_text || '').substring(0, 100)}...
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
+    );
+}
+
+// Assignments Panel (Right)
+function AssignmentsPanel({ assignments, selectedProjectNoteId, onAssignmentsChange }) {
+    if (!selectedProjectNoteId) {
+        return (
+            <div className="panel">
+                <div className="panel-header">
+                    <h2 className="panel-title">Sheet Assignments</h2>
+                </div>
+                <div className="empty-state">
+                    <i className="fas fa-mouse-pointer"></i>
+                    <p>Select a note to view assignments</p>
+                </div>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="panel">
+            <div className="panel-header">
+                <h2 className="panel-title">Sheet Assignments</h2>
+                <button className="btn btn-primary btn-sm">
+                    <i className="fas fa-plus"></i> Assign
+                </button>
+            </div>
+            
+            {assignments.length === 0 ? (
+                <div className="empty-state">
+                    <i className="fas fa-file-invoice"></i>
+                    <p>Not assigned to any sheets</p>
+                </div>
+            ) : (
+                assignments.map(assignment => (
+                    <div key={assignment.assignment_id} className="note-item">
+                        <div>
+                            <strong>{assignment.drawing_name || assignment.drawing_number}</strong>
+                        </div>
+                        <div style={{fontSize: '0.85rem', color: 'var(--gray)', marginTop: '4px'}}>
+                            Layout: {assignment.layout_name} | Seq: {assignment.legend_sequence}
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
+    );
+}
+
+// Render the app
+const root = ReactDOM.createRoot(document.getElementById('sheet-note-app'));
+root.render(<SheetNoteApp />);
+</script>
+{% endraw %}
+
+{% endblock %}

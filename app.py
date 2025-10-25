@@ -297,7 +297,7 @@ def get_projects():
             ORDER BY p.created_at DESC
         """
         projects = execute_query(query)
-        return jsonify(projects)
+        return jsonify({'projects': projects})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1717,6 +1717,15 @@ def get_schema_relationships():
         return jsonify({'error': str(e)}), 500
 
 # ============================================
+# SHEET NOTE MANAGER
+# ============================================
+
+@app.route('/sheet-notes')
+def sheet_notes_page():
+    """Sheet Note Manager page"""
+    return render_template('sheet_notes.html')
+
+# ============================================
 # DXF IMPORT/EXPORT
 # ============================================
 
@@ -1867,6 +1876,478 @@ def get_export_jobs():
         
         jobs = execute_query(query)
         return jsonify({'jobs': jobs})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# SHEET NOTE MANAGER API
+# ============================================
+
+@app.route('/api/sheet-note-sets', methods=['GET'])
+def get_sheet_note_sets():
+    """Get all sheet note sets for a project"""
+    try:
+        project_id = request.args.get('project_id')
+        
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        query = """
+            SELECT 
+                sns.set_id,
+                sns.project_id,
+                sns.set_name,
+                sns.description,
+                sns.discipline,
+                sns.is_active,
+                sns.created_at,
+                sns.modified_at,
+                (SELECT COUNT(*) FROM project_sheet_notes WHERE set_id = sns.set_id) as note_count
+            FROM sheet_note_sets sns
+            WHERE sns.project_id = %s::uuid
+            ORDER BY sns.is_active DESC, sns.set_name
+        """
+        
+        sets = execute_query(query, (project_id,))
+        return jsonify({'sets': sets})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-note-sets', methods=['POST'])
+def create_sheet_note_set():
+    """Create a new sheet note set"""
+    try:
+        data = request.get_json()
+        
+        project_id = data.get('project_id')
+        set_name = data.get('set_name')
+        description = data.get('description', '')
+        discipline = data.get('discipline')
+        is_active = data.get('is_active', False)
+        
+        if not project_id or not set_name:
+            return jsonify({'error': 'project_id and set_name are required'}), 400
+        
+        set_id = str(uuid.uuid4())
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO sheet_note_sets 
+                    (set_id, project_id, set_name, description, discipline, is_active)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s)
+                    RETURNING set_id, project_id, set_name, description, discipline, is_active, created_at
+                """, (set_id, project_id, set_name, description, discipline, is_active))
+                
+                new_set = dict(cur.fetchone())
+                conn.commit()
+                
+                cache.clear()
+                return jsonify({'set': new_set}), 201
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-note-sets/<set_id>', methods=['PUT'])
+def update_sheet_note_set(set_id):
+    """Update an existing sheet note set"""
+    try:
+        data = request.get_json()
+        
+        set_name = data.get('set_name')
+        description = data.get('description')
+        discipline = data.get('discipline')
+        is_active = data.get('is_active')
+        
+        updates = []
+        params = []
+        
+        if set_name is not None:
+            updates.append('set_name = %s')
+            params.append(set_name)
+        if description is not None:
+            updates.append('description = %s')
+            params.append(description)
+        if discipline is not None:
+            updates.append('discipline = %s')
+            params.append(discipline)
+        if is_active is not None:
+            updates.append('is_active = %s')
+            params.append(is_active)
+        
+        if not updates:
+            return jsonify({'error': 'No fields to update'}), 400
+        
+        updates.append('modified_at = CURRENT_TIMESTAMP')
+        params.append(set_id)
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(f"""
+                    UPDATE sheet_note_sets 
+                    SET {', '.join(updates)}
+                    WHERE set_id = %s::uuid
+                    RETURNING set_id, project_id, set_name, description, discipline, is_active, modified_at
+                """, params)
+                
+                updated_set = cur.fetchone()
+                if not updated_set:
+                    return jsonify({'error': 'Set not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'set': dict(updated_set)})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-note-sets/<set_id>', methods=['DELETE'])
+def delete_sheet_note_set(set_id):
+    """Delete a sheet note set"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute('DELETE FROM sheet_note_sets WHERE set_id = %s::uuid', (set_id,))
+                
+                if cur.rowcount == 0:
+                    return jsonify({'error': 'Set not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'message': 'Set deleted successfully'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-sheet-notes', methods=['GET'])
+def get_project_sheet_notes():
+    """Get all project sheet notes for a set"""
+    try:
+        set_id = request.args.get('set_id')
+        
+        if not set_id:
+            return jsonify({'error': 'set_id is required'}), 400
+        
+        query = """
+            SELECT 
+                psn.project_note_id,
+                psn.set_id,
+                psn.standard_note_id,
+                psn.display_code,
+                psn.custom_title,
+                psn.custom_text,
+                psn.is_modified,
+                psn.sort_order,
+                psn.usage_count,
+                sn.note_title as standard_title,
+                sn.note_text as standard_text,
+                sn.note_category,
+                sn.discipline
+            FROM project_sheet_notes psn
+            LEFT JOIN standard_notes sn ON psn.standard_note_id = sn.note_id
+            WHERE psn.set_id = %s::uuid
+            ORDER BY psn.sort_order, psn.display_code
+        """
+        
+        notes = execute_query(query, (set_id,))
+        return jsonify({'notes': notes})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-sheet-notes', methods=['POST'])
+def create_project_sheet_note():
+    """Create a new project sheet note"""
+    try:
+        data = request.get_json()
+        
+        set_id = data.get('set_id')
+        standard_note_id = data.get('standard_note_id')
+        display_code = data.get('display_code')
+        custom_title = data.get('custom_title')
+        custom_text = data.get('custom_text')
+        
+        if not set_id or not display_code:
+            return jsonify({'error': 'set_id and display_code are required'}), 400
+        
+        is_custom = standard_note_id is None
+        
+        if is_custom and (not custom_title or not custom_text):
+            return jsonify({'error': 'custom_title and custom_text required for custom notes'}), 400
+        
+        if not is_custom and not standard_note_id:
+            return jsonify({'error': 'standard_note_id required for standard notes'}), 400
+        
+        project_note_id = str(uuid.uuid4())
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute('SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order FROM project_sheet_notes WHERE set_id = %s::uuid', (set_id,))
+                next_sort_order = cur.fetchone()['next_order']
+                
+                cur.execute("""
+                    INSERT INTO project_sheet_notes 
+                    (project_note_id, set_id, standard_note_id, display_code, custom_title, custom_text, sort_order)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s)
+                    RETURNING project_note_id, set_id, standard_note_id, display_code, custom_title, custom_text, is_modified, sort_order, usage_count
+                """, (project_note_id, set_id, standard_note_id, display_code, custom_title, custom_text, next_sort_order))
+                
+                new_note = dict(cur.fetchone())
+                conn.commit()
+                
+                cache.clear()
+                return jsonify({'note': new_note}), 201
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-sheet-notes/<project_note_id>', methods=['PUT'])
+def update_project_sheet_note(project_note_id):
+    """Update an existing project sheet note"""
+    try:
+        data = request.get_json()
+        
+        display_code = data.get('display_code')
+        custom_title = data.get('custom_title')
+        custom_text = data.get('custom_text')
+        is_modified = data.get('is_modified')
+        
+        updates = []
+        params = []
+        
+        if display_code is not None:
+            updates.append('display_code = %s')
+            params.append(display_code)
+        if custom_title is not None:
+            updates.append('custom_title = %s')
+            params.append(custom_title)
+        if custom_text is not None:
+            updates.append('custom_text = %s')
+            params.append(custom_text)
+        if is_modified is not None:
+            updates.append('is_modified = %s')
+            params.append(is_modified)
+        
+        if not updates:
+            return jsonify({'error': 'No fields to update'}), 400
+        
+        params.append(project_note_id)
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(f"""
+                    UPDATE project_sheet_notes 
+                    SET {', '.join(updates)}
+                    WHERE project_note_id = %s::uuid
+                    RETURNING project_note_id, set_id, standard_note_id, display_code, custom_title, custom_text, is_modified, sort_order, usage_count
+                """, params)
+                
+                updated_note = cur.fetchone()
+                if not updated_note:
+                    return jsonify({'error': 'Note not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'note': dict(updated_note)})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-sheet-notes/<project_note_id>', methods=['DELETE'])
+def delete_project_sheet_note(project_note_id):
+    """Delete a project sheet note"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute('DELETE FROM project_sheet_notes WHERE project_note_id = %s::uuid', (project_note_id,))
+                
+                if cur.rowcount == 0:
+                    return jsonify({'error': 'Note not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'message': 'Note deleted successfully'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-sheet-notes/<project_note_id>/reorder', methods=['PATCH'])
+def reorder_project_sheet_note(project_note_id):
+    """Update sort order for a project sheet note"""
+    try:
+        data = request.get_json()
+        new_sort_order = data.get('sort_order')
+        
+        if new_sort_order is None:
+            return jsonify({'error': 'sort_order is required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    UPDATE project_sheet_notes 
+                    SET sort_order = %s
+                    WHERE project_note_id = %s::uuid
+                    RETURNING project_note_id, sort_order
+                """, (new_sort_order, project_note_id))
+                
+                updated_note = cur.fetchone()
+                if not updated_note:
+                    return jsonify({'error': 'Note not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'note': dict(updated_note)})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-note-assignments', methods=['GET'])
+def get_sheet_note_assignments():
+    """Get sheet note assignments by drawing/layout or by project note"""
+    try:
+        drawing_id = request.args.get('drawing_id')
+        layout_name = request.args.get('layout_name')
+        project_note_id = request.args.get('project_note_id')
+        
+        if project_note_id:
+            query = """
+                SELECT 
+                    sna.assignment_id,
+                    sna.project_note_id,
+                    sna.drawing_id,
+                    sna.layout_name,
+                    sna.legend_sequence,
+                    d.drawing_name,
+                    d.drawing_number,
+                    p.project_name
+                FROM sheet_note_assignments sna
+                LEFT JOIN drawings d ON sna.drawing_id = d.drawing_id
+                LEFT JOIN projects p ON d.project_id = p.project_id
+                WHERE sna.project_note_id = %s::uuid
+                ORDER BY d.drawing_name, sna.layout_name, sna.legend_sequence
+            """
+            assignments = execute_query(query, (project_note_id,))
+        
+        elif drawing_id and layout_name:
+            query = """
+                SELECT 
+                    sna.assignment_id,
+                    sna.project_note_id,
+                    sna.drawing_id,
+                    sna.layout_name,
+                    sna.legend_sequence,
+                    psn.display_code,
+                    COALESCE(psn.custom_title, sn.note_title) as note_title,
+                    COALESCE(psn.custom_text, sn.note_text) as note_text
+                FROM sheet_note_assignments sna
+                LEFT JOIN project_sheet_notes psn ON sna.project_note_id = psn.project_note_id
+                LEFT JOIN standard_notes sn ON psn.standard_note_id = sn.note_id
+                WHERE sna.drawing_id = %s::uuid AND sna.layout_name = %s
+                ORDER BY sna.legend_sequence
+            """
+            assignments = execute_query(query, (drawing_id, layout_name))
+        
+        else:
+            return jsonify({'error': 'Either (drawing_id and layout_name) or project_note_id required'}), 400
+        
+        return jsonify({'assignments': assignments})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-note-assignments', methods=['POST'])
+def create_sheet_note_assignment():
+    """Create a new sheet note assignment"""
+    try:
+        data = request.get_json()
+        
+        project_note_id = data.get('project_note_id')
+        drawing_id = data.get('drawing_id')
+        layout_name = data.get('layout_name', 'Model')
+        
+        if not project_note_id or not drawing_id:
+            return jsonify({'error': 'project_note_id and drawing_id are required'}), 400
+        
+        assignment_id = str(uuid.uuid4())
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT COALESCE(MAX(legend_sequence), 0) + 1 
+                    FROM sheet_note_assignments 
+                    WHERE drawing_id = %s::uuid AND layout_name = %s
+                """, (drawing_id, layout_name))
+                next_sequence = cur.fetchone()[0]
+                
+                cur.execute("""
+                    INSERT INTO sheet_note_assignments 
+                    (assignment_id, project_note_id, drawing_id, layout_name, legend_sequence)
+                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s)
+                    RETURNING assignment_id, project_note_id, drawing_id, layout_name, legend_sequence
+                """, (assignment_id, project_note_id, drawing_id, layout_name, next_sequence))
+                
+                new_assignment = dict(cur.fetchone())
+                conn.commit()
+                
+                cache.clear()
+                return jsonify({'assignment': new_assignment}), 201
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-note-assignments/<assignment_id>', methods=['DELETE'])
+def delete_sheet_note_assignment(assignment_id):
+    """Delete a sheet note assignment"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute('DELETE FROM sheet_note_assignments WHERE assignment_id = %s::uuid', (assignment_id,))
+                
+                if cur.rowcount == 0:
+                    return jsonify({'error': 'Assignment not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'message': 'Assignment deleted successfully'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-note-legend', methods=['GET'])
+def get_sheet_note_legend():
+    """Generate note legend for a drawing/layout"""
+    try:
+        drawing_id = request.args.get('drawing_id')
+        layout_name = request.args.get('layout_name', 'Model')
+        
+        if not drawing_id:
+            return jsonify({'error': 'drawing_id is required'}), 400
+        
+        query = """
+            SELECT 
+                sna.legend_sequence,
+                psn.display_code,
+                COALESCE(psn.custom_title, sn.note_title) as note_title,
+                COALESCE(psn.custom_text, sn.note_text) as note_text,
+                psn.standard_note_id,
+                psn.is_modified
+            FROM sheet_note_assignments sna
+            LEFT JOIN project_sheet_notes psn ON sna.project_note_id = psn.project_note_id
+            LEFT JOIN standard_notes sn ON psn.standard_note_id = sn.note_id
+            WHERE sna.drawing_id = %s::uuid AND sna.layout_name = %s
+            ORDER BY sna.legend_sequence
+        """
+        
+        legend_items = execute_query(query, (drawing_id, layout_name))
+        
+        return jsonify({
+            'drawing_id': drawing_id,
+            'layout_name': layout_name,
+            'legend': legend_items,
+            'total_notes': len(legend_items)
+        })
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
