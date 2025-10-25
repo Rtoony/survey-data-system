@@ -1,0 +1,104 @@
+Build a Sheet Note Manager tool for the acad-gis project with these features:
+
+DATABASE SCHEMA:
+The following tables already exist in the acad-gis PostgreSQL database:
+- projects, drawings
+- standard_notes (company note library with sort_order)
+- sheet_note_sets, project_sheet_notes, sheet_note_assignments, note_callouts
+- note_block_type_associations
+
+REQUIRED FEATURES:
+
+1. PROJECT SELECTOR
+   - Dropdown to select project (from projects table)
+   - Shows all sheet note sets for that project
+   - Button to create new sheet note set
+
+2. SHEET NOTE SET MANAGEMENT
+   - List all sets for selected project (name, discipline, note count, active status)
+   - Create new set: name, description, discipline dropdown (Civil, Survey, Landscape, Demo, Utility)
+   - Edit/Delete sets (with confirmation)
+   - Set one set as active/default
+
+3. STANDARD NOTES LIBRARY (LEFT PANEL)
+   - Browse standard_notes table grouped by category
+   - Show: display code assignment field, note_title, note_text preview
+   - Sort by sort_order
+   - Search/filter by category, discipline, tags
+   - Button to "Add to Current Set" (creates project_sheet_note)
+
+4. PROJECT NOTES EDITOR (CENTER PANEL)
+   - For selected set, show all project_sheet_notes
+   - Editable table with columns:
+     * Display Code (1, A, R1, etc.) - editable, validates unique per set
+     * Title (links to standard if applicable, or shows custom)
+     * Text preview (first 100 chars)
+     * Source (badge: "Standard" or "Custom")
+     * Usage Count (how many sheets use this note)
+     * Actions: Edit, Delete, Reorder
+   - Drag-to-reorder (updates sort_order)
+   - Create custom note button
+   - Edit modal shows full text, allows modification (sets is_modified flag if from standard)
+
+5. SHEET ASSIGNMENTS (RIGHT PANEL)
+   - Select a project_note from center panel
+   - Shows which drawings/layouts currently use this note
+   - List format: Drawing Number | Layout Name | Legend Seq | Actions
+   - Add Assignment: Select drawing + layout name, auto-assigns next legend_sequence
+   - Remove assignment button
+   - Bulk assign: "Add to all sheets in drawing" option
+
+6. LEGEND PREVIEW
+   - Generate read-only preview of note legend for selected drawing/layout
+   - Format: Display Code | Note Text
+   - Ordered by legend_sequence
+   - Export as CSV/JSON
+
+7. VALIDATION & STATS
+   - Check for duplicate display codes within project (across all sets)
+   - Warn if notes exist but aren't assigned to any sheets
+   - Show summary: Total sets, Total notes, Total assignments, Unassigned notes
+
+TECH STACK:
+- React (functional components with hooks)
+- PostgreSQL connection using existing acad-gis database config
+- Tailwind CSS for styling
+- React DnD or similar for drag-to-reorder
+- Toast notifications for success/error messages
+
+UI LAYOUT:
+Three-column layout:
+[Standard Library] [Project Notes Editor] [Sheet Assignments]
+     25%                   45%                    30%
+
+Top bar: Project selector, Active Set selector, Stats badges
+
+STYLING:
+Use acad-gis theme (dark mode, neon accents similar to Mission Control aesthetic)
+
+API ENDPOINTS TO CREATE:
+GET    /api/sheet-note-sets?project_id=
+POST   /api/sheet-note-sets
+PUT    /api/sheet-note-sets/:set_id
+DELETE /api/sheet-note-sets/:set_id
+
+GET    /api/project-sheet-notes?set_id=
+POST   /api/project-sheet-notes
+PUT    /api/project-sheet-notes/:project_note_id
+DELETE /api/project-sheet-notes/:project_note_id
+PATCH  /api/project-sheet-notes/:project_note_id/reorder
+
+GET    /api/sheet-note-assignments?drawing_id=&layout_name=
+GET    /api/sheet-note-assignments?project_note_id=
+POST   /api/sheet-note-assignments
+DELETE /api/sheet-note-assignments/:assignment_id
+
+GET    /api/standard-notes (already exists, just use it)
+
+GET    /api/sheet-note-legend?drawing_id=&layout_name= (generates legend preview)
+
+PRIORITY:
+Focus on Set Management → Project Notes Editor → Assignments
+The note callouts and block associations can be added in future iteration.
+
+Build this as a standalone React app that can be integrated into the acad-gis tool launcher.
