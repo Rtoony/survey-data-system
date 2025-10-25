@@ -51,8 +51,9 @@ print("=" * 50)
 
 @contextmanager
 def get_db():
-    """Get database connection"""
+    """Get database connection with autocommit enabled"""
     conn = psycopg2.connect(**DB_CONFIG)
+    conn.autocommit = True
     try:
         yield conn
     finally:
@@ -2459,7 +2460,7 @@ def get_sheet_category_standards():
         query = """
             SELECT * FROM sheet_category_standards
             WHERE is_active = TRUE
-            ORDER BY default_hierarchy_number
+            ORDER BY default_hierarchy
         """
         result = execute_query(query)
         return jsonify({'categories': result})
@@ -2476,12 +2477,12 @@ def create_sheet_category_standard():
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
                     INSERT INTO sheet_category_standards
-                    (category_code, category_name, default_hierarchy_number, description)
+                    (category_code, category_name, default_hierarchy, description)
                     VALUES (%s, %s, %s, %s)
                     RETURNING *
                 """, (
                     data['category_code'], data['category_name'],
-                    data['default_hierarchy_number'], data.get('description')
+                    data['default_hierarchy'], data.get('description')
                 ))
                 
                 category = dict(cur.fetchone())
