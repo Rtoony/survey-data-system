@@ -163,8 +163,8 @@
     background: rgba(0, 20, 40, 0.5);
     border: 1px solid rgba(0, 255, 255, 0.3);
     border-radius: 4px;
-    cursor: pointer;
     transition: all 0.2s;
+    position: relative;
 }
 
 .set-item:hover {
@@ -176,6 +176,10 @@
     background: rgba(0, 255, 255, 0.2);
     border-color: var(--gold);
     box-shadow: 0 0 12px rgba(255, 215, 0, 0.2);
+}
+
+.set-item-content {
+    cursor: pointer;
 }
 
 .set-name {
@@ -190,6 +194,40 @@
     align-items: center;
     font-size: 0.85rem;
     color: var(--gray);
+}
+
+.set-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 255, 255, 0.1);
+}
+
+.btn-action {
+    padding: 4px 12px;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 3px;
+    color: var(--cyan);
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+}
+
+.btn-action:hover {
+    background: rgba(0, 255, 255, 0.2);
+    border-color: var(--cyan);
+}
+
+.btn-action.btn-delete {
+    border-color: rgba(255, 0, 0, 0.3);
+    color: #ff6666;
+}
+
+.btn-action.btn-delete:hover {
+    background: rgba(255, 0, 0, 0.1);
+    border-color: #ff6666;
 }
 
 .sheet-count-badge {
@@ -379,6 +417,50 @@ function SheetSetManager() {
         }).then(() => loadSheets());
     };
 
+    const editSheet = (sheet) => {
+        const code = prompt('Edit sheet code:', sheet.sheet_code);
+        if (!code) return;
+        const title = prompt('Edit sheet title:', sheet.sheet_title);
+        if (!title) return;
+
+        fetch(`/api/sheets/${sheet.sheet_id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sheet_code: code,
+                sheet_title: title,
+                sheet_category: sheet.sheet_category,
+                sheet_hierarchy_number: sheet.sheet_hierarchy_number,
+                discipline_code: sheet.discipline_code,
+                sheet_type: sheet.sheet_type,
+                scale: sheet.scale,
+                sheet_size: sheet.sheet_size,
+                revision_number: sheet.revision_number
+            })
+        }).then(() => loadSheets());
+    };
+
+    const deleteSheet = (sheet) => {
+        if (!confirm(`Delete sheet ${sheet.sheet_code} - ${sheet.sheet_title}?`)) return;
+
+        fetch(`/api/sheets/${sheet.sheet_id}`, {
+            method: 'DELETE'
+        }).then(() => loadSheets());
+    };
+
+    const deleteSet = (set) => {
+        if (!confirm(`Delete sheet set "${set.set_name}"? This will delete all sheets in this set.`)) return;
+
+        fetch(`/api/sheet-sets/${set.set_id}`, {
+            method: 'DELETE'
+        }).then(() => {
+            loadSheetSets();
+            if (selectedSetId === set.set_id) {
+                setSelectedSetId('');
+            }
+        });
+    };
+
     if (loading) {
         return h('div', { className: 'loading-message' },
             h('div', { className: 'spinner' }),
@@ -432,13 +514,23 @@ function SheetSetManager() {
                     ) :
                     sheetSets.map(set => h('div', {
                         key: set.set_id,
-                        className: `set-item ${selectedSetId === set.set_id ? 'selected' : ''}`,
-                        onClick: () => setSelectedSetId(set.set_id)
+                        className: `set-item ${selectedSetId === set.set_id ? 'selected' : ''}`
                     },
-                        h('div', { className: 'set-name' }, set.set_name),
-                        h('div', { className: 'set-info' },
-                            h('span', null, `${set.phase || 'Draft'} - ${set.discipline || 'Civil'}`),
-                            h('span', { className: 'sheet-count-badge' }, `${set.sheet_count || 0} sheets`)
+                        h('div', { 
+                            className: 'set-item-content',
+                            onClick: () => setSelectedSetId(set.set_id)
+                        },
+                            h('div', { className: 'set-name' }, set.set_name),
+                            h('div', { className: 'set-info' },
+                                h('span', null, `${set.phase || 'Draft'} - ${set.discipline || 'Civil'}`),
+                                h('span', { className: 'sheet-count-badge' }, `${set.sheet_count || 0} sheets`)
+                            )
+                        ),
+                        h('div', { className: 'set-actions' },
+                            h('button', {
+                                className: 'btn-action btn-delete',
+                                onClick: (e) => { e.stopPropagation(); deleteSet(set); }
+                            }, '🗑️ Delete')
                         )
                     ))
             ),
@@ -466,7 +558,8 @@ function SheetSetManager() {
                                 h('th', null, 'Code'),
                                 h('th', null, 'Title'),
                                 h('th', null, 'Category'),
-                                h('th', null, 'Status')
+                                h('th', null, 'Status'),
+                                h('th', { style: { width: '140px' } }, 'Actions')
                             )
                         ),
                         h('tbody', null,
@@ -482,6 +575,18 @@ function SheetSetManager() {
                                     h('span', { 
                                         className: `status-badge status-${sheet.assignment_status}` 
                                     }, sheet.assignment_status || 'unassigned')
+                                ),
+                                h('td', null,
+                                    h('div', { style: { display: 'flex', gap: '8px' } },
+                                        h('button', {
+                                            className: 'btn-action',
+                                            onClick: () => editSheet(sheet)
+                                        }, '✏️ Edit'),
+                                        h('button', {
+                                            className: 'btn-action btn-delete',
+                                            onClick: () => deleteSheet(sheet)
+                                        }, '🗑️')
+                                    )
                                 )
                             ))
                         )
