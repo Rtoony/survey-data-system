@@ -1,0 +1,215 @@
+Build a Sheet Set Manager tool for the acad-gis project with these features:
+
+DATABASE SCHEMA:
+The following tables exist in the acad-gis PostgreSQL database:
+- projects, project_details, drawings
+- sheet_templates
+- sheet_note_sets (from Sheet Note Manager)
+- sheet_category_standards (standard categories: COVER, DEMO, GRAD, UTIL, etc.)
+- sheet_sets, sheets, sheet_drawing_assignments, sheet_revisions, sheet_relationships
+
+CORE CONCEPT:
+A Sheet Set is a deliverable package of construction documents (e.g., "100% Civil Plans", "Survey Plat Set"). Each set contains multiple sheets with both a Sheet Code (C-1.1, L-3.1) and a sequential Sheet Number (1, 2, 3...). Sheets can exist unassigned or be linked to drawing files and layout tabs.
+
+REQUIRED FEATURES:
+
+1. PROJECT SELECTOR & SHEET SET LIST
+   - Dropdown to select project (shows project_name and project_number)
+   - Display project details pulled from project_details table (address, engineer, jurisdiction)
+   - List all sheet sets for selected project
+   - Table columns: Set Name | Phase | Discipline | Issue Date | Status | Sheet Count | Actions
+   - Create New Set button
+   - Status badges (draft/review/submitted/approved)
+
+2. SHEET SET MANAGEMENT
+   - Create/Edit Set Modal:
+     * Set Name (required)
+     * Set Number (optional)
+     * Phase dropdown (30% Design, Final, Record Drawings, etc.)
+     * Discipline dropdown (Civil, Survey, Landscape, Mixed)
+     * Issue Date picker
+     * Status dropdown (draft, review, submitted, approved, superseded)
+     * Recipient text field
+     * Transmittal Notes textarea
+     * Link to Sheet Note Set (dropdown of sheet_note_sets for this project)
+   - Delete Set (with confirmation, show sheet count)
+   - Activate/Deactivate toggle
+
+3. SHEET LIST VIEW (for selected set)
+   - Display all sheets in set ordered by sheet_hierarchy_number, then sheet_code
+   - Table columns:
+     * Sheet Number (1, 2, 3... auto-calculated)
+     * Sheet Code (C-1.1, S-2, etc.)
+     * Sheet Title
+     * Category (COVER, DEMO, GRAD, etc.)
+     * Status Badge (Assigned: green with drawing reference | Unassigned: red)
+     * Scale
+     * Template
+     * Actions (Edit, Delete, Assign/Reassign Drawing)
+   - Add Sheet button
+   - Bulk actions: Delete selected, Renumber sheets
+   - Show "Sheet X of Y" total count
+
+4. SHEET EDITOR
+   - Create/Edit Sheet Modal:
+     * Sheet Code (text input, required, unique per set)
+     * Sheet Title (text input, required)
+     * Discipline Code (C, S, L, etc.)
+     * Sheet Type (Plan, Profile, Detail, Notes)
+     * Category dropdown (populated from sheet_category_standards)
+       - Auto-populate sheet_hierarchy_number from category default
+       - Allow manual override of hierarchy number
+     * Scale (text input, default from template)
+     * Sheet Size dropdown (24x36, 22x34, 11x17)
+     * Template dropdown (from sheet_templates)
+     * Revision Number (integer, default 0)
+     * Revision Date (date picker)
+     * Notes (textarea)
+     * Tags (multi-select)
+   - Auto-assign category based on sheet_code pattern if possible:
+     * C-0.x → COVER
+     * C-1.x → GRAD
+     * C-2.x → UTIL
+     * C-9.x → DETAIL
+     (optional heuristic, can be overridden)
+   - Validation: No duplicate sheet_code or sheet_number per set
+
+5. DRAWING ASSIGNMENT PANEL
+   - For selected sheet, show current assignment status:
+     * If unassigned: "Not Assigned to Drawing" with red badge
+     * If assigned: "Drawing: [drawing_name] | Layout: [layout_name]" with green badge
+   - Assign/Reassign Drawing button opens modal:
+     * Drawing dropdown (shows drawing_name from drawings table)
+     * Layout Name text input (manual entry for now)
+     * Assigned By text input (user name)
+     * Notes textarea
+   - Unassign button (removes from sheet_drawing_assignments)
+   - History: Show assigned_date and assigned_by
+
+6. AUTO-RENUMBERING
+   - "Renumber Sheets" button triggers recalculation of sheet_number
+   - Algorithm:
+     1. Sort sheets by sheet_hierarchy_number ASC, then sheet_code ASC
+     2. Assign sequential sheet_number (1, 2, 3...)
+     3. Update all sheets in set
+   - Show toast: "Renumbered X sheets"
+   - Automatically trigger renumber when:
+     * Sheet added
+     * Sheet deleted
+     * Sheet hierarchy changed
+     * Sheet category changed (which changes hierarchy)
+
+7. SHEET INDEX GENERATOR
+   - "Generate Sheet Index" button
+   - Creates table with columns: Sheet Number | Sheet Code | Sheet Title | Revision | Date
+   - Display in modal with Export CSV button
+   - CSV format: "Sheet Number,Sheet Code,Sheet Title,Scale,Revision,Date"
+   - Include total sheet count footer
+
+8. SHEET RELATIONSHIPS
+   - For selected sheet, show related sheets panel:
+     * "References Sheet X" (add relationship button)
+     * "Detail of Sheet Y"
+     * "Continued from Sheet Z"
+   - Add Relationship modal:
+     * Relationship Type dropdown (references, detail_of, continued_from, see_also)
+     * Target Sheet dropdown (filtered by same set)
+     * Notes textarea
+   - Display as badges with remove button
+
+9. REVISION TRACKING
+   - For selected sheet, show revision history panel
+   - List all sheet_revisions ordered by date DESC
+   - Table: Rev # | Date | Description | Revised By
+   - Add Revision button (increments revision_number)
+
+10. VALIDATION & STATS
+   - Show summary stats for selected set:
+     * Total Sheets
+     * Assigned Sheets (with drawing link)
+     * Unassigned Sheets
+     * Latest Revision Date
+   - Validate:
+     * No duplicate sheet codes
+     * No duplicate sheet numbers
+     * All sheets have category
+     * Warn if sheet has no title
+   - Display validation warnings in banner
+
+INTEGRATION WITH SHEET NOTE MANAGER:
+- When creating/editing a sheet set, allow linking to a sheet_note_set
+- Add a "Manage Sheet Notes" button that opens Sheet Note Manager filtered to linked set
+- In Sheet Note Manager, update sheet_note_assignments to allow assignment by:
+  * drawing_id + layout_name (existing)
+  * OR sheet_id (new column to add)
+- This allows notes to be assigned to sheets before drawings are created
+
+RECOMMENDED UPDATES TO SHEET NOTE MANAGER:
+1. Add sheet_id column to sheet_note_assignments table:
+   ALTER TABLE sheet_note_assignments ADD COLUMN sheet_id UUID REFERENCES sheets(sheet_id);
+   ALTER TABLE sheet_note_assignments DROP CONSTRAINT unique_note_per_layout;
+   ALTER TABLE sheet_note_assignments ADD CONSTRAINT unique_note_per_sheet UNIQUE(sheet_id, project_note_id);
+
+2. Update Sheet Note Manager UI to allow assignment by:
+   - Option A: Select Drawing + Layout (existing method)
+   - Option B: Select Sheet from Sheet Set (new method using sheet_id)
+   
+3. When sheet is assigned to drawing/layout, auto-link any notes assigned by sheet_id
+
+TECH STACK:
+- React (functional components with hooks)
+- PostgreSQL connection using existing acad-gis database config
+- Tailwind CSS for styling (dark mode, neon accents)
+- React DnD or react-beautiful-dnd for drag-to-reorder (optional enhancement)
+- Toast notifications for success/error messages
+
+UI LAYOUT:
+Two-panel layout:
+[Sheet Sets List & Set Details - 35%] [Sheet List & Editor - 65%]
+
+Top bar: Project selector with project details display
+
+STYLING:
+Use acad-gis Mission Control theme (dark background, neon blues/purples, consistent with existing tools)
+
+API ENDPOINTS TO CREATE:
+GET    /api/project-details/:project_id
+POST   /api/project-details
+PUT    /api/project-details/:project_id
+
+GET    /api/sheet-category-standards
+POST   /api/sheet-category-standards
+
+GET    /api/sheet-sets?project_id=
+POST   /api/sheet-sets
+PUT    /api/sheet-sets/:set_id
+DELETE /api/sheet-sets/:set_id
+
+GET    /api/sheets?set_id=
+POST   /api/sheets
+PUT    /api/sheets/:sheet_id
+DELETE /api/sheets/:sheet_id
+POST   /api/sheets/renumber/:set_id (triggers auto-renumbering)
+
+GET    /api/sheet-drawing-assignments?sheet_id=
+POST   /api/sheet-drawing-assignments
+DELETE /api/sheet-drawing-assignments/:assignment_id
+
+GET    /api/sheet-revisions?sheet_id=
+POST   /api/sheet-revisions
+
+GET    /api/sheet-relationships?sheet_id=
+POST   /api/sheet-relationships
+DELETE /api/sheet-relationships/:relationship_id
+
+GET    /api/sheet-index/:set_id (generates CSV data)
+
+PRIORITY:
+1. Project selector + Sheet Set CRUD
+2. Sheet CRUD with category/hierarchy
+3. Auto-renumbering logic
+4. Drawing assignment
+5. Sheet index generation
+6. Relationships and revisions (nice-to-have)
+
+Build this as a standalone React app that integrates into the acad-gis tool launcher.
