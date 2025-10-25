@@ -2619,15 +2619,11 @@ def get_sheets():
         
         query = """
             SELECT s.*,
-                scs.category_name,
                 sda.drawing_id,
                 sda.layout_name,
-                d.drawing_name,
                 CASE WHEN sda.assignment_id IS NOT NULL THEN 'assigned' ELSE 'unassigned' END as assignment_status
             FROM sheets s
-            LEFT JOIN sheet_category_standards scs ON s.category_code = scs.category_code
             LEFT JOIN sheet_drawing_assignments sda ON s.sheet_id = sda.sheet_id
-            LEFT JOIN drawings d ON sda.drawing_id = d.drawing_id
             WHERE s.set_id = %s::uuid
             ORDER BY s.sheet_hierarchy_number, s.sheet_code
         """
@@ -2635,6 +2631,9 @@ def get_sheets():
         
         return jsonify({'sheets': result})
     except Exception as e:
+        import traceback
+        print("ERROR in get_sheets:", str(e))
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/sheets', methods=['POST'])
@@ -2649,14 +2648,14 @@ def create_sheet():
                 cur.execute("""
                     INSERT INTO sheets
                     (set_id, sheet_code, sheet_title, discipline_code, sheet_type,
-                     category_code, sheet_hierarchy_number, scale, sheet_size,
+                     sheet_category, sheet_hierarchy_number, scale, sheet_size,
                      template_id, revision_number, revision_date, notes, tags)
-                    VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s::uuid, %s, %s, %s, %s)
+                    VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING *
                 """, (
                     data['set_id'], data['sheet_code'], data['sheet_title'],
                     data.get('discipline_code'), data.get('sheet_type'),
-                    data.get('category_code'), data.get('sheet_hierarchy_number'),
+                    data.get('sheet_category'), data.get('sheet_hierarchy_number'),
                     data.get('scale'), data.get('sheet_size', '24x36'),
                     data.get('template_id'), data.get('revision_number', 0),
                     data.get('revision_date'), data.get('notes'), data.get('tags')
@@ -2685,14 +2684,14 @@ def update_sheet(sheet_id):
                 cur.execute("""
                     UPDATE sheets
                     SET sheet_code = %s, sheet_title = %s, discipline_code = %s, sheet_type = %s,
-                        category_code = %s, sheet_hierarchy_number = %s, scale = %s, sheet_size = %s,
-                        template_id = %s::uuid, revision_number = %s, revision_date = %s,
+                        sheet_category = %s, sheet_hierarchy_number = %s, scale = %s, sheet_size = %s,
+                        template_id = %s, revision_number = %s, revision_date = %s,
                         notes = %s, tags = %s, updated_at = CURRENT_TIMESTAMP
                     WHERE sheet_id = %s::uuid
                     RETURNING *
                 """, (
                     data['sheet_code'], data['sheet_title'], data.get('discipline_code'),
-                    data.get('sheet_type'), data.get('category_code'),
+                    data.get('sheet_type'), data.get('sheet_category'),
                     data.get('sheet_hierarchy_number'), data.get('scale'),
                     data.get('sheet_size'), data.get('template_id'),
                     data.get('revision_number'), data.get('revision_date'),
