@@ -99,5 +99,44 @@ Full-featured construction drawing note management system for organizing and ass
 
 **Testing Status**: Fully operational - tested note set creation and custom note addition.
 
+### Sheet Set Manager (In Progress - October 2025)
+Complete sheet set management system for organizing construction document deliverables and tracking sheet assignments.
+
+**Database Schema (7 tables)**:
+1. **project_details** - Extended project metadata (address, engineer, jurisdiction, permits)
+2. **sheet_category_standards** - Standard categories (COVER, DEMO, GRAD, UTIL) with hierarchy ordering
+3. **sheet_sets** - Deliverable packages (e.g., "100% Civil Plans") with phase, discipline, status
+4. **sheets** - Individual sheets with code (C-1.1), title, category, hierarchy, scale, size
+5. **sheet_drawing_assignments** - Links sheets to DXF drawings and layout tabs
+6. **sheet_revisions** - Revision history tracking
+7. **sheet_relationships** - Sheet cross-references (references, detail_of, continued_from)
+
+**Backend API (20+ endpoints)**:
+- Project Details: GET/POST/PUT `/api/project-details`
+- Categories: GET/POST `/api/sheet-category-standards`
+- Sheet Sets: GET/POST/PUT/DELETE `/api/sheet-sets`
+- Sheets: GET/POST/PUT/DELETE `/api/sheets`, POST `/api/sheets/renumber/:set_id`
+- Assignments: GET/POST/DELETE `/api/sheet-drawing-assignments`
+- Revisions: GET/POST `/api/sheet-revisions`
+- Relationships: GET/POST/DELETE `/api/sheet-relationships`
+- Sheet Index: GET `/api/sheet-index/:set_id`
+
+**Frontend UI** (`/sheet-sets`):
+- React-based two-panel layout with Mission Control theme
+- **Left Panel**: Sheet Sets list with Create/Edit/Delete, status badges (draft/review/submitted/approved)
+- **Right Panel**: Sheets table with auto-numbering, assignment status, category hierarchy
+- **Modals**: Full CRUD forms for sheet sets and sheets with all metadata fields
+- **Stats Dashboard**: Total sets, sheets, assigned/unassigned tracking
+
+**Key Features**:
+- Auto-renumbering based on sheet hierarchy and code sorting
+- Sheet category with default hierarchy number (auto-populated, manually overridable)
+- Status badges and assignment tracking (assigned to drawing or unassigned)
+- Link sheet sets to note sets for integrated note management
+- Phase tracking (30% Design, Final, Record Drawings)
+- Discipline filtering (Civil, Survey, Landscape, Mixed)
+
+**Status**: Backend complete, frontend template built. Debugging: transaction commit issue and React rendering.
+
 ### DXF Import/Export Tools (Completed October 2025)
 Full DXF round-trip workflow with PostGIS storage, FK normalization, and ezdxf integration. Successfully tested with complete entity import/export cycle.
