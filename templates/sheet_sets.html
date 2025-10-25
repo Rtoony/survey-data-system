@@ -1,0 +1,850 @@
+{% extends "base.html" %}
+
+{% block title %}Sheet Set Manager - ACAD-GIS{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="mb-1"><i class="fas fa-folder-open me-2"></i>Sheet Set Manager</h1>
+                    <p class="text-muted mb-0">Manage construction document sheet sets and deliverables</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="root"></div>
+</div>
+
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+{% raw %}
+<script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function SheetSetManager() {
+        const [projects, setProjects] = useState([]);
+        const [selectedProjectId, setSelectedProjectId] = useState('');
+        const [projectDetails, setProjectDetails] = useState(null);
+        const [sheetSets, setSheetSets] = useState([]);
+        const [selectedSetId, setSelectedSetId] = useState('');
+        const [sheets, setSheets] = useState([]);
+        const [categories, setCategories] = useState([]);
+        const [noteSets, setNoteSets] = useState([]);
+        
+        const [showSetModal, setShowSetModal] = useState(false);
+        const [showSheetModal, setShowSheetModal] = useState(false);
+        const [editingSet, setEditingSet] = useState(null);
+        const [editingSheet, setEditingSheet] = useState(null);
+        
+        const [stats, setStats] = useState({
+            totalSets: 0,
+            totalSheets: 0,
+            assignedSheets: 0,
+            unassignedSheets: 0
+        });
+
+        useEffect(() => {
+            loadProjects();
+            loadCategories();
+        }, []);
+
+        useEffect(() => {
+            if (selectedProjectId) {
+                loadProjectDetails();
+                loadSheetSets();
+                loadNoteSets();
+            }
+        }, [selectedProjectId]);
+
+        useEffect(() => {
+            if (selectedSetId) {
+                loadSheets();
+            }
+        }, [selectedSetId]);
+
+        const loadProjects = async () => {
+            try {
+                const res = await fetch('/api/projects');
+                const data = await res.json();
+                setProjects(data.projects || []);
+            } catch (err) {
+                console.error('Error loading projects:', err);
+            }
+        };
+
+        const loadProjectDetails = async () => {
+            try {
+                const res = await fetch(`/api/project-details/${selectedProjectId}`);
+                const data = await res.json();
+                setProjectDetails(data.project_details);
+            } catch (err) {
+                console.error('Error loading project details:', err);
+            }
+        };
+
+        const loadSheetSets = async () => {
+            try {
+                const res = await fetch(`/api/sheet-sets?project_id=${selectedProjectId}`);
+                const data = await res.json();
+                setSheetSets(data.sheet_sets || []);
+                setStats(prev => ({ ...prev, totalSets: data.sheet_sets?.length || 0 }));
+            } catch (err) {
+                console.error('Error loading sheet sets:', err);
+            }
+        };
+
+        const loadSheets = async () => {
+            try {
+                const res = await fetch(`/api/sheets?set_id=${selectedSetId}`);
+                const data = await res.json();
+                setSheets(data.sheets || []);
+                
+                const total = data.sheets?.length || 0;
+                const assigned = data.sheets?.filter(s => s.assignment_status === 'assigned').length || 0;
+                setStats(prev => ({
+                    ...prev,
+                    totalSheets: total,
+                    assignedSheets: assigned,
+                    unassignedSheets: total - assigned
+                }));
+            } catch (err) {
+                console.error('Error loading sheets:', err);
+            }
+        };
+
+        const loadCategories = async () => {
+            try {
+                const res = await fetch('/api/sheet-category-standards');
+                const data = await res.json();
+                setCategories(data.categories || []);
+            } catch (err) {
+                console.error('Error loading categories:', err);
+            }
+        };
+
+        const loadNoteSets = async () => {
+            try {
+                const res = await fetch(`/api/sheet-note-sets?project_id=${selectedProjectId}`);
+                const data = await res.json();
+                setNoteSets(data.note_sets || []);
+            } catch (err) {
+                console.error('Error loading note sets:', err);
+            }
+        };
+
+        const handleCreateSet = () => {
+            setEditingSet({
+                project_id: selectedProjectId,
+                set_name: '',
+                set_number: '',
+                phase: '',
+                discipline: '',
+                issue_date: '',
+                status: 'draft',
+                recipient: '',
+                transmittal_notes: '',
+                sheet_note_set_id: null,
+                is_active: true
+            });
+            setShowSetModal(true);
+        };
+
+        const handleEditSet = (set) => {
+            setEditingSet({...set});
+            setShowSetModal(true);
+        };
+
+        const handleSaveSet = async () => {
+            try {
+                const url = editingSet.set_id 
+                    ? `/api/sheet-sets/${editingSet.set_id}`
+                    : '/api/sheet-sets';
+                const method = editingSet.set_id ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(editingSet)
+                });
+
+                if (res.ok) {
+                    setShowSetModal(false);
+                    loadSheetSets();
+                } else {
+                    const data = await res.json();
+                    alert('Error saving set: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Error saving set:', err);
+                alert('Error saving set: ' + err.message);
+            }
+        };
+
+        const handleDeleteSet = async (setId) => {
+            if (!confirm('Delete this sheet set and all its sheets?')) return;
+
+            try {
+                const res = await fetch(`/api/sheet-sets/${setId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    if (selectedSetId === setId) setSelectedSetId('');
+                    loadSheetSets();
+                }
+            } catch (err) {
+                console.error('Error deleting set:', err);
+            }
+        };
+
+        const handleCreateSheet = () => {
+            setEditingSheet({
+                set_id: selectedSetId,
+                sheet_code: '',
+                sheet_title: '',
+                discipline_code: '',
+                sheet_type: '',
+                category_code: '',
+                sheet_hierarchy_number: null,
+                scale: '',
+                sheet_size: '24x36',
+                revision_number: 0,
+                revision_date: null,
+                notes: '',
+                tags: []
+            });
+            setShowSheetModal(true);
+        };
+
+        const handleEditSheet = (sheet) => {
+            setEditingSheet({...sheet});
+            setShowSheetModal(true);
+        };
+
+        const handleSaveSheet = async () => {
+            try {
+                const url = editingSheet.sheet_id 
+                    ? `/api/sheets/${editingSheet.sheet_id}`
+                    : '/api/sheets';
+                const method = editingSheet.sheet_id ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(editingSheet)
+                });
+
+                if (res.ok) {
+                    setShowSheetModal(false);
+                    loadSheets();
+                } else {
+                    const data = await res.json();
+                    alert('Error saving sheet: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Error saving sheet:', err);
+                alert('Error saving sheet: ' + err.message);
+            }
+        };
+
+        const handleDeleteSheet = async (sheetId) => {
+            if (!confirm('Delete this sheet?')) return;
+
+            try {
+                const res = await fetch(`/api/sheets/${sheetId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadSheets();
+                }
+            } catch (err) {
+                console.error('Error deleting sheet:', err);
+            }
+        };
+
+        const handleCategoryChange = (categoryCode) => {
+            const category = categories.find(c => c.category_code === categoryCode);
+            setEditingSheet(prev => ({
+                ...prev,
+                category_code: categoryCode,
+                sheet_hierarchy_number: category?.default_hierarchy_number || null
+            }));
+        };
+
+        const getStatusBadgeClass = (status) => {
+            const badges = {
+                draft: 'bg-secondary',
+                review: 'bg-info',
+                submitted: 'bg-warning',
+                approved: 'bg-success',
+                superseded: 'bg-dark'
+            };
+            return badges[status] || 'bg-secondary';
+        };
+
+        return (
+            <div className="row">
+                <div className="col-12 mb-3">
+                    <div className="card bg-dark border-cyan">
+                        <div className="card-body">
+                            <div className="row align-items-center">
+                                <div className="col-md-4">
+                                    <label className="form-label text-cyan">Select Project</label>
+                                    <select 
+                                        className="form-select bg-dark text-light border-cyan"
+                                        value={selectedProjectId}
+                                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                                    >
+                                        <option value="">Select Project...</option>
+                                        {projects.map(p => (
+                                            <option key={p.project_id} value={p.project_id}>
+                                                {p.project_number} - {p.project_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {projectDetails && (
+                                    <div className="col-md-8">
+                                        <div className="d-flex gap-4">
+                                            {projectDetails.project_address && (
+                                                <div>
+                                                    <small className="text-muted">Address</small>
+                                                    <div className="text-cyan">{projectDetails.project_address}</div>
+                                                </div>
+                                            )}
+                                            {projectDetails.engineer_name && (
+                                                <div>
+                                                    <small className="text-muted">Engineer</small>
+                                                    <div className="text-cyan">{projectDetails.engineer_name}</div>
+                                                </div>
+                                            )}
+                                            {projectDetails.jurisdiction && (
+                                                <div>
+                                                    <small className="text-muted">Jurisdiction</small>
+                                                    <div className="text-cyan">{projectDetails.jurisdiction}</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {selectedProjectId && (
+                    <>
+                        <div className="col-md-4">
+                            <div className="card bg-dark border-cyan h-100">
+                                <div className="card-header bg-gradient border-cyan d-flex justify-content-between align-items-center">
+                                    <h5 className="mb-0 text-cyan"><i className="fas fa-folder me-2"></i>Sheet Sets</h5>
+                                    <button 
+                                        className="btn btn-sm btn-cyan"
+                                        onClick={handleCreateSet}
+                                    >
+                                        <i className="fas fa-plus me-1"></i>New Set
+                                    </button>
+                                </div>
+                                <div className="card-body p-0">
+                                    <div className="list-group list-group-flush">
+                                        {sheetSets.map(set => (
+                                            <div 
+                                                key={set.set_id}
+                                                className={`list-group-item list-group-item-action bg-dark border-cyan ${selectedSetId === set.set_id ? 'active' : ''}`}
+                                                style={{cursor: 'pointer'}}
+                                                onClick={() => setSelectedSetId(set.set_id)}
+                                            >
+                                                <div className="d-flex justify-content-between align-items-start">
+                                                    <div className="flex-grow-1">
+                                                        <h6 className="mb-1 text-cyan">{set.set_name}</h6>
+                                                        <div className="small">
+                                                            {set.phase && <span className="badge bg-secondary me-1">{set.phase}</span>}
+                                                            {set.discipline && <span className="badge bg-info me-1">{set.discipline}</span>}
+                                                            <span className={`badge ${getStatusBadgeClass(set.status)}`}>{set.status}</span>
+                                                        </div>
+                                                        <div className="small text-muted mt-1">
+                                                            {set.sheet_count || 0} sheets
+                                                            {set.issue_date && <> | {new Date(set.issue_date).toLocaleDateString()}</>}
+                                                        </div>
+                                                    </div>
+                                                    <div className="dropdown">
+                                                        <button 
+                                                            className="btn btn-sm btn-link text-light"
+                                                            data-bs-toggle="dropdown"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <i className="fas fa-ellipsis-v"></i>
+                                                        </button>
+                                                        <ul className="dropdown-menu dropdown-menu-end bg-dark border-cyan">
+                                                            <li>
+                                                                <a 
+                                                                    className="dropdown-item text-light"
+                                                                    href="#"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        handleEditSet(set);
+                                                                    }}
+                                                                >
+                                                                    <i className="fas fa-edit me-2"></i>Edit
+                                                                </a>
+                                                            </li>
+                                                            <li>
+                                                                <a 
+                                                                    className="dropdown-item text-danger"
+                                                                    href="#"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        handleDeleteSet(set.set_id);
+                                                                    }}
+                                                                >
+                                                                    <i className="fas fa-trash me-2"></i>Delete
+                                                                </a>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {sheetSets.length === 0 && (
+                                            <div className="list-group-item bg-dark text-center text-muted py-4">
+                                                <i className="fas fa-folder-open fa-3x mb-3 opacity-25"></i>
+                                                <p>No sheet sets yet. Create one to get started.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="card-footer bg-dark border-cyan">
+                                    <div className="row text-center">
+                                        <div className="col-6">
+                                            <div className="text-muted small">Total Sets</div>
+                                            <div className="h4 mb-0 text-cyan">{stats.totalSets}</div>
+                                        </div>
+                                        <div className="col-6">
+                                            <div className="text-muted small">Total Sheets</div>
+                                            <div className="h4 mb-0 text-cyan">{stats.totalSheets}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="col-md-8">
+                            {selectedSetId ? (
+                                <div className="card bg-dark border-cyan">
+                                    <div className="card-header bg-gradient border-cyan d-flex justify-content-between align-items-center">
+                                        <h5 className="mb-0 text-cyan"><i className="fas fa-file-alt me-2"></i>Sheets</h5>
+                                        <button 
+                                            className="btn btn-sm btn-cyan"
+                                            onClick={handleCreateSheet}
+                                        >
+                                            <i className="fas fa-plus me-1"></i>Add Sheet
+                                        </button>
+                                    </div>
+                                    <div className="card-body p-0">
+                                        <div className="table-responsive">
+                                            <table className="table table-dark table-hover mb-0">
+                                                <thead>
+                                                    <tr className="border-cyan">
+                                                        <th className="text-cyan">#</th>
+                                                        <th className="text-cyan">Code</th>
+                                                        <th className="text-cyan">Title</th>
+                                                        <th className="text-cyan">Category</th>
+                                                        <th className="text-cyan">Status</th>
+                                                        <th className="text-cyan">Scale</th>
+                                                        <th className="text-cyan text-end">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {sheets.map(sheet => (
+                                                        <tr key={sheet.sheet_id} className="border-cyan">
+                                                            <td className="text-light">{sheet.sheet_number}</td>
+                                                            <td className="text-cyan fw-bold">{sheet.sheet_code}</td>
+                                                            <td className="text-light">{sheet.sheet_title}</td>
+                                                            <td>
+                                                                <span className="badge bg-secondary">
+                                                                    {sheet.category_code || 'N/A'}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                {sheet.assignment_status === 'assigned' ? (
+                                                                    <span className="badge bg-success">
+                                                                        <i className="fas fa-check me-1"></i>Assigned
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="badge bg-danger">
+                                                                        <i className="fas fa-times me-1"></i>Unassigned
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="text-light">{sheet.scale || '-'}</td>
+                                                            <td className="text-end">
+                                                                <div className="btn-group btn-group-sm">
+                                                                    <button 
+                                                                        className="btn btn-outline-cyan"
+                                                                        onClick={() => handleEditSheet(sheet)}
+                                                                    >
+                                                                        <i className="fas fa-edit"></i>
+                                                                    </button>
+                                                                    <button 
+                                                                        className="btn btn-outline-danger"
+                                                                        onClick={() => handleDeleteSheet(sheet.sheet_id)}
+                                                                    >
+                                                                        <i className="fas fa-trash"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                            {sheets.length === 0 && (
+                                                <div className="text-center text-muted py-5">
+                                                    <i className="fas fa-file-alt fa-3x mb-3 opacity-25"></i>
+                                                    <p>No sheets in this set. Add sheets to get started.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="card-footer bg-dark border-cyan">
+                                        <div className="row text-center">
+                                            <div className="col-4">
+                                                <div className="text-muted small">Assigned</div>
+                                                <div className="h5 mb-0 text-success">{stats.assignedSheets}</div>
+                                            </div>
+                                            <div className="col-4">
+                                                <div className="text-muted small">Unassigned</div>
+                                                <div className="h5 mb-0 text-danger">{stats.unassignedSheets}</div>
+                                            </div>
+                                            <div className="col-4">
+                                                <div className="text-muted small">Total</div>
+                                                <div className="h5 mb-0 text-cyan">{stats.totalSheets}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="card bg-dark border-cyan">
+                                    <div className="card-body text-center py-5">
+                                        <i className="fas fa-mouse-pointer fa-3x mb-3 text-cyan opacity-25"></i>
+                                        <p className="text-muted">Select a sheet set to view and manage sheets</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {!selectedProjectId && (
+                    <div className="col-12">
+                        <div className="card bg-dark border-cyan">
+                            <div className="card-body text-center py-5">
+                                <i className="fas fa-project-diagram fa-3x mb-3 text-cyan opacity-25"></i>
+                                <p className="text-muted">Select a project to view sheet sets</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {showSetModal && (
+                    <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.8)'}}>
+                        <div className="modal-dialog modal-lg">
+                            <div className="modal-content bg-dark border-cyan">
+                                <div className="modal-header border-cyan">
+                                    <h5 className="modal-title text-cyan">
+                                        {editingSet?.set_id ? 'Edit Sheet Set' : 'Create Sheet Set'}
+                                    </h5>
+                                    <button 
+                                        type="button" 
+                                        className="btn-close btn-close-white"
+                                        onClick={() => setShowSetModal(false)}
+                                    ></button>
+                                </div>
+                                <div className="modal-body">
+                                    <div className="mb-3">
+                                        <label className="form-label text-cyan">Set Name *</label>
+                                        <input 
+                                            type="text"
+                                            className="form-control bg-dark text-light border-cyan"
+                                            value={editingSet?.set_name || ''}
+                                            onChange={(e) => setEditingSet({...editingSet, set_name: e.target.value})}
+                                            placeholder="e.g., 100% Civil Plans"
+                                        />
+                                    </div>
+                                    <div className="row">
+                                        <div className="col-md-6 mb-3">
+                                            <label className="form-label text-cyan">Set Number</label>
+                                            <input 
+                                                type="text"
+                                                className="form-control bg-dark text-light border-cyan"
+                                                value={editingSet?.set_number || ''}
+                                                onChange={(e) => setEditingSet({...editingSet, set_number: e.target.value})}
+                                                placeholder="Optional"
+                                            />
+                                        </div>
+                                        <div className="col-md-6 mb-3">
+                                            <label className="form-label text-cyan">Phase</label>
+                                            <select 
+                                                className="form-select bg-dark text-light border-cyan"
+                                                value={editingSet?.phase || ''}
+                                                onChange={(e) => setEditingSet({...editingSet, phase: e.target.value})}
+                                            >
+                                                <option value="">Select Phase</option>
+                                                <option value="30% Design">30% Design</option>
+                                                <option value="60% Design">60% Design</option>
+                                                <option value="90% Design">90% Design</option>
+                                                <option value="100% Design">100% Design</option>
+                                                <option value="Final">Final</option>
+                                                <option value="Record Drawings">Record Drawings</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="row">
+                                        <div className="col-md-6 mb-3">
+                                            <label className="form-label text-cyan">Discipline</label>
+                                            <select 
+                                                className="form-select bg-dark text-light border-cyan"
+                                                value={editingSet?.discipline || ''}
+                                                onChange={(e) => setEditingSet({...editingSet, discipline: e.target.value})}
+                                            >
+                                                <option value="">Select Discipline</option>
+                                                <option value="Civil">Civil</option>
+                                                <option value="Survey">Survey</option>
+                                                <option value="Landscape">Landscape</option>
+                                                <option value="Mixed">Mixed</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6 mb-3">
+                                            <label className="form-label text-cyan">Status</label>
+                                            <select 
+                                                className="form-select bg-dark text-light border-cyan"
+                                                value={editingSet?.status || 'draft'}
+                                                onChange={(e) => setEditingSet({...editingSet, status: e.target.value})}
+                                            >
+                                                <option value="draft">Draft</option>
+                                                <option value="review">Review</option>
+                                                <option value="submitted">Submitted</option>
+                                                <option value="approved">Approved</option>
+                                                <option value="superseded">Superseded</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label text-cyan">Issue Date</label>
+                                        <input 
+                                            type="date"
+                                            className="form-control bg-dark text-light border-cyan"
+                                            value={editingSet?.issue_date || ''}
+                                            onChange={(e) => setEditingSet({...editingSet, issue_date: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label text-cyan">Link to Sheet Note Set</label>
+                                        <select 
+                                            className="form-select bg-dark text-light border-cyan"
+                                            value={editingSet?.sheet_note_set_id || ''}
+                                            onChange={(e) => setEditingSet({...editingSet, sheet_note_set_id: e.target.value || null})}
+                                        >
+                                            <option value="">No Note Set Linked</option>
+                                            {noteSets.map(ns => (
+                                                <option key={ns.set_id} value={ns.set_id}>{ns.set_name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label text-cyan">Recipient</label>
+                                        <input 
+                                            type="text"
+                                            className="form-control bg-dark text-light border-cyan"
+                                            value={editingSet?.recipient || ''}
+                                            onChange={(e) => setEditingSet({...editingSet, recipient: e.target.value})}
+                                            placeholder="e.g., City Planning Department"
+                                        />
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label text-cyan">Transmittal Notes</label>
+                                        <textarea 
+                                            className="form-control bg-dark text-light border-cyan"
+                                            rows="3"
+                                            value={editingSet?.transmittal_notes || ''}
+                                            onChange={(e) => setEditingSet({...editingSet, transmittal_notes: e.target.value})}
+                                            placeholder="Notes for transmittal..."
+                                        ></textarea>
+                                    </div>
+                                </div>
+                                <div className="modal-footer border-cyan">
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-secondary"
+                                        onClick={() => setShowSetModal(false)}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-cyan"
+                                        onClick={handleSaveSet}
+                                        disabled={!editingSet?.set_name}
+                                    >
+                                        <i className="fas fa-save me-1"></i>Save Set
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {showSheetModal && (
+                    <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.8)'}}>
+                        <div className="modal-dialog modal-lg">
+                            <div className="modal-content bg-dark border-cyan">
+                                <div className="modal-header border-cyan">
+                                    <h5 className="modal-title text-cyan">
+                                        {editingSheet?.sheet_id ? 'Edit Sheet' : 'Create Sheet'}
+                                    </h5>
+                                    <button 
+                                        type="button" 
+                                        className="btn-close btn-close-white"
+                                        onClick={() => setShowSheetModal(false)}
+                                    ></button>
+                                </div>
+                                <div className="modal-body">
+                                    <div className="row">
+                                        <div className="col-md-6 mb-3">
+                                            <label className="form-label text-cyan">Sheet Code *</label>
+                                            <input 
+                                                type="text"
+                                                className="form-control bg-dark text-light border-cyan"
+                                                value={editingSheet?.sheet_code || ''}
+                                                onChange={(e) => setEditingSheet({...editingSheet, sheet_code: e.target.value})}
+                                                placeholder="e.g., C-1.1"
+                                            />
+                                        </div>
+                                        <div className="col-md-6 mb-3">
+                                            <label className="form-label text-cyan">Discipline Code</label>
+                                            <input 
+                                                type="text"
+                                                className="form-control bg-dark text-light border-cyan"
+                                                value={editingSheet?.discipline_code || ''}
+                                                onChange={(e) => setEditingSheet({...editingSheet, discipline_code: e.target.value})}
+                                                placeholder="e.g., C, S, L"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label text-cyan">Sheet Title *</label>
+                                        <input 
+                                            type="text"
+                                            className="form-control bg-dark text-light border-cyan"
+                                            value={editingSheet?.sheet_title || ''}
+                                            onChange={(e) => setEditingSheet({...editingSheet, sheet_title: e.target.value})}
+                                            placeholder="e.g., Grading and Drainage Plan"
+                                        />
+                                    </div>
+                                    <div className="row">
+                                        <div className="col-md-6 mb-3">
+                                            <label className="form-label text-cyan">Category</label>
+                                            <select 
+                                                className="form-select bg-dark text-light border-cyan"
+                                                value={editingSheet?.category_code || ''}
+                                                onChange={(e) => handleCategoryChange(e.target.value)}
+                                            >
+                                                <option value="">Select Category</option>
+                                                {categories.map(cat => (
+                                                    <option key={cat.category_code} value={cat.category_code}>
+                                                        {cat.category_name} (#{cat.default_hierarchy_number})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6 mb-3">
+                                            <label className="form-label text-cyan">Hierarchy Number</label>
+                                            <input 
+                                                type="number"
+                                                className="form-control bg-dark text-light border-cyan"
+                                                value={editingSheet?.sheet_hierarchy_number || ''}
+                                                onChange={(e) => setEditingSheet({...editingSheet, sheet_hierarchy_number: parseInt(e.target.value) || null})}
+                                                placeholder="Auto from category"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="row">
+                                        <div className="col-md-6 mb-3">
+                                            <label className="form-label text-cyan">Sheet Type</label>
+                                            <select 
+                                                className="form-select bg-dark text-light border-cyan"
+                                                value={editingSheet?.sheet_type || ''}
+                                                onChange={(e) => setEditingSheet({...editingSheet, sheet_type: e.target.value})}
+                                            >
+                                                <option value="">Select Type</option>
+                                                <option value="Plan">Plan</option>
+                                                <option value="Profile">Profile</option>
+                                                <option value="Detail">Detail</option>
+                                                <option value="Notes">Notes</option>
+                                                <option value="Cross Section">Cross Section</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6 mb-3">
+                                            <label className="form-label text-cyan">Sheet Size</label>
+                                            <select 
+                                                className="form-select bg-dark text-light border-cyan"
+                                                value={editingSheet?.sheet_size || '24x36'}
+                                                onChange={(e) => setEditingSheet({...editingSheet, sheet_size: e.target.value})}
+                                            >
+                                                <option value="24x36">24x36</option>
+                                                <option value="22x34">22x34</option>
+                                                <option value="11x17">11x17</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label text-cyan">Scale</label>
+                                        <input 
+                                            type="text"
+                                            className="form-control bg-dark text-light border-cyan"
+                                            value={editingSheet?.scale || ''}
+                                            onChange={(e) => setEditingSheet({...editingSheet, scale: e.target.value})}
+                                            placeholder="e.g., 1\"=20', 1:100"
+                                        />
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label text-cyan">Notes</label>
+                                        <textarea 
+                                            className="form-control bg-dark text-light border-cyan"
+                                            rows="2"
+                                            value={editingSheet?.notes || ''}
+                                            onChange={(e) => setEditingSheet({...editingSheet, notes: e.target.value})}
+                                            placeholder="Sheet notes..."
+                                        ></textarea>
+                                    </div>
+                                </div>
+                                <div className="modal-footer border-cyan">
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-secondary"
+                                        onClick={() => setShowSheetModal(false)}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-cyan"
+                                        onClick={handleSaveSheet}
+                                        disabled={!editingSheet?.sheet_code || !editingSheet?.sheet_title}
+                                    >
+                                        <i className="fas fa-save me-1"></i>Save Sheet
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    ReactDOM.render(<SheetSetManager />, document.getElementById('root'));
+</script>
+{% endraw %}
+{% endblock %}

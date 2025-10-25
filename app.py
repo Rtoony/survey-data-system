@@ -2351,5 +2351,648 @@ def get_sheet_note_legend():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ==========================
+# SHEET SET MANAGER API
+# ==========================
+
+@app.route('/api/project-details', methods=['GET'])
+def get_all_project_details():
+    """Get project details for all projects"""
+    try:
+        query = """
+            SELECT pd.*, p.project_name, p.project_number
+            FROM project_details pd
+            JOIN projects p ON pd.project_id = p.project_id
+            ORDER BY p.project_name
+        """
+        result = execute_query(query)
+        return jsonify({'project_details': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-details/<project_id>', methods=['GET'])
+def get_project_details(project_id):
+    """Get project details for a specific project"""
+    try:
+        query = """
+            SELECT pd.*, p.project_name, p.project_number
+            FROM project_details pd
+            JOIN projects p ON pd.project_id = p.project_id
+            WHERE pd.project_id = %s::uuid
+        """
+        result = execute_query(query, (project_id,))
+        
+        if not result:
+            return jsonify({'project_details': None})
+        
+        return jsonify({'project_details': result[0]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-details', methods=['POST'])
+def create_project_details():
+    """Create project details"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO project_details 
+                    (project_id, project_address, project_city, project_state, project_zip,
+                     engineer_name, engineer_license, jurisdiction, permit_number,
+                     contact_name, contact_phone, contact_email, notes)
+                    VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING *
+                """, (
+                    data['project_id'], data.get('project_address'), data.get('project_city'),
+                    data.get('project_state'), data.get('project_zip'), data.get('engineer_name'),
+                    data.get('engineer_license'), data.get('jurisdiction'), data.get('permit_number'),
+                    data.get('contact_name'), data.get('contact_phone'), data.get('contact_email'),
+                    data.get('notes')
+                ))
+                
+                details = dict(cur.fetchone())
+                conn.commit()
+                return jsonify({'project_details': details}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-details/<project_id>', methods=['PUT'])
+def update_project_details(project_id):
+    """Update project details"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    UPDATE project_details
+                    SET project_address = %s, project_city = %s, project_state = %s, project_zip = %s,
+                        engineer_name = %s, engineer_license = %s, jurisdiction = %s, permit_number = %s,
+                        contact_name = %s, contact_phone = %s, contact_email = %s, notes = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE project_id = %s::uuid
+                    RETURNING *
+                """, (
+                    data.get('project_address'), data.get('project_city'), data.get('project_state'),
+                    data.get('project_zip'), data.get('engineer_name'), data.get('engineer_license'),
+                    data.get('jurisdiction'), data.get('permit_number'), data.get('contact_name'),
+                    data.get('contact_phone'), data.get('contact_email'), data.get('notes'),
+                    project_id
+                ))
+                
+                if cur.rowcount == 0:
+                    return jsonify({'error': 'Project details not found'}), 404
+                
+                details = dict(cur.fetchone())
+                conn.commit()
+                return jsonify({'project_details': details})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Sheet Category Standards
+@app.route('/api/sheet-category-standards', methods=['GET'])
+def get_sheet_category_standards():
+    """Get all sheet category standards"""
+    try:
+        query = """
+            SELECT * FROM sheet_category_standards
+            WHERE is_active = TRUE
+            ORDER BY default_hierarchy_number
+        """
+        result = execute_query(query)
+        return jsonify({'categories': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-category-standards', methods=['POST'])
+def create_sheet_category_standard():
+    """Create new sheet category standard"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO sheet_category_standards
+                    (category_code, category_name, default_hierarchy_number, description)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING *
+                """, (
+                    data['category_code'], data['category_name'],
+                    data['default_hierarchy_number'], data.get('description')
+                ))
+                
+                category = dict(cur.fetchone())
+                conn.commit()
+                return jsonify({'category': category}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Sheet Sets
+@app.route('/api/sheet-sets', methods=['GET'])
+def get_sheet_sets():
+    """Get all sheet sets, optionally filtered by project"""
+    try:
+        project_id = request.args.get('project_id')
+        
+        if project_id:
+            query = """
+                SELECT ss.*, 
+                    COUNT(DISTINCT s.sheet_id) as sheet_count,
+                    p.project_name, p.project_number
+                FROM sheet_sets ss
+                LEFT JOIN sheets s ON ss.set_id = s.set_id
+                JOIN projects p ON ss.project_id = p.project_id
+                WHERE ss.project_id = %s::uuid
+                GROUP BY ss.set_id, p.project_name, p.project_number
+                ORDER BY ss.created_at DESC
+            """
+            result = execute_query(query, (project_id,))
+        else:
+            query = """
+                SELECT ss.*, 
+                    COUNT(DISTINCT s.sheet_id) as sheet_count,
+                    p.project_name, p.project_number
+                FROM sheet_sets ss
+                LEFT JOIN sheets s ON ss.set_id = s.set_id
+                JOIN projects p ON ss.project_id = p.project_id
+                GROUP BY ss.set_id, p.project_name, p.project_number
+                ORDER BY ss.created_at DESC
+            """
+            result = execute_query(query)
+        
+        return jsonify({'sheet_sets': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-sets', methods=['POST'])
+def create_sheet_set():
+    """Create new sheet set"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO sheet_sets
+                    (project_id, set_name, set_number, phase, discipline, issue_date, status,
+                     recipient, transmittal_notes, sheet_note_set_id, is_active)
+                    VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s::uuid, %s)
+                    RETURNING *
+                """, (
+                    data['project_id'], data['set_name'], data.get('set_number'),
+                    data.get('phase'), data.get('discipline'), data.get('issue_date'),
+                    data.get('status', 'draft'), data.get('recipient'),
+                    data.get('transmittal_notes'), data.get('sheet_note_set_id'),
+                    data.get('is_active', True)
+                ))
+                
+                sheet_set = dict(cur.fetchone())
+                conn.commit()
+                cache.clear()
+                return jsonify({'sheet_set': sheet_set}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-sets/<set_id>', methods=['PUT'])
+def update_sheet_set(set_id):
+    """Update sheet set"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    UPDATE sheet_sets
+                    SET set_name = %s, set_number = %s, phase = %s, discipline = %s,
+                        issue_date = %s, status = %s, recipient = %s, transmittal_notes = %s,
+                        sheet_note_set_id = %s::uuid, is_active = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE set_id = %s::uuid
+                    RETURNING *
+                """, (
+                    data['set_name'], data.get('set_number'), data.get('phase'),
+                    data.get('discipline'), data.get('issue_date'), data.get('status'),
+                    data.get('recipient'), data.get('transmittal_notes'),
+                    data.get('sheet_note_set_id'), data.get('is_active'),
+                    set_id
+                ))
+                
+                if cur.rowcount == 0:
+                    return jsonify({'error': 'Sheet set not found'}), 404
+                
+                sheet_set = dict(cur.fetchone())
+                conn.commit()
+                cache.clear()
+                return jsonify({'sheet_set': sheet_set})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-sets/<set_id>', methods=['DELETE'])
+def delete_sheet_set(set_id):
+    """Delete sheet set and all its sheets"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute('DELETE FROM sheet_sets WHERE set_id = %s::uuid', (set_id,))
+                
+                if cur.rowcount == 0:
+                    return jsonify({'error': 'Sheet set not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'message': 'Sheet set deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Sheets
+@app.route('/api/sheets', methods=['GET'])
+def get_sheets():
+    """Get all sheets, optionally filtered by set"""
+    try:
+        set_id = request.args.get('set_id')
+        
+        if not set_id:
+            return jsonify({'error': 'set_id is required'}), 400
+        
+        query = """
+            SELECT s.*,
+                scs.category_name,
+                sda.drawing_id,
+                sda.layout_name,
+                d.drawing_name,
+                CASE WHEN sda.assignment_id IS NOT NULL THEN 'assigned' ELSE 'unassigned' END as assignment_status
+            FROM sheets s
+            LEFT JOIN sheet_category_standards scs ON s.category_code = scs.category_code
+            LEFT JOIN sheet_drawing_assignments sda ON s.sheet_id = sda.sheet_id
+            LEFT JOIN drawings d ON sda.drawing_id = d.drawing_id
+            WHERE s.set_id = %s::uuid
+            ORDER BY s.sheet_hierarchy_number, s.sheet_code
+        """
+        result = execute_query(query, (set_id,))
+        
+        return jsonify({'sheets': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheets', methods=['POST'])
+def create_sheet():
+    """Create new sheet"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Insert sheet
+                cur.execute("""
+                    INSERT INTO sheets
+                    (set_id, sheet_code, sheet_title, discipline_code, sheet_type,
+                     category_code, sheet_hierarchy_number, scale, sheet_size,
+                     template_id, revision_number, revision_date, notes, tags)
+                    VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s::uuid, %s, %s, %s, %s)
+                    RETURNING *
+                """, (
+                    data['set_id'], data['sheet_code'], data['sheet_title'],
+                    data.get('discipline_code'), data.get('sheet_type'),
+                    data.get('category_code'), data.get('sheet_hierarchy_number'),
+                    data.get('scale'), data.get('sheet_size', '24x36'),
+                    data.get('template_id'), data.get('revision_number', 0),
+                    data.get('revision_date'), data.get('notes'), data.get('tags')
+                ))
+                
+                sheet = dict(cur.fetchone())
+                set_id = sheet['set_id']
+                conn.commit()
+                
+        # Trigger auto-renumbering
+        renumber_sheets(str(set_id))
+        
+        cache.clear()
+        return jsonify({'sheet': sheet}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheets/<sheet_id>', methods=['PUT'])
+def update_sheet(sheet_id):
+    """Update sheet"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    UPDATE sheets
+                    SET sheet_code = %s, sheet_title = %s, discipline_code = %s, sheet_type = %s,
+                        category_code = %s, sheet_hierarchy_number = %s, scale = %s, sheet_size = %s,
+                        template_id = %s::uuid, revision_number = %s, revision_date = %s,
+                        notes = %s, tags = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE sheet_id = %s::uuid
+                    RETURNING *
+                """, (
+                    data['sheet_code'], data['sheet_title'], data.get('discipline_code'),
+                    data.get('sheet_type'), data.get('category_code'),
+                    data.get('sheet_hierarchy_number'), data.get('scale'),
+                    data.get('sheet_size'), data.get('template_id'),
+                    data.get('revision_number'), data.get('revision_date'),
+                    data.get('notes'), data.get('tags'),
+                    sheet_id
+                ))
+                
+                if cur.rowcount == 0:
+                    return jsonify({'error': 'Sheet not found'}), 404
+                
+                sheet = dict(cur.fetchone())
+                set_id = sheet['set_id']
+                conn.commit()
+        
+        # Trigger auto-renumbering if hierarchy or category changed
+        renumber_sheets(str(set_id))
+        
+        cache.clear()
+        return jsonify({'sheet': sheet})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheets/<sheet_id>', methods=['DELETE'])
+def delete_sheet(sheet_id):
+    """Delete sheet"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Get set_id before deleting
+                cur.execute('SELECT set_id FROM sheets WHERE sheet_id = %s::uuid', (sheet_id,))
+                result = cur.fetchone()
+                
+                if not result:
+                    return jsonify({'error': 'Sheet not found'}), 404
+                
+                set_id = str(result[0])
+                
+                cur.execute('DELETE FROM sheets WHERE sheet_id = %s::uuid', (sheet_id,))
+                conn.commit()
+        
+        # Trigger auto-renumbering
+        renumber_sheets(set_id)
+        
+        cache.clear()
+        return jsonify({'message': 'Sheet deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheets/renumber/<set_id>', methods=['POST'])
+def renumber_sheets_route(set_id):
+    """Manually trigger sheet renumbering"""
+    try:
+        count = renumber_sheets(set_id)
+        cache.clear()
+        return jsonify({'message': f'Renumbered {count} sheets', 'count': count})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def renumber_sheets(set_id):
+    """Auto-renumber sheets in a set based on hierarchy and code"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Get all sheets sorted by hierarchy and code
+                cur.execute("""
+                    SELECT sheet_id
+                    FROM sheets
+                    WHERE set_id = %s::uuid
+                    ORDER BY sheet_hierarchy_number NULLS LAST, sheet_code
+                """, (set_id,))
+                
+                sheets = cur.fetchall()
+                
+                # Update sheet numbers sequentially
+                for idx, sheet in enumerate(sheets, start=1):
+                    cur.execute("""
+                        UPDATE sheets
+                        SET sheet_number = %s
+                        WHERE sheet_id = %s
+                    """, (idx, sheet[0]))
+                
+                conn.commit()
+                return len(sheets)
+    except Exception as e:
+        print(f"Error renumbering sheets: {e}")
+        return 0
+
+# Sheet Drawing Assignments
+@app.route('/api/sheet-drawing-assignments', methods=['GET'])
+def get_sheet_drawing_assignments():
+    """Get drawing assignments for a sheet"""
+    try:
+        sheet_id = request.args.get('sheet_id')
+        
+        if not sheet_id:
+            return jsonify({'error': 'sheet_id is required'}), 400
+        
+        query = """
+            SELECT sda.*, d.drawing_name
+            FROM sheet_drawing_assignments sda
+            LEFT JOIN drawings d ON sda.drawing_id = d.drawing_id
+            WHERE sda.sheet_id = %s::uuid
+        """
+        result = execute_query(query, (sheet_id,))
+        
+        return jsonify({'assignments': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-drawing-assignments', methods=['POST'])
+def create_sheet_drawing_assignment():
+    """Assign a drawing to a sheet"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO sheet_drawing_assignments
+                    (sheet_id, drawing_id, layout_name, assigned_by, notes)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s)
+                    RETURNING *
+                """, (
+                    data['sheet_id'], data.get('drawing_id'),
+                    data.get('layout_name'), data.get('assigned_by'),
+                    data.get('notes')
+                ))
+                
+                assignment = dict(cur.fetchone())
+                conn.commit()
+                cache.clear()
+                return jsonify({'assignment': assignment}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-drawing-assignments/<assignment_id>', methods=['DELETE'])
+def delete_sheet_drawing_assignment(assignment_id):
+    """Unassign drawing from sheet"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute('DELETE FROM sheet_drawing_assignments WHERE assignment_id = %s::uuid', (assignment_id,))
+                
+                if cur.rowcount == 0:
+                    return jsonify({'error': 'Assignment not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'message': 'Assignment deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Sheet Revisions
+@app.route('/api/sheet-revisions', methods=['GET'])
+def get_sheet_revisions():
+    """Get revision history for a sheet"""
+    try:
+        sheet_id = request.args.get('sheet_id')
+        
+        if not sheet_id:
+            return jsonify({'error': 'sheet_id is required'}), 400
+        
+        query = """
+            SELECT * FROM sheet_revisions
+            WHERE sheet_id = %s::uuid
+            ORDER BY revision_date DESC, revision_number DESC
+        """
+        result = execute_query(query, (sheet_id,))
+        
+        return jsonify({'revisions': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-revisions', methods=['POST'])
+def create_sheet_revision():
+    """Add a revision to a sheet"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO sheet_revisions
+                    (sheet_id, revision_number, revision_date, description, revised_by)
+                    VALUES (%s::uuid, %s, %s, %s, %s)
+                    RETURNING *
+                """, (
+                    data['sheet_id'], data['revision_number'],
+                    data['revision_date'], data.get('description'),
+                    data.get('revised_by')
+                ))
+                
+                revision = dict(cur.fetchone())
+                conn.commit()
+                cache.clear()
+                return jsonify({'revision': revision}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Sheet Relationships
+@app.route('/api/sheet-relationships', methods=['GET'])
+def get_sheet_relationships():
+    """Get relationships for a sheet"""
+    try:
+        sheet_id = request.args.get('sheet_id')
+        
+        if not sheet_id:
+            return jsonify({'error': 'sheet_id is required'}), 400
+        
+        query = """
+            SELECT sr.*,
+                s_source.sheet_code as source_sheet_code,
+                s_source.sheet_title as source_sheet_title,
+                s_target.sheet_code as target_sheet_code,
+                s_target.sheet_title as target_sheet_title
+            FROM sheet_relationships sr
+            JOIN sheets s_source ON sr.source_sheet_id = s_source.sheet_id
+            JOIN sheets s_target ON sr.target_sheet_id = s_target.sheet_id
+            WHERE sr.source_sheet_id = %s::uuid OR sr.target_sheet_id = %s::uuid
+            ORDER BY sr.created_at DESC
+        """
+        result = execute_query(query, (sheet_id, sheet_id))
+        
+        return jsonify({'relationships': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-relationships', methods=['POST'])
+def create_sheet_relationship():
+    """Create a relationship between sheets"""
+    try:
+        data = request.json
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO sheet_relationships
+                    (source_sheet_id, target_sheet_id, relationship_type, notes)
+                    VALUES (%s::uuid, %s::uuid, %s, %s)
+                    RETURNING *
+                """, (
+                    data['source_sheet_id'], data['target_sheet_id'],
+                    data['relationship_type'], data.get('notes')
+                ))
+                
+                relationship = dict(cur.fetchone())
+                conn.commit()
+                cache.clear()
+                return jsonify({'relationship': relationship}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-relationships/<relationship_id>', methods=['DELETE'])
+def delete_sheet_relationship(relationship_id):
+    """Delete a sheet relationship"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute('DELETE FROM sheet_relationships WHERE relationship_id = %s::uuid', (relationship_id,))
+                
+                if cur.rowcount == 0:
+                    return jsonify({'error': 'Relationship not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'message': 'Relationship deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Sheet Index Generator
+@app.route('/api/sheet-index/<set_id>', methods=['GET'])
+def generate_sheet_index(set_id):
+    """Generate sheet index for a set"""
+    try:
+        query = """
+            SELECT 
+                sheet_number,
+                sheet_code,
+                sheet_title,
+                scale,
+                revision_number,
+                revision_date
+            FROM sheets
+            WHERE set_id = %s::uuid
+            ORDER BY sheet_number
+        """
+        result = execute_query(query, (set_id,))
+        
+        return jsonify({
+            'set_id': set_id,
+            'sheets': result,
+            'total_sheets': len(result)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Sheet Set Manager UI
+@app.route('/sheet-sets')
+def sheet_sets():
+    """Sheet Set Manager page"""
+    return render_template('sheet_sets.html')
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
