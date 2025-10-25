@@ -1,24 +1,280 @@
 {% extends "base.html" %}
 
-{% block title %}Sheet Set Manager - ACAD-GIS{% endblock %}
+{% block title %}Sheet Set Manager - ACAD-GIS Tools{% endblock %}
 
 {% block content %}
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-<div class="container-fluid">
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="mb-1"><i class="fas fa-folder-open me-2"></i>Sheet Set Manager</h1>
-                    <p class="text-muted mb-0">Manage construction document sheet sets and deliverables</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div id="root"></div>
+<div class="page-header">
+    <h1><i class="fas fa-folder-open"></i> Sheet Set Manager</h1>
+    <p>Manage construction document sheet sets and deliverables</p>
 </div>
+
+<div id="sheet-set-app" class="sheet-set-container"></div>
+
+<style>
+.sheet-set-container {
+    min-height: 600px;
+    background: rgba(0, 20, 40, 0.3);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.loading-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+    color: var(--cyan);
+    font-size: 1.2rem;
+    gap: 12px;
+}
+
+.spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(0, 255, 255, 0.3);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: rgba(0, 60, 120, 0.3);
+    border: 1px solid var(--cyan);
+    border-radius: 8px;
+}
+
+.top-bar-left {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.project-selector {
+    min-width: 300px;
+}
+
+.project-selector label {
+    color: var(--cyan);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.project-selector select {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(0, 20, 40, 0.8);
+    border: 1px solid rgba(0, 255, 255, 0.4);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.95rem;
+}
+
+.project-selector select:focus {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.3);
+}
+
+.stats-row {
+    display: flex;
+    gap: 12px;
+}
+
+.stat-badge {
+    padding: 8px 16px;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--cyan);
+    border-radius: 4px;
+}
+
+.stat-badge-label {
+    color: var(--gray);
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+}
+
+.stat-badge-value {
+    color: var(--cyan);
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.two-panel-layout {
+    display: grid;
+    grid-template-columns: 45% 55%;
+    gap: 20px;
+    min-height: 500px;
+}
+
+.panel {
+    background: rgba(0, 40, 80, 0.5);
+    border: 1px solid var(--cyan);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+}
+
+.panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    color: var(--cyan);
+    margin: 0;
+}
+
+.btn-create {
+    padding: 8px 16px;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--cyan);
+    border-radius: 4px;
+    color: var(--cyan);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.btn-create:hover {
+    background: rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
+}
+
+.set-item {
+    padding: 12px;
+    margin-bottom: 8px;
+    background: rgba(0, 20, 40, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.set-item:hover {
+    background: rgba(0, 40, 80, 0.7);
+    border-color: var(--cyan);
+}
+
+.set-item.selected {
+    background: rgba(0, 255, 255, 0.2);
+    border-color: var(--gold);
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.2);
+}
+
+.set-name {
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.set-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--gray);
+}
+
+.sheet-count-badge {
+    padding: 2px 8px;
+    background: rgba(0, 255, 255, 0.2);
+    border: 1px solid var(--cyan);
+    border-radius: 3px;
+    color: var(--cyan);
+    font-size: 0.8rem;
+}
+
+.sheet-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.sheet-table th {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--cyan);
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+    font-size: 0.85rem;
+}
+
+.sheet-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+    color: var(--text);
+}
+
+.sheet-table tr:hover {
+    background: rgba(0, 255, 255, 0.05);
+}
+
+.sheet-code {
+    color: var(--cyan);
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+}
+
+.category-badge {
+    padding: 2px 8px;
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid var(--gold);
+    border-radius: 3px;
+    color: var(--gold);
+    font-size: 0.75rem;
+}
+
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+}
+
+.status-unassigned {
+    background: rgba(128, 128, 128, 0.2);
+    border: 1px solid var(--gray);
+    color: var(--gray);
+}
+
+.status-assigned {
+    background: rgba(0, 255, 0, 0.1);
+    border: 1px solid #0f0;
+    color: #0f0;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--gray);
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: rgba(0, 255, 255, 0.2);
+    margin-bottom: 16px;
+}
+
+.empty-state-text {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+}
+</style>
 
 <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -59,7 +315,6 @@ function SheetSetManager() {
         try {
             const response = await fetch('/api/projects');
             const data = await response.json();
-            console.log('Loaded projects:', data.projects?.length || 0);
             setProjects(data.projects || []);
             setLoading(false);
         } catch (err) {
@@ -125,71 +380,88 @@ function SheetSetManager() {
     };
 
     if (loading) {
-        return h('div', { className: 'alert alert-info' }, 'Loading projects...');
+        return h('div', { className: 'loading-message' },
+            h('div', { className: 'spinner' }),
+            'Loading Sheet Set Manager...'
+        );
     }
 
-    const projectOptions = [
-        h('option', { key: 'empty', value: '' }, 'Select Project...'),
-        ...projects.map(p => h('option', {
-            key: p.project_id,
-            value: p.project_id
-        }, `${p.project_number} - ${p.project_name}`))
-    ];
+    const totalSheets = sheetSets.reduce((sum, set) => sum + (set.sheet_count || 0), 0);
+    const selectedSet = sheetSets.find(s => s.set_id === selectedSetId);
 
-    return h('div', { className: 'row' },
-        h('div', { className: 'col-12 mb-3' },
-            h('div', { className: 'card bg-dark border-primary' },
-                h('div', { className: 'card-body' },
-                    h('label', { className: 'form-label' }, `Select Project (${projects.length} available)`),
+    return h('div', null,
+        h('div', { className: 'top-bar' },
+            h('div', { className: 'top-bar-left' },
+                h('div', { className: 'project-selector' },
+                    h('label', null, 'Project'),
                     h('select', {
-                        className: 'form-select bg-dark text-light',
                         value: selectedProjectId,
                         onChange: (e) => setSelectedProjectId(e.target.value)
-                    }, projectOptions),
-                    h('div', { className: 'mt-2 text-muted small' }, 
-                        `Click the dropdown to select from ${projects.length} projects`
+                    },
+                        h('option', { value: '' }, 'Select Project...'),
+                        ...projects.map(p => h('option', {
+                            key: p.project_id,
+                            value: p.project_id
+                        }, `${p.project_number || ''} ${p.project_name}`))
                     )
+                )
+            ),
+            selectedProjectId && h('div', { className: 'stats-row' },
+                h('div', { className: 'stat-badge' },
+                    h('div', { className: 'stat-badge-label' }, 'SETS'),
+                    h('div', { className: 'stat-badge-value' }, sheetSets.length)
+                ),
+                h('div', { className: 'stat-badge' },
+                    h('div', { className: 'stat-badge-label' }, 'SHEETS'),
+                    h('div', { className: 'stat-badge-value' }, totalSheets)
                 )
             )
         ),
-        selectedProjectId && h('div', { className: 'col-md-6' },
-            h('div', { className: 'card bg-dark border-primary' },
-                h('div', { className: 'card-header d-flex justify-content-between align-items-center' },
-                    h('h5', { className: 'm-0' }, `Sheet Sets (${sheetSets.length})`),
-                    h('button', {
-                        className: 'btn btn-sm btn-primary',
-                        onClick: createSet
-                    }, '+ Create Set')
+
+        selectedProjectId ? h('div', { className: 'two-panel-layout' },
+            h('div', { className: 'panel' },
+                h('div', { className: 'panel-header' },
+                    h('h3', { className: 'panel-title' }, 'Sheet Sets'),
+                    h('button', { className: 'btn-create', onClick: createSet }, '+ Create Set')
                 ),
-                h('div', { className: 'card-body', style: { maxHeight: '500px', overflowY: 'auto' } },
-                    h('div', { className: 'list-group' },
-                        ...sheetSets.map(set => h('button', {
-                            key: set.set_id,
-                            className: `list-group-item list-group-item-action bg-dark text-light ${selectedSetId === set.set_id ? 'active' : ''}`,
-                            onClick: () => setSelectedSetId(set.set_id)
-                        },
-                            h('div', { className: 'd-flex justify-content-between' },
-                                h('strong', null, set.set_name),
-                                h('span', { className: 'badge bg-secondary' }, `${set.sheet_count || 0} sheets`)
-                            ),
-                            h('small', { className: 'text-muted' }, `${set.phase} - ${set.discipline}`)
-                        ))
-                    )
-                )
-            )
-        ),
-        selectedSetId && h('div', { className: 'col-md-6' },
-            h('div', { className: 'card bg-dark border-primary' },
-                h('div', { className: 'card-header d-flex justify-content-between align-items-center' },
-                    h('h5', { className: 'm-0' }, `Sheets (${sheets.length})`),
-                    h('button', {
-                        className: 'btn btn-sm btn-success',
-                        onClick: createSheet
-                    }, '+ Add Sheet')
+                sheetSets.length === 0 ? 
+                    h('div', { className: 'empty-state' },
+                        h('div', { className: 'empty-state-icon' }, '📁'),
+                        h('div', { className: 'empty-state-text' }, 'No sheet sets yet'),
+                        h('div', { style: { fontSize: '0.9rem' } }, 'Click "+ Create Set" to get started')
+                    ) :
+                    sheetSets.map(set => h('div', {
+                        key: set.set_id,
+                        className: `set-item ${selectedSetId === set.set_id ? 'selected' : ''}`,
+                        onClick: () => setSelectedSetId(set.set_id)
+                    },
+                        h('div', { className: 'set-name' }, set.set_name),
+                        h('div', { className: 'set-info' },
+                            h('span', null, `${set.phase || 'Draft'} - ${set.discipline || 'Civil'}`),
+                            h('span', { className: 'sheet-count-badge' }, `${set.sheet_count || 0} sheets`)
+                        )
+                    ))
+            ),
+
+            h('div', { className: 'panel' },
+                h('div', { className: 'panel-header' },
+                    h('h3', { className: 'panel-title' }, selectedSet ? `Sheets: ${selectedSet.set_name}` : 'Sheets'),
+                    selectedSetId && h('button', { className: 'btn-create', onClick: createSheet }, '+ Add Sheet')
                 ),
-                h('div', { className: 'card-body', style: { maxHeight: '500px', overflowY: 'auto' } },
-                    h('table', { className: 'table table-dark table-striped table-sm' },
-                        h('thead',
+                !selectedSetId ? 
+                    h('div', { className: 'empty-state' },
+                        h('div', { className: 'empty-state-icon' }, '👈'),
+                        h('div', { className: 'empty-state-text' }, 'Select a sheet set'),
+                        h('div', { style: { fontSize: '0.9rem' } }, 'Choose a set from the left panel')
+                    ) :
+                sheets.length === 0 ?
+                    h('div', { className: 'empty-state' },
+                        h('div', { className: 'empty-state-icon' }, '📄'),
+                        h('div', { className: 'empty-state-text' }, 'No sheets in this set'),
+                        h('div', { style: { fontSize: '0.9rem' } }, 'Click "+ Add Sheet" to create one')
+                    ) :
+                    h('table', { className: 'sheet-table' },
+                        h('thead', null,
                             h('tr', null,
                                 h('th', null, 'Code'),
                                 h('th', null, 'Title'),
@@ -199,25 +471,33 @@ function SheetSetManager() {
                         ),
                         h('tbody', null,
                             ...sheets.map(sheet => h('tr', { key: sheet.sheet_id },
-                                h('td', null, sheet.sheet_code),
+                                h('td', null, h('span', { className: 'sheet-code' }, sheet.sheet_code)),
                                 h('td', null, sheet.sheet_title),
-                                h('td', null, h('span', { className: 'badge bg-info' }, sheet.sheet_category)),
-                                h('td', null, sheet.assigned_drawing_id ? 
-                                    h('span', { className: 'badge bg-success' }, 'Assigned') :
-                                    h('span', { className: 'badge bg-warning' }, 'Unassigned')
+                                h('td', null, 
+                                    sheet.sheet_category ? 
+                                        h('span', { className: 'category-badge' }, sheet.sheet_category) : 
+                                        '-'
+                                ),
+                                h('td', null, 
+                                    h('span', { 
+                                        className: `status-badge status-${sheet.assignment_status}` 
+                                    }, sheet.assignment_status || 'unassigned')
                                 )
                             ))
                         )
                     )
-                )
             )
+        ) : h('div', { className: 'empty-state', style: { marginTop: '100px' } },
+            h('div', { className: 'empty-state-icon' }, '🏗️'),
+            h('div', { className: 'empty-state-text' }, 'Select a project to begin'),
+            h('div', { style: { fontSize: '0.9rem' } }, `${projects.length} projects available`)
         )
     );
 }
 
-// Render
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(SheetSetManager));
+const root = ReactDOM.createRoot(document.getElementById('sheet-set-app'));
+root.render(h(SheetSetManager));
+
 console.log('Sheet Set Manager loaded successfully');
 </script>
 
