@@ -2,12 +2,12 @@
 
 ## Overview
 
-This project contains two Flask-based companion tools for the main ACAD-GIS system:
+The ACAD-GIS Companion Tools project consists of two Flask-based web applications that support the main ACAD-GIS system:
 
-1. **Schema Explorer & Data Manager** - Database administration tool for viewing schemas, managing projects, and cleaning up test data
-2. **CAD Standards Portal** - Human-friendly reference portal presenting machine-optimized CAD standards (layers, blocks, colors, etc.) in a readable format for employees
+1.  **Schema Explorer & Data Manager**: A database administration tool for visualizing schemas, managing projects, and maintaining CAD standards data.
+2.  **CAD Standards Portal**: A user-friendly reference portal that presents machine-optimized CAD standards (layers, blocks, colors, etc.) in an accessible format for employees.
 
-Both tools connect to the same Supabase/PostgreSQL database and present data through a Mission Control-themed UI. They serve as lightweight administrative and reference interfaces, distinct from the main ACAD-GIS FastAPI application.
+Both tools utilize a shared Supabase/PostgreSQL database and feature a consistent Mission Control-themed user interface. They are intended as lightweight administrative and reference interfaces, complementing the primary ACAD-GIS FastAPI application. The project aims to provide comprehensive tools for managing and referencing CAD data, including full DXF round-trip capabilities, interactive schema visualization, and a robust sheet note management system.
 
 ## User Preferences
 
@@ -15,202 +15,52 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Web Framework
-- **Flask**: Lightweight Python web framework serving HTML templates and JSON API endpoints
-- **Pattern**: Traditional server-rendered templates (Jinja2) with client-side JavaScript for dynamic updates
-- **CORS Enabled**: Flask-CORS middleware to allow cross-origin requests
+### Core Technologies
+-   **Web Framework**: Flask (Python) for server-rendered HTML and JSON APIs.
+-   **Database**: PostgreSQL with PostGIS extension for geospatial data, typically hosted on Supabase.
+-   **Frontend**: Jinja2 templating, Mission Control-themed CSS, vanilla JavaScript, Font Awesome for icons, and Google Fonts (Orbitron, Rajdhani).
 
-### Database Layer
-- **PostgreSQL + PostGIS**: Primary data store (typically Supabase-hosted)
-- **Connection**: psycopg2 with connection pooling via context managers
-- **Query Pattern**: Raw SQL queries with RealDictCursor for dict-like results
-- **Configuration**: Environment-based credentials loaded from .env file or Replit Secrets
+### Architectural Patterns & Decisions
+-   **Server-Side Rendering**: Traditional Flask serving Jinja2 templates with client-side JavaScript for dynamic elements.
+-   **Database Interaction**: `psycopg2` with connection pooling, raw SQL queries, and `RealDictCursor` for results.
+-   **CORS**: Flask-CORS enabled for cross-origin requests.
+-   **Caching**: Flask-Caching with SimpleCache for frequently accessed data (e.g., standards, recent activity) to reduce database load.
+-   **Error Handling**: Centralized database error catching and user-friendly display on the frontend.
+-   **Modularity**: Separation of concerns with dedicated API endpoints for Schema Explorer, CAD Standards, Data Management, and DXF tools.
 
-### Frontend Architecture
-- **Template Engine**: Jinja2 templates with base template inheritance
-- **Styling**: Mission Control theme with CSS variables for consistent dark blue/cyan aesthetic
-- **Fonts**: Orbitron (headings) and Rajdhani (body) from Google Fonts
-- **Client-side**: Vanilla JavaScript with async/await for API calls
-- **Icons**: Font Awesome 6.4.0
-
-### API Structure
-
-**Schema Explorer Endpoints:**
-- **Health Endpoint**: `/api/health` - Database connectivity check with table counts
-- **Schema Endpoint**: `/api/schema` - Returns table structures and row counts
-- **Projects Endpoint**: `/api/projects` - List projects with drawing counts, delete operations
-- **Drawings Endpoint**: `/api/drawings` - List and delete drawings with project filtering
-- **Recent Activity**: `/api/recent-activity` - Dashboard data showing 5 most recent projects, 5 most recent drawings, and database stats (cached 60s)
-
-**CAD Standards Portal Endpoints:**
-- **Overview**: `/api/standards/overview` - Statistics for all standards tables (17 total)
-- **Layers**: `/api/standards/layers` - Layer standards with colors, linetypes, discipline
-- **Blocks**: `/api/standards/blocks` - Block/symbol definitions with SVG previews
-- **Colors**: `/api/standards/colors` - Color standards with RGB, HEX, ACI values
-- **Linetypes**: `/api/standards/linetypes` - Linetype patterns and usage
-- **Text Styles**: `/api/standards/text` - Text style specifications
-- **Hatches**: `/api/standards/hatches` - Hatch patterns for materials
-- **Details**: `/api/standards/details` - Standard construction details
-- **Abbreviations**: `/api/standards/abbreviations` - Standard CAD abbreviations with full text
-- **Materials**: `/api/standards/materials` - Construction material specifications
-- **Sheet Templates**: `/api/standards/sheets` - Standard sheet sizes and templates
-- **Plot Styles**: `/api/standards/plotstyles` - Plot style standards for printing
-- **Viewports**: `/api/standards/viewports` - Viewport scale standards
-- **Annotations**: `/api/standards/annotations` - Annotation style standards
-- **Symbol Categories**: `/api/standards/categories` - Hierarchical symbol organization
-- **Code References**: `/api/standards/codes` - Building codes and regulatory references
-- **Standard Notes**: `/api/standards/notes` - Pre-approved drawing notes library
-- **Drawing Scales**: `/api/standards/scales` - Standard drawing scales by type
-
-### Key Design Decisions
-
-**Why Flask over FastAPI for this tool?**
-- Simpler server-rendered approach for administrative UI
-- Separate from main ACAD-GIS FastAPI application
-- Minimal dependencies and quick setup for database exploration
-
-**Database Connection Pattern**
-- Context managers (`@contextmanager`) ensure proper connection cleanup
-- Separate `get_db()` and `execute_query()` helpers for DRY code
-- SSL mode configurable (defaulting to 'require' for Supabase)
-
-**Template Inheritance**
-- Base template (`base.html`) provides consistent header, navigation, and layout
-- Child templates extend base and override content blocks
-- Shared status checking and health monitoring across all pages
-
-**Error Handling Strategy**
-- Database errors caught and returned as JSON with error keys
-- Frontend displays user-friendly error messages with icons
-- Connection validation on startup with debug output to console
-
-**CAD Standards Portal Design**
-- Translates machine-optimized database fields into human-readable format
-- Visual presentation: color swatches, SVG symbol previews, organized tables
-- Grouped by discipline/category for easy browsing
-- Read-only reference portal (no editing capabilities)
-- Eventually intended to become standalone company reference website
-
-**Caching Strategy**
-- Flask-Caching configured with SimpleCache (in-memory)
-- Standards endpoints cached for 10 minutes (600s) - standards data rarely changes
-- Recent activity endpoint cached for 1 minute (60s) - provides fast dashboard loads while staying reasonably fresh
-- Cache reduces database load and improves response times significantly
-
-**Recent Activity Dashboard**
-- Home page displays real-time overview of database activity
-- Shows 4 stat cards: total projects, drawings, layer standards, and block standards
-- Lists 5 most recently created projects with client info and drawing counts
-- Lists 5 most recently created drawings with project context
-- Relative timestamps (e.g., "2h ago", "3d ago") for user-friendly time display
-
-**Schema Relationships Visualization (Added October 2025)**
-- Interactive network graph showing database table relationships using Vis.js library
-- Backend API `/api/schema/relationships` queries PostgreSQL foreign keys via information_schema
-- Visualizes 53 tables and 40 foreign key relationships with physics-based layout
-- Features:
-  - Color-coded nodes by table type (projects, drawings, standards, etc.)
-  - Node size reflects row count (logarithmic scale)
-  - Interactive zoom, pan, drag, and click functionality
-  - Detailed table information panel shows columns, relationships, and stats
-  - Pause/Resume animation and Reset View controls
-  - Relationship arrows indicate foreign key direction with column names on hover
-- Performance optimized using pg_stat_user_tables for fast row count estimates
-- Accessible via Relationships navigation menu item
-
-**Data Manager (Added October 2025)**
-- Complete CRUD interface for managing CAD standards data directly in the database
-- Four data management sections: Abbreviations, Layers, Blocks, and Details
-- Features per manager:
-  - Searchable tables with real-time filtering
-  - Add/Edit/Delete individual records via modal forms
-  - CSV Import: Upsert mode (adds new records or updates existing based on unique identifiers)
-  - CSV Export: Download current data for backup or editing
-  - SVG preview capability for block symbols
-  - Color swatch display for layer standards
-- All managers follow consistent UI/UX patterns with Mission Control theme
-- Cache clearing on data modifications to ensure fresh reads
-- Proper field mapping between CSV columns and database fields
-
-**DXF/GIS Export Schema (Added October 2025)**
-- Enhanced database schema to support complete DXF/DWG export capability
-- 8 new tables added for storing actual drawing content and export tracking:
-  1. **drawing_entities** - Generic CAD primitives (lines, polylines, arcs, circles, ellipses, splines) with PostGIS geometry
-  2. **drawing_text** - Text annotations with insertion points, styles, rotation, and justification
-  3. **drawing_dimensions** - Dimension annotations (linear, aligned, angular, radial, diametric, ordinate)
-  4. **drawing_hatches** - Hatch pattern instances with boundary geometry
-  5. **layout_viewports** - Paperspace viewport configurations with scale, view center, and frozen layers
-  6. **export_jobs** - DXF/DWG export operation tracking with status, metrics, and output files
-  7. **drawing_layer_usage** - Tracks which layers are actively used in each drawing
-  8. **drawing_linetype_usage** - Tracks which linetypes are actively used in each drawing
-- All entity tables support:
-  - PostGIS GeometryZ for 3D coordinates
-  - DXF handle preservation for round-trip consistency
-  - Model/Paper space designation
-  - Visual properties (color ACI, lineweight, transparency)
-  - JSONB metadata for flexibility
-- Existing tables (drawings, block_inserts, layers) already provide:
-  - Drawing-level georeferencing and coordinate systems
-  - Block instance tracking with transformations
-  - Layer-to-standard relationships
-- Export workflow supports:
-  - Multiple DXF versions (AC1027/AutoCAD 2013 and newer)
-  - Coordinate system transformation
-  - Layer and entity type filtering
-  - Layout/paperspace inclusion
-  - Job status tracking and error handling
-
-**DXF Import/Export Tools (Completed October 2025)**
-- ✅ Fully functional DXF round-trip workflow: import DXF → store in PostGIS database → export DXF
-- Components implemented:
-  1. **dxf_importer.py** - Parses DXF files using ezdxf, converts entities to PostGIS GeometryZ, uses lookup service for FK resolution
-  2. **dxf_exporter.py** - Queries database with JOIN statements through FK tables, generates valid DXF files using ezdxf
-  3. **dxf_lookup_service.py** - Resolver layer that maps DXF string names (layers, linetypes, styles) to normalized UUID FKs with transaction-aware caching
-  4. **create_dxf_export_schema.sql** - Complete database schema with 16 tables for DXF content storage
-  5. **Flask API endpoints** - /api/dxf/import, /api/dxf/export, /api/dxf/drawings, /api/dxf/export-jobs
-  6. **UI page** - /dxf-tools with file upload, export configuration, job history, and progress tracking
-  7. **Navigation** - DXF Tools menu item in main navigation
-- Architecture decisions:
-  - Normalized FK structure (layer_id, dimension_style_id, pattern_id) instead of denormalized layer_name columns
-  - DXFLookupService resolver handles name-to-UUID mapping with caching for performance
-  - Explicit UUID casting (::uuid) in SQL INSERT statements for psycopg2 compatibility
-  - PostGIS GeometryZ for 3D coordinate storage
-- Test results:
-  - Successfully imports entities (LINE, LWPOLYLINE, CIRCLE, ARC), text, dimensions, and layers
-  - Successfully exports all data back to valid DXF files
-  - Export jobs recorded in database with complete metrics
-  - Zero errors in end-to-end round-trip testing
-- Dependencies: ezdxf library for DXF parsing and generation
+### Key Features & Design
+-   **Schema Explorer**: Provides database health checks, schema visualization, and project/drawing management capabilities. Includes an interactive network graph using Vis.js to visualize table relationships and row counts.
+-   **CAD Standards Portal**: Designed to translate complex CAD database fields into an easily digestible format with visual aids (color swatches, SVG previews). It is a read-only reference.
+-   **Data Manager**: Comprehensive CRUD interface for managing CAD standards data (Abbreviations, Layers, Blocks, Details) with features like searching, modal forms, CSV import (upsert), and CSV export. Clears cache on data modifications.
+-   **DXF Tools**: Implements a full DXF round-trip workflow (import DXF to PostGIS, export PostGIS to DXF) using `ezdxf`. Features a normalized foreign key structure, a lookup service for name-to-UUID mapping, and PostGIS GeometryZ for 3D coordinates. Includes API endpoints and a UI for file upload, export configuration, and job tracking.
+-   **Sheet Note Manager**: Backend infrastructure for managing construction drawing notes across projects and sheets. Includes standard note libraries, project-specific note sets, custom overrides, note reordering, assignment to drawing sheets/layouts, and generation of formatted note legends. The frontend is a React-based three-panel UI.
 
 ## External Dependencies
 
 ### Python Libraries
-- **Flask 3.x**: Web framework
-- **Flask-Caching**: Response caching for improved performance
-- **psycopg2-binary**: PostgreSQL adapter
-- **python-dotenv**: Environment variable management
-- **flask-cors**: Cross-Origin Resource Sharing support
+-   `Flask`
+-   `Flask-Caching`
+-   `psycopg2-binary`
+-   `python-dotenv`
+-   `flask-cors`
+-   `ezdxf` (for DXF import/export)
 
 ### Database
-- **PostgreSQL 12+**: Required database
-- **PostGIS Extension**: Geospatial capabilities (inherited from ACAD-GIS main system)
-- **Supabase**: Recommended hosting platform (or local PostgreSQL)
+-   `PostgreSQL 12+`
+-   `PostGIS Extension`
+-   `Supabase` (recommended hosting)
 
-### Frontend CDN Resources
-- **Font Awesome 6.4.0**: Icon library
-- **Google Fonts**: Orbitron and Rajdhani typefaces
+### Frontend Resources (CDNs)
+-   `Font Awesome 6.4.0`
+-   `Google Fonts` (Orbitron, Rajdhani)
+-   `Vis.js` (for schema relationship visualization)
 
 ### Environment Configuration
-Required environment variables:
-- `DB_HOST`: Database host (e.g., `project.supabase.co`)
-- `DB_PORT`: Database port (default: 5432)
-- `DB_NAME`: Database name (default: postgres)
-- `DB_USER`: Database user (default: postgres)
-- `DB_PASSWORD`: Database password (required)
+-   `DB_HOST`
+-   `DB_PORT`
+-   `DB_NAME`
+-   `DB_USER`
+-   `DB_PASSWORD`
 
 ### Related Systems
-This tool is designed to work alongside the main **ACAD-GIS FastAPI** application documented in attached assets:
-- Main API server runs on port 8000
-- This Schema Explorer typically runs on port 5000
-- Both connect to the same PostgreSQL/PostGIS database
-- Separate codebases with different purposes (production API vs. admin tool)
+-   **ACAD-GIS FastAPI application**: The main API server that shares the same PostgreSQL/PostGIS database.
