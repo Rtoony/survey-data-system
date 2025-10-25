@@ -1902,7 +1902,6 @@ def get_sheet_note_sets():
                 sns.discipline,
                 sns.is_active,
                 sns.created_at,
-                sns.modified_at,
                 (SELECT COUNT(*) FROM project_sheet_notes WHERE set_id = sns.set_id) as note_count
             FROM sheet_note_sets sns
             WHERE sns.project_id = %s::uuid

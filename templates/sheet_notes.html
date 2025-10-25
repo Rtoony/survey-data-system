@@ -8,11 +8,7 @@
     <p>Manage construction drawing notes, create note sets, and assign notes to sheets</p>
 </div>
 
-<div id="sheet-note-app" class="sheet-note-container">
-    <div class="loading-message">
-        <i class="fas fa-spinner fa-spin"></i> Loading Sheet Note Manager...
-    </div>
-</div>
+<div id="sheet-note-app" class="sheet-note-container"></div>
 
 <style>
 .sheet-note-container {
@@ -342,8 +338,8 @@ textarea.form-control {
 }
 </style>
 
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
 {% raw %}
@@ -471,6 +467,33 @@ function SheetNoteApp() {
         }
     };
     
+    const handleCreateNoteSet = async () => {
+        const setName = prompt('Enter note set name:');
+        if (!setName) return;
+        
+        try {
+            const response = await fetch('/api/sheet-note-sets', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: selectedProjectId,
+                    set_name: setName,
+                    discipline: 'General',
+                    is_active: false
+                })
+            });
+            
+            if (response.ok) {
+                loadSets(selectedProjectId);
+            } else {
+                const error = await response.json();
+                alert('Failed to create note set: ' + (error.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Failed to create note set: ' + err.message);
+        }
+    };
+    
     if (loading) {
         return (
             <div className="loading-message">
@@ -498,6 +521,7 @@ function SheetNoteApp() {
                 selectedSetId={selectedSetId}
                 onSetChange={setSelectedSetId}
                 stats={stats}
+                onCreateSet={handleCreateNoteSet}
             />
             
             <div className="three-panel-layout">
@@ -525,7 +549,7 @@ function SheetNoteApp() {
 }
 
 // Top Bar Component
-function TopBar({ projects, selectedProjectId, onProjectChange, sets, selectedSetId, onSetChange, stats }) {
+function TopBar({ projects, selectedProjectId, onProjectChange, sets, selectedSetId, onSetChange, stats, onCreateSet }) {
     return (
         <div className="top-bar">
             <div className="top-bar-left">
@@ -545,20 +569,25 @@ function TopBar({ projects, selectedProjectId, onProjectChange, sets, selectedSe
                 </div>
                 
                 {selectedProjectId && (
-                    <div className="form-group" style={{marginBottom: 0, minWidth: '200px'}}>
-                        <select 
-                            className="form-control"
-                            value={selectedSetId || ''}
-                            onChange={(e) => onSetChange(e.target.value || null)}
-                        >
-                            <option value="">Select Note Set...</option>
-                            {sets.map(s => (
-                                <option key={s.set_id} value={s.set_id}>
-                                    {s.set_name} {s.is_active ? '(Active)' : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <>
+                        <div className="form-group" style={{marginBottom: 0, minWidth: '200px'}}>
+                            <select 
+                                className="form-control"
+                                value={selectedSetId || ''}
+                                onChange={(e) => onSetChange(e.target.value || null)}
+                            >
+                                <option value="">Select Note Set...</option>
+                                {sets.map(s => (
+                                    <option key={s.set_id} value={s.set_id}>
+                                        {s.set_name} {s.is_active ? '(Active)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <button className="btn btn-sm btn-primary" onClick={onCreateSet}>
+                            <i className="fas fa-plus"></i> Create Note Set
+                        </button>
+                    </>
                 )}
             </div>
             
@@ -719,8 +748,18 @@ function AssignmentsPanel({ assignments, selectedProjectNoteId, onAssignmentsCha
 }
 
 // Render the app
-const root = ReactDOM.createRoot(document.getElementById('sheet-note-app'));
-root.render(<SheetNoteApp />);
+try {
+    const container = document.getElementById('sheet-note-app');
+    if (container) {
+        const root = ReactDOM.createRoot(container);
+        root.render(<SheetNoteApp />);
+    } else {
+        console.error('Could not find sheet-note-app container');
+    }
+} catch (error) {
+    console.error('Error mounting React app:', error);
+    document.getElementById('sheet-note-app').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Error loading app: ' + error.message + '</p></div>';
+}
 </script>
 {% endraw %}
 
