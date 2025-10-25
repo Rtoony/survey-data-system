@@ -64,3 +64,40 @@ Preferred communication style: Simple, everyday language.
 
 ### Related Systems
 -   **ACAD-GIS FastAPI application**: The main API server that shares the same PostgreSQL/PostGIS database.
+
+## Recent Features
+
+### Sheet Note Manager (Completed October 2025)
+Full-featured construction drawing note management system for organizing and assigning notes to project sheets.
+
+**Database Schema (4 tables)**:
+1. **standard_notes** - Master library of company-approved notes (INTEGER note_id, note_category, note_title, note_text)
+2. **sheet_note_sets** - Project-specific note collections with versioning and activation
+3. **project_sheet_notes** - Links standard notes to sets with custom overrides (standard_note_id INTEGER FK, usage_count tracking, NULL = custom note)
+4. **sheet_note_assignments** - Note-to-sheet/layout assignments with sequence and legend display control
+
+**Backend API (11 endpoints)**:
+- Note Sets: GET/POST/PUT/DELETE `/api/sheet-note-sets`, PATCH `/api/sheet-note-sets/activate`
+- Project Notes: GET/POST/PUT/DELETE `/api/project-sheet-notes`, PATCH `/api/project-sheet-notes/reorder`
+- Assignments: GET `/api/sheet-note-assignments`, POST, DELETE
+- Legend: GET `/api/sheet-note-legend` (generates formatted legends for drawings)
+
+**Frontend UI** (`/sheet-notes`):
+- React-based three-panel layout with Mission Control theme
+- **Left Panel**: Standard Notes Library (10 sample notes, searchable by category/text)
+- **Center Panel**: Project Notes Editor with "Add Note" button for creating custom notes
+- **Right Panel**: Sheet Assignments viewer showing note usage across layouts
+- **Top Bar**: Project selector, note set selector, "Create Note Set" button, stats dashboard
+
+**Completed Features**:
+- ✅ Create and manage note sets per project
+- ✅ Add custom notes with display code, title, and text
+- ✅ Browse standard note library with search/filter
+- ✅ Track note usage counts across sheets
+- ✅ Stats dashboard (total sets, notes, assignments)
+- ✅ Full CRUD operations via REST API
+
+**Testing Status**: Fully operational - tested note set creation and custom note addition.
+
+### DXF Import/Export Tools (Completed October 2025)
+Full DXF round-trip workflow with PostGIS storage, FK normalization, and ezdxf integration. Successfully tested with complete entity import/export cycle.

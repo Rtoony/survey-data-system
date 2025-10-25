@@ -494,6 +494,45 @@ function SheetNoteApp() {
         }
     };
     
+    const handleAddNote = async () => {
+        if (!selectedSetId) {
+            alert('Please select a note set first');
+            return;
+        }
+        
+        const displayCode = prompt('Enter display code (e.g., GN-1, SS-2):');
+        if (!displayCode) return;
+        
+        const customTitle = prompt('Enter note title:');
+        if (!customTitle) return;
+        
+        const customText = prompt('Enter note text:');
+        if (!customText) return;
+        
+        try {
+            const response = await fetch('/api/project-sheet-notes', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    set_id: selectedSetId,
+                    display_code: displayCode,
+                    custom_title: customTitle,
+                    custom_text: customText,
+                    standard_note_id: null
+                })
+            });
+            
+            if (response.ok) {
+                loadProjectNotes(selectedSetId);
+            } else {
+                const error = await response.json();
+                alert('Failed to create note: ' + (error.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Failed to create note: ' + err.message);
+        }
+    };
+    
     if (loading) {
         return (
             <div className="loading-message">
@@ -534,8 +573,10 @@ function SheetNoteApp() {
                 <ProjectNotesPanel 
                     projectNotes={projectNotes}
                     selectedProjectNoteId={selectedProjectNoteId}
+                    selectedSetId={selectedSetId}
                     onSelectNote={setSelectedProjectNoteId}
                     onNotesChange={() => loadProjectNotes(selectedSetId)}
+                    onAddNote={handleAddNote}
                 />
                 
                 <AssignmentsPanel 
@@ -658,12 +699,17 @@ function StandardNotesPanel({ standardNotes, selectedSetId, onAddToSet }) {
 }
 
 // Project Notes Panel (Center)
-function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, onSelectNote, onNotesChange }) {
+function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, selectedSetId, onSelectNote, onNotesChange, onAddNote }) {
     return (
         <div className="panel">
             <div className="panel-header">
                 <h2 className="panel-title">Project Notes</h2>
-                <button className="btn btn-primary btn-sm">
+                <button 
+                    className="btn btn-primary btn-sm" 
+                    onClick={onAddNote}
+                    disabled={!selectedSetId}
+                    title={!selectedSetId ? 'Select a note set first' : 'Add a custom note'}
+                >
                     <i className="fas fa-plus"></i> Add Note
                 </button>
             </div>
