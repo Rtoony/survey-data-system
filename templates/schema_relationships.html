@@ -88,7 +88,13 @@
                 </div>
             </div>
 
-            <div id="networkContainer" style="display: none; width: 100%; height: 600px; border: 1px solid rgba(0,255,255,0.3); border-radius: 8px; background: rgba(0,0,0,0.3);"></div>
+            <div id="networkContainer" style="display: none; width: 100%; height: 600px; border: 1px solid rgba(0,255,255,0.3); border-radius: 8px; background: rgba(0,0,0,0.3);">
+                <!-- Floating popup for fullscreen mode -->
+                <div id="nodePopup" class="node-popup">
+                    <div class="node-popup-title" id="popupTitle"></div>
+                    <div class="node-popup-description" id="popupDescription"></div>
+                </div>
+            </div>
 
             <div id="tableDetails" style="display: none; margin-top: 20px; padding: 20px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 8px;">
                 <h3 style="margin: 0 0 15px 0; color: var(--accent-cyan);"><i class="fas fa-table"></i> <span id="detailTableName"></span></h3>
@@ -528,7 +534,16 @@ function renderNetwork() {
     network.on('click', function(params) {
         if (params.nodes.length > 0) {
             const tableName = params.nodes[0];
-            showTableDetails(tableName);
+            const isFullscreen = document.getElementById('networkContainer').classList.contains('fullscreen');
+            
+            if (isFullscreen) {
+                showNodePopup(tableName, params.pointer.DOM);
+            } else {
+                showTableDetails(tableName);
+            }
+        } else if (document.getElementById('networkContainer').classList.contains('fullscreen')) {
+            // Hide popup when clicking empty space in fullscreen
+            hideNodePopup();
         }
     });
     
@@ -628,6 +643,56 @@ function showTableDetails(tableName) {
     document.getElementById('tableDetails').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+function showNodePopup(tableName, position) {
+    const popup = document.getElementById('nodePopup');
+    const title = document.getElementById('popupTitle');
+    const description = document.getElementById('popupDescription');
+    
+    // Get description if available
+    const desc = tableDescriptions[tableName];
+    
+    // Set content
+    title.textContent = tableName;
+    description.textContent = desc || 'No description available for this table.';
+    
+    // Position the popup near the click, with smart positioning to avoid edges
+    const popupWidth = 400; // max-width from CSS
+    const popupHeight = 300; // estimated max height
+    const margin = 30; // margin from edges
+    
+    let left = position.x + 20;
+    let top = position.y + 20;
+    
+    // Adjust if too close to right edge
+    if (left + popupWidth > window.innerWidth - margin) {
+        left = position.x - popupWidth - 20;
+    }
+    
+    // Adjust if too close to bottom edge
+    if (top + popupHeight > window.innerHeight - margin) {
+        top = window.innerHeight - popupHeight - margin;
+    }
+    
+    // Adjust if too close to top edge
+    if (top < margin) {
+        top = margin;
+    }
+    
+    // Adjust if too close to left edge
+    if (left < margin) {
+        left = margin;
+    }
+    
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+    popup.classList.add('visible');
+}
+
+function hideNodePopup() {
+    const popup = document.getElementById('nodePopup');
+    popup.classList.remove('visible');
+}
+
 function toggleFullscreen() {
     const container = document.getElementById('networkContainer');
     const btn = document.getElementById('fullscreenBtn');
@@ -645,6 +710,9 @@ function toggleFullscreen() {
         // Exit fullscreen
         container.classList.remove('fullscreen');
         btn.innerHTML = '<i class="fas fa-expand"></i> Full Screen';
+        
+        // Hide popup when exiting fullscreen
+        hideNodePopup();
         
         // Resize network back to normal
         if (network) {
@@ -677,8 +745,9 @@ function resetNetwork() {
             network.fit({ animation: true });
         });
         
-        // Hide table details panel
+        // Hide table details panel and popup
         document.getElementById('tableDetails').style.display = 'none';
+        hideNodePopup();
         
         // Stabilize the network
         network.stabilize();
