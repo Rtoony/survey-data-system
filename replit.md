@@ -148,3 +148,30 @@ Complete sheet set management system for organizing construction document delive
 
 ### DXF Import/Export Tools (Completed October 2025)
 Full DXF round-trip workflow with PostGIS storage, FK normalization, and ezdxf integration. Successfully tested with complete entity import/export cycle.
+
+## Migration Documentation
+
+Two comprehensive migration guides have been created to facilitate porting features from this Flask prototype to the main ACAD-GIS FastAPI application:
+
+### MIGRATION_SHEET_NOTE_MANAGER.md
+Complete documentation for migrating the Sheet Note Manager feature including:
+- Database schema (4 tables: standard_notes, sheet_note_sets, project_sheet_notes, sheet_note_assignments)
+- API endpoints (11 endpoints with request/response specs)
+- Business logic and validation rules
+- React component structure and user workflows
+- Pydantic models and SQLAlchemy ORM examples
+- FastAPI router implementation examples
+- Testing and migration checklists
+
+### MIGRATION_SHEET_SET_MANAGER.md
+Complete documentation for migrating the Sheet Set Manager feature including:
+- Database schema (7 tables: project_details, sheet_category_standards, sheet_sets, sheets, sheet_drawing_assignments, sheet_revisions, sheet_relationships)
+- API endpoints (20+ endpoints with request/response specs)
+- Business logic (auto-renumbering, cascading deletes, assignment status)
+- React component structure and user workflows
+- Pydantic models and SQLAlchemy ORM examples
+- FastAPI router implementation examples
+- Important notes on Supabase schema differences (TEXT fields, INTEGER template_id)
+- Testing and migration checklists
+
+**Usage**: Share these markdown files with AI coding assistants (Claude, Codex) when porting features to the main FastAPI application. They contain everything needed to rebuild these features in a different tech stack.
