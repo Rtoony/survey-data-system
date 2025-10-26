@@ -15,11 +15,11 @@
         <div class="card-header">
             <h2><i class="fas fa-sitemap"></i> Database Schema Map</h2>
             <div class="button-group">
-                <button onclick="resetView()" class="btn btn-secondary">
-                    <i class="fas fa-compress-arrows-alt"></i> Reset View
+                <button onclick="toggleFullscreen()" class="btn btn-secondary" id="fullscreenBtn">
+                    <i class="fas fa-expand"></i> Full Screen
                 </button>
-                <button onclick="togglePhysics()" class="btn btn-secondary" id="physicsBtn">
-                    <i class="fas fa-pause"></i> Pause Animation
+                <button onclick="resetNetwork()" class="btn btn-secondary">
+                    <i class="fas fa-undo"></i> Reset
                 </button>
             </div>
         </div>
@@ -122,6 +122,31 @@
 
 #networkContainer {
     position: relative;
+}
+
+#networkContainer.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999;
+    background: rgba(10, 20, 40, 0.98);
+    border: none;
+    border-radius: 0;
+    margin: 0;
+}
+
+#networkContainer.fullscreen #tableDetails {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    max-width: 800px;
+    max-height: 40vh;
+    overflow-y: auto;
+    z-index: 10000;
+    box-shadow: 0 4px 20px rgba(0, 255, 255, 0.3);
 }
 
 .vis-network {
@@ -273,7 +298,33 @@ const tableDescriptions = {
     
     'standard_notes': 'Instead of retyping the same construction notes on every drawing ("All dimensions to be verified in field" or "Contractor to coordinate all locations"), this table stores a library of pre-approved notes that can be inserted into drawings. Each note has an ID, category, and the full text. Using standard notes ensures consistent language across drawings, reduces typos, matches your organization\'s legal review, and saves time by eliminating repetitive typing.',
     
-    'drawing_scales': 'Different types of drawings are typically shown at different scales (floor plans at 1/4"=1\'-0", details at 1"=1\'-0", site plans at 1"=20\'). This table defines what scales should be used for different drawing types in your organization. Having standard scales ensures consistency, makes drawings easier to read (people expect certain scales for certain drawing types), and helps team members set up new drawings correctly without having to guess what scale to use.'
+    'drawing_scales': 'Different types of drawings are typically shown at different scales (floor plans at 1/4"=1\'-0", details at 1"=1\'-0", site plans at 1"=20\'). This table defines what scales should be used for different drawing types in your organization. Having standard scales ensures consistency, makes drawings easier to read (people expect certain scales for certain drawing types), and helps team members set up new drawings correctly without having to guess what scale to use.',
+    
+    // Sheet Set Manager Tables
+    'project_details': 'This table extends the basic projects table with comprehensive project metadata needed for construction document deliverables. It stores detailed information like full project addresses, engineer of record, jurisdiction, permit numbers, and other critical data that appears in title blocks and cover sheets. This information is essential for regulatory compliance, permitting, and coordinating with building departments and plan reviewers.',
+    
+    'sheet_category_standards': 'Construction document sheets are organized into standard categories (like COVER sheets, DEMOLITION plans, GRADING plans, UTILITY plans) that follow industry conventions. This table defines these standard categories with their codes, full names, hierarchy ordering, and what types of content belong in each category. Having standardized categories ensures that your sheet sets follow professional conventions and makes it easy for contractors, reviewers, and other stakeholders to find information quickly.',
+    
+    'sheet_sets': 'A sheet set is a collection of sheets that get delivered together as a package - like "100% Civil Plans for Permitting" or "Addendum #2 Construction Documents". This table organizes sheets into deliverable packages, tracking what phase they belong to (Schematic Design, Design Development, Construction Documents), what discipline (Civil, Architectural, MEP), their status (Draft, In Review, Issued), and when they were issued. This allows you to manage multiple versions of drawing sets and track what sheets were included in each submittal.',
+    
+    'sheets': 'Each row represents one individual sheet in a construction document set - like sheet C-1.1 "Site Plan" or sheet S-3.5 "Foundation Details". This table stores the sheet code (following numbering conventions), title, category, hierarchical ordering, scale, size (24x36, 11x17, etc.), and revision information. Sheets can be organized into sheet sets for delivery, and the system tracks which DXF drawing files and layout tabs correspond to each sheet through the sheet_drawing_assignments table.',
+    
+    'sheet_drawing_assignments': 'This junction table connects individual sheets to their corresponding CAD drawing files and layout tabs. A single sheet (like "Site Plan C-1.1") might be laid out in a specific layout tab within a DXF file, and this table records that relationship. This linkage enables the system to automatically export the correct layout from the correct drawing file when generating final sheet PDFs or DWG files. It also tracks which sheets have been assigned to drawings versus which sheets still need to be drafted.',
+    
+    'sheet_revisions': 'Construction documents go through multiple revisions during design and construction (Revision 0, Rev A, Rev B, etc.), and this table tracks the complete revision history for each sheet. Each revision records what changed, when it was issued, who issued it, why the revision was necessary, and any reference numbers (like RFI numbers or change order numbers). This provides a complete audit trail of document changes, which is critical for construction administration and avoiding disputes about what information was shown when.',
+    
+    'sheet_relationships': 'Sheets often reference other sheets - a detail sheet might say "See Sheet C-2.3 for plan view", or a plan might continue onto another sheet with "Continued on Sheet C-1.2". This table captures these cross-references and relationships between sheets, including reference types (references, detail_of, continued_from, etc.). Tracking these relationships helps ensure that when you revise one sheet, you remember to update any related sheets, and helps users navigate through multi-sheet drawing sets.',
+    
+    // Sheet Note Manager Tables
+    'standard_notes': 'Construction drawings require extensive notes explaining construction requirements, material specifications, code compliance, and coordination instructions. Rather than retyping common notes on every project, this table stores a master library of company-approved standard notes with their IDs, categories (General, Grading, Utilities, etc.), titles, and full text. Using standard notes ensures consistent language across projects, reduces typos, matches legal review, saves drafting time, and makes it easy to update note text across all future projects when codes or standards change.',
+    
+    'sheet_note_sets': 'Each project typically needs its own collection of notes (a "note set") that might include a mix of standard company notes plus project-specific custom notes. This table organizes notes into project-specific sets with version tracking and activation status. For example, a project might have multiple note sets like "Draft Note Set v1", "100% Submittal Notes", and "Final Construction Notes". Only the activated note set for a project will be used to generate note legends on drawing sheets. This versioning system lets you prepare updated notes without affecting currently issued drawings.',
+    
+    'project_sheet_notes': 'This table stores the actual notes that belong to each project note set - it acts as the "working collection" of notes for a specific project. Each entry either references a standard_note from the company library (via standard_note_id foreign key) or contains custom note text written specifically for this project (when standard_note_id is NULL). The table also tracks usage counts showing how many sheets each note is assigned to, helping you understand which notes are most commonly used and which might be obsolete. Display codes, titles, and text can be customized per project while still maintaining the link back to standard notes.',
+    
+    'sheet_note_assignments': 'Once you have a collection of project notes, this table assigns specific notes to specific drawing sheets and layout tabs. Each assignment records which note appears on which sheet, in what sequence/order it should appear in the note legend, and whether it should be displayed in the legend (some notes might be "hidden" or for reference only). This fine-grained control allows different sheets in the same set to show different subsets of notes - for example, grading sheets show grading notes, utility sheets show utility notes - even though they all draw from the same project note set.',
+    
+    'sheet_note_legend': 'While not a table itself, the sheet note legend API endpoint generates formatted, ready-to-insert note legends for CAD drawings. It queries the note assignments for a specific sheet and layout, retrieves the note text, sequences them properly, formats them with display codes (like "1.", "2.", "3."), and returns a complete legend block that can be inserted into title blocks or note areas on construction drawings. This automation ensures that note legends are always current, properly formatted, and match the assigned notes - eliminating manual copying and reducing errors.'
 };
 
 
@@ -538,21 +589,60 @@ function showTableDetails(tableName) {
     document.getElementById('tableDetails').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function resetView() {
-    if (network) {
-        network.fit({
-            animation: true
-        });
+function toggleFullscreen() {
+    const container = document.getElementById('networkContainer');
+    const btn = document.getElementById('fullscreenBtn');
+    
+    if (!container.classList.contains('fullscreen')) {
+        // Enter fullscreen
+        container.classList.add('fullscreen');
+        btn.innerHTML = '<i class="fas fa-compress"></i> Exit Full Screen';
+        
+        // Resize network to fit new container
+        if (network) {
+            network.fit({ animation: true });
+        }
+    } else {
+        // Exit fullscreen
+        container.classList.remove('fullscreen');
+        btn.innerHTML = '<i class="fas fa-expand"></i> Full Screen';
+        
+        // Resize network back to normal
+        if (network) {
+            network.fit({ animation: true });
+        }
     }
+    
+    // Handle ESC key to exit fullscreen
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && container.classList.contains('fullscreen')) {
+            toggleFullscreen();
+        }
+    });
 }
 
-function togglePhysics() {
-    physicsEnabled = !physicsEnabled;
+function resetNetwork() {
     if (network) {
-        network.setOptions({ physics: { enabled: physicsEnabled } });
-        document.getElementById('physicsBtn').innerHTML = physicsEnabled 
-            ? '<i class="fas fa-pause"></i> Pause Animation'
-            : '<i class="fas fa-play"></i> Resume Animation';
+        // Reset physics and re-stabilize
+        network.setOptions({
+            physics: {
+                enabled: true,
+                stabilization: {
+                    iterations: 100
+                }
+            }
+        });
+        
+        // Fit to view after stabilization
+        network.once('stabilizationIterationsDone', function() {
+            network.fit({ animation: true });
+        });
+        
+        // Hide table details panel
+        document.getElementById('tableDetails').style.display = 'none';
+        
+        // Stabilize the network
+        network.stabilize();
     }
 }
 
