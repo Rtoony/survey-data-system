@@ -151,7 +151,7 @@ Full DXF round-trip workflow with PostGIS storage, FK normalization, and ezdxf i
 
 ## Migration Documentation
 
-Four comprehensive migration guides have been created to facilitate porting features from this Flask prototype to the main ACAD-GIS FastAPI application:
+Five comprehensive migration guides have been created to facilitate porting features from this Flask prototype to the main ACAD-GIS FastAPI application:
 
 ### MIGRATION_PROJECTS_MANAGER.md
 Complete documentation for migrating the Projects Manager feature including:
@@ -195,6 +195,20 @@ Complete documentation for migrating the Sheet Set Manager feature including:
 - Pydantic models and SQLAlchemy ORM examples
 - FastAPI router implementation examples
 - Important notes on Supabase schema differences (TEXT fields, INTEGER template_id)
+- Testing and migration checklists
+
+### MIGRATION_DXF_TOOLS.md
+Complete documentation for migrating the DXF Tools feature including:
+- Database schema (16 tables: layers, layer_standards, block_standards, block_inserts, drawing_entities, drawing_text, drawing_dimensions, dimension_styles, drawing_hatches, hatch_patterns, layout_viewports, export_jobs, drawing_layer_usage, drawing_linetype_usage)
+- API endpoints (4 endpoints: DXF import, DXF export, drawings list, export jobs history)
+- DXF round-trip workflow (ezdxf integration, import/export process)
+- DXFLookupService (name-to-UUID resolution with caching)
+- PostGIS GeometryZ implementation for 3D CAD coordinates
+- Entity type mapping (lines, polylines, arcs, circles, text, dimensions, hatches, viewports)
+- Business logic (layer resolution, block handling, geometry conversion, export job tracking)
+- Pydantic models and SQLAlchemy ORM examples with GeoAlchemy2
+- FastAPI router implementation with file upload/download
+- Production recommendations (external storage, spatial indexing, async processing)
 - Testing and migration checklists
 
 **Usage**: Share these markdown files with AI coding assistants (Claude, Codex) when porting features to the main FastAPI application. They contain everything needed to rebuild these features in a different tech stack.
