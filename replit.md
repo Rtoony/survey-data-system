@@ -151,7 +151,30 @@ Full DXF round-trip workflow with PostGIS storage, FK normalization, and ezdxf i
 
 ## Migration Documentation
 
-Two comprehensive migration guides have been created to facilitate porting features from this Flask prototype to the main ACAD-GIS FastAPI application:
+Four comprehensive migration guides have been created to facilitate porting features from this Flask prototype to the main ACAD-GIS FastAPI application:
+
+### MIGRATION_PROJECTS_MANAGER.md
+Complete documentation for migrating the Projects Manager feature including:
+- Database schema (projects table with full column specs)
+- API endpoints (GET/POST/PUT/DELETE with request/response specs)
+- Business logic (cascading deletes, drawing count aggregation)
+- Relationships with drawings, sheet sets, note sets, and project details
+- Pydantic models and SQLAlchemy ORM examples
+- FastAPI router implementation examples
+- Production recommendations (soft delete, pagination, search)
+- Testing and migration checklists
+
+### MIGRATION_DRAWINGS_MANAGER.md
+Complete documentation for migrating the Drawings Manager feature including:
+- Database schema (drawings table with DXF content, georeferencing, PostGIS support)
+- API endpoints (CRUD, render data, extent, DXF import/export)
+- DXF integration workflow (content storage, round-trip export)
+- Georeferencing capabilities (EPSG codes, PostGIS GeometryZ)
+- Business logic (CAD units, scale factors, cascading deletes)
+- Pydantic models and SQLAlchemy ORM examples with GeoAlchemy2
+- FastAPI router implementation examples
+- Production recommendations (DXF compression, external storage)
+- Testing and migration checklists
 
 ### MIGRATION_SHEET_NOTE_MANAGER.md
 Complete documentation for migrating the Sheet Note Manager feature including:
