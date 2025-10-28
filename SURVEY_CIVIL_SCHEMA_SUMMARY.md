@@ -35,7 +35,7 @@ The ACAD-GIS database now includes comprehensive survey and civil engineering ca
 | Table | Purpose | Geometry Type |
 |-------|---------|---------------|
 | `cross_sections` | Station-based sections | LineStringZ |
-| `cross_section_points` | Individual offset/elevation points | N/A |
+| `cross_section_points` | Individual cross_offset/elevation points | N/A |
 | `earthwork_quantities` | Cut/fill volumes by station range | N/A |
 | `earthwork_balance` | Mass haul diagram data | N/A |
 

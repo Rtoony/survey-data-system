@@ -175,10 +175,10 @@ Station-based cross sections with cut/fill data.
 
 **Table: `cross_section_points`**
 
-Individual points on each cross section (offset/elevation pairs).
+Individual points on each cross section (cross_offset/elevation pairs).
 
 **Key Features:**
-- Offset/elevation arrays
+- Cross offset/elevation arrays
 - Cut/fill area calculations
 - Slope ratios (2:1, 3:1, etc.)
 - Typical section references
