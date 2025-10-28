@@ -35,7 +35,7 @@ Preferred communication style: Simple, everyday language.
 -   **DXF Tools**: Implements full DXF round-trip functionality (import DXF to PostGIS, export PostGIS to DXF) using `ezdxf`, featuring normalized foreign keys, a lookup service, and PostGIS GeometryZ. Includes API and UI for file management.
 -   **Sheet Note Manager**: Backend for managing construction drawing notes across projects and sheets, including standard libraries, project-specific sets, custom overrides, and legend generation. The frontend is a React-based three-panel UI.
 -   **Sheet Set Manager**: System for organizing construction document deliverables and tracking sheet assignments. Manages project details, sheet categories, sheet sets, individual sheets, revisions, and relationships. Features a React-based two-panel UI for project and sheet set management.
--   **Survey & Civil Engineering Schema**: Comprehensive database schema for civil/survey engineering data, including survey points, control networks, site features, alignments, cross-sections, earthwork, utilities, and parcels, utilizing PostGIS PointZ and projected coordinates (State Plane).
+-   **Survey & Civil Engineering Schema**: Comprehensive database schema for civil/survey engineering data, including survey points, control networks, site features, alignments, cross-sections, earthwork, utilities, and parcels, utilizing PostGIS PointZ and projected coordinates (State Plane California Zone 2, with support for all CA zones and future expansion).
 
 ## External Dependencies
 

@@ -40,7 +40,7 @@ CREATE TABLE survey_points (
     point_type VARCHAR(50),                            -- 'Control', 'Topo', 'Layout', 'Benchmark'
     
     -- Coordinates (PostGIS 3D Point in State Plane)
-    geometry GEOMETRY(PointZ, 2227) NOT NULL,          -- EPSG:2227 = NAD83 CA State Plane Zone 3 (US Feet)
+    geometry GEOMETRY(PointZ, 2226) NOT NULL,          -- EPSG:2226 = NAD83 CA State Plane Zone 2 (US Feet)
     northing NUMERIC(15, 4),
     easting NUMERIC(15, 4),
     elevation NUMERIC(10, 4),
@@ -331,7 +331,7 @@ Links observations to loops for adjustment.
 
 ### CRITICAL: Projected Coordinates Required for Civil Engineering
 
-All spatial tables use PostGIS geometry types with **SRID 2227** (NAD83 California State Plane Zone 3, US Survey Feet):
+All spatial tables use PostGIS geometry types with **SRID 2226** (NAD83 California State Plane Zone 2, US Survey Feet) as the default:
 
 **Why Projected Coordinates?**
 - Geographic coordinates (lat/lon in degrees) break distance/area calculations
@@ -343,10 +343,22 @@ All spatial tables use PostGIS geometry types with **SRID 2227** (NAD83 Californ
 - State Plane projections maintain accuracy within survey tolerances (<1:10,000 distortion)
 
 **SRID Selection by Region:**
-- **California Zone 3**: EPSG:2227 (NAD83, US Survey Feet) ✓ Current default
-- **California Zone 4**: EPSG:2228 (NAD83, US Survey Feet)
-- **Texas North**: EPSG:2275 (NAD83, US Survey Feet)
-- **Other regions**: Select appropriate State Plane or UTM zone
+
+The schema supports flexible coordinate system management through:
+1. **Default SRID**: EPSG:2226 (California State Plane Zone 2) ✓
+2. **Project-Level Override**: Each project can specify its own default EPSG code
+3. **Reference Table**: `coordinate_systems` table tracks all supported coordinate systems
+
+**California State Plane Zones (All Supported):**
+- **Zone 1**: EPSG:2225 (Northern California)
+- **Zone 2**: EPSG:2226 (North Central California) ✓ Default
+- **Zone 3**: EPSG:2227 (Central California)
+- **Zone 4**: EPSG:2228 (South Central California)
+- **Zone 5**: EPSG:2229 (Southern California)
+- **Zone 6**: EPSG:2230 (Far Southern California)
+
+**Future Expansion:**
+Additional coordinate systems (Texas, Nevada, UTM zones, etc.) can be added to the `coordinate_systems` reference table without schema changes.
 
 **Geometry Types:**
 - **PointZ**: 3D points (survey points, trees, structures, monuments)
@@ -362,9 +374,33 @@ All geometry columns have GiST indexes for spatial queries:
 - Containment queries (points within parcel)
 
 **Coordinate Transformation:**
+
 For web mapping (Leaflet, Mapbox, Google Maps), transform to WGS84 on-the-fly:
 ```sql
 SELECT ST_Transform(geometry, 4326) as web_geometry FROM survey_points;
+```
+
+For cross-zone projects, transform between State Plane zones:
+```sql
+-- Transform Zone 3 data to Zone 2
+SELECT ST_Transform(ST_SetSRID(geometry, 2227), 2226) FROM survey_points;
+```
+
+**Project-Level Coordinate System Management:**
+
+The `projects` table includes coordinate system tracking:
+```sql
+-- Projects table includes:
+default_epsg_code VARCHAR(20) DEFAULT 'EPSG:2226'
+default_coordinate_system VARCHAR(100) DEFAULT 'NAD83 State Plane California Zone 2'
+```
+
+Set project-specific coordinate systems:
+```sql
+UPDATE projects 
+SET default_epsg_code = 'EPSG:2229',
+    default_coordinate_system = 'NAD83 State Plane California Zone 5'
+WHERE project_id = 'your-project-uuid';
 ```
 
 ---
