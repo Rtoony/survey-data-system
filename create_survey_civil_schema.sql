@@ -283,7 +283,7 @@ CREATE TABLE cross_section_points (
     xsection_point_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     section_id UUID REFERENCES cross_sections(section_id) ON DELETE CASCADE,
     point_number INTEGER NOT NULL,
-    offset NUMERIC(12, 4),
+    cross_offset NUMERIC(12, 4),
     elevation NUMERIC(12, 4),
     point_type VARCHAR(50),
     slope_ratio VARCHAR(20),
