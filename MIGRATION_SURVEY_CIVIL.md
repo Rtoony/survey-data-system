@@ -39,8 +39,8 @@ CREATE TABLE survey_points (
     point_code VARCHAR(50),
     point_type VARCHAR(50),                            -- 'Control', 'Topo', 'Layout', 'Benchmark'
     
-    -- Coordinates (PostGIS 3D Point + State Plane)
-    geometry GEOMETRY(PointZ, 4326) NOT NULL,
+    -- Coordinates (PostGIS 3D Point in State Plane)
+    geometry GEOMETRY(PointZ, 2227) NOT NULL,          -- EPSG:2227 = NAD83 CA State Plane Zone 3 (US Feet)
     northing NUMERIC(15, 4),
     easting NUMERIC(15, 4),
     elevation NUMERIC(10, 4),
@@ -72,7 +72,7 @@ CREATE TABLE survey_points (
 ```
 
 **Key Features:**
-- Multiple coordinate representations (WGS84 geometry + State Plane N/E/E)
+- Multiple coordinate representations (State Plane projected geometry + N/E/E fields)
 - Survey method and equipment tracking
 - Accuracy/quality metrics
 - Control point designation
@@ -329,18 +329,43 @@ Links observations to loops for adjustment.
 
 ## PostGIS Geometry Usage
 
-All spatial tables use PostGIS geometry types with SRID 4326 (WGS84):
+### CRITICAL: Projected Coordinates Required for Civil Engineering
 
+All spatial tables use PostGIS geometry types with **SRID 2227** (NAD83 California State Plane Zone 3, US Survey Feet):
+
+**Why Projected Coordinates?**
+- Geographic coordinates (lat/lon in degrees) break distance/area calculations
+- Civil engineering requires linear units (feet/meters) for:
+  - Alignment stationing (10+00, 20+00, etc.)
+  - Earthwork volumes (cubic yards)
+  - Pipe lengths and slopes
+  - Parcel areas (square feet/acres)
+- State Plane projections maintain accuracy within survey tolerances (<1:10,000 distortion)
+
+**SRID Selection by Region:**
+- **California Zone 3**: EPSG:2227 (NAD83, US Survey Feet) ✓ Current default
+- **California Zone 4**: EPSG:2228 (NAD83, US Survey Feet)
+- **Texas North**: EPSG:2275 (NAD83, US Survey Feet)
+- **Other regions**: Select appropriate State Plane or UTM zone
+
+**Geometry Types:**
 - **PointZ**: 3D points (survey points, trees, structures, monuments)
 - **LineStringZ**: 3D lines (alignments, utilities, cross sections, easement centerlines)
 - **PolygonZ**: 3D polygons (parcels, easements, ROW, earthwork boundaries, surface features)
 - **GeometryZ**: Mixed geometry types (surface features can be point/line/polygon)
 
+**Spatial Indexes:**
 All geometry columns have GiST indexes for spatial queries:
 - Proximity searches (find all points within radius)
 - Intersection testing (utilities crossing parcels)
 - Buffer analysis (tree protection zones)
 - Containment queries (points within parcel)
+
+**Coordinate Transformation:**
+For web mapping (Leaflet, Mapbox, Google Maps), transform to WGS84 on-the-fly:
+```sql
+SELECT ST_Transform(geometry, 4326) as web_geometry FROM survey_points;
+```
 
 ---
 
