@@ -7,7 +7,7 @@ The ACAD-GIS Companion Tools project provides two Flask-based web applications t
 1.  **Schema Explorer & Data Manager**: An administrative tool for visualizing database schemas, managing projects, and maintaining CAD standards data.
 2.  **CAD Standards Portal**: A user-friendly reference for machine-optimized CAD standards (layers, blocks, colors, etc.).
 
-Both applications share a common PostgreSQL/Supabase database and a consistent Mission Control-themed UI. They are designed as lightweight interfaces to manage and reference CAD data, featuring DXF round-trip capabilities, interactive schema visualization, and a robust sheet note management system. The project aims to provide comprehensive tools for CAD data management and referencing.
+Both applications share a common PostgreSQL/Supabase database and a consistent Mission Control-themed UI. They are designed as lightweight interfaces to manage and reference CAD data, featuring DXF round-trip capabilities, interactive schema visualization, a robust sheet note management system, and comprehensive survey/civil engineering data management. The database includes 29 survey/civil tables for complete project lifecycle support from field data to final design.
 
 ## User Preferences
 

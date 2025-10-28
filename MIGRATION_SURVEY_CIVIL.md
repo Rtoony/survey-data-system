@@ -16,6 +16,10 @@ The Survey & Civil Engineering module extends the ACAD-GIS system with comprehen
 6. **Utility Networks**: Model water, sewer, storm, electric, gas systems with connectivity
 7. **Property/Legal**: Manage parcels, easements, and right-of-way with legal descriptions
 8. **Field Data QA**: Store raw observations for verification and adjustment analysis
+9. **Grading Management**: Track grading limits, permits, and disturbance areas
+10. **Pavement Design**: Store pavement layer structures and design specifications
+11. **Surface Models**: Manage TIN/DTM surface metadata and references
+12. **Typical Sections**: Create reusable roadway cross-section templates
 
 ---
 
@@ -283,6 +287,39 @@ Links observations to loops for adjustment.
 - Quality metrics (standard deviation, residuals)
 - Rejection flags for outliers
 - Traverse closure analysis
+
+---
+
+### 10. Grading & Construction Management
+
+**Table: `grading_limits`**
+
+Grading, clearing, disturbance, and no-work zone boundaries with permit tracking.
+
+**Table: `pavement_sections`**
+
+Pavement layer design with material specifications and traffic data.
+
+**Table: `surface_models`**
+
+Surface metadata for TIN/DTM models (existing ground, proposed grade, etc.).
+
+**Table: `typical_sections`**
+
+Reusable cross-section templates for roadway design standards.
+
+**Key Features:**
+- **Grading Limits**: Area calculations, permit tracking, approval status, expiration dates
+- **Pavement Sections**: Layer structure (AC/base/subbase), traffic index, ESAL design, CBR/R-value
+- **Surface Models**: Point/triangle counts, elevation ranges, bounding boxes, file references
+- **Typical Sections**: Lane/shoulder widths, slope ratios, curb heights, crown/superelevation
+
+**Relationships:**
+- All tables → `projects` (many-to-one)
+- `grading_limits` → `drawings` (many-to-one, optional)
+- `pavement_sections` → `horizontal_alignments` (many-to-one, optional)
+- `surface_models` → `drawings` (many-to-one, optional)
+- `typical_sections` → `pavement_sections` (many-to-one, optional)
 
 ---
 

@@ -1,0 +1,687 @@
+-- =====================================================================
+-- ACAD-GIS Survey & Civil Engineering Schema
+-- =====================================================================
+-- PostGIS spatial database schema for civil/survey engineering workflows
+-- Default SRID: EPSG:2226 (NAD83 California State Plane Zone 2, US Survey Feet)
+-- =====================================================================
+
+-- Enable PostGIS extension
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- =====================================================================
+-- 0. COORDINATE SYSTEMS REFERENCE
+-- =====================================================================
+
+CREATE TABLE coordinate_systems (
+    system_id SERIAL PRIMARY KEY,
+    epsg_code VARCHAR(20) UNIQUE NOT NULL,
+    system_name VARCHAR(255) NOT NULL,
+    region VARCHAR(100),
+    datum VARCHAR(50),
+    units VARCHAR(20),
+    zone_number INTEGER,
+    notes TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert California State Plane zones
+INSERT INTO coordinate_systems (epsg_code, system_name, region, datum, units, zone_number) VALUES
+('EPSG:2225', 'NAD83 / California zone 1', 'Northern California', 'NAD83', 'US Survey Feet', 1),
+('EPSG:2226', 'NAD83 / California zone 2', 'North Central California', 'NAD83', 'US Survey Feet', 2),
+('EPSG:2227', 'NAD83 / California zone 3', 'Central California', 'NAD83', 'US Survey Feet', 3),
+('EPSG:2228', 'NAD83 / California zone 4', 'South Central California', 'NAD83', 'US Survey Feet', 4),
+('EPSG:2229', 'NAD83 / California zone 5', 'Southern California', 'NAD83', 'US Survey Feet', 5),
+('EPSG:2230', 'NAD83 / California zone 6', 'Far Southern California', 'NAD83', 'US Survey Feet', 6),
+('EPSG:4326', 'WGS84 Geographic', 'Global', 'WGS84', 'Degrees', NULL),
+('EPSG:3857', 'Web Mercator', 'Global (Web Mapping)', 'WGS84', 'Meters', NULL);
+
+-- =====================================================================
+-- 1. SURVEY POINTS - Core Survey Data
+-- =====================================================================
+
+CREATE TABLE survey_points (
+    point_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    
+    -- Point Identification
+    point_number VARCHAR(50) NOT NULL,
+    point_description TEXT,
+    point_code VARCHAR(50),
+    point_type VARCHAR(50),                            -- 'Control', 'Topo', 'Layout', 'Benchmark'
+    
+    -- Coordinates (PostGIS 3D Point in State Plane)
+    geometry GEOMETRY(PointZ, 2226) NOT NULL,          -- EPSG:2226 = NAD83 CA State Plane Zone 2 (US Feet)
+    northing NUMERIC(15, 4),
+    easting NUMERIC(15, 4),
+    elevation NUMERIC(10, 4),
+    coordinate_system VARCHAR(100),
+    epsg_code VARCHAR(20),
+    
+    -- Survey Metadata
+    survey_date DATE,
+    surveyed_by VARCHAR(255),
+    survey_method VARCHAR(100),                        -- 'GPS-RTK', 'Total Station', 'Level'
+    instrument_used VARCHAR(100),
+    
+    -- Quality / Accuracy
+    horizontal_accuracy NUMERIC(8, 4),
+    vertical_accuracy NUMERIC(8, 4),
+    accuracy_units VARCHAR(20) DEFAULT 'Feet',
+    quality_code VARCHAR(50),
+    
+    -- Status
+    is_control_point BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    superseded_by UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
+    
+    notes TEXT,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_survey_points_project ON survey_points(project_id);
+CREATE INDEX idx_survey_points_drawing ON survey_points(drawing_id);
+CREATE INDEX idx_survey_points_geom ON survey_points USING GIST(geometry);
+CREATE INDEX idx_survey_points_type ON survey_points(point_type);
+CREATE INDEX idx_survey_points_code ON survey_points(point_code);
+
+-- =====================================================================
+-- 2. SURVEY CONTROL NETWORKS
+-- =====================================================================
+
+CREATE TABLE survey_control_network (
+    network_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    network_name VARCHAR(255) NOT NULL,
+    network_type VARCHAR(50),                          -- 'Horizontal', 'Vertical', '3D'
+    network_order VARCHAR(50),                         -- 'Primary', 'Secondary', 'Tertiary'
+    description TEXT,
+    adjustment_method VARCHAR(100),                    -- 'Least Squares', 'Compass Rule', 'Transit Rule'
+    adjustment_date DATE,
+    adjustment_software VARCHAR(100),
+    standard_error_h NUMERIC(10, 4),
+    standard_error_v NUMERIC(10, 4),
+    confidence_level NUMERIC(5, 2),                    -- e.g., 95.0 for 95%
+    is_active BOOLEAN DEFAULT TRUE,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE control_point_membership (
+    membership_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    network_id UUID REFERENCES survey_control_network(network_id) ON DELETE CASCADE,
+    point_id UUID REFERENCES survey_points(point_id) ON DELETE CASCADE,
+    is_fixed_point BOOLEAN DEFAULT FALSE,
+    adjusted_northing NUMERIC(15, 4),
+    adjusted_easting NUMERIC(15, 4),
+    adjusted_elevation NUMERIC(10, 4),
+    residual_h NUMERIC(10, 4),
+    residual_v NUMERIC(10, 4),
+    standard_error_h NUMERIC(10, 4),
+    standard_error_v NUMERIC(10, 4),
+    adjustment_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_control_membership_network ON control_point_membership(network_id);
+CREATE INDEX idx_control_membership_point ON control_point_membership(point_id);
+
+-- =====================================================================
+-- 3. SITE FEATURES
+-- =====================================================================
+
+CREATE TABLE site_trees (
+    tree_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    tree_number VARCHAR(50),
+    species VARCHAR(100),
+    common_name VARCHAR(100),
+    dbh_inches NUMERIC(6, 2),
+    tree_height_ft NUMERIC(6, 2),
+    canopy_spread_ft NUMERIC(6, 2),
+    condition VARCHAR(50),
+    protection_status VARCHAR(100),
+    location_description TEXT,
+    planting_date DATE,
+    notes TEXT,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE utility_structures (
+    structure_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    structure_number VARCHAR(50),
+    structure_type VARCHAR(100),
+    utility_system VARCHAR(100),
+    rim_elevation NUMERIC(10, 4),
+    invert_elevation NUMERIC(10, 4),
+    rim_geometry GEOMETRY(PointZ, 2226),
+    size_mm INTEGER,
+    material VARCHAR(100),
+    manhole_depth_ft NUMERIC(6, 2),
+    condition VARCHAR(50),
+    owner VARCHAR(255),
+    install_date DATE,
+    notes TEXT,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE surface_features (
+    feature_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    feature_type VARCHAR(100),
+    geometry GEOMETRY(GeometryZ, 2226) NOT NULL,
+    material VARCHAR(100),
+    dimensions JSONB,
+    description TEXT,
+    notes TEXT,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_site_trees_project ON site_trees(project_id);
+CREATE INDEX idx_utility_structures_project ON utility_structures(project_id);
+CREATE INDEX idx_utility_structures_geom ON utility_structures USING GIST(rim_geometry);
+CREATE INDEX idx_surface_features_project ON surface_features(project_id);
+CREATE INDEX idx_surface_features_geom ON surface_features USING GIST(geometry);
+
+-- =====================================================================
+-- 4. ALIGNMENTS & PROFILES
+-- =====================================================================
+
+CREATE TABLE horizontal_alignments (
+    alignment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    alignment_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    alignment_type VARCHAR(50),
+    design_speed NUMERIC(6, 2),
+    alignment_geometry GEOMETRY(LineStringZ, 2226),
+    start_station NUMERIC(10, 4),
+    end_station NUMERIC(10, 4),
+    created_by VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE alignment_pis (
+    pi_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE CASCADE,
+    pi_number INTEGER NOT NULL,
+    station NUMERIC(10, 4) NOT NULL,
+    geometry GEOMETRY(PointZ, 2226),
+    curve_type VARCHAR(50),
+    curve_radius NUMERIC(12, 4),
+    curve_length NUMERIC(12, 4),
+    delta_angle NUMERIC(10, 4),
+    tangent_length NUMERIC(12, 4),
+    spiral_in_length NUMERIC(10, 4),
+    spiral_out_length NUMERIC(10, 4),
+    superelevation NUMERIC(6, 4),
+    notes TEXT
+);
+
+CREATE TABLE vertical_profiles (
+    profile_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE CASCADE,
+    profile_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    profile_type VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE profile_pvis (
+    pvi_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id UUID REFERENCES vertical_profiles(profile_id) ON DELETE CASCADE,
+    pvi_number INTEGER NOT NULL,
+    station NUMERIC(10, 4) NOT NULL,
+    elevation NUMERIC(12, 4),
+    grade_in NUMERIC(8, 4),
+    grade_out NUMERIC(8, 4),
+    vertical_curve_length NUMERIC(10, 4),
+    k_value NUMERIC(10, 4),
+    high_low_point_station NUMERIC(10, 4),
+    high_low_point_elevation NUMERIC(12, 4),
+    notes TEXT
+);
+
+CREATE INDEX idx_alignments_project ON horizontal_alignments(project_id);
+CREATE INDEX idx_alignments_geom ON horizontal_alignments USING GIST(alignment_geometry);
+CREATE INDEX idx_alignment_pis_alignment ON alignment_pis(alignment_id);
+CREATE INDEX idx_vertical_profiles_alignment ON vertical_profiles(alignment_id);
+CREATE INDEX idx_profile_pvis_profile ON profile_pvis(profile_id);
+
+-- =====================================================================
+-- 5. CROSS SECTIONS & EARTHWORK
+-- =====================================================================
+
+CREATE TABLE cross_sections (
+    section_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE CASCADE,
+    station NUMERIC(10, 4) NOT NULL,
+    section_type VARCHAR(50),
+    section_geometry GEOMETRY(LineStringZ, 2226) NOT NULL,
+    cut_area NUMERIC(12, 4),
+    fill_area NUMERIC(12, 4),
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE cross_section_points (
+    xsection_point_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    section_id UUID REFERENCES cross_sections(section_id) ON DELETE CASCADE,
+    point_number INTEGER NOT NULL,
+    offset NUMERIC(12, 4),
+    elevation NUMERIC(12, 4),
+    point_type VARCHAR(50),
+    slope_ratio VARCHAR(20),
+    cut_fill_flag CHAR(1),
+    cut_fill_depth NUMERIC(10, 4),
+    notes TEXT
+);
+
+CREATE TABLE earthwork_quantities (
+    earthwork_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE CASCADE,
+    start_station NUMERIC(10, 4),
+    end_station NUMERIC(10, 4),
+    material_type VARCHAR(100),
+    cut_volume NUMERIC(15, 4),
+    fill_volume NUMERIC(15, 4),
+    net_volume NUMERIC(15, 4),
+    shrink_swell NUMERIC(8, 4) DEFAULT 1.0,
+    haul_distance NUMERIC(10, 2),
+    overhaul NUMERIC(15, 4),
+    unit_cost NUMERIC(10, 2),
+    total_cost NUMERIC(15, 2),
+    notes TEXT
+);
+
+CREATE TABLE earthwork_balance (
+    balance_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE CASCADE,
+    station NUMERIC(10, 4),
+    cumulative_volume NUMERIC(15, 4),
+    mass_ordinate NUMERIC(15, 4),
+    balance_point BOOLEAN DEFAULT FALSE,
+    free_haul_limit NUMERIC(10, 2)
+);
+
+CREATE INDEX idx_cross_sections_alignment ON cross_sections(alignment_id);
+CREATE INDEX idx_cross_sections_station ON cross_sections(station);
+CREATE INDEX idx_xsection_points_section ON cross_section_points(section_id);
+CREATE INDEX idx_earthwork_quantities_alignment ON earthwork_quantities(alignment_id);
+CREATE INDEX idx_earthwork_balance_alignment ON earthwork_balance(alignment_id);
+
+-- =====================================================================
+-- 6. UTILITY NETWORKS
+-- =====================================================================
+
+CREATE TABLE utility_lines (
+    line_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    line_number VARCHAR(50),
+    utility_system VARCHAR(100) NOT NULL,
+    line_type VARCHAR(100),
+    material VARCHAR(100),
+    diameter_mm INTEGER,
+    invert_elevation_start NUMERIC(10, 4),
+    invert_elevation_end NUMERIC(10, 4),
+    slope NUMERIC(8, 4),
+    length NUMERIC(12, 4),
+    flow_direction VARCHAR(50),
+    design_flow NUMERIC(12, 4),
+    capacity NUMERIC(12, 4),
+    pressure_psi NUMERIC(8, 2),
+    from_structure_id UUID REFERENCES utility_structures(structure_id) ON DELETE SET NULL,
+    to_structure_id UUID REFERENCES utility_structures(structure_id) ON DELETE SET NULL,
+    geometry GEOMETRY(LineStringZ, 2226) NOT NULL,
+    owner VARCHAR(255),
+    install_date DATE,
+    condition VARCHAR(50),
+    notes TEXT,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE utility_network_connectivity (
+    connection_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    from_element_id UUID NOT NULL,
+    from_element_type VARCHAR(50) NOT NULL,
+    to_element_id UUID NOT NULL,
+    to_element_type VARCHAR(50) NOT NULL,
+    connection_type VARCHAR(50),
+    flow_direction VARCHAR(50),
+    notes TEXT
+);
+
+CREATE TABLE utility_service_connections (
+    service_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    line_id UUID REFERENCES utility_lines(line_id) ON DELETE CASCADE,
+    structure_id UUID REFERENCES utility_structures(structure_id) ON DELETE SET NULL,
+    service_point_geometry GEOMETRY(PointZ, 2226),
+    service_type VARCHAR(50),
+    service_address VARCHAR(255),
+    size_mm INTEGER,
+    material VARCHAR(100),
+    customer_account VARCHAR(100),
+    install_date DATE,
+    notes TEXT,
+    attributes JSONB
+);
+
+CREATE INDEX idx_utility_lines_project ON utility_lines(project_id);
+CREATE INDEX idx_utility_lines_system ON utility_lines(utility_system);
+CREATE INDEX idx_utility_lines_geom ON utility_lines USING GIST(geometry);
+CREATE INDEX idx_utility_lines_from ON utility_lines(from_structure_id);
+CREATE INDEX idx_utility_lines_to ON utility_lines(to_structure_id);
+
+-- =====================================================================
+-- 7. PARCELS & RIGHT-OF-WAY
+-- =====================================================================
+
+CREATE TABLE parcels (
+    parcel_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    parcel_number VARCHAR(100) UNIQUE,
+    parcel_name VARCHAR(255),
+    owner_name VARCHAR(255),
+    owner_address TEXT,
+    legal_description TEXT,
+    area_sqft NUMERIC(15, 4),
+    area_acres NUMERIC(15, 4),
+    perimeter NUMERIC(12, 4),
+    zoning VARCHAR(100),
+    land_use VARCHAR(100),
+    assessed_value NUMERIC(15, 2),
+    boundary_geometry GEOMETRY(PolygonZ, 2226) NOT NULL,
+    notes TEXT,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE parcel_corners (
+    corner_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    parcel_id UUID REFERENCES parcels(parcel_id) ON DELETE CASCADE,
+    survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
+    corner_number INTEGER,
+    corner_type VARCHAR(50),
+    monument_type VARCHAR(50),
+    monument_description TEXT,
+    bearing_to_next NUMERIC(10, 4),
+    distance_to_next NUMERIC(12, 4),
+    curve_data JSONB,
+    notes TEXT
+);
+
+CREATE TABLE easements (
+    easement_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    easement_number VARCHAR(100),
+    easement_type VARCHAR(100),
+    easement_purpose TEXT,
+    grantor VARCHAR(255),
+    grantee VARCHAR(255),
+    recording_info VARCHAR(255),
+    recorded_date DATE,
+    width NUMERIC(10, 4),
+    boundary_geometry GEOMETRY(GeometryZ, 2226) NOT NULL,
+    area_sqft NUMERIC(15, 4),
+    notes TEXT,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE right_of_way (
+    row_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    row_name VARCHAR(255) NOT NULL,
+    row_type VARCHAR(50),
+    ownership VARCHAR(255),
+    jurisdiction VARCHAR(255),
+    dedication_info TEXT,
+    dedication_date DATE,
+    width NUMERIC(10, 4),
+    boundary_geometry GEOMETRY(GeometryZ, 2226) NOT NULL,
+    area_sqft NUMERIC(15, 4),
+    notes TEXT,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_parcels_project ON parcels(project_id);
+CREATE INDEX idx_parcels_geom ON parcels USING GIST(boundary_geometry);
+CREATE INDEX idx_parcel_corners_parcel ON parcel_corners(parcel_id);
+CREATE INDEX idx_easements_project ON easements(project_id);
+CREATE INDEX idx_easements_geom ON easements USING GIST(boundary_geometry);
+CREATE INDEX idx_row_project ON right_of_way(project_id);
+CREATE INDEX idx_row_geom ON right_of_way USING GIST(boundary_geometry);
+
+-- =====================================================================
+-- 8. SURVEY OBSERVATIONS (Raw Field Data)
+-- =====================================================================
+
+CREATE TABLE survey_observations (
+    observation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    session_id VARCHAR(100),
+    observation_type VARCHAR(50) NOT NULL,
+    observation_date DATE,
+    observation_time TIME,
+    instrument_station_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
+    backsight_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
+    target_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
+    horizontal_angle NUMERIC(12, 6),
+    vertical_angle NUMERIC(12, 6),
+    slope_distance NUMERIC(12, 4),
+    horizontal_distance NUMERIC(12, 4),
+    vertical_distance NUMERIC(12, 4),
+    instrument_height NUMERIC(8, 4),
+    target_height NUMERIC(8, 4),
+    temperature_f NUMERIC(6, 2),
+    pressure_inhg NUMERIC(6, 2),
+    ppm_correction NUMERIC(8, 4),
+    standard_deviation NUMERIC(10, 6),
+    rejected BOOLEAN DEFAULT FALSE,
+    raw_data JSONB,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE traverse_loops (
+    loop_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    loop_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    loop_type VARCHAR(50),
+    adjustment_method VARCHAR(100),
+    adjustment_date DATE,
+    angular_misclosure NUMERIC(12, 6),
+    linear_misclosure NUMERIC(12, 4),
+    closure_ratio VARCHAR(50),
+    closure_error_h NUMERIC(10, 4),
+    closure_error_v NUMERIC(10, 4),
+    adjustment_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE traverse_loop_observations (
+    loop_observation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    loop_id UUID REFERENCES traverse_loops(loop_id) ON DELETE CASCADE,
+    observation_id UUID REFERENCES survey_observations(observation_id) ON DELETE CASCADE,
+    sequence_order INTEGER NOT NULL,
+    point_id UUID REFERENCES survey_points(point_id) ON DELETE CASCADE,
+    bearing_from_prev NUMERIC(10, 4),
+    distance_from_prev NUMERIC(12, 4),
+    adjusted_bearing NUMERIC(10, 4),
+    adjusted_distance NUMERIC(12, 4),
+    notes TEXT
+);
+
+CREATE INDEX idx_survey_observations_project ON survey_observations(project_id);
+CREATE INDEX idx_survey_observations_session ON survey_observations(session_id);
+CREATE INDEX idx_traverse_loops_project ON traverse_loops(project_id);
+
+-- =====================================================================
+-- 9. GRADING & CONSTRUCTION
+-- =====================================================================
+
+CREATE TABLE grading_limits (
+    limit_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    limit_name VARCHAR(255) NOT NULL,
+    limit_type VARCHAR(50),                            -- 'Grading', 'Clearing', 'Disturbance', 'Paving', 'No-Work Zone'
+    boundary_geometry GEOMETRY(PolygonZ, 2226) NOT NULL,
+    area_sqft NUMERIC(15, 4),
+    area_acres NUMERIC(15, 4),
+    max_allowed_area_acres NUMERIC(15, 4),
+    approval_status VARCHAR(50),                       -- 'Pending', 'Approved', 'Permitted'
+    permit_number VARCHAR(100),
+    approved_by VARCHAR(255),
+    approval_date DATE,
+    expiration_date DATE,
+    description TEXT,
+    notes TEXT,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE pavement_sections (
+    section_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE SET NULL,
+    section_name VARCHAR(255) NOT NULL,
+    section_code VARCHAR(50),
+    start_station NUMERIC(10, 4),
+    end_station NUMERIC(10, 4),
+    pavement_type VARCHAR(50),                         -- 'Flexible', 'Rigid', 'Composite'
+    design_life_years INTEGER,
+    traffic_index NUMERIC(8, 2),
+    design_esal NUMERIC(15, 2),
+    layer_structure JSONB,                             -- [{layer: 'AC', thickness_in: 3.0, material: 'HMA Type III'}, ...]
+    total_thickness_in NUMERIC(6, 2),
+    subgrade_r_value INTEGER,
+    subgrade_cbr INTEGER,
+    design_notes TEXT,
+    spec_reference VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE surface_models (
+    surface_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
+    surface_name VARCHAR(255) NOT NULL,
+    surface_type VARCHAR(50),                          -- 'Existing Ground', 'Proposed Grade', 'Top of Curb', 'Pavement'
+    description TEXT,
+    creation_date DATE,
+    created_by VARCHAR(255),
+    point_count INTEGER,
+    triangle_count INTEGER,
+    min_elevation NUMERIC(12, 4),
+    max_elevation NUMERIC(12, 4),
+    bounding_box GEOMETRY(PolygonZ, 2226),
+    surface_file_path VARCHAR(500),                    -- Reference to external TIN/DTM file
+    surface_format VARCHAR(50),                        -- 'TIN', 'Grid', 'LandXML', 'Civil3D'
+    notes TEXT,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE typical_sections (
+    typical_section_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    section_name VARCHAR(255) NOT NULL,
+    section_code VARCHAR(50),
+    road_classification VARCHAR(100),                  -- 'Local Street', 'Collector', 'Arterial', 'Highway'
+    total_width NUMERIC(8, 2),
+    lane_count INTEGER,
+    lane_width NUMERIC(6, 2),
+    shoulder_width_left NUMERIC(6, 2),
+    shoulder_width_right NUMERIC(6, 2),
+    median_width NUMERIC(6, 2),
+    curb_height NUMERIC(6, 2),
+    curb_type VARCHAR(50),
+    crown_slope NUMERIC(6, 4),                         -- % or ft/ft
+    superelevation_max NUMERIC(6, 4),
+    cut_slope_ratio VARCHAR(20),                       -- e.g., '2:1', '3:1'
+    fill_slope_ratio VARCHAR(20),
+    sidewalk_width NUMERIC(6, 2),
+    bike_lane_width NUMERIC(6, 2),
+    section_geometry JSONB,                            -- Detailed offset/elevation template
+    pavement_section_id UUID REFERENCES pavement_sections(section_id) ON DELETE SET NULL,
+    description TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_grading_limits_project ON grading_limits(project_id);
+CREATE INDEX idx_grading_limits_geom ON grading_limits USING GIST(boundary_geometry);
+CREATE INDEX idx_pavement_sections_project ON pavement_sections(project_id);
+CREATE INDEX idx_pavement_sections_alignment ON pavement_sections(alignment_id);
+CREATE INDEX idx_surface_models_project ON surface_models(project_id);
+CREATE INDEX idx_surface_models_geom ON surface_models USING GIST(bounding_box);
+CREATE INDEX idx_typical_sections_project ON typical_sections(project_id);
+
+-- =====================================================================
+-- VIEWS & HELPER FUNCTIONS
+-- =====================================================================
+
+-- View: Survey points with coordinate transformation to WGS84 for web mapping
+CREATE OR REPLACE VIEW survey_points_wgs84 AS
+SELECT 
+    point_id,
+    project_id,
+    point_number,
+    point_type,
+    ST_Transform(geometry, 4326) as geometry_wgs84,
+    elevation,
+    survey_date,
+    surveyed_by
+FROM survey_points
+WHERE is_active = TRUE;
+
+-- View: Earthwork summary by alignment
+CREATE OR REPLACE VIEW earthwork_summary AS
+SELECT 
+    alignment_id,
+    SUM(cut_volume) as total_cut,
+    SUM(fill_volume) as total_fill,
+    SUM(net_volume) as total_net,
+    SUM(total_cost) as total_cost
+FROM earthwork_quantities
+GROUP BY alignment_id;
+
+-- =====================================================================
+-- GRANTS & PERMISSIONS
+-- =====================================================================
+
+-- Grant appropriate permissions (adjust as needed for your setup)
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO your_app_user;
+-- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO your_app_user;
+
+-- =====================================================================
+-- MIGRATION COMPLETE
+-- =====================================================================
+-- Schema includes 29 tables for comprehensive survey/civil engineering workflows
+-- All geometry columns use SRID 2226 (CA State Plane Zone 2) by default
+-- Multi-zone support via coordinate_systems reference table
+-- =====================================================================
