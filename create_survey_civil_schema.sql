@@ -12,7 +12,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 -- 0. COORDINATE SYSTEMS REFERENCE
 -- =====================================================================
 
-CREATE TABLE coordinate_systems (
+CREATE TABLE IF NOT EXISTS coordinate_systems (
     system_id SERIAL PRIMARY KEY,
     epsg_code VARCHAR(20) UNIQUE NOT NULL,
     system_name VARCHAR(255) NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE coordinate_systems (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert California State Plane zones
+-- Insert California State Plane zones (skip if already exist)
 INSERT INTO coordinate_systems (epsg_code, system_name, region, datum, units, zone_number) VALUES
 ('EPSG:2225', 'NAD83 / California zone 1', 'Northern California', 'NAD83', 'US Survey Feet', 1),
 ('EPSG:2226', 'NAD83 / California zone 2', 'North Central California', 'NAD83', 'US Survey Feet', 2),
@@ -34,13 +34,14 @@ INSERT INTO coordinate_systems (epsg_code, system_name, region, datum, units, zo
 ('EPSG:2229', 'NAD83 / California zone 5', 'Southern California', 'NAD83', 'US Survey Feet', 5),
 ('EPSG:2230', 'NAD83 / California zone 6', 'Far Southern California', 'NAD83', 'US Survey Feet', 6),
 ('EPSG:4326', 'WGS84 Geographic', 'Global', 'WGS84', 'Degrees', NULL),
-('EPSG:3857', 'Web Mercator', 'Global (Web Mapping)', 'WGS84', 'Meters', NULL);
+('EPSG:3857', 'Web Mercator', 'Global (Web Mapping)', 'WGS84', 'Meters', NULL)
+ON CONFLICT (epsg_code) DO NOTHING;
 
 -- =====================================================================
 -- 1. SURVEY POINTS - Core Survey Data
 -- =====================================================================
 
-CREATE TABLE survey_points (
+CREATE TABLE IF NOT EXISTS survey_points (
     point_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
@@ -92,7 +93,7 @@ CREATE INDEX idx_survey_points_code ON survey_points(point_code);
 -- 2. SURVEY CONTROL NETWORKS
 -- =====================================================================
 
-CREATE TABLE survey_control_network (
+CREATE TABLE IF NOT EXISTS survey_control_network (
     network_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     network_name VARCHAR(255) NOT NULL,
@@ -111,7 +112,7 @@ CREATE TABLE survey_control_network (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE control_point_membership (
+CREATE TABLE IF NOT EXISTS control_point_membership (
     membership_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     network_id UUID REFERENCES survey_control_network(network_id) ON DELETE CASCADE,
     point_id UUID REFERENCES survey_points(point_id) ON DELETE CASCADE,
@@ -134,7 +135,7 @@ CREATE INDEX idx_control_membership_point ON control_point_membership(point_id);
 -- 3. SITE FEATURES
 -- =====================================================================
 
-CREATE TABLE site_trees (
+CREATE TABLE IF NOT EXISTS site_trees (
     tree_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
@@ -154,7 +155,7 @@ CREATE TABLE site_trees (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE utility_structures (
+CREATE TABLE IF NOT EXISTS utility_structures (
     structure_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
@@ -176,7 +177,7 @@ CREATE TABLE utility_structures (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE surface_features (
+CREATE TABLE IF NOT EXISTS surface_features (
     feature_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
@@ -201,7 +202,7 @@ CREATE INDEX idx_surface_features_geom ON surface_features USING GIST(geometry);
 -- 4. ALIGNMENTS & PROFILES
 -- =====================================================================
 
-CREATE TABLE horizontal_alignments (
+CREATE TABLE IF NOT EXISTS horizontal_alignments (
     alignment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     alignment_name VARCHAR(255) NOT NULL,
@@ -216,7 +217,7 @@ CREATE TABLE horizontal_alignments (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE alignment_pis (
+CREATE TABLE IF NOT EXISTS alignment_pis (
     pi_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE CASCADE,
     pi_number INTEGER NOT NULL,
@@ -233,7 +234,7 @@ CREATE TABLE alignment_pis (
     notes TEXT
 );
 
-CREATE TABLE vertical_profiles (
+CREATE TABLE IF NOT EXISTS vertical_profiles (
     profile_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE CASCADE,
     profile_name VARCHAR(255) NOT NULL,
@@ -242,7 +243,7 @@ CREATE TABLE vertical_profiles (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE profile_pvis (
+CREATE TABLE IF NOT EXISTS profile_pvis (
     pvi_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     profile_id UUID REFERENCES vertical_profiles(profile_id) ON DELETE CASCADE,
     pvi_number INTEGER NOT NULL,
@@ -267,7 +268,7 @@ CREATE INDEX idx_profile_pvis_profile ON profile_pvis(profile_id);
 -- 5. CROSS SECTIONS & EARTHWORK
 -- =====================================================================
 
-CREATE TABLE cross_sections (
+CREATE TABLE IF NOT EXISTS cross_sections (
     section_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE CASCADE,
     station NUMERIC(10, 4) NOT NULL,
@@ -279,7 +280,7 @@ CREATE TABLE cross_sections (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE cross_section_points (
+CREATE TABLE IF NOT EXISTS cross_section_points (
     xsection_point_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     section_id UUID REFERENCES cross_sections(section_id) ON DELETE CASCADE,
     point_number INTEGER NOT NULL,
@@ -292,7 +293,7 @@ CREATE TABLE cross_section_points (
     notes TEXT
 );
 
-CREATE TABLE earthwork_quantities (
+CREATE TABLE IF NOT EXISTS earthwork_quantities (
     earthwork_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE CASCADE,
     start_station NUMERIC(10, 4),
@@ -309,7 +310,7 @@ CREATE TABLE earthwork_quantities (
     notes TEXT
 );
 
-CREATE TABLE earthwork_balance (
+CREATE TABLE IF NOT EXISTS earthwork_balance (
     balance_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE CASCADE,
     station NUMERIC(10, 4),
@@ -329,7 +330,7 @@ CREATE INDEX idx_earthwork_balance_alignment ON earthwork_balance(alignment_id);
 -- 6. UTILITY NETWORKS
 -- =====================================================================
 
-CREATE TABLE utility_lines (
+CREATE TABLE IF NOT EXISTS utility_lines (
     line_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
@@ -357,7 +358,7 @@ CREATE TABLE utility_lines (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE utility_network_connectivity (
+CREATE TABLE IF NOT EXISTS utility_network_connectivity (
     connection_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     from_element_id UUID NOT NULL,
     from_element_type VARCHAR(50) NOT NULL,
@@ -368,7 +369,7 @@ CREATE TABLE utility_network_connectivity (
     notes TEXT
 );
 
-CREATE TABLE utility_service_connections (
+CREATE TABLE IF NOT EXISTS utility_service_connections (
     service_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     line_id UUID REFERENCES utility_lines(line_id) ON DELETE CASCADE,
     structure_id UUID REFERENCES utility_structures(structure_id) ON DELETE SET NULL,
@@ -393,7 +394,7 @@ CREATE INDEX idx_utility_lines_to ON utility_lines(to_structure_id);
 -- 7. PARCELS & RIGHT-OF-WAY
 -- =====================================================================
 
-CREATE TABLE parcels (
+CREATE TABLE IF NOT EXISTS parcels (
     parcel_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
@@ -414,7 +415,7 @@ CREATE TABLE parcels (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE parcel_corners (
+CREATE TABLE IF NOT EXISTS parcel_corners (
     corner_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     parcel_id UUID REFERENCES parcels(parcel_id) ON DELETE CASCADE,
     survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
@@ -428,7 +429,7 @@ CREATE TABLE parcel_corners (
     notes TEXT
 );
 
-CREATE TABLE easements (
+CREATE TABLE IF NOT EXISTS easements (
     easement_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
@@ -447,7 +448,7 @@ CREATE TABLE easements (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE right_of_way (
+CREATE TABLE IF NOT EXISTS right_of_way (
     row_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
@@ -477,7 +478,7 @@ CREATE INDEX idx_row_geom ON right_of_way USING GIST(boundary_geometry);
 -- 8. SURVEY OBSERVATIONS (Raw Field Data)
 -- =====================================================================
 
-CREATE TABLE survey_observations (
+CREATE TABLE IF NOT EXISTS survey_observations (
     observation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
@@ -505,7 +506,7 @@ CREATE TABLE survey_observations (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE traverse_loops (
+CREATE TABLE IF NOT EXISTS traverse_loops (
     loop_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     loop_name VARCHAR(255) NOT NULL,
@@ -522,7 +523,7 @@ CREATE TABLE traverse_loops (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE traverse_loop_observations (
+CREATE TABLE IF NOT EXISTS traverse_loop_observations (
     loop_observation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     loop_id UUID REFERENCES traverse_loops(loop_id) ON DELETE CASCADE,
     observation_id UUID REFERENCES survey_observations(observation_id) ON DELETE CASCADE,
@@ -543,7 +544,7 @@ CREATE INDEX idx_traverse_loops_project ON traverse_loops(project_id);
 -- 9. GRADING & CONSTRUCTION
 -- =====================================================================
 
-CREATE TABLE grading_limits (
+CREATE TABLE IF NOT EXISTS grading_limits (
     limit_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
@@ -564,7 +565,7 @@ CREATE TABLE grading_limits (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE pavement_sections (
+CREATE TABLE IF NOT EXISTS pavement_sections (
     section_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     alignment_id UUID REFERENCES horizontal_alignments(alignment_id) ON DELETE SET NULL,
@@ -585,7 +586,7 @@ CREATE TABLE pavement_sections (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE surface_models (
+CREATE TABLE IF NOT EXISTS surface_models (
     surface_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
@@ -606,7 +607,7 @@ CREATE TABLE surface_models (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE typical_sections (
+CREATE TABLE IF NOT EXISTS typical_sections (
     typical_section_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     section_name VARCHAR(255) NOT NULL,
