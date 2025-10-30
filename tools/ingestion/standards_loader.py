@@ -22,21 +22,76 @@ from db_utils import (
 
 
 class StandardsLoader:
-    """Load CAD standards into the AI-optimized database."""
+    """Load CAD standards into the AI-optimized database with safety features."""
     
-    def __init__(self):
+    def __init__(self, preview_mode: bool = False):
+        """
+        Initialize standards loader.
+        
+        Args:
+            preview_mode: If True, show what would be done without modifying database
+        """
+        self.preview_mode = preview_mode
         self.stats = {
             'inserted': 0,
             'updated': 0,
-            'errors': []
+            'skipped': 0,
+            'errors': [],
+            'previewed': 0
         }
+    
+    def _get_table_count(self, table_name: str) -> int:
+        """Get current row count for a table."""
+        query = f"SELECT COUNT(*) as count FROM {table_name}"
+        result = execute_query(query)
+        return result[0]['count'] if result else 0
+    
+    def _validate_geometry(self, geometry_wkt: str, geometry_type: str = 'Point') -> bool:
+        """
+        Validate PostGIS geometry using ST_IsValid.
+        
+        Args:
+            geometry_wkt: WKT string representation of geometry
+            geometry_type: Expected geometry type (Point, LineString, Polygon, etc.)
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        if not geometry_wkt:
+            return False
+        
+        try:
+            # Check if geometry is valid and matches expected type
+            query = """
+                SELECT 
+                    ST_IsValid(ST_GeomFromText(%s, 2226)) as is_valid,
+                    GeometryType(ST_GeomFromText(%s, 2226)) as geom_type
+            """
+            result = execute_query(query, (geometry_wkt, geometry_wkt))
+            
+            if not result or not result[0]['is_valid']:
+                return False
+            
+            # Check geometry type matches (case-insensitive)
+            actual_type = result[0]['geom_type'].upper()
+            expected_type = geometry_type.upper()
+            
+            # Handle variations (e.g., POINT vs POINTZ)
+            if not actual_type.startswith(expected_type):
+                return False
+            
+            return True
+            
+        except Exception as e:
+            print(f"Geometry validation error: {e}")
+            return False
     
     def load_layers(self, data: List[Dict]) -> Dict[str, Any]:
         """
         Load layer standards from list of dicts.
         
         Expected fields:
-        - name (required)
+        - name (required) - IDEMPOTENT KEY
         - description
         - color_name
         - linetype_name
@@ -44,8 +99,34 @@ class StandardsLoader:
         - is_plottable
         - category
         - discipline
+        
+        Returns:
+            Statistics dict with before/after counts
         """
-        self.stats = {'inserted': 0, 'updated': 0, 'errors': []}
+        self.stats = {'inserted': 0, 'updated': 0, 'skipped': 0, 'errors': [], 'previewed': 0}
+        
+        # Get initial count
+        count_before = self._get_table_count('layer_standards')
+        
+        # PREVIEW MODE
+        if self.preview_mode:
+            print(f"\n{'='*70}")
+            print(f"🔍 PREVIEW MODE - No changes will be made to database")
+            print(f"{'='*70}")
+            print(f"Current layer_standards count: {count_before}")
+            print(f"Items to process: {len(data)}")
+            print(f"\nSample items to be loaded:")
+            for item in data[:5]:
+                action = "UPDATE" if execute_query(
+                    "SELECT 1 FROM layer_standards WHERE name = %s", 
+                    (item.get('name'),)
+                ) else "INSERT"
+                print(f"  [{action}] {item.get('name')} - {item.get('description', 'No description')}")
+            if len(data) > 5:
+                print(f"  ... and {len(data) - 5} more")
+            print(f"{'='*70}\n")
+            self.stats['previewed'] = len(data)
+            return self.stats
         
         for item in data:
             try:
@@ -54,7 +135,8 @@ class StandardsLoader:
                     self.stats['errors'].append('Missing layer name')
                     continue
                 
-                # Check if layer exists
+                # IDEMPOTENT KEY: Check if layer exists (name is unique natural key for layers)
+                # Note: For layers, name alone is sufficient as it must be unique per CAD standard
                 existing = execute_query(
                     "SELECT layer_id, entity_id FROM layer_standards WHERE name = %s",
                     (name,)
@@ -137,6 +219,24 @@ class StandardsLoader:
             except Exception as e:
                 self.stats['errors'].append(f"Error loading layer {item.get('name')}: {str(e)}")
         
+        # Get final count and show summary
+        count_after = self._get_table_count('layer_standards')
+        self.stats['count_before'] = count_before
+        self.stats['count_after'] = count_after
+        self.stats['net_change'] = count_after - count_before
+        
+        print(f"\n{'='*70}")
+        print(f"Layer Standards Import Summary")
+        print(f"{'='*70}")
+        print(f"Before: {count_before} layers")
+        print(f"After:  {count_after} layers")
+        print(f"Net change: +{count_after - count_before}")
+        print(f"  Inserted: {self.stats['inserted']}")
+        print(f"  Updated: {self.stats['updated']}")
+        if self.stats['errors']:
+            print(f"  Errors: {len(self.stats['errors'])}")
+        print(f"{'='*70}\n")
+        
         return self.stats
     
     def load_blocks(self, data: List[Dict]) -> Dict[str, Any]:
@@ -144,13 +244,39 @@ class StandardsLoader:
         Load block definitions from list of dicts.
         
         Expected fields:
-        - name (required)
+        - name (required) - IDEMPOTENT KEY
         - description
         - category
         - file_path
         - insertion_units
+        
+        Returns:
+            Statistics dict with before/after counts
         """
-        self.stats = {'inserted': 0, 'updated': 0, 'errors': []}
+        self.stats = {'inserted': 0, 'updated': 0, 'skipped': 0, 'errors': [], 'previewed': 0}
+        
+        # Get initial count
+        count_before = self._get_table_count('block_definitions')
+        
+        # PREVIEW MODE
+        if self.preview_mode:
+            print(f"\n{'='*70}")
+            print(f"🔍 PREVIEW MODE - No changes will be made to database")
+            print(f"{'='*70}")
+            print(f"Current block_definitions count: {count_before}")
+            print(f"Items to process: {len(data)}")
+            print(f"\nSample items to be loaded:")
+            for item in data[:5]:
+                action = "UPDATE" if execute_query(
+                    "SELECT 1 FROM block_definitions WHERE name = %s", 
+                    (item.get('name'),)
+                ) else "INSERT"
+                print(f"  [{action}] {item.get('name')} - {item.get('description', 'No description')}")
+            if len(data) > 5:
+                print(f"  ... and {len(data) - 5} more")
+            print(f"{'='*70}\n")
+            self.stats['previewed'] = len(data)
+            return self.stats
         
         for item in data:
             try:
@@ -221,6 +347,24 @@ class StandardsLoader:
                 
             except Exception as e:
                 self.stats['errors'].append(f"Error loading block {item.get('name')}: {str(e)}")
+        
+        # Get final count and show summary
+        count_after = self._get_table_count('block_definitions')
+        self.stats['count_before'] = count_before
+        self.stats['count_after'] = count_after
+        self.stats['net_change'] = count_after - count_before
+        
+        print(f"\n{'='*70}")
+        print(f"Block Definitions Import Summary")
+        print(f"{'='*70}")
+        print(f"Before: {count_before} blocks")
+        print(f"After:  {count_after} blocks")
+        print(f"Net change: +{count_after - count_before}")
+        print(f"  Inserted: {self.stats['inserted']}")
+        print(f"  Updated: {self.stats['updated']}")
+        if self.stats['errors']:
+            print(f"  Errors: {len(self.stats['errors'])}")
+        print(f"{'='*70}\n")
         
         return self.stats
     

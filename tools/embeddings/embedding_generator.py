@@ -22,19 +22,29 @@ from db_utils import (
 class EmbeddingGenerator:
     """Generate and manage vector embeddings for entities."""
     
-    def __init__(self, provider: str = 'openai', model: str = 'text-embedding-3-small'):
+    def __init__(
+        self, 
+        provider: str = 'openai', 
+        model: str = 'text-embedding-3-small',
+        budget_cap: float = 100.0,
+        dry_run: bool = False
+    ):
         """
         Initialize embedding generator.
         
         Args:
             provider: 'openai' or other providers
             model: Model name (default: text-embedding-3-small, 1536 dimensions)
+            budget_cap: Maximum total cost in USD (default: $100)
+            dry_run: If True, preview costs without generating embeddings
         """
         self.provider = provider
         self.model = model
         self.dimensions = 1536
         self.api_key = None
         self.client = None
+        self.budget_cap = budget_cap
+        self.dry_run = dry_run
         
         if provider == 'openai':
             self.api_key = os.environ.get('OPENAI_API_KEY')
@@ -50,13 +60,112 @@ class EmbeddingGenerator:
         # Register model in database
         self.model_id = self._register_model()
         
+        # Get current cumulative cost from database
+        self.cumulative_cost = self._get_cumulative_cost()
+        
         self.stats = {
             'generated': 0,
             'updated': 0,
             'errors': [],
             'api_calls': 0,
-            'tokens_used': 0
+            'tokens_used': 0,
+            'estimated_cost': 0.0,
+            'cumulative_cost': self.cumulative_cost,
+            'budget_remaining': self.budget_cap - self.cumulative_cost
         }
+        
+        # Check if already over budget
+        if self.cumulative_cost >= self.budget_cap:
+            raise ValueError(
+                f"Budget cap already exceeded! "
+                f"Cumulative cost: ${self.cumulative_cost:.2f}, "
+                f"Budget cap: ${self.budget_cap:.2f}. "
+                f"Increase budget_cap or reset costs in database."
+            )
+    
+    def _get_cumulative_cost(self) -> float:
+        """Get total cumulative cost from database."""
+        query = """
+            SELECT COALESCE(SUM(
+                (usage_stats->>'tokens_used')::integer * 
+                cost_per_1k_tokens / 1000
+            ), 0.0) AS total_cost
+            FROM embedding_models
+            WHERE provider = %s AND model_name = %s
+        """
+        result = execute_query(query, (self.provider, self.model))
+        if result and len(result) > 0:
+            return float(result[0]['total_cost'])
+        return 0.0
+    
+    def _check_budget(self, estimated_tokens: int) -> None:
+        """
+        Check if operation would exceed budget.
+        
+        Raises:
+            ValueError: If operation would exceed budget cap
+        """
+        # Get cost per 1k tokens
+        query = """
+            SELECT cost_per_1k_tokens FROM embedding_models
+            WHERE model_id = %s::uuid
+        """
+        result = execute_query(query, (self.model_id,))
+        cost_per_1k = float(result[0]['cost_per_1k_tokens']) if result else 0.00002
+        
+        # Calculate estimated cost for this operation
+        operation_cost = (estimated_tokens / 1000) * cost_per_1k
+        projected_total = self.stats['cumulative_cost'] + operation_cost
+        
+        # Check thresholds
+        if projected_total >= self.budget_cap:
+            raise ValueError(
+                f"🛑 BUDGET CAP REACHED!\n"
+                f"   Current: ${self.stats['cumulative_cost']:.2f}\n"
+                f"   This operation: ${operation_cost:.2f}\n"
+                f"   Projected total: ${projected_total:.2f}\n"
+                f"   Budget cap: ${self.budget_cap:.2f}\n"
+                f"   Would exceed budget by: ${projected_total - self.budget_cap:.2f}"
+            )
+        
+        # Warnings at $50, $75, $90
+        if projected_total >= 90 and self.stats['cumulative_cost'] < 90:
+            print(f"⚠️  WARNING: Approaching budget cap! ${projected_total:.2f} / ${self.budget_cap:.2f}")
+        elif projected_total >= 75 and self.stats['cumulative_cost'] < 75:
+            print(f"⚠️  WARNING: 75% of budget used. ${projected_total:.2f} / ${self.budget_cap:.2f}")
+        elif projected_total >= 50 and self.stats['cumulative_cost'] < 50:
+            print(f"ℹ️  INFO: 50% of budget used. ${projected_total:.2f} / ${self.budget_cap:.2f}")
+    
+    def _update_cost_tracking(self, tokens_used: int) -> None:
+        """Update cost tracking in database and stats."""
+        # Get cost per 1k tokens
+        query = """
+            SELECT cost_per_1k_tokens FROM embedding_models
+            WHERE model_id = %s::uuid
+        """
+        result = execute_query(query, (self.model_id,))
+        cost_per_1k = float(result[0]['cost_per_1k_tokens']) if result else 0.00002
+        
+        operation_cost = (tokens_used / 1000) * cost_per_1k
+        
+        # Update database
+        update_query = """
+            UPDATE embedding_models
+            SET usage_stats = COALESCE(usage_stats, '{}'::jsonb) || 
+                jsonb_build_object(
+                    'tokens_used', 
+                    COALESCE((usage_stats->>'tokens_used')::integer, 0) + %s,
+                    'last_updated',
+                    CURRENT_TIMESTAMP::text
+                )
+            WHERE model_id = %s::uuid
+        """
+        execute_query(update_query, (tokens_used, self.model_id))
+        
+        # Update stats
+        self.stats['estimated_cost'] += operation_cost
+        self.stats['cumulative_cost'] += operation_cost
+        self.stats['budget_remaining'] = self.budget_cap - self.stats['cumulative_cost']
     
     def _register_model(self) -> str:
         """Register embedding model in database."""
@@ -187,11 +296,70 @@ class EmbeddingGenerator:
         Returns:
             Statistics dict
         """
-        self.stats = {'generated': 0, 'updated': 0, 'errors': [], 'api_calls': 0, 'tokens_used': 0}
+        # Reset stats but preserve cumulative cost
+        cumulative = self.stats['cumulative_cost']
+        budget_remaining = self.stats['budget_remaining']
+        self.stats = {
+            'generated': 0, 
+            'updated': 0, 
+            'errors': [], 
+            'api_calls': 0, 
+            'tokens_used': 0,
+            'estimated_cost': 0.0,
+            'cumulative_cost': cumulative,
+            'budget_remaining': budget_remaining
+        }
+        
+        # Estimate tokens for budget check
+        total_text_length = sum(len(text_map.get(eid, '')) for eid in entity_ids)
+        estimated_tokens = int(total_text_length * 0.4)  # Rough estimate: 1 token ~= 2.5 chars
+        
+        # DRY RUN MODE
+        if self.dry_run:
+            query = """
+                SELECT cost_per_1k_tokens FROM embedding_models
+                WHERE model_id = %s::uuid
+            """
+            result = execute_query(query, (self.model_id,))
+            cost_per_1k = float(result[0]['cost_per_1k_tokens']) if result else 0.00002
+            estimated_cost = (estimated_tokens / 1000) * cost_per_1k
+            
+            print(f"\n{'='*60}")
+            print(f"🔍 DRY RUN MODE - No embeddings will be generated")
+            print(f"{'='*60}")
+            print(f"Entities to process: {len(entity_ids)}")
+            print(f"Estimated tokens: {estimated_tokens:,}")
+            print(f"Estimated cost: ${estimated_cost:.4f}")
+            print(f"Current cumulative: ${cumulative:.2f}")
+            print(f"Projected total: ${cumulative + estimated_cost:.2f}")
+            print(f"Budget cap: ${self.budget_cap:.2f}")
+            print(f"Budget remaining after: ${self.budget_cap - (cumulative + estimated_cost):.2f}")
+            print(f"{'='*60}\n")
+            
+            self.stats['estimated_cost'] = estimated_cost
+            return self.stats
+        
+        # BUDGET CHECK
+        try:
+            self._check_budget(estimated_tokens)
+        except ValueError as e:
+            print(str(e))
+            raise
+        
+        print(f"\n{'='*60}")
+        print(f"Starting embedding generation:")
+        print(f"  Entities: {len(entity_ids)}")
+        print(f"  Estimated tokens: {estimated_tokens:,}")
+        print(f"  Current budget: ${self.stats['cumulative_cost']:.2f} / ${self.budget_cap:.2f}")
+        print(f"  Budget remaining: ${self.stats['budget_remaining']:.2f}")
+        print(f"{'='*60}\n")
         
         for i in range(0, len(entity_ids), batch_size):
             batch = entity_ids[i:i + batch_size]
-            print(f"Processing batch {i // batch_size + 1}/{(len(entity_ids) + batch_size - 1) // batch_size}")
+            batch_num = i // batch_size + 1
+            total_batches = (len(entity_ids) + batch_size - 1) // batch_size
+            
+            print(f"Processing batch {batch_num}/{total_batches} ({len(batch)} entities)")
             
             for entity_id in batch:
                 text = text_map.get(entity_id, '')
@@ -199,6 +367,15 @@ class EmbeddingGenerator:
                     self.generate_entity_embedding(entity_id, text)
                 else:
                     self.stats['errors'].append(f"No text for entity {entity_id}")
+            
+            # Update cost tracking after each batch
+            if self.stats['tokens_used'] > 0:
+                self._update_cost_tracking(self.stats['tokens_used'])
+                self.stats['tokens_used'] = 0  # Reset for next batch
+            
+            print(f"  Progress: {self.stats['generated']} generated, "
+                  f"${self.stats['cumulative_cost']:.2f} spent, "
+                  f"${self.stats['budget_remaining']:.2f} remaining")
             
             # Rate limiting
             time.sleep(1)
@@ -293,6 +470,42 @@ class EmbeddingGenerator:
         entity_ids_to_refresh = list(text_map.keys())
         
         return self.generate_batch_embeddings(entity_ids_to_refresh, text_map)
+    
+    def reset_cost_tracking(self) -> None:
+        """
+        Reset cost tracking in database to zero.
+        
+        WARNING: This resets the cumulative cost counter. Use only when starting
+        a new budget period or after billing reconciliation.
+        """
+        update_query = """
+            UPDATE embedding_models
+            SET usage_stats = jsonb_build_object(
+                'tokens_used', 0,
+                'last_reset', CURRENT_TIMESTAMP::text,
+                'reset_by', CURRENT_USER
+            )
+            WHERE model_id = %s::uuid
+        """
+        execute_query(update_query, (self.model_id,), fetch=False)
+        
+        self.cumulative_cost = 0.0
+        self.stats['cumulative_cost'] = 0.0
+        self.stats['budget_remaining'] = self.budget_cap
+        
+        print(f"✓ Cost tracking reset to $0.00 for model {self.model}")
+    
+    def get_cost_summary(self) -> Dict[str, Any]:
+        """Get current cost and budget summary."""
+        return {
+            'cumulative_cost': self.stats['cumulative_cost'],
+            'budget_cap': self.budget_cap,
+            'budget_remaining': self.stats['budget_remaining'],
+            'budget_used_percent': (self.stats['cumulative_cost'] / self.budget_cap) * 100,
+            'estimated_cost_this_session': self.stats.get('estimated_cost', 0.0),
+            'model': self.model,
+            'dry_run_mode': self.dry_run
+        }
 
 
 if __name__ == '__main__':

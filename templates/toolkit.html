@@ -360,8 +360,15 @@
         }
 
         async function generateEmbeddings(table, limit) {
+            // Confirmation prompt
+            if (!confirm(`⚠️ This will use your OpenAI API key to generate embeddings.\n\nTable: ${table}\nLimit: ${limit} entities\nEstimated cost: $0.01-0.10\n\nProceed?`)) {
+                addOutput('Operation cancelled by user.', 'info');
+                return;
+            }
+            
             clearOutput();
             addOutput(`Generating embeddings for ${table} (limit: ${limit})...`, 'info');
+            addOutput('⚠️ This operation uses OpenAI API ($100 budget cap enforced)', 'info');
             
             const textColumns = {
                 'layer_standards': ['name', 'description'],
@@ -386,7 +393,8 @@
                     addOutput(`✓ Generated: ${data.stats.generated}`, 'success');
                     addOutput(`  API calls: ${data.stats.api_calls}`, 'info');
                     addOutput(`  Tokens used: ${data.stats.tokens_used}`, 'info');
-                    if (data.stats.errors.length > 0) {
+                    addOutput(`  Cost: ~$${(data.stats.tokens_used * 0.00002).toFixed(4)}`, 'info');
+                    if (data.stats.errors && data.stats.errors.length > 0) {
                         addOutput(`  Errors: ${data.stats.errors.length}`, 'error');
                     }
                     loadStats();
