@@ -80,15 +80,25 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 30, 2025)
 
-**Complete AI Toolkit Built:**
+**Complete AI Toolkit Built with Safety Guardrails:**
 - Created 5 Python modules: ingestion, embeddings, relationships, validation, maintenance
 - Added 15 REST API endpoints at `/api/toolkit`
 - Built web interface at `/toolkit` for visual management
 - Created 5 example scripts with full documentation
+- Created comprehensive health check system testing all modules
 - All tools ready for data population when CAD standards are finalized
 
+**Operational Safety Features Added:**
+- **Embedding Cost Control:** $100 hard cap, warnings at $50/$75/$90, dry-run preview mode
+- **Import Safety:** Idempotent natural keys, preview mode, before/after counts, PostGIS geometry validation
+- **Health Checks:** 12 automated tests covering database, modules, and data round-trips
+- **Web UI Safety:** Confirmation prompts for costly operations, real-time cost tracking
+- **Testing Documentation:** Complete safety guide with pre-flight checklist, rollback procedures, emergency protocols
+
 **Key Documentation:**
-- `DATABASE_ARCHITECTURE_GUIDE.md` - Complete technical explanation of AI-first architecture
-- `TOOLKIT_SETUP_COMPLETE.md` - Toolkit usage guide
+- `DATABASE_ARCHITECTURE_GUIDE.md` - Complete 12,000-word technical reference of AI-first architecture
+- `TESTING_SAFETY_GUIDE.md` - Safe testing workflows with budget management and rollback procedures
+- `TOOLKIT_SETUP_COMPLETE.md` - Toolkit usage guide and quick reference
+- `DOCUMENTATION_INDEX.md` - Navigation hub for all 9 documentation files
 - `tools/README.md` - Module reference
 - `examples/README.md` - Example scripts
