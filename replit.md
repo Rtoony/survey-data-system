@@ -55,11 +55,12 @@ Preferred communication style: Simple, everyday language.
 - **Sheet Note Manager:** Backend for managing construction drawing notes with standard libraries and custom overrides.
 - **Sheet Set Manager:** System for organizing construction document deliverables and tracking sheet assignments.
 - **Survey & Civil Engineering Schema:** Comprehensive database schema for civil/survey data (points, networks, alignments, parcels) utilizing PostGIS PointZ.
+- **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance.
 
 ## External Dependencies
 
 **Python Libraries:**
-- `Flask`, `Flask-Caching`, `psycopg2-binary`, `python-dotenv`, `flask-cors`, `ezdxf`.
+- `Flask`, `Flask-Caching`, `psycopg2-binary`, `python-dotenv`, `flask-cors`, `ezdxf`, `openai`.
 
 **Database:**
 - `PostgreSQL 12+`
@@ -76,3 +77,18 @@ Preferred communication style: Simple, everyday language.
 
 **Related Systems:**
 - **ACAD-GIS FastAPI application:** Main API server sharing the same PostgreSQL/PostGIS database.
+
+## Recent Changes (October 30, 2025)
+
+**Complete AI Toolkit Built:**
+- Created 5 Python modules: ingestion, embeddings, relationships, validation, maintenance
+- Added 15 REST API endpoints at `/api/toolkit`
+- Built web interface at `/toolkit` for visual management
+- Created 5 example scripts with full documentation
+- All tools ready for data population when CAD standards are finalized
+
+**Key Documentation:**
+- `DATABASE_ARCHITECTURE_GUIDE.md` - Complete technical explanation of AI-first architecture
+- `TOOLKIT_SETUP_COMPLETE.md` - Toolkit usage guide
+- `tools/README.md` - Module reference
+- `examples/README.md` - Example scripts
