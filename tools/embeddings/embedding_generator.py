@@ -263,7 +263,8 @@ class EmbeddingGenerator:
             Statistics dict
         """
         if entity_ids:
-            where_clause = f"WHERE entity_id = ANY(ARRAY[{','.join([f\"'{e}\"' for e in entity_ids])}]::uuid[])"
+            entity_list = ','.join([f"'{e}'" for e in entity_ids])
+            where_clause = f"WHERE entity_id = ANY(ARRAY[{entity_list}]::uuid[])"
         else:
             where_clause = f"""
                 WHERE entity_id NOT IN (
