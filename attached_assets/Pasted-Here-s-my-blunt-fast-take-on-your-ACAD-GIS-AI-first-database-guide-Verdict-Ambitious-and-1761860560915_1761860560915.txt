@@ -1,0 +1,47 @@
+Here’s my blunt, fast take on your ACAD-GIS “AI-first” database guide.
+
+**Verdict:** Ambitious and generally excellent; however, it’s dangerously light on *operational discipline*. You’ll ship a beautiful brain with weak bones if you don’t tighten governance, migration, and SLOs now. 
+
+## What’s strong
+
+* Clear thesis: database-first, spatial-semantic-graph fusion, GraphRAG primitives.
+* Solid primitives: pgvector + PostGIS + recursive CTEs + materialized views.
+* Opinionated schema pattern (entity_id, quality_score, search_vector, JSONB) is pragmatic.
+
+## Gaps / risks (fix these before production)
+
+1. **Data governance is underspecified.** Define ownership per domain table, DDL change policy, and a *breaking-change* protocol.
+2. **Migration story is missing.** How do DWG/DXF → DB → DWG round-trips preserve IDs/provenance? Specify idempotent import keys and a reversible exporter.
+3. **SLOs/SLIs absent.** Set latency/throughput targets (e.g., P95 for hybrid search, refresh windows for MVs), plus error budgets.
+4. **Cost control for embeddings.** Add a token/cost budget, re-embed policy (drift detection), and tiered models (cheap first, upgrade on demand).
+5. **Privacy & access.** Row-level security (RLS) by project/discipline; classify attributes; audit logging and retention policy.
+6. **Index hygiene at scale.** 700+ indexes is great—until bloat kills writes. Define quarterly `REINDEX`, `VACUUM` cadence, and index retirement rules with usage stats.
+7. **Vector recall/precision tuning.** Document IVFFlat `lists/probes` defaults per table and a validation harness with labeled pairs to measure ANN accuracy.
+8. **Quality_score governance.** It’s clever; make it reproducible. Version the weighting formula, store inputs, and backtest against real QA findings.
+9. **Spatial reference strategy.** 2226 is fine; still document multi-SRID ingestion and a canonicalization policy (and Z handling) for mixed sources.
+10. **Testing is thin.** You need fixtures and golden-SQL tests for graph traversals, hybrid search, and exporter round-trips in CI.
+
+## Concrete upgrades (do these next)
+
+* **Ops manifest:** One page capturing RPO/RTO, backup plan (nightly base + WAL), restore drills monthly, and MV refresh windows.
+* **Policy repo:** `policies/` with: DDL procedure, data classification, RLS templates, embed-drift thresholds, cost caps.
+* **Eval suite:**
+
+  * *Hybrid search*: 100–200 labeled queries; track NDCG@10 and latency.
+  * *GraphRAG*: path-finding correctness tests with expected node sets.
+  * *Exporter*: round-trip checksum and entity count parity.
+* **Pipelines:** Airflow/Prefect DAGs for: ingest → embed → graph build → validate → MV refresh → vac/analyze; all idempotent.
+* **Tiered embeddings:** `is_current`, `model_id`, and `quality_band`; nightly job demotes stale vectors and queues re-embeds.
+* **DXF/DWG adapter spec:** Reserve handles/UUID mapping; write a “provenance contract” (derived_from/uses edges) so reconstruction is auditable.
+
+## 30/60/90 plan
+
+* **30 days:** Lock policies, RLS, backups; ship CI tests and a 50-query hybrid search eval; fix the biggest perf outliers.
+* **60 days:** Productionize ingest/export; add ANN tuning harness; deploy dashboards (errors, bloat, query latency).
+* **90 days:** Pilot on one live project; run QC workflows; compare against legacy (defects found, reviewer time saved, rework avoided).
+
+## One tough question (answer now)
+
+Which *single* production SLA matters most: (a) hybrid search P95 < 300 ms, (b) daily MV freshness < 15 min staleness, or (c) exporter round-trip fidelity ≥ 99.9%? Pick one; the others will trade off against it.
+
+If you want, I’ll draft the RLS policy templates, MV refresh runbook, and a minimal eval harness next.
