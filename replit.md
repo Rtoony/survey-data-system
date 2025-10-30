@@ -88,6 +88,12 @@ Preferred communication style: Simple, everyday language.
 - Created comprehensive health check system testing all modules
 - All tools ready for data population when CAD standards are finalized
 
+**Interactive AI Visualizations Added:**
+- **Knowledge Graph Visualization (`/graph`):** Interactive Vis.js graph showing entity relationships with color-coded edges (spatial=blue, semantic=green, engineering=orange), node details panel, zoom/pan controls, and relationship filtering
+- **Quality Dashboard (`/quality-dashboard`):** Real-time metrics showing embedding coverage percentage, relationship density, orphaned entities, quality score distribution, relationship breakdown by type, and missing embeddings by entity type
+- **API Endpoints:** Added `/api/toolkit/graph/data` for graph nodes/edges and `/api/toolkit/quality/metrics` for dashboard metrics
+- **Navigation Integration:** Added graph and dashboard links to main navigation menu for easy access
+
 **Operational Safety Features Added:**
 - **Embedding Cost Control:** $100 hard cap, warnings at $50/$75/$90, dry-run preview mode
 - **Import Safety:** Idempotent natural keys, preview mode, before/after counts, PostGIS geometry validation
