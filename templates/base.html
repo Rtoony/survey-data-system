@@ -27,6 +27,15 @@
                 <a href="/schema/relationships" {% if request.path == '/schema/relationships' %}class="active"{% endif %}>
                     <i class="fas fa-project-diagram"></i> Relationships
                 </a>
+                <a href="/graph" {% if request.path == '/graph' %}class="active"{% endif %}>
+                    <i class="fas fa-network-wired"></i> Knowledge Graph
+                </a>
+                <a href="/quality-dashboard" {% if request.path == '/quality-dashboard' %}class="active"{% endif %}>
+                    <i class="fas fa-chart-line"></i> Quality Dashboard
+                </a>
+                <a href="/toolkit" {% if request.path == '/toolkit' %}class="active"{% endif %}>
+                    <i class="fas fa-robot"></i> AI Toolkit
+                </a>
                 <a href="/why-this-matters" {% if request.path == '/why-this-matters' %}class="active"{% endif %}>
                     <i class="fas fa-lightbulb"></i> Why This Matters
                 </a>

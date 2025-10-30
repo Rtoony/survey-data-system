@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quality Dashboard - ACAD-GIS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0e27;
+            --bg-secondary: #141b3d;
+            --bg-tertiary: #1e2749;
+            --primary-color: #00ff88;
+            --secondary-color: #00bfff;
+            --warning-color: #ffaa00;
+            --danger-color: #ff4444;
+            --text-color: #e0e6f0;
+            --border-color: rgba(0, 255, 136, 0.3);
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+
+        .nav-bar {
+            background: rgba(20, 27, 61, 0.95);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-brand {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-links a {
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--primary-color);
+        }
+
+        .dashboard-container {
+            padding: 30px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .dashboard-header {
+            margin-bottom: 30px;
+        }
+
+        .dashboard-header h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary-color);
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .dashboard-header p {
+            color: #8899aa;
+            font-size: 1.1em;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: rgba(20, 27, 61, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 25px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .metric-title {
+            color: var(--secondary-color);
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .metric-icon {
+            font-size: 1.5em;
+            color: var(--primary-color);
+        }
+
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        .metric-subtitle {
+            color: #8899aa;
+            font-size: 0.9em;
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-card {
+            background: rgba(20, 27, 61, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 25px;
+        }
+
+        .chart-card h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+
+        .quality-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .quality-bar-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .quality-label {
+            width: 80px;
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        .quality-bar-container {
+            flex: 1;
+            height: 30px;
+            background: rgba(30, 39, 73, 0.6);
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .quality-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), #00cc70);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            color: var(--bg-primary);
+            font-weight: 700;
+        }
+
+        .quality-bar-fill.good {
+            background: linear-gradient(90deg, #00ff88, #00cc70);
+        }
+
+        .quality-bar-fill.fair {
+            background: linear-gradient(90deg, #ffaa00, #ff9900);
+        }
+
+        .quality-bar-fill.poor {
+            background: linear-gradient(90deg, #ff4444, #cc0000);
+        }
+
+        .quality-count {
+            width: 60px;
+            text-align: right;
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        .list-card {
+            background: rgba(20, 27, 61, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 25px;
+        }
+
+        .list-card h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+
+        .issue-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .issue-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: rgba(30, 39, 73, 0.4);
+            border-radius: 5px;
+            border-left: 3px solid var(--warning-color);
+        }
+
+        .issue-name {
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .issue-count {
+            color: var(--warning-color);
+            font-weight: 700;
+            font-size: 1.1em;
+        }
+
+        .relationship-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .relationship-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .relationship-label {
+            width: 100px;
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        .relationship-bar-container {
+            flex: 1;
+            height: 25px;
+            background: rgba(30, 39, 73, 0.6);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .relationship-bar-fill {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .relationship-bar-fill.spatial {
+            background: linear-gradient(90deg, #4169e1, #1e50c8);
+        }
+
+        .relationship-bar-fill.semantic {
+            background: linear-gradient(90deg, #00ff88, #00cc70);
+        }
+
+        .relationship-bar-fill.engineering {
+            background: linear-gradient(90deg, #ff8c00, #e67300);
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-color), #00cc70);
+            border: none;
+            border-radius: 50%;
+            color: var(--bg-primary);
+            font-size: 1.5em;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0, 255, 136, 0.4);
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            transform: scale(1.1) rotate(180deg);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #8899aa;
+        }
+
+        .health-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .health-indicator.excellent {
+            background: var(--primary-color);
+            box-shadow: 0 0 10px var(--primary-color);
+        }
+
+        .health-indicator.good {
+            background: #00bfff;
+            box-shadow: 0 0 10px #00bfff;
+        }
+
+        .health-indicator.warning {
+            background: var(--warning-color);
+            box-shadow: 0 0 10px var(--warning-color);
+        }
+
+        .health-indicator.danger {
+            background: var(--danger-color);
+            box-shadow: 0 0 10px var(--danger-color);
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-bar">
+        <div class="nav-brand">
+            <i class="fas fa-heartbeat"></i>
+            <span>QUALITY DASHBOARD</span>
+        </div>
+        <div class="nav-links">
+            <a href="/"><i class="fas fa-home"></i> Home</a>
+            <a href="/schema"><i class="fas fa-sitemap"></i> Schema</a>
+            <a href="/toolkit"><i class="fas fa-robot"></i> AI Toolkit</a>
+            <a href="/graph"><i class="fas fa-project-diagram"></i> Knowledge Graph</a>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <h1><i class="fas fa-chart-line"></i> AI-First Database Quality Dashboard</h1>
+            <p>Monitor embedding coverage, relationship density, and data quality metrics</p>
+        </div>
+
+        <!-- Top Metrics -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-header">
+                    <div class="metric-title">Embedding Coverage</div>
+                    <div class="metric-icon"><i class="fas fa-brain"></i></div>
+                </div>
+                <div class="metric-value" id="embeddingCoverage">--%</div>
+                <div class="metric-subtitle" id="embeddingSubtitle">Loading...</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <div class="metric-title">Relationship Density</div>
+                    <div class="metric-icon"><i class="fas fa-project-diagram"></i></div>
+                </div>
+                <div class="metric-value" id="relationshipDensity">--</div>
+                <div class="metric-subtitle">avg relationships per entity</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <div class="metric-title">Orphaned Entities</div>
+                    <div class="metric-icon"><i class="fas fa-unlink"></i></div>
+                </div>
+                <div class="metric-value" id="orphanedCount">--</div>
+                <div class="metric-subtitle">entities with no relationships</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <div class="metric-title">Total Entities</div>
+                    <div class="metric-icon"><i class="fas fa-database"></i></div>
+                </div>
+                <div class="metric-value" id="totalEntities">--</div>
+                <div class="metric-subtitle" id="totalRelationships">-- relationships</div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+            <!-- Quality Distribution -->
+            <div class="chart-card">
+                <h2><i class="fas fa-star"></i> Quality Score Distribution</h2>
+                <div class="quality-bars" id="qualityBars">
+                    <div class="empty-state">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Relationship Breakdown -->
+            <div class="chart-card">
+                <h2><i class="fas fa-link"></i> Relationship Breakdown</h2>
+                <div class="relationship-chart" id="relationshipChart">
+                    <div class="empty-state">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Issues Section -->
+        <div class="list-card">
+            <h2><i class="fas fa-exclamation-triangle"></i> Missing Embeddings by Entity Type</h2>
+            <div class="issue-list" id="missingEmbeddings">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="loadMetrics()" title="Refresh metrics">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+
+    <script>
+        async function loadMetrics() {
+            try {
+                const response = await fetch('/api/toolkit/quality/metrics');
+                const data = await response.json();
+
+                if (!data.success) {
+                    alert('Error loading metrics: ' + data.error);
+                    return;
+                }
+
+                const metrics = data.metrics;
+
+                // Update embedding coverage
+                const coverage = metrics.embedding_coverage;
+                document.getElementById('embeddingCoverage').textContent = 
+                    coverage.coverage_percent ? coverage.coverage_percent + '%' : '0%';
+                document.getElementById('embeddingSubtitle').textContent = 
+                    `${coverage.entities_with_embeddings || 0} of ${coverage.total_entities || 0} entities`;
+
+                // Update relationship density
+                const density = metrics.relationship_density;
+                document.getElementById('relationshipDensity').textContent = 
+                    density.avg_relationships_per_entity || '0';
+
+                // Update orphaned count
+                document.getElementById('orphanedCount').textContent = 
+                    metrics.orphaned_entities.count || '0';
+
+                // Update total entities
+                document.getElementById('totalEntities').textContent = 
+                    density.total_entities || '0';
+                document.getElementById('totalRelationships').textContent = 
+                    `${density.total_relationships || 0} relationships`;
+
+                // Update quality distribution chart
+                displayQualityDistribution(metrics.quality_distribution);
+
+                // Update relationship breakdown chart
+                displayRelationshipBreakdown(metrics.relationship_breakdown);
+
+                // Update missing embeddings list
+                displayMissingEmbeddings(metrics.missing_embeddings_by_type);
+
+            } catch (error) {
+                console.error('Error loading metrics:', error);
+                alert('Failed to load metrics: ' + error.message);
+            }
+        }
+
+        function displayQualityDistribution(distribution) {
+            const container = document.getElementById('qualityBars');
+            
+            if (!distribution || distribution.length === 0) {
+                container.innerHTML = '<div class="empty-state">No quality data available</div>';
+                return;
+            }
+
+            // Calculate total for percentages
+            const total = distribution.reduce((sum, item) => sum + item.count, 0);
+
+            const tierOrder = ['excellent', 'good', 'fair', 'poor'];
+            const tierLabels = {
+                'excellent': 'Excellent',
+                'good': 'Good',
+                'fair': 'Fair',
+                'poor': 'Poor'
+            };
+
+            // Create a map for quick lookup
+            const distMap = {};
+            distribution.forEach(item => {
+                distMap[item.quality_tier] = item.count;
+            });
+
+            let html = '';
+            tierOrder.forEach(tier => {
+                const count = distMap[tier] || 0;
+                const percentage = total > 0 ? (count / total * 100) : 0;
+                
+                html += `
+                    <div class="quality-bar-item">
+                        <div class="quality-label">${tierLabels[tier]}</div>
+                        <div class="quality-bar-container">
+                            <div class="quality-bar-fill ${tier}" style="width: ${percentage}%">
+                                ${percentage > 10 ? count : ''}
+                            </div>
+                        </div>
+                        <div class="quality-count">${count}</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function displayRelationshipBreakdown(breakdown) {
+            const container = document.getElementById('relationshipChart');
+            
+            if (!breakdown || breakdown.length === 0) {
+                container.innerHTML = '<div class="empty-state">No relationships yet</div>';
+                return;
+            }
+
+            const total = breakdown.reduce((sum, item) => sum + item.count, 0);
+
+            let html = '';
+            breakdown.forEach(item => {
+                const percentage = total > 0 ? (item.count / total * 100) : 0;
+                const category = item.relationship_category || 'unknown';
+                
+                html += `
+                    <div class="relationship-item">
+                        <div class="relationship-label">${category}</div>
+                        <div class="relationship-bar-container">
+                            <div class="relationship-bar-fill ${category}" style="width: ${percentage}%">
+                                ${item.count}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function displayMissingEmbeddings(missing) {
+            const container = document.getElementById('missingEmbeddings');
+            
+            if (!missing || missing.length === 0) {
+                container.innerHTML = '<div class="empty-state"><span class="health-indicator excellent"></span>All entities have embeddings!</div>';
+                return;
+            }
+
+            let html = '';
+            missing.forEach(item => {
+                html += `
+                    <div class="issue-item">
+                        <div class="issue-name">${item.entity_type}</div>
+                        <div class="issue-count">${item.count}</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Load metrics on page load
+        window.addEventListener('load', () => {
+            loadMetrics();
+        });
+    </script>
+</body>
+</html>
