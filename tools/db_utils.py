@@ -10,6 +10,10 @@ from psycopg2.pool import SimpleConnectionPool
 from contextlib import contextmanager
 from typing import List, Dict, Any, Optional
 import uuid
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Connection pool
 _pool = None
@@ -19,10 +23,26 @@ def init_pool(minconn=1, maxconn=10):
     """Initialize database connection pool."""
     global _pool
     if _pool is None:
+        # Check for DATABASE_URL first (Replit/Heroku style)
         database_url = os.environ.get('DATABASE_URL')
+        
+        # Otherwise construct from individual components
         if not database_url:
-            raise ValueError("DATABASE_URL environment variable not set")
-        _pool = SimpleConnectionPool(minconn, maxconn, database_url)
+            db_config = {
+                'host': os.getenv('DB_HOST'),
+                'port': os.getenv('DB_PORT', '5432'),
+                'database': os.getenv('DB_NAME', 'postgres'),
+                'user': os.getenv('DB_USER', 'postgres'),
+                'password': os.getenv('DB_PASSWORD'),
+                'sslmode': 'require'
+            }
+            
+            if not db_config['host'] or not db_config['password']:
+                raise ValueError("Database configuration not set. Need DATABASE_URL or DB_HOST/DB_PASSWORD")
+            
+            _pool = SimpleConnectionPool(minconn, maxconn, **db_config)
+        else:
+            _pool = SimpleConnectionPool(minconn, maxconn, database_url)
     return _pool
 
 

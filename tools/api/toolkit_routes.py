@@ -504,11 +504,20 @@ def get_graph_data():
         relationship_types = request.args.get('relationship_types', '')
         entity_types = request.args.get('entity_types', '')
         
+        # Helper to compute relationship category from boolean flags
+        category_expr = """
+            CASE 
+                WHEN er.spatial_relationship THEN 'spatial'
+                WHEN er.engineering_relationship THEN 'engineering'
+                ELSE 'semantic'
+            END
+        """
+        
         # Build filters
         rel_filter = ""
         if relationship_types:
             types = [t.strip() for t in relationship_types.split(',')]
-            rel_filter = f"AND relationship_category = ANY(ARRAY{types}::varchar[])"
+            rel_filter = f"AND {category_expr} = ANY(ARRAY{types}::varchar[])"
         
         entity_filter = ""
         if entity_types:
@@ -533,8 +542,8 @@ def get_graph_data():
             FROM standards_entities se
             WHERE EXISTS (
                 SELECT 1 FROM entity_relationships er
-                WHERE er.source_entity_id = se.entity_id 
-                   OR er.target_entity_id = se.entity_id
+                WHERE (er.subject_entity_id = se.entity_id 
+                   OR er.object_entity_id = se.entity_id)
                    {rel_filter}
             )
             {entity_filter}
@@ -550,15 +559,15 @@ def get_graph_data():
             edges_query = f"""
                 SELECT 
                     er.relationship_id,
-                    er.source_entity_id,
-                    er.target_entity_id,
-                    er.relationship_type,
-                    er.relationship_category,
-                    er.confidence,
-                    er.metadata
+                    er.subject_entity_id as from,
+                    er.object_entity_id as to,
+                    er.predicate as type,
+                    {category_expr} as category,
+                    er.confidence_score as confidence,
+                    er.attributes as metadata
                 FROM entity_relationships er
-                WHERE er.source_entity_id = ANY(%s::uuid[])
-                  AND er.target_entity_id = ANY(%s::uuid[])
+                WHERE er.subject_entity_id = ANY(%s::uuid[])
+                  AND er.object_entity_id = ANY(%s::uuid[])
                   {rel_filter}
                 LIMIT 500
             """
@@ -593,9 +602,9 @@ def get_entity_details(entity_id):
             SELECT 
                 se.*,
                 (SELECT COUNT(*) FROM entity_relationships er 
-                 WHERE er.source_entity_id = se.entity_id) as outgoing_relationships,
+                 WHERE er.subject_entity_id = se.entity_id) as outgoing_relationships,
                 (SELECT COUNT(*) FROM entity_relationships er 
-                 WHERE er.target_entity_id = se.entity_id) as incoming_relationships
+                 WHERE er.object_entity_id = se.entity_id) as incoming_relationships
             FROM standards_entities se
             WHERE se.entity_id = %s
         """
@@ -611,11 +620,8 @@ def get_entity_details(entity_id):
         embeddings_query = """
             SELECT 
                 ee.embedding_id,
-                em.provider,
-                em.model_name,
                 ee.created_at
             FROM entity_embeddings ee
-            JOIN embedding_models em ON ee.model_id = em.model_id
             WHERE ee.entity_id = %s
             ORDER BY ee.created_at DESC
         """
@@ -624,28 +630,36 @@ def get_entity_details(entity_id):
         # Get relationships
         relationships_query = """
             SELECT 
-                er.relationship_type,
-                er.relationship_category,
-                er.confidence,
+                er.predicate as relationship_type,
+                CASE 
+                    WHEN er.spatial_relationship THEN 'spatial'
+                    WHEN er.engineering_relationship THEN 'engineering'
+                    ELSE 'semantic'
+                END as relationship_category,
+                er.confidence_score as confidence,
                 se_target.entity_type as target_type,
                 se_target.canonical_name as target_name,
                 'outgoing' as direction
             FROM entity_relationships er
-            JOIN standards_entities se_target ON er.target_entity_id = se_target.entity_id
-            WHERE er.source_entity_id = %s
+            JOIN standards_entities se_target ON er.object_entity_id = se_target.entity_id
+            WHERE er.subject_entity_id = %s
             
             UNION ALL
             
             SELECT 
-                er.relationship_type,
-                er.relationship_category,
-                er.confidence,
+                er.predicate as relationship_type,
+                CASE 
+                    WHEN er.spatial_relationship THEN 'spatial'
+                    WHEN er.engineering_relationship THEN 'engineering'
+                    ELSE 'semantic'
+                END as relationship_category,
+                er.confidence_score as confidence,
                 se_source.entity_type as source_type,
                 se_source.canonical_name as source_name,
                 'incoming' as direction
             FROM entity_relationships er
-            JOIN standards_entities se_source ON er.source_entity_id = se_source.entity_id
-            WHERE er.target_entity_id = %s
+            JOIN standards_entities se_source ON er.subject_entity_id = se_source.entity_id
+            WHERE er.object_entity_id = %s
             
             ORDER BY relationship_category, relationship_type
         """
@@ -692,7 +706,7 @@ def get_quality_metrics():
                 COUNT(er.relationship_id) as total_relationships,
                 ROUND(COUNT(er.relationship_id)::numeric / NULLIF(COUNT(DISTINCT se.entity_id), 0), 2) as avg_relationships_per_entity
             FROM standards_entities se
-            LEFT JOIN entity_relationships er ON se.entity_id = er.source_entity_id OR se.entity_id = er.target_entity_id
+            LEFT JOIN entity_relationships er ON se.entity_id = er.subject_entity_id OR se.entity_id = er.object_entity_id
         """
         density = execute_query(density_query)[0]
         
@@ -718,8 +732,8 @@ def get_quality_metrics():
             FROM standards_entities se
             WHERE NOT EXISTS (
                 SELECT 1 FROM entity_relationships er
-                WHERE er.source_entity_id = se.entity_id 
-                   OR er.target_entity_id = se.entity_id
+                WHERE er.subject_entity_id = se.entity_id 
+                   OR er.object_entity_id = se.entity_id
             )
         """
         orphaned = execute_query(orphaned_query)[0]
@@ -743,7 +757,11 @@ def get_quality_metrics():
         # Relationship breakdown by category
         relationship_breakdown_query = """
             SELECT 
-                relationship_category,
+                CASE 
+                    WHEN spatial_relationship THEN 'spatial'
+                    WHEN engineering_relationship THEN 'engineering'
+                    ELSE 'semantic'
+                END as relationship_category,
                 COUNT(*) as count
             FROM entity_relationships
             GROUP BY relationship_category
