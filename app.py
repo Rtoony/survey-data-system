@@ -2994,5 +2994,24 @@ def sheet_sets():
     """Sheet Set Manager page"""
     return render_template('sheet_sets.html')
 
+# ============================================
+# AI TOOLKIT ROUTES
+# ============================================
+
+# Import and register toolkit blueprint
+try:
+    import sys
+    sys.path.append('tools')
+    from api.toolkit_routes import toolkit_bp
+    app.register_blueprint(toolkit_bp)
+    print("✓ AI Toolkit API routes registered at /api/toolkit")
+except Exception as e:
+    print(f"✗ Failed to load AI Toolkit routes: {e}")
+
+@app.route('/toolkit')
+def toolkit_page():
+    """AI Toolkit Management Page"""
+    return render_template('toolkit.html')
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
