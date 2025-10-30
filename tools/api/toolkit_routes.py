@@ -481,3 +481,289 @@ def health_check():
         'database_url_set': bool(os.environ.get('DATABASE_URL')),
         'toolkit_version': '1.0.0'
     })
+
+
+# ============================================
+# GRAPH VISUALIZATION
+# ============================================
+
+@toolkit_bp.route('/graph/data', methods=['GET'])
+def get_graph_data():
+    """
+    Get nodes and edges for graph visualization.
+    
+    Query params:
+    - limit: Max nodes to return (default 100)
+    - relationship_types: Comma-separated types to include (spatial,semantic,engineering)
+    - entity_types: Comma-separated entity types to include (layer,block,etc)
+    """
+    try:
+        from db_utils import execute_query
+        
+        limit = request.args.get('limit', 100, type=int)
+        relationship_types = request.args.get('relationship_types', '')
+        entity_types = request.args.get('entity_types', '')
+        
+        # Build filters
+        rel_filter = ""
+        if relationship_types:
+            types = [t.strip() for t in relationship_types.split(',')]
+            rel_filter = f"AND relationship_category = ANY(ARRAY{types}::varchar[])"
+        
+        entity_filter = ""
+        if entity_types:
+            types = [t.strip() for t in entity_types.split(',')]
+            entity_filter = f"AND entity_type = ANY(ARRAY{types}::varchar[])"
+        
+        # Get nodes (entities with relationships)
+        nodes_query = f"""
+            SELECT DISTINCT
+                se.entity_id,
+                se.entity_type,
+                se.canonical_name,
+                se.quality_score,
+                se.tags,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM entity_embeddings ee 
+                        WHERE ee.entity_id = se.entity_id
+                    ) THEN true
+                    ELSE false
+                END as has_embedding
+            FROM standards_entities se
+            WHERE EXISTS (
+                SELECT 1 FROM entity_relationships er
+                WHERE er.source_entity_id = se.entity_id 
+                   OR er.target_entity_id = se.entity_id
+                   {rel_filter}
+            )
+            {entity_filter}
+            LIMIT %s
+        """
+        nodes = execute_query(nodes_query, (limit,))
+        
+        # Get node IDs for edge filtering
+        if nodes:
+            node_ids = [n['entity_id'] for n in nodes]
+            
+            # Get edges (relationships between the nodes)
+            edges_query = f"""
+                SELECT 
+                    er.relationship_id,
+                    er.source_entity_id,
+                    er.target_entity_id,
+                    er.relationship_type,
+                    er.relationship_category,
+                    er.confidence,
+                    er.metadata
+                FROM entity_relationships er
+                WHERE er.source_entity_id = ANY(%s::uuid[])
+                  AND er.target_entity_id = ANY(%s::uuid[])
+                  {rel_filter}
+                LIMIT 500
+            """
+            edges = execute_query(edges_query, (node_ids, node_ids))
+        else:
+            edges = []
+        
+        return jsonify({
+            'success': True,
+            'nodes': nodes,
+            'edges': edges,
+            'counts': {
+                'nodes': len(nodes),
+                'edges': len(edges)
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@toolkit_bp.route('/graph/entity/<entity_id>', methods=['GET'])
+def get_entity_details(entity_id):
+    """Get detailed information about a specific entity."""
+    try:
+        from db_utils import execute_query
+        
+        # Get entity details
+        entity_query = """
+            SELECT 
+                se.*,
+                (SELECT COUNT(*) FROM entity_relationships er 
+                 WHERE er.source_entity_id = se.entity_id) as outgoing_relationships,
+                (SELECT COUNT(*) FROM entity_relationships er 
+                 WHERE er.target_entity_id = se.entity_id) as incoming_relationships
+            FROM standards_entities se
+            WHERE se.entity_id = %s
+        """
+        entity = execute_query(entity_query, (entity_id,))
+        
+        if not entity:
+            return jsonify({
+                'success': False,
+                'error': 'Entity not found'
+            }), 404
+        
+        # Get embeddings
+        embeddings_query = """
+            SELECT 
+                ee.embedding_id,
+                em.provider,
+                em.model_name,
+                ee.created_at
+            FROM entity_embeddings ee
+            JOIN embedding_models em ON ee.model_id = em.model_id
+            WHERE ee.entity_id = %s
+            ORDER BY ee.created_at DESC
+        """
+        embeddings = execute_query(embeddings_query, (entity_id,))
+        
+        # Get relationships
+        relationships_query = """
+            SELECT 
+                er.relationship_type,
+                er.relationship_category,
+                er.confidence,
+                se_target.entity_type as target_type,
+                se_target.canonical_name as target_name,
+                'outgoing' as direction
+            FROM entity_relationships er
+            JOIN standards_entities se_target ON er.target_entity_id = se_target.entity_id
+            WHERE er.source_entity_id = %s
+            
+            UNION ALL
+            
+            SELECT 
+                er.relationship_type,
+                er.relationship_category,
+                er.confidence,
+                se_source.entity_type as source_type,
+                se_source.canonical_name as source_name,
+                'incoming' as direction
+            FROM entity_relationships er
+            JOIN standards_entities se_source ON er.source_entity_id = se_source.entity_id
+            WHERE er.target_entity_id = %s
+            
+            ORDER BY relationship_category, relationship_type
+        """
+        relationships = execute_query(relationships_query, (entity_id, entity_id))
+        
+        return jsonify({
+            'success': True,
+            'entity': entity[0],
+            'embeddings': embeddings,
+            'relationships': relationships
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ============================================
+# QUALITY DASHBOARD
+# ============================================
+
+@toolkit_bp.route('/quality/metrics', methods=['GET'])
+def get_quality_metrics():
+    """Get quality and health metrics for dashboard."""
+    try:
+        from db_utils import execute_query
+        
+        # Embedding coverage
+        coverage_query = """
+            SELECT 
+                COUNT(DISTINCT se.entity_id) as total_entities,
+                COUNT(DISTINCT ee.entity_id) as entities_with_embeddings,
+                ROUND(100.0 * COUNT(DISTINCT ee.entity_id) / NULLIF(COUNT(DISTINCT se.entity_id), 0), 2) as coverage_percent
+            FROM standards_entities se
+            LEFT JOIN entity_embeddings ee ON se.entity_id = ee.entity_id
+        """
+        coverage = execute_query(coverage_query)[0]
+        
+        # Relationship density
+        density_query = """
+            SELECT 
+                COUNT(DISTINCT se.entity_id) as total_entities,
+                COUNT(er.relationship_id) as total_relationships,
+                ROUND(COUNT(er.relationship_id)::numeric / NULLIF(COUNT(DISTINCT se.entity_id), 0), 2) as avg_relationships_per_entity
+            FROM standards_entities se
+            LEFT JOIN entity_relationships er ON se.entity_id = er.source_entity_id OR se.entity_id = er.target_entity_id
+        """
+        density = execute_query(density_query)[0]
+        
+        # Quality score distribution
+        quality_query = """
+            SELECT 
+                CASE 
+                    WHEN quality_score >= 0.9 THEN 'excellent'
+                    WHEN quality_score >= 0.7 THEN 'good'
+                    WHEN quality_score >= 0.5 THEN 'fair'
+                    ELSE 'poor'
+                END as quality_tier,
+                COUNT(*) as count
+            FROM standards_entities
+            GROUP BY quality_tier
+            ORDER BY quality_tier
+        """
+        quality_dist = execute_query(quality_query)
+        
+        # Orphaned entities (no relationships)
+        orphaned_query = """
+            SELECT COUNT(*) as count
+            FROM standards_entities se
+            WHERE NOT EXISTS (
+                SELECT 1 FROM entity_relationships er
+                WHERE er.source_entity_id = se.entity_id 
+                   OR er.target_entity_id = se.entity_id
+            )
+        """
+        orphaned = execute_query(orphaned_query)[0]
+        
+        # Missing embeddings by entity type
+        missing_embeddings_query = """
+            SELECT 
+                se.entity_type,
+                COUNT(*) as count
+            FROM standards_entities se
+            WHERE NOT EXISTS (
+                SELECT 1 FROM entity_embeddings ee
+                WHERE ee.entity_id = se.entity_id
+            )
+            GROUP BY se.entity_type
+            ORDER BY count DESC
+            LIMIT 10
+        """
+        missing_embeddings = execute_query(missing_embeddings_query)
+        
+        # Relationship breakdown by category
+        relationship_breakdown_query = """
+            SELECT 
+                relationship_category,
+                COUNT(*) as count
+            FROM entity_relationships
+            GROUP BY relationship_category
+            ORDER BY count DESC
+        """
+        relationship_breakdown = execute_query(relationship_breakdown_query)
+        
+        return jsonify({
+            'success': True,
+            'metrics': {
+                'embedding_coverage': coverage,
+                'relationship_density': density,
+                'quality_distribution': quality_dist,
+                'orphaned_entities': orphaned,
+                'missing_embeddings_by_type': missing_embeddings,
+                'relationship_breakdown': relationship_breakdown
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

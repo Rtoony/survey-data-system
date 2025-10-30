@@ -3013,5 +3013,15 @@ def toolkit_page():
     """AI Toolkit Management Page"""
     return render_template('toolkit.html')
 
+@app.route('/graph')
+def graph_page():
+    """Knowledge Graph Visualization Page"""
+    return render_template('graph.html')
+
+@app.route('/quality-dashboard')
+def quality_dashboard_page():
+    """Quality and Health Dashboard Page"""
+    return render_template('quality-dashboard.html')
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

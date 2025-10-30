@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Graph Visualization - ACAD-GIS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0e27;
+            --bg-secondary: #141b3d;
+            --bg-tertiary: #1e2749;
+            --primary-color: #00ff88;
+            --secondary-color: #00bfff;
+            --text-color: #e0e6f0;
+            --border-color: rgba(0, 255, 136, 0.3);
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+
+        .nav-bar {
+            background: rgba(20, 27, 61, 0.95);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-brand {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-links a {
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--primary-color);
+        }
+
+        .graph-container {
+            display: grid;
+            grid-template-columns: 250px 1fr 350px;
+            gap: 20px;
+            padding: 20px;
+            height: calc(100vh - 70px);
+        }
+
+        .controls-panel {
+            background: rgba(20, 27, 61, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .controls-panel h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--secondary-color);
+            font-size: 0.9em;
+        }
+
+        .control-group input,
+        .control-group select {
+            width: 100%;
+            padding: 8px;
+            background: rgba(30, 39, 73, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            color: var(--text-color);
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, var(--primary-color), #00cc70);
+            border: none;
+            border-radius: 5px;
+            color: var(--bg-primary);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1em;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(135deg, var(--secondary-color), #0090cc);
+        }
+
+        #graphCanvas {
+            background: rgba(20, 27, 61, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            height: 100%;
+        }
+
+        .detail-panel {
+            background: rgba(20, 27, 61, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .detail-panel h2 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .detail-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(30, 39, 73, 0.4);
+            border-radius: 5px;
+            border-left: 3px solid var(--secondary-color);
+        }
+
+        .detail-section h3 {
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+        }
+
+        .detail-label {
+            color: #8899aa;
+            font-size: 0.9em;
+        }
+
+        .detail-value {
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .relationship-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(0, 191, 255, 0.1);
+            border-left: 3px solid var(--secondary-color);
+            border-radius: 3px;
+        }
+
+        .relationship-type {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            background: rgba(30, 39, 73, 0.4);
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            color: var(--primary-color);
+            font-weight: 700;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            color: #8899aa;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(30, 39, 73, 0.4);
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #8899aa;
+        }
+
+        .empty-state i {
+            font-size: 3em;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-bar">
+        <div class="nav-brand">
+            <i class="fas fa-project-diagram"></i>
+            <span>KNOWLEDGE GRAPH</span>
+        </div>
+        <div class="nav-links">
+            <a href="/"><i class="fas fa-home"></i> Home</a>
+            <a href="/schema"><i class="fas fa-sitemap"></i> Schema</a>
+            <a href="/toolkit"><i class="fas fa-robot"></i> AI Toolkit</a>
+            <a href="/quality-dashboard"><i class="fas fa-chart-line"></i> Quality Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="graph-container">
+        <!-- Left Panel: Controls -->
+        <div class="controls-panel">
+            <h2><i class="fas fa-sliders-h"></i> Controls</h2>
+            
+            <div class="control-group">
+                <label>Max Nodes</label>
+                <input type="number" id="maxNodes" value="100" min="10" max="500">
+            </div>
+
+            <div class="control-group">
+                <label>Relationship Types</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="spatialRel" checked>
+                        <span>Spatial</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="semanticRel" checked>
+                        <span>Semantic</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="engineeringRel" checked>
+                        <span>Engineering</span>
+                    </label>
+                </div>
+            </div>
+
+            <button class="btn" onclick="loadGraph()">
+                <i class="fas fa-sync-alt"></i> Load Graph
+            </button>
+
+            <button class="btn secondary" onclick="resetView()" style="margin-top: 10px;">
+                <i class="fas fa-expand"></i> Reset View
+            </button>
+
+            <div class="legend" style="margin-top: 20px;">
+                <div><strong>Relationship Colors:</strong></div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4169e1;"></div>
+                    <span>Spatial</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00ff88;"></div>
+                    <span>Semantic</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff8c00;"></div>
+                    <span>Engineering</span>
+                </div>
+            </div>
+
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-value" id="nodeCount">0</div>
+                    <div class="stat-label">Nodes</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="edgeCount">0</div>
+                    <div class="stat-label">Edges</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel: Graph Canvas -->
+        <div id="graphCanvas"></div>
+
+        <!-- Right Panel: Entity Details -->
+        <div class="detail-panel">
+            <h2><i class="fas fa-info-circle"></i> Entity Details</h2>
+            <div id="entityDetails">
+                <div class="empty-state">
+                    <i class="fas fa-mouse-pointer"></i>
+                    <p>Click on a node to view details</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let network = null;
+        let nodes = null;
+        let edges = null;
+
+        async function loadGraph() {
+            try {
+                const maxNodes = document.getElementById('maxNodes').value;
+                const spatialRel = document.getElementById('spatialRel').checked;
+                const semanticRel = document.getElementById('semanticRel').checked;
+                const engineeringRel = document.getElementById('engineeringRel').checked;
+
+                // Build relationship types filter
+                const relTypes = [];
+                if (spatialRel) relTypes.push('spatial');
+                if (semanticRel) relTypes.push('semantic');
+                if (engineeringRel) relTypes.push('engineering');
+
+                const params = new URLSearchParams({
+                    limit: maxNodes,
+                    relationship_types: relTypes.join(',')
+                });
+
+                const response = await fetch(`/api/toolkit/graph/data?${params}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    alert('Error loading graph: ' + data.error);
+                    return;
+                }
+
+                displayGraph(data.nodes, data.edges);
+                
+                // Update stats
+                document.getElementById('nodeCount').textContent = data.counts.nodes;
+                document.getElementById('edgeCount').textContent = data.counts.edges;
+            } catch (error) {
+                console.error('Error loading graph:', error);
+                alert('Failed to load graph: ' + error.message);
+            }
+        }
+
+        function displayGraph(nodesData, edgesData) {
+            // Color mapping for entity types
+            const entityColors = {
+                'layer': '#00ff88',
+                'block': '#00bfff',
+                'detail': '#ff69b4',
+                'survey_point': '#ffd700',
+                'parcel': '#98fb98',
+                'utility_line': '#ff8c00',
+                'default': '#8899aa'
+            };
+
+            // Color mapping for relationship categories
+            const edgeColors = {
+                'spatial': '#4169e1',
+                'semantic': '#00ff88',
+                'engineering': '#ff8c00'
+            };
+
+            // Transform nodes for vis.js
+            const visNodes = nodesData.map(node => ({
+                id: node.entity_id,
+                label: node.canonical_name,
+                title: `${node.entity_type}: ${node.canonical_name}\nQuality: ${(node.quality_score * 100).toFixed(0)}%`,
+                color: {
+                    background: entityColors[node.entity_type] || entityColors.default,
+                    border: node.has_embedding ? '#00ff88' : '#666',
+                    highlight: {
+                        background: '#ffffff',
+                        border: '#00ff88'
+                    }
+                },
+                borderWidth: node.has_embedding ? 3 : 1,
+                font: {
+                    color: '#ffffff',
+                    size: 14
+                }
+            }));
+
+            // Transform edges for vis.js
+            const visEdges = edgesData.map(edge => ({
+                id: edge.relationship_id,
+                from: edge.source_entity_id,
+                to: edge.target_entity_id,
+                label: edge.relationship_type,
+                title: `${edge.relationship_category}: ${edge.relationship_type}\nConfidence: ${(edge.confidence * 100).toFixed(0)}%`,
+                color: {
+                    color: edgeColors[edge.relationship_category] || '#666',
+                    highlight: '#ffffff'
+                },
+                arrows: 'to',
+                width: 2
+            }));
+
+            // Create network
+            const container = document.getElementById('graphCanvas');
+            nodes = new vis.DataSet(visNodes);
+            edges = new vis.DataSet(visEdges);
+
+            const graphData = {
+                nodes: nodes,
+                edges: edges
+            };
+
+            const options = {
+                physics: {
+                    enabled: true,
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        centralGravity: 0.3,
+                        springLength: 95,
+                        springConstant: 0.04
+                    },
+                    stabilization: {
+                        iterations: 150
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100
+                },
+                nodes: {
+                    shape: 'dot',
+                    size: 20,
+                    font: {
+                        size: 14,
+                        color: '#ffffff'
+                    }
+                },
+                edges: {
+                    smooth: {
+                        type: 'continuous'
+                    }
+                }
+            };
+
+            if (network !== null) {
+                network.destroy();
+            }
+
+            network = new vis.Network(container, graphData, options);
+
+            // Handle node clicks
+            network.on('click', async function(params) {
+                if (params.nodes.length > 0) {
+                    const entityId = params.nodes[0];
+                    await loadEntityDetails(entityId);
+                }
+            });
+        }
+
+        async function loadEntityDetails(entityId) {
+            try {
+                const response = await fetch(`/api/toolkit/graph/entity/${entityId}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    alert('Error loading entity details: ' + data.error);
+                    return;
+                }
+
+                displayEntityDetails(data.entity, data.embeddings, data.relationships);
+            } catch (error) {
+                console.error('Error loading entity details:', error);
+            }
+        }
+
+        function displayEntityDetails(entity, embeddings, relationships) {
+            const detailsDiv = document.getElementById('entityDetails');
+            
+            let html = `
+                <div class="detail-section">
+                    <h3>Entity Information</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Type:</span>
+                        <span class="detail-value">${entity.entity_type}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Name:</span>
+                        <span class="detail-value">${entity.canonical_name}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Quality Score:</span>
+                        <span class="detail-value">${(entity.quality_score * 100).toFixed(0)}%</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Outgoing Links:</span>
+                        <span class="detail-value">${entity.outgoing_relationships}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Incoming Links:</span>
+                        <span class="detail-value">${entity.incoming_relationships}</span>
+                    </div>
+                </div>
+            `;
+
+            if (embeddings && embeddings.length > 0) {
+                html += `
+                    <div class="detail-section">
+                        <h3>Embeddings (${embeddings.length})</h3>
+                        ${embeddings.map(emb => `
+                            <div class="detail-row">
+                                <span class="detail-label">${emb.provider}/${emb.model_name}</span>
+                                <span class="detail-value">${new Date(emb.created_at).toLocaleDateString()}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            if (relationships && relationships.length > 0) {
+                html += `
+                    <div class="detail-section">
+                        <h3>Relationships (${relationships.length})</h3>
+                        ${relationships.map(rel => `
+                            <div class="relationship-item">
+                                <div class="relationship-type">${rel.relationship_type}</div>
+                                <div style="font-size: 0.9em; color: #8899aa;">
+                                    ${rel.direction === 'outgoing' ? '→' : '←'} 
+                                    ${rel.target_name || rel.source_name} 
+                                    (${rel.relationship_category})
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            detailsDiv.innerHTML = html;
+        }
+
+        function resetView() {
+            if (network) {
+                network.fit();
+            }
+        }
+
+        // Load graph on page load
+        window.addEventListener('load', () => {
+            loadGraph();
+        });
+    </script>
+</body>
+</html>
