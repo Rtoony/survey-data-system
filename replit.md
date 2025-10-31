@@ -78,7 +78,18 @@ Preferred communication style: Simple, everyday language.
 **Related Systems:**
 - **ACAD-GIS FastAPI application:** Main API server sharing the same PostgreSQL/PostGIS database.
 
-## Recent Changes (October 30, 2025)
+## Recent Changes
+
+**October 31, 2025 - Sidebar Navigation Implementation:**
+- Replaced horizontal navigation bar with collapsible vertical sidebar to address navigation scaling issues
+- Organized navigation into logical groups: Database, AI Tools, CAD Tools, Projects, Information
+- Implemented responsive design with auto-collapse on mobile (<768px) and overlay expansion
+- Added dynamic header height tracking using CSS variables and JavaScript for proper positioning at all viewport sizes
+- Toggle state persists via localStorage across sessions
+- Mobile-first approach: sidebar starts collapsed on narrow screens, expands to overlay on toggle
+- Desktop behavior: sidebar toggles between 250px (expanded) and 70px (icons-only)
+
+**October 30, 2025**
 
 **Complete AI Toolkit Built with Safety Guardrails:**
 - Created 5 Python modules: ingestion, embeddings, relationships, validation, maintenance
