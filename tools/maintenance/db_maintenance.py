@@ -79,7 +79,8 @@ class DatabaseMaintenance:
             
             self._log(f"Quality scores recomputed ({duration:.2f}s)")
             self._log(f"  Total entities: {stats.get('total', 0)}")
-            self._log(f"  Avg quality: {float(stats.get('avg_quality', 0)):.3f}")
+            avg_quality = stats.get('avg_quality', 0) or 0
+            self._log(f"  Avg quality: {float(avg_quality):.3f}")
             self._log(f"  High quality (>=0.8): {stats.get('high_quality', 0)}")
             self._log(f"  Low quality (<0.5): {stats.get('low_quality', 0)}")
             

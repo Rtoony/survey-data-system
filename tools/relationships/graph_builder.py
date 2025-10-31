@@ -242,7 +242,28 @@ class GraphBuilder:
             return 0
     
     def build_utility_network_graph(self) -> Dict[str, Any]:
-        """Build complete utility network graph relationships."""
+        """Build complete utility network graph relationships.
+        
+        Note: This is optional and will skip if utility tables don't exist yet.
+        """
+        # Check if utility tables exist
+        check_query = """
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'utility_lines'
+            ) AS exists
+        """
+        
+        try:
+            result = execute_query(check_query)
+            if not result or not result[0].get('exists', False):
+                print("Skipping utility network relationships (tables not created yet)")
+                return self.stats
+        except Exception:
+            print("Skipping utility network relationships (tables not created yet)")
+            return self.stats
+        
         print("Building utility network relationships...")
         
         # 1. Utility lines connect to structures
@@ -274,7 +295,28 @@ class GraphBuilder:
         return self.stats
     
     def build_survey_network_graph(self) -> Dict[str, Any]:
-        """Build survey control network relationships."""
+        """Build survey control network relationships.
+        
+        Note: This is optional and will skip if survey tables don't exist yet.
+        """
+        # Check if survey tables exist
+        check_query = """
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'survey_points'
+            ) AS exists
+        """
+        
+        try:
+            result = execute_query(check_query)
+            if not result or not result[0].get('exists', False):
+                print("Skipping survey network relationships (tables not created yet)")
+                return self.stats
+        except Exception:
+            print("Skipping survey network relationships (tables not created yet)")
+            return self.stats
+        
         print("Building survey network relationships...")
         
         # Survey points within control networks

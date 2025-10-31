@@ -115,6 +115,7 @@ Preferred communication style: Simple, everyday language.
 **Key Documentation:**
 - `DATABASE_ARCHITECTURE_GUIDE.md` - Complete 12,000-word technical reference of AI-first architecture
 - `TESTING_SAFETY_GUIDE.md` - Safe testing workflows with budget management and rollback procedures
+- `TESTING_WORKFLOW.md` - Comprehensive step-by-step guide for testing all toolkit features (7 phases)
 - `TOOLKIT_SETUP_COMPLETE.md` - Toolkit usage guide and quick reference
 - `DOCUMENTATION_INDEX.md` - Navigation hub for all 9 documentation files
 - `tools/README.md` - Module reference
