@@ -66,7 +66,7 @@ class GraphBuilder:
         # Find spatial relationships
         query = f"""
             INSERT INTO entity_relationships (
-                relationship_id, source_entity_id, target_entity_id,
+                relationship_id, subject_entity_id, object_entity_id,
                 relationship_type, predicate, is_spatial, confidence
             )
             SELECT 
@@ -139,7 +139,7 @@ class GraphBuilder:
                 
                 query = f"""
                     INSERT INTO entity_relationships (
-                        relationship_id, source_entity_id, target_entity_id,
+                        relationship_id, subject_entity_id, object_entity_id,
                         relationship_type, predicate, is_spatial, confidence
                     )
                     SELECT 
@@ -193,7 +193,7 @@ class GraphBuilder:
         
         query = f"""
             INSERT INTO entity_relationships (
-                relationship_id, source_entity_id, target_entity_id,
+                relationship_id, subject_entity_id, object_entity_id,
                 relationship_type, predicate, is_spatial, confidence, metadata
             )
             SELECT 
@@ -213,8 +213,8 @@ class GraphBuilder:
               AND 1 - (ee1.embedding <=> ee2.embedding) > %s
               {type_filter}
             AND ee1.entity_id NOT IN (
-                SELECT source_entity_id FROM entity_relationships
-                WHERE target_entity_id = ee2.entity_id AND predicate = 'similar_to'
+                SELECT subject_entity_id FROM entity_relationships
+                WHERE object_entity_id = ee2.entity_id AND predicate = 'similar_to'
             )
             ORDER BY ee1.entity_id, (ee1.embedding <=> ee2.embedding)
             LIMIT %s

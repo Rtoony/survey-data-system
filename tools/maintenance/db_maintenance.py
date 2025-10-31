@@ -56,7 +56,7 @@ class DatabaseMaintenance:
                 END,
                 10,
                 EXISTS(SELECT 1 FROM entity_embeddings WHERE entity_id = standards_entities.entity_id AND is_current = true),
-                EXISTS(SELECT 1 FROM entity_relationships WHERE source_entity_id = standards_entities.entity_id OR target_entity_id = standards_entities.entity_id)
+                EXISTS(SELECT 1 FROM entity_relationships WHERE subject_entity_id = standards_entities.entity_id OR object_entity_id = standards_entities.entity_id)
             ),
             updated_at = CURRENT_TIMESTAMP
         """

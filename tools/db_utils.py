@@ -144,7 +144,7 @@ def update_quality_score(entity_id: str, required_fields_filled: int, total_requ
             %s::integer,
             %s::integer,
             EXISTS(SELECT 1 FROM entity_embeddings WHERE entity_id = %s AND is_current = true),
-            EXISTS(SELECT 1 FROM entity_relationships WHERE source_entity_id = %s OR target_entity_id = %s)
+            EXISTS(SELECT 1 FROM entity_relationships WHERE subject_entity_id = %s OR object_entity_id = %s)
         ),
         updated_at = CURRENT_TIMESTAMP
         WHERE entity_id = %s
