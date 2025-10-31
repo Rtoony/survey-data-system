@@ -29,6 +29,7 @@
     --shadow-md: 0 0 20px rgba(59, 130, 246, 0.2);
     --shadow-lg: 0 0 30px rgba(59, 130, 246, 0.3);
     --transition-base: 0.2s ease;
+    --header-height: 100px;
 }
 
 * {
@@ -135,9 +136,8 @@ body {
 .sidebar {
     position: fixed;
     left: 0;
-    top: 0;
-    padding-top: 100px;
-    height: 100vh;
+    top: var(--header-height);
+    height: calc(100vh - var(--header-height));
     width: 250px;
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
     border-right: 2px solid rgba(59, 130, 246, 0.3);
@@ -246,8 +246,9 @@ body {
 /* Main Content with Sidebar */
 .main-content {
     margin-left: 250px;
+    margin-top: var(--header-height);
     padding: var(--spacing-xl);
-    min-height: calc(100vh - 100px);
+    min-height: calc(100vh - var(--header-height));
     transition: margin-left 0.3s ease;
 }
 
@@ -500,32 +501,43 @@ tr:hover {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    /* Auto-collapse sidebar on mobile */
-    .sidebar {
+    /* Main content takes full width on mobile - sidebar overlays when expanded */
+    .main-content {
+        margin-left: 0 !important;
+    }
+    
+    /* Collapsed sidebar on mobile */
+    .sidebar.collapsed {
         width: 70px;
     }
     
-    .sidebar-text {
+    .sidebar.collapsed .sidebar-text {
         display: none;
     }
     
-    .sidebar-section-title {
+    .sidebar.collapsed .sidebar-section-title {
         justify-content: center;
         padding: var(--spacing-sm);
     }
     
-    .sidebar-section-title .sidebar-text {
+    .sidebar.collapsed .sidebar-section-title .sidebar-text {
         display: none;
     }
     
-    .sidebar-link {
+    .sidebar.collapsed .sidebar-link {
         justify-content: center;
         padding: var(--spacing-md) var(--spacing-sm);
     }
     
-    /* Adjust main content */
-    .main-content {
-        margin-left: 70px;
+    /* Shift content when sidebar is collapsed */
+    .main-content.sidebar-collapsed {
+        padding-left: calc(70px + var(--spacing-xl));
+    }
+    
+    /* When expanded on mobile, sidebar overlays content with backdrop */
+    .sidebar:not(.collapsed) {
+        z-index: 1000;
+        box-shadow: 4px 0 30px rgba(0, 0, 0, 0.7);
     }
     
     /* Header adjustments */
