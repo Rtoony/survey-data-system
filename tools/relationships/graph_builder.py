@@ -67,7 +67,7 @@ class GraphBuilder:
         query = f"""
             INSERT INTO entity_relationships (
                 relationship_id, subject_entity_id, object_entity_id,
-                relationship_type, predicate, is_spatial, confidence
+                relationship_type, predicate, spatial_relationship, confidence_score
             )
             SELECT 
                 gen_random_uuid(),
@@ -140,7 +140,7 @@ class GraphBuilder:
                 query = f"""
                     INSERT INTO entity_relationships (
                         relationship_id, subject_entity_id, object_entity_id,
-                        relationship_type, predicate, is_spatial, confidence
+                        relationship_type, predicate, engineering_relationship, confidence_score
                     )
                     SELECT 
                         gen_random_uuid(),
@@ -148,7 +148,7 @@ class GraphBuilder:
                         target.entity_id,
                         'engineering',
                         %s,
-                        false,
+                        true,
                         0.9
                     FROM {source_table} source
                     JOIN {target_table} target ON {join_condition}
@@ -194,7 +194,7 @@ class GraphBuilder:
         query = f"""
             INSERT INTO entity_relationships (
                 relationship_id, subject_entity_id, object_entity_id,
-                relationship_type, predicate, is_spatial, confidence, metadata
+                relationship_type, predicate, spatial_relationship, confidence_score, attributes
             )
             SELECT 
                 gen_random_uuid(),
@@ -203,7 +203,7 @@ class GraphBuilder:
                 'semantic',
                 'similar_to',
                 false,
-                (1 - (ee1.embedding <=> ee2.embedding))::numeric(5,4),
+                (1 - (ee1.embedding <=> ee2.embedding))::numeric(4,3),
                 jsonb_build_object('similarity_score', 1 - (ee1.embedding <=> ee2.embedding))
             FROM entity_embeddings ee1
             JOIN entity_embeddings ee2 ON ee1.entity_id != ee2.entity_id
