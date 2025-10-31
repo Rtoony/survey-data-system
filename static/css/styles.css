@@ -135,8 +135,9 @@ body {
 .sidebar {
     position: fixed;
     left: 0;
-    top: 100px;
-    height: calc(100vh - 100px);
+    top: 0;
+    padding-top: 100px;
+    height: 100vh;
     width: 250px;
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
     border-right: 2px solid rgba(59, 130, 246, 0.3);
@@ -496,3 +497,68 @@ tr:hover {
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 .gap-sm { gap: var(--spacing-sm); }
 .gap-md { gap: var(--spacing-md); }
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    /* Auto-collapse sidebar on mobile */
+    .sidebar {
+        width: 70px;
+    }
+    
+    .sidebar-text {
+        display: none;
+    }
+    
+    .sidebar-section-title {
+        justify-content: center;
+        padding: var(--spacing-sm);
+    }
+    
+    .sidebar-section-title .sidebar-text {
+        display: none;
+    }
+    
+    .sidebar-link {
+        justify-content: center;
+        padding: var(--spacing-md) var(--spacing-sm);
+    }
+    
+    /* Adjust main content */
+    .main-content {
+        margin-left: 70px;
+    }
+    
+    /* Header adjustments */
+    .header-content {
+        flex-wrap: wrap;
+    }
+    
+    .header-title h1 {
+        font-size: 1.25rem;
+    }
+    
+    .header-subtitle {
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Further adjustments for very small screens */
+    .header-title h1 {
+        font-size: 1rem;
+    }
+    
+    .container {
+        padding: 0 var(--spacing-md);
+    }
+    
+    .main-content {
+        padding: var(--spacing-lg);
+    }
+    
+    .grid-2,
+    .grid-3,
+    .grid-4 {
+        grid-template-columns: 1fr;
+    }
+}
