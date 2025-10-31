@@ -1,516 +1,483 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Toolkit - ACAD-GIS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .output-panel {
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            border-radius: var(--radius-lg);
-            padding: var(--spacing-lg);
-            margin-top: var(--spacing-lg);
-            max-height: 400px;
-            overflow-y: auto;
-        }
+{% extends "base.html" %}
 
-        .output-panel h3 {
-            color: var(--color-accent-cyan);
-            margin-bottom: var(--spacing-md);
-            font-size: 1.1rem;
-            font-family: 'Orbitron', monospace;
-        }
+{% block title %}AI Toolkit{% endblock %}
 
-        .output-line {
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-            color: var(--color-text-secondary);
-            margin: var(--spacing-xs) 0;
-            padding: var(--spacing-xs);
-            border-left: 2px solid var(--color-accent-blue);
-            padding-left: var(--spacing-sm);
-        }
+{% block content %}
+<style>
+    .output-panel {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-lg);
+        margin-top: var(--spacing-lg);
+        max-height: 400px;
+        overflow-y: auto;
+    }
 
-        .output-line.success {
-            border-left-color: var(--color-accent-green);
-            color: var(--color-accent-green);
-        }
+    .output-panel h3 {
+        color: var(--color-accent-cyan);
+        margin-bottom: var(--spacing-md);
+        font-size: 1.1rem;
+        font-family: 'Orbitron', monospace;
+    }
 
-        .output-line.error {
-            border-left-color: var(--color-accent-red);
-            color: var(--color-accent-red);
-        }
+    .output-line {
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+        color: var(--color-text-secondary);
+        margin: var(--spacing-xs) 0;
+        padding: var(--spacing-xs);
+        border-left: 2px solid var(--color-accent-blue);
+        padding-left: var(--spacing-sm);
+    }
 
-        .output-line.info {
-            border-left-color: var(--color-accent-cyan);
-            color: var(--color-accent-cyan);
-        }
+    .output-line.success {
+        border-left-color: var(--color-accent-green);
+        color: var(--color-accent-green);
+    }
 
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(59, 130, 246, 0.3);
-            border-radius: 50%;
-            border-top-color: var(--color-accent-cyan);
-            animation: spin 1s linear infinite;
-        }
+    .output-line.error {
+        border-left-color: var(--color-accent-red);
+        color: var(--color-accent-red);
+    }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+    .output-line.info {
+        border-left-color: var(--color-accent-cyan);
+        color: var(--color-accent-cyan);
+    }
 
-        .warning-text {
-            color: var(--color-accent-orange, #f59e0b);
-            font-size: 0.85em;
-            margin-top: var(--spacing-sm);
-        }
-    </style>
-</head>
-<body class="grid-background">
-    <header class="header">
-        <div class="header-content">
-            <div class="header-title">
-                <i class="fas fa-robot neon-cyan"></i>
-                <div>
-                    <h1 class="orbitron">AI-First Database Toolkit</h1>
-                    <div class="header-subtitle">Embeddings, Relationships & Quality Management</div>
-                </div>
-            </div>
-            <nav class="nav">
-                <a href="/">
-                    <i class="fas fa-home"></i> Home
-                </a>
-                <a href="/schema">
-                    <i class="fas fa-sitemap"></i> Schema
-                </a>
-                <a href="/data-manager">
-                    <i class="fas fa-database"></i> Data Manager
-                </a>
-                <a href="/toolkit" class="active">
-                    <i class="fas fa-robot"></i> AI Toolkit
-                </a>
-            </nav>
+    .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(59, 130, 246, 0.3);
+        border-radius: 50%;
+        border-top-color: var(--color-accent-cyan);
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .warning-text {
+        color: var(--color-accent-orange, #f59e0b);
+        font-size: 0.85em;
+        margin-top: var(--spacing-sm);
+    }
+</style>
+
+<!-- Status Panel -->
+<div class="card mb-lg">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-chart-line"></i>
+            Database Statistics
+        </h2>
+        <button class="btn btn-primary" onclick="loadStats()">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+    <div class="grid grid-4">
+        <div class="stat-card">
+            <div class="stat-value" id="totalEntities">-</div>
+            <div class="stat-label">Total Entities</div>
         </div>
-    </header>
-
-    <main class="main-content">
-        <div class="container">
-            <!-- Status Panel -->
-            <div class="card mb-lg">
-                <div class="card-header">
-                    <h2 class="card-title">
-                        <i class="fas fa-chart-line"></i>
-                        Database Statistics
-                    </h2>
-                    <button class="btn btn-primary" onclick="loadStats()">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                </div>
-                <div class="grid grid-4">
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalEntities">-</div>
-                        <div class="stat-label">Total Entities</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="currentEmbeddings">-</div>
-                        <div class="stat-label">Current Embeddings</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalRelationships">-</div>
-                        <div class="stat-label">Relationships</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="avgQuality">-</div>
-                        <div class="stat-label">Avg Quality Score</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Toolkit Cards -->
-            <div class="grid grid-2">
-                <!-- Ingestion -->
-                <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-upload"></i>
-                        Data Ingestion
-                    </h3>
-                    <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
-                        Load CAD standards from JSON/CSV files into the database with automatic entity registration and quality scoring.
-                    </p>
-                    <div class="flex gap-sm">
-                        <button class="btn btn-primary" onclick="showExampleData('layers')">
-                            <i class="fas fa-layer-group"></i> Load Example Layers
-                        </button>
-                        <button class="btn btn-primary" onclick="showExampleData('blocks')">
-                            <i class="fas fa-cubes"></i> Load Example Blocks
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Embeddings -->
-                <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-vector-square"></i>
-                        Embedding Generation
-                    </h3>
-                    <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
-                        Generate vector embeddings using OpenAI for semantic search and AI reasoning across all entities.
-                    </p>
-                    <div class="flex gap-sm" style="margin-bottom: var(--spacing-sm);">
-                        <button class="btn btn-primary" onclick="generateEmbeddings('layer_standards', 10)">
-                            <i class="fas fa-magic"></i> Generate (Layers, 10)
-                        </button>
-                        <button class="btn btn-primary" onclick="refreshEmbeddings()">
-                            <i class="fas fa-redo"></i> Refresh Old
-                        </button>
-                    </div>
-                    <p class="warning-text">
-                        <i class="fas fa-exclamation-triangle"></i> Requires OPENAI_API_KEY
-                    </p>
-                </div>
-
-                <!-- Relationships -->
-                <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-project-diagram"></i>
-                        Relationship Building
-                    </h3>
-                    <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
-                        Automatically detect and create spatial, engineering, and semantic relationships for GraphRAG queries.
-                    </p>
-                    <div class="flex gap-sm">
-                        <button class="btn btn-primary" onclick="buildSemanticRelationships()">
-                            <i class="fas fa-brain"></i> Semantic
-                        </button>
-                        <button class="btn btn-primary" onclick="buildCompleteGraph()">
-                            <i class="fas fa-network-wired"></i> Complete Graph
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Validation -->
-                <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-check-circle"></i>
-                        Data Validation
-                    </h3>
-                    <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
-                        Check data quality, find missing fields, detect duplicates, and validate PostGIS geometries.
-                    </p>
-                    <div class="flex gap-sm">
-                        <button class="btn btn-primary" onclick="validateAll()">
-                            <i class="fas fa-tasks"></i> Validate All
-                        </button>
-                        <button class="btn btn-primary" onclick="checkQuality()">
-                            <i class="fas fa-star"></i> Quality Check
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Maintenance -->
-                <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-wrench"></i>
-                        Database Maintenance
-                    </h3>
-                    <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
-                        Refresh materialized views, recompute quality scores, run VACUUM, and optimize database performance.
-                    </p>
-                    <div class="flex gap-sm" style="flex-wrap: wrap;">
-                        <button class="btn btn-primary" onclick="refreshViews()">
-                            <i class="fas fa-eye"></i> Refresh Views
-                        </button>
-                        <button class="btn btn-primary" onclick="recomputeQuality()">
-                            <i class="fas fa-calculator"></i> Recompute Quality
-                        </button>
-                        <button class="btn btn-primary" onclick="runFullMaintenance()">
-                            <i class="fas fa-toolbox"></i> Full Maintenance
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Examples -->
-                <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-book"></i>
-                        Example Scripts
-                    </h3>
-                    <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
-                        Python example scripts demonstrating how to use the toolkit for data ingestion, embeddings, and more.
-                    </p>
-                    <button class="btn btn-primary" onclick="window.open('/examples/README.md', '_blank')">
-                        <i class="fas fa-file-alt"></i> View Examples
-                    </button>
-                    <p style="margin-top: var(--spacing-sm); font-size: 0.85em; color: var(--color-text-muted);">
-                        Location: <code style="color: var(--color-accent-cyan);">/examples/</code>
-                    </p>
-                </div>
-            </div>
-
-            <!-- Output Panel -->
-            <div class="output-panel" id="outputPanel" style="display: none;">
-                <h3><i class="fas fa-terminal"></i> Operation Output</h3>
-                <div id="outputContent"></div>
-            </div>
+        <div class="stat-card">
+            <div class="stat-value" id="currentEmbeddings">-</div>
+            <div class="stat-label">Current Embeddings</div>
         </div>
-    </main>
+        <div class="stat-card">
+            <div class="stat-value" id="totalRelationships">-</div>
+            <div class="stat-label">Relationships</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="avgQuality">-</div>
+            <div class="stat-label">Avg Quality Score</div>
+        </div>
+    </div>
+</div>
 
-    <script>
-        let outputPanel = document.getElementById('outputPanel');
-        let outputContent = document.getElementById('outputContent');
+<!-- Toolkit Cards -->
+<div class="grid grid-2">
+    <!-- Ingestion -->
+    <div class="card">
+        <h3 class="card-title">
+            <i class="fas fa-upload"></i>
+            Data Ingestion
+        </h3>
+        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+            Load CAD standards from JSON/CSV files into the database with automatic entity registration and quality scoring.
+        </p>
+        <div class="flex gap-sm">
+            <button class="btn btn-primary" onclick="showExampleData('layers')">
+                <i class="fas fa-layer-group"></i> Load Example Layers
+            </button>
+            <button class="btn btn-primary" onclick="showExampleData('blocks')">
+                <i class="fas fa-cubes"></i> Load Example Blocks
+            </button>
+        </div>
+    </div>
 
-        function showOutput() {
-            outputPanel.style.display = 'block';
-        }
+    <!-- Embeddings -->
+    <div class="card">
+        <h3 class="card-title">
+            <i class="fas fa-vector-square"></i>
+            Embedding Generation
+        </h3>
+        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+            Generate vector embeddings using OpenAI for semantic search and AI reasoning across all entities.
+        </p>
+        <div class="flex gap-sm" style="margin-bottom: var(--spacing-sm);">
+            <button class="btn btn-primary" onclick="generateEmbeddings('layer_standards', 10)">
+                <i class="fas fa-magic"></i> Generate (Layers, 10)
+            </button>
+            <button class="btn btn-primary" onclick="refreshEmbeddings()">
+                <i class="fas fa-redo"></i> Refresh Old
+            </button>
+        </div>
+        <p class="warning-text">
+            <i class="fas fa-exclamation-triangle"></i> Requires OPENAI_API_KEY
+        </p>
+    </div>
 
-        function addOutput(message, type = 'info') {
-            showOutput();
-            const line = document.createElement('div');
-            line.className = `output-line ${type}`;
-            line.textContent = message;
-            outputContent.appendChild(line);
-            outputPanel.scrollTop = outputPanel.scrollHeight;
-        }
+    <!-- Relationships -->
+    <div class="card">
+        <h3 class="card-title">
+            <i class="fas fa-project-diagram"></i>
+            Relationship Building
+        </h3>
+        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+            Automatically detect and create spatial, engineering, and semantic relationships for GraphRAG queries.
+        </p>
+        <div class="flex gap-sm">
+            <button class="btn btn-primary" onclick="buildSemanticRelationships()">
+                <i class="fas fa-brain"></i> Semantic
+            </button>
+            <button class="btn btn-primary" onclick="buildCompleteGraph()">
+                <i class="fas fa-network-wired"></i> Complete Graph
+            </button>
+        </div>
+    </div>
 
-        function clearOutput() {
-            outputContent.innerHTML = '';
-        }
+    <!-- Validation -->
+    <div class="card">
+        <h3 class="card-title">
+            <i class="fas fa-check-circle"></i>
+            Data Validation
+        </h3>
+        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+            Check data quality, find missing fields, detect duplicates, and validate PostGIS geometries.
+        </p>
+        <div class="flex gap-sm">
+            <button class="btn btn-primary" onclick="validateAll()">
+                <i class="fas fa-tasks"></i> Validate All
+            </button>
+            <button class="btn btn-primary" onclick="checkQuality()">
+                <i class="fas fa-star"></i> Quality Check
+            </button>
+        </div>
+    </div>
 
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/toolkit/stats');
-                const data = await response.json();
+    <!-- Maintenance -->
+    <div class="card">
+        <h3 class="card-title">
+            <i class="fas fa-wrench"></i>
+            Database Maintenance
+        </h3>
+        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+            Refresh materialized views, recompute quality scores, run VACUUM, and optimize database performance.
+        </p>
+        <div class="flex gap-sm" style="flex-wrap: wrap;">
+            <button class="btn btn-primary" onclick="refreshViews()">
+                <i class="fas fa-eye"></i> Refresh Views
+            </button>
+            <button class="btn btn-primary" onclick="recomputeQuality()">
+                <i class="fas fa-calculator"></i> Recompute Quality
+            </button>
+            <button class="btn btn-primary" onclick="runFullMaintenance()">
+                <i class="fas fa-toolbox"></i> Full Maintenance
+            </button>
+        </div>
+    </div>
+
+    <!-- Examples -->
+    <div class="card">
+        <h3 class="card-title">
+            <i class="fas fa-book"></i>
+            Example Scripts
+        </h3>
+        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+            Python example scripts demonstrating how to use the toolkit for data ingestion, embeddings, and more.
+        </p>
+        <button class="btn btn-primary" onclick="window.open('/examples/README.md', '_blank')">
+            <i class="fas fa-file-alt"></i> View Examples
+        </button>
+        <p style="margin-top: var(--spacing-sm); font-size: 0.85em; color: var(--color-text-muted);">
+            Location: <code style="color: var(--color-accent-cyan);">/examples/</code>
+        </p>
+    </div>
+</div>
+
+<!-- Output Panel -->
+<div class="output-panel" id="outputPanel" style="display: none;">
+    <h3><i class="fas fa-terminal"></i> Operation Output</h3>
+    <div id="outputContent"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let outputPanel = document.getElementById('outputPanel');
+    let outputContent = document.getElementById('outputContent');
+
+    function showOutput() {
+        outputPanel.style.display = 'block';
+    }
+
+    function addOutput(message, type = 'info') {
+        showOutput();
+        const line = document.createElement('div');
+        line.className = `output-line ${type}`;
+        line.textContent = message;
+        outputContent.appendChild(line);
+        outputPanel.scrollTop = outputPanel.scrollHeight;
+    }
+
+    function clearOutput() {
+        outputContent.innerHTML = '';
+    }
+
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/toolkit/stats');
+            const data = await response.json();
+            
+            if (data.success) {
+                const stats = data.entity_stats;
+                document.getElementById('totalEntities').textContent = stats.total_entities || 0;
+                document.getElementById('currentEmbeddings').textContent = stats.embeddings?.current || 0;
+                document.getElementById('totalRelationships').textContent = stats.relationships || 0;
                 
-                if (data.success) {
-                    const stats = data.entity_stats;
-                    document.getElementById('totalEntities').textContent = stats.total_entities || 0;
-                    document.getElementById('currentEmbeddings').textContent = stats.embeddings?.current || 0;
-                    document.getElementById('totalRelationships').textContent = stats.relationships || 0;
-                    
-                    const avgQuality = stats.quality?.avg_quality;
-                    document.getElementById('avgQuality').textContent = avgQuality ? avgQuality.toFixed(3) : '-';
+                const avgQuality = stats.quality?.avg_quality;
+                document.getElementById('avgQuality').textContent = avgQuality ? avgQuality.toFixed(3) : '-';
+            }
+        } catch (error) {
+            console.error('Failed to load stats:', error);
+        }
+    }
+
+    async function generateEmbeddings(table, limit) {
+        if (!confirm(`⚠️ This will use your OpenAI API key to generate embeddings.\n\nTable: ${table}\nLimit: ${limit} entities\nEstimated cost: $0.01-0.10\n\nProceed?`)) {
+            addOutput('Operation cancelled by user.', 'info');
+            return;
+        }
+        
+        clearOutput();
+        addOutput(`Generating embeddings for ${table} (limit: ${limit})...`, 'info');
+        addOutput('⚠️ This operation uses OpenAI API ($100 budget cap enforced)', 'info');
+        
+        const textColumns = {
+            'layer_standards': ['name', 'description'],
+            'block_definitions': ['name', 'description'],
+            'detail_standards': ['detail_number', 'title', 'description']
+        };
+        
+        try {
+            const response = await fetch('/api/toolkit/embeddings/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    table_name: table,
+                    text_columns: textColumns[table],
+                    limit: limit
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                addOutput(`✓ Generated: ${data.stats.generated}`, 'success');
+                addOutput(`  API calls: ${data.stats.api_calls}`, 'info');
+                addOutput(`  Tokens used: ${data.stats.tokens_used}`, 'info');
+                addOutput(`  Cost: ~$${(data.stats.tokens_used * 0.00002).toFixed(4)}`, 'info');
+                if (data.stats.errors && data.stats.errors.length > 0) {
+                    addOutput(`  Errors: ${data.stats.errors.length}`, 'error');
                 }
-            } catch (error) {
-                console.error('Failed to load stats:', error);
+                loadStats();
+            } else {
+                addOutput(`✗ Error: ${data.error}`, 'error');
             }
+        } catch (error) {
+            addOutput(`✗ Failed: ${error.message}`, 'error');
         }
+    }
 
-        async function generateEmbeddings(table, limit) {
-            if (!confirm(`⚠️ This will use your OpenAI API key to generate embeddings.\n\nTable: ${table}\nLimit: ${limit} entities\nEstimated cost: $0.01-0.10\n\nProceed?`)) {
-                addOutput('Operation cancelled by user.', 'info');
-                return;
+    async function buildSemanticRelationships() {
+        clearOutput();
+        addOutput('Building semantic relationships from embeddings...', 'info');
+        
+        try {
+            const response = await fetch('/api/toolkit/relationships/semantic', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    similarity_threshold: 0.80,
+                    limit_per_entity: 5
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                addOutput(`✓ Created ${data.count} semantic relationships`, 'success');
+                loadStats();
+            } else {
+                addOutput(`✗ Error: ${data.error}`, 'error');
             }
+        } catch (error) {
+            addOutput(`✗ Failed: ${error.message}`, 'error');
+        }
+    }
+
+    async function buildCompleteGraph() {
+        clearOutput();
+        addOutput('Building complete knowledge graph (all relationship types)...', 'info');
+        addOutput('This may take a few minutes...', 'info');
+        
+        try {
+            const response = await fetch('/api/toolkit/relationships/build-complete', {
+                method: 'POST'
+            });
             
-            clearOutput();
-            addOutput(`Generating embeddings for ${table} (limit: ${limit})...`, 'info');
-            addOutput('⚠️ This operation uses OpenAI API ($100 budget cap enforced)', 'info');
+            const data = await response.json();
             
-            const textColumns = {
-                'layer_standards': ['name', 'description'],
-                'block_definitions': ['name', 'description'],
-                'detail_standards': ['detail_number', 'title', 'description']
-            };
+            if (data.success) {
+                addOutput(`✓ Graph built successfully!`, 'success');
+                addOutput(`  Spatial: ${data.stats.spatial_relationships}`, 'info');
+                addOutput(`  Engineering: ${data.stats.engineering_relationships}`, 'info');
+                addOutput(`  Semantic: ${data.stats.semantic_relationships}`, 'info');
+                loadStats();
+            } else {
+                addOutput(`✗ Error: ${data.error}`, 'error');
+            }
+        } catch (error) {
+            addOutput(`✗ Failed: ${error.message}`, 'error');
+        }
+    }
+
+    async function validateAll() {
+        clearOutput();
+        addOutput('Running comprehensive validation...', 'info');
+        
+        try {
+            const response = await fetch('/api/toolkit/validate/all');
+            const data = await response.json();
             
-            try {
-                const response = await fetch('/api/toolkit/embeddings/generate', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        table_name: table,
-                        text_columns: textColumns[table],
-                        limit: limit
-                    })
-                });
+            if (data.success) {
+                const results = data.results;
+                addOutput(`✓ Validation complete!`, 'success');
+                addOutput(`  Total issues: ${results.total_issues}`, 'info');
                 
-                const data = await response.json();
-                
-                if (data.success) {
-                    addOutput(`✓ Generated: ${data.stats.generated}`, 'success');
-                    addOutput(`  API calls: ${data.stats.api_calls}`, 'info');
-                    addOutput(`  Tokens used: ${data.stats.tokens_used}`, 'info');
-                    addOutput(`  Cost: ~$${(data.stats.tokens_used * 0.00002).toFixed(4)}`, 'info');
-                    if (data.stats.errors && data.stats.errors.length > 0) {
-                        addOutput(`  Errors: ${data.stats.errors.length}`, 'error');
-                    }
-                    loadStats();
-                } else {
-                    addOutput(`✗ Error: ${data.error}`, 'error');
+                for (const [severity, count] of Object.entries(results.issues_by_severity)) {
+                    const type = severity === 'error' || severity === 'high' ? 'error' : 'info';
+                    addOutput(`  ${severity.toUpperCase()}: ${count}`, type);
                 }
-            } catch (error) {
-                addOutput(`✗ Failed: ${error.message}`, 'error');
+            } else {
+                addOutput(`✗ Error: ${data.error}`, 'error');
             }
+        } catch (error) {
+            addOutput(`✗ Failed: ${error.message}`, 'error');
         }
+    }
 
-        async function buildSemanticRelationships() {
-            clearOutput();
-            addOutput('Building semantic relationships from embeddings...', 'info');
+    async function refreshViews() {
+        clearOutput();
+        addOutput('Refreshing materialized views...', 'info');
+        
+        try {
+            const response = await fetch('/api/toolkit/maintenance/refresh-views', {
+                method: 'POST'
+            });
             
-            try {
-                const response = await fetch('/api/toolkit/relationships/semantic', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        similarity_threshold: 0.80,
-                        limit_per_entity: 5
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    addOutput(`✓ Created ${data.count} semantic relationships`, 'success');
-                    loadStats();
-                } else {
-                    addOutput(`✗ Error: ${data.error}`, 'error');
-                }
-            } catch (error) {
-                addOutput(`✗ Failed: ${error.message}`, 'error');
-            }
-        }
-
-        async function buildCompleteGraph() {
-            clearOutput();
-            addOutput('Building complete knowledge graph (all relationship types)...', 'info');
-            addOutput('This may take a few minutes...', 'info');
+            const data = await response.json();
             
-            try {
-                const response = await fetch('/api/toolkit/relationships/build-complete', {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    addOutput(`✓ Graph built successfully!`, 'success');
-                    addOutput(`  Spatial: ${data.stats.spatial_relationships}`, 'info');
-                    addOutput(`  Engineering: ${data.stats.engineering_relationships}`, 'info');
-                    addOutput(`  Semantic: ${data.stats.semantic_relationships}`, 'info');
-                    loadStats();
-                } else {
-                    addOutput(`✗ Error: ${data.error}`, 'error');
-                }
-            } catch (error) {
-                addOutput(`✗ Failed: ${error.message}`, 'error');
+            if (data.success) {
+                addOutput(`✓ Views refreshed in ${data.duration.toFixed(2)}s`, 'success');
+            } else {
+                addOutput(`✗ Error: ${data.error}`, 'error');
             }
+        } catch (error) {
+            addOutput(`✗ Failed: ${error.message}`, 'error');
         }
+    }
 
-        async function validateAll() {
-            clearOutput();
-            addOutput('Running comprehensive validation...', 'info');
+    async function recomputeQuality() {
+        clearOutput();
+        addOutput('Recomputing quality scores for all entities...', 'info');
+        
+        try {
+            const response = await fetch('/api/toolkit/maintenance/recompute-quality', {
+                method: 'POST'
+            });
             
-            try {
-                const response = await fetch('/api/toolkit/validate/all');
-                const data = await response.json();
-                
-                if (data.success) {
-                    const results = data.results;
-                    addOutput(`✓ Validation complete!`, 'success');
-                    addOutput(`  Total issues: ${results.total_issues}`, 'info');
-                    
-                    for (const [severity, count] of Object.entries(results.issues_by_severity)) {
-                        const type = severity === 'error' || severity === 'high' ? 'error' : 'info';
-                        addOutput(`  ${severity.toUpperCase()}: ${count}`, type);
-                    }
-                } else {
-                    addOutput(`✗ Error: ${data.error}`, 'error');
-                }
-            } catch (error) {
-                addOutput(`✗ Failed: ${error.message}`, 'error');
-            }
-        }
-
-        async function refreshViews() {
-            clearOutput();
-            addOutput('Refreshing materialized views...', 'info');
+            const data = await response.json();
             
-            try {
-                const response = await fetch('/api/toolkit/maintenance/refresh-views', {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    addOutput(`✓ Views refreshed in ${data.duration.toFixed(2)}s`, 'success');
-                } else {
-                    addOutput(`✗ Error: ${data.error}`, 'error');
+            if (data.success) {
+                addOutput(`✓ Quality scores recomputed in ${data.duration.toFixed(2)}s`, 'success');
+                if (data.stats) {
+                    addOutput(`  Total entities: ${data.stats.total}`, 'info');
+                    addOutput(`  Avg quality: ${parseFloat(data.stats.avg_quality).toFixed(3)}`, 'info');
                 }
-            } catch (error) {
-                addOutput(`✗ Failed: ${error.message}`, 'error');
+                loadStats();
+            } else {
+                addOutput(`✗ Error: ${data.error}`, 'error');
             }
+        } catch (error) {
+            addOutput(`✗ Failed: ${error.message}`, 'error');
         }
+    }
 
-        async function recomputeQuality() {
-            clearOutput();
-            addOutput('Recomputing quality scores for all entities...', 'info');
+    async function runFullMaintenance() {
+        clearOutput();
+        addOutput('Running full maintenance routine...', 'info');
+        addOutput('This will take several minutes...', 'info');
+        
+        try {
+            const response = await fetch('/api/toolkit/maintenance/full', {
+                method: 'POST'
+            });
             
-            try {
-                const response = await fetch('/api/toolkit/maintenance/recompute-quality', {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    addOutput(`✓ Quality scores recomputed in ${data.duration.toFixed(2)}s`, 'success');
-                    if (data.stats) {
-                        addOutput(`  Total entities: ${data.stats.total}`, 'info');
-                        addOutput(`  Avg quality: ${parseFloat(data.stats.avg_quality).toFixed(3)}`, 'info');
-                    }
-                    loadStats();
-                } else {
-                    addOutput(`✗ Error: ${data.error}`, 'error');
-                }
-            } catch (error) {
-                addOutput(`✗ Failed: ${error.message}`, 'error');
-            }
-        }
-
-        async function runFullMaintenance() {
-            clearOutput();
-            addOutput('Running full maintenance routine...', 'info');
-            addOutput('This will take several minutes...', 'info');
+            const data = await response.json();
             
-            try {
-                const response = await fetch('/api/toolkit/maintenance/full', {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    addOutput(`✓ Full maintenance complete!`, 'success');
-                    if (data.log) {
-                        data.log.slice(-20).forEach(line => {
-                            addOutput(line, 'info');
-                        });
-                    }
-                    loadStats();
-                } else {
-                    addOutput(`✗ Error: ${data.error}`, 'error');
+            if (data.success) {
+                addOutput(`✓ Full maintenance complete!`, 'success');
+                if (data.log) {
+                    data.log.slice(-20).forEach(line => {
+                        addOutput(line, 'info');
+                    });
                 }
-            } catch (error) {
-                addOutput(`✗ Failed: ${error.message}`, 'error');
+                loadStats();
+            } else {
+                addOutput(`✗ Error: ${data.error}`, 'error');
             }
+        } catch (error) {
+            addOutput(`✗ Failed: ${error.message}`, 'error');
         }
+    }
 
-        function showExampleData(type) {
-            alert(`To load ${type} data:\n\n1. Use Python script: examples/load_standards_example.py\n2. Or call API: POST /api/toolkit/load/${type}\n\nSee examples/README.md for detailed instructions.`);
-        }
+    function showExampleData(type) {
+        alert(`To load ${type} data:\n\n1. Use Python script: examples/load_standards_example.py\n2. Or call API: POST /api/toolkit/load/${type}\n\nSee examples/README.md for detailed instructions.`);
+    }
 
-        function checkQuality() {
-            validateAll();
-        }
+    function checkQuality() {
+        validateAll();
+    }
 
-        function refreshEmbeddings() {
-            alert('To refresh embeddings:\n\n1. Use Python script: examples/generate_embeddings_example.py\n2. Or call API: POST /api/toolkit/embeddings/refresh\n\nNote: Requires OPENAI_API_KEY');
-        }
+    function refreshEmbeddings() {
+        alert('To refresh embeddings:\n\n1. Use Python script: examples/generate_embeddings_example.py\n2. Or call API: POST /api/toolkit/embeddings/refresh\n\nNote: Requires OPENAI_API_KEY');
+    }
 
-        loadStats();
-    </script>
-</body>
-</html>
+    loadStats();
+</script>
+{% endblock %}
