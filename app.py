@@ -2035,7 +2035,7 @@ def reimport_dxf_with_changes():
                 'success': len(import_stats['errors']) == 0 and len(change_stats['errors']) == 0,
                 'import_stats': import_stats,
                 'change_stats': change_stats,
-                'message': f"Reimported {import_stats.get('entities', 0)} entities, detected {change_stats['geometry_changes']} geometry changes, {change_stats['layer_changes']} layer changes, {change_stats['new_entities']} new entities, {change_stats['deleted_entities']} deletions"
+                'message': f"Reimported {import_stats.get('entities', 0)} entities, detected {change_stats['geometry_changes']} geometry changes, {change_stats['layer_changes']} layer changes, {change_stats['new_entities']} new entities ({change_stats['new_objects_created']} intelligent objects created), {change_stats['deleted_entities']} deletions"
             })
         
         finally:

@@ -80,6 +80,19 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 4, 2025 - Complete Intelligent DXF Workflow:**
+- **Bidirectional CAD ↔ Database Sync:** Fully functional workflow where database is source of truth and DXF is interchange format (like Git)
+- **Intelligent Import:** DXF importer (`dxf_importer.py`) now automatically creates civil engineering objects from CAD layer patterns (e.g., "12IN-STORM" → storm utility line with 12" diameter)
+- **Intelligent Export:** DXF exporter (`dxf_exporter.py`) generates CAD files from database objects with proper layer naming (reverse of classification)
+- **Change Detection:** Re-import workflow (`dxf_change_detector.py`) detects geometry changes, layer changes, new entities, and deletions using SHA256 geometry hashing
+- **Complete API:** Four REST endpoints for intelligent workflow:
+  - `POST /api/dxf/import-intelligent` - Import with object creation
+  - `POST /api/dxf/export-intelligent` - Export project to DXF
+  - `POST /api/dxf/reimport` - Re-import with change detection
+  - `GET /api/dxf/sync-status/<drawing_id>` - Check sync status
+- **Round-trip Support:** app → CAD → app with automatic merging of changes, property updates, and new entity creation
+- **Architect Reviewed:** All components verified for correctness, transaction safety, and complete bidirectional sync
+
 **October 31, 2025 - Sidebar Navigation Implementation:**
 - Replaced horizontal navigation bar with collapsible vertical sidebar to address navigation scaling issues
 - Organized navigation into logical groups: Database, AI Tools, CAD Tools, Projects, Information
