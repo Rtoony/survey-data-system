@@ -4,6 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
+packages = ["freetype", "geos", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "proj", "tcl", "tk", "zlib"]
 
 [workflows]
 runButton = "Project"
@@ -32,6 +33,10 @@ waitForPort = 5000
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 37293
+externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"

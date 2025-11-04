@@ -1,0 +1,714 @@
+{% extends "base.html" %}
+
+{% block title %}Map Viewer & Export Tool{% endblock %}
+
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet Draw CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<!-- Proj4 for coordinate transformations -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+<!-- Turf.js for measurements -->
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+<style>
+    #map {
+        height: calc(100vh - 120px);
+        width: 100%;
+        border-radius: 4px;
+        border: 2px solid var(--primary-color);
+    }
+    
+    .map-controls {
+        background: rgba(0, 20, 40, 0.95);
+        border: 1px solid var(--primary-color);
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .control-section {
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+    }
+    
+    .control-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .control-section h3 {
+        font-size: 14px;
+        color: var(--accent-color);
+        margin: 0 0 10px 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .control-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    
+    .control-row label {
+        flex: 0 0 100px;
+        font-size: 12px;
+        color: #a0f0ff;
+    }
+    
+    .control-row select,
+    .control-row input {
+        flex: 1;
+        padding: 6px;
+        background: rgba(0, 40, 80, 0.8);
+        border: 1px solid var(--primary-color);
+        color: white;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .btn-map {
+        padding: 8px 16px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.3s;
+    }
+    
+    .btn-map:hover {
+        background: var(--accent-color);
+        box-shadow: 0 0 10px var(--accent-color);
+    }
+    
+    .btn-map:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .coord-display {
+        background: rgba(0, 20, 40, 0.95);
+        border: 1px solid var(--primary-color);
+        padding: 8px 12px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-family: 'Courier New', monospace;
+        color: var(--accent-color);
+    }
+    
+    .leaflet-popup-content-wrapper {
+        background: rgba(0, 20, 40, 0.98);
+        border: 1px solid var(--primary-color);
+        color: white;
+    }
+    
+    .leaflet-popup-content {
+        margin: 10px;
+        font-size: 12px;
+    }
+    
+    .leaflet-popup-tip {
+        background: rgba(0, 20, 40, 0.98);
+        border: 1px solid var(--primary-color);
+    }
+    
+    .export-modal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 20, 40, 0.98);
+        border: 2px solid var(--primary-color);
+        border-radius: 8px;
+        padding: 25px;
+        z-index: 10000;
+        min-width: 400px;
+        max-width: 600px;
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+    }
+    
+    .export-modal.show {
+        display: block;
+    }
+    
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 9999;
+    }
+    
+    .modal-overlay.show {
+        display: block;
+    }
+    
+    .export-modal h2 {
+        color: var(--accent-color);
+        margin: 0 0 20px 0;
+        font-size: 20px;
+    }
+    
+    .checkbox-group {
+        margin: 15px 0;
+    }
+    
+    .checkbox-group label {
+        display: block;
+        margin: 8px 0;
+        color: #a0f0ff;
+        font-size: 13px;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+        margin-right: 8px;
+    }
+    
+    .status-message {
+        padding: 10px;
+        border-radius: 4px;
+        margin: 10px 0;
+        font-size: 13px;
+    }
+    
+    .status-success {
+        background: rgba(0, 255, 0, 0.1);
+        border: 1px solid #00ff00;
+        color: #00ff00;
+    }
+    
+    .status-error {
+        background: rgba(255, 0, 0, 0.1);
+        border: 1px solid #ff0000;
+        color: #ff0000;
+    }
+    
+    .status-processing {
+        background: rgba(255, 255, 0, 0.1);
+        border: 1px solid #ffff00;
+        color: #ffff00;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <h1>
+        <i class="fas fa-map-marked-alt"></i>
+        Map Viewer & Export Tool
+    </h1>
+    
+    <div style="display: grid; grid-template-columns: 300px 1fr; gap: 15px;">
+        <!-- Left Control Panel -->
+        <div>
+            <div class="map-controls">
+                <div class="control-section">
+                    <h3>Basemap</h3>
+                    <div class="control-row">
+                        <select id="basemap-select">
+                            <option value="osm">OpenStreetMap</option>
+                            <option value="topo">USGS Topo</option>
+                            <option value="imagery">ESRI Imagery</option>
+                            <option value="light">CartoDB Light</option>
+                            <option value="dark">CartoDB Dark</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>Layers</h3>
+                    <div class="checkbox-group" id="layer-toggles">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>Tools</h3>
+                    <div class="btn-group">
+                        <button class="btn-map" onclick="startMeasureDistance()">
+                            <i class="fas fa-ruler"></i> Distance
+                        </button>
+                        <button class="btn-map" onclick="startMeasureArea()">
+                            <i class="fas fa-draw-polygon"></i> Area
+                        </button>
+                        <button class="btn-map" onclick="clearMeasurements()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>Search</h3>
+                    <div class="control-row">
+                        <input type="text" id="address-search" placeholder="Search address...">
+                    </div>
+                    <button class="btn-map" onclick="searchAddress()" style="width: 100%; margin-top: 5px;">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+                
+                <div class="control-section">
+                    <h3>Export</h3>
+                    <button class="btn-map" onclick="startExport()" style="width: 100%;" id="export-btn" disabled>
+                        <i class="fas fa-download"></i> Create Export
+                    </button>
+                    <p style="font-size: 11px; color: #888; margin-top: 8px;">Draw a box on the map first</p>
+                </div>
+            </div>
+            
+            <div class="coord-display" id="coord-display">
+                Hover over map...
+            </div>
+        </div>
+        
+        <!-- Map Container -->
+        <div>
+            <div id="map"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeExportModal()"></div>
+<div class="export-modal" id="export-modal">
+    <h2><i class="fas fa-file-export"></i> Export Configuration</h2>
+    
+    <div class="checkbox-group">
+        <h3 style="color: var(--accent-color); font-size: 14px; margin-bottom: 10px;">Export Formats</h3>
+        <label><input type="checkbox" id="format-shp" checked> Shapefile (.shp)</label>
+        <label><input type="checkbox" id="format-dxf" checked> DXF (.dxf)</label>
+        <label><input type="checkbox" id="format-png" checked> Map Image (.png)</label>
+    </div>
+    
+    <div class="checkbox-group">
+        <h3 style="color: var(--accent-color); font-size: 14px; margin-bottom: 10px;">Map Image Options</h3>
+        <label><input type="checkbox" id="opt-north-arrow" checked> Include North Arrow</label>
+        <label><input type="checkbox" id="opt-scale-bar" checked> Include Scale Bar</label>
+    </div>
+    
+    <div class="checkbox-group">
+        <h3 style="color: var(--accent-color); font-size: 14px; margin-bottom: 10px;">Layers to Include</h3>
+        <div id="export-layer-list">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+    
+    <div id="export-status"></div>
+    
+    <div class="btn-group" style="margin-top: 20px;">
+        <button class="btn-map" onclick="submitExport()">
+            <i class="fas fa-check"></i> Create Export
+        </button>
+        <button class="btn-map" onclick="closeExportModal()" style="background: #666;">
+            <i class="fas fa-times"></i> Cancel
+        </button>
+    </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet Draw JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+<script>
+    let map, drawnItems, currentBbox, availableLayers = [];
+    let measurementLayer, searchMarker;
+    let basemaps = {};
+    let currentBasemap = 'osm';
+    
+    // Define California State Plane Zone 2 projection
+    proj4.defs("EPSG:2226", "+proj=lcc +lat_1=39.83333333333334 +lat_2=38.33333333333334 +lat_0=37.66666666666666 +lon_0=-122 +x_0=2000000.0001016 +y_0=500000.0001016001 +ellps=GRS80 +datum=NAD83 +to_meter=0.3048006096012192 +no_defs");
+    
+    // Initialize map
+    function initMap() {
+        map = L.map('map', {
+            center: [38.5, -122.8], // Sonoma County
+            zoom: 10
+        });
+        
+        // Define basemaps
+        basemaps = {
+            osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }),
+            topo: L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'USGS',
+                maxZoom: 16
+            }),
+            imagery: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'ESRI',
+                maxZoom: 19
+            }),
+            light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© CartoDB',
+                maxZoom: 19
+            }),
+            dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© CartoDB',
+                maxZoom: 19
+            })
+        };
+        
+        // Add default basemap
+        basemaps[currentBasemap].addTo(map);
+        
+        // Initialize drawn items layer
+        drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+        
+        // Initialize measurement layer
+        measurementLayer = new L.FeatureGroup();
+        map.addLayer(measurementLayer);
+        
+        // Add draw control
+        const drawControl = new L.Control.Draw({
+            position: 'topright',
+            draw: {
+                rectangle: {
+                    shapeOptions: {
+                        color: '#00ffff',
+                        weight: 2
+                    }
+                },
+                polygon: false,
+                polyline: false,
+                circle: false,
+                marker: false,
+                circlemarker: false
+            },
+            edit: {
+                featureGroup: drawnItems,
+                remove: true
+            }
+        });
+        map.addControl(drawControl);
+        
+        // Handle drawn rectangles (bounding boxes)
+        map.on('draw:created', function(e) {
+            drawnItems.clearLayers();
+            const layer = e.layer;
+            drawnItems.addLayer(layer);
+            
+            const bounds = layer.getBounds();
+            currentBbox = {
+                minx: bounds.getWest(),
+                miny: bounds.getSouth(),
+                maxx: bounds.getEast(),
+                maxy: bounds.getNorth(),
+                crs: 'EPSG:4326'
+            };
+            
+            // Calculate area
+            const area = calculateArea(bounds);
+            layer.bindPopup(`Area: ${area.acres.toFixed(2)} acres (${area.sqft.toFixed(0)} sq ft)`).openPopup();
+            
+            // Enable export button
+            document.getElementById('export-btn').disabled = false;
+        });
+        
+        map.on('draw:deleted', function() {
+            currentBbox = null;
+            document.getElementById('export-btn').disabled = true;
+        });
+        
+        // Coordinate display on mouse move
+        map.on('mousemove', function(e) {
+            const lat = e.latlng.lat.toFixed(6);
+            const lng = e.latlng.lng.toFixed(6);
+            
+            // Convert to State Plane
+            const statePlane = proj4('EPSG:4326', 'EPSG:2226', [parseFloat(lng), parseFloat(lat)]);
+            
+            document.getElementById('coord-display').innerHTML = `
+                <strong>WGS84:</strong> ${lat}, ${lng}<br>
+                <strong>State Plane:</strong> ${statePlane[0].toFixed(2)}, ${statePlane[1].toFixed(2)} ft
+            `;
+        });
+        
+        // Basemap selector
+        document.getElementById('basemap-select').addEventListener('change', function(e) {
+            map.removeLayer(basemaps[currentBasemap]);
+            currentBasemap = e.target.value;
+            basemaps[currentBasemap].addTo(map);
+        });
+        
+        // Load layers
+        loadLayers();
+        
+        // Load projects
+        loadProjects();
+    }
+    
+    // Load available GIS layers
+    async function loadLayers() {
+        try {
+            const response = await fetch('/api/map-viewer/layers');
+            const data = await response.json();
+            availableLayers = data.layers || [];
+            
+            const togglesDiv = document.getElementById('layer-toggles');
+            const exportLayerDiv = document.getElementById('export-layer-list');
+            togglesDiv.innerHTML = '';
+            exportLayerDiv.innerHTML = '';
+            
+            availableLayers.forEach(layer => {
+                // Layer toggle
+                const label = document.createElement('label');
+                label.innerHTML = `<input type="checkbox" id="layer-${layer.id}" onchange="toggleLayer('${layer.id}')"> ${layer.name}`;
+                togglesDiv.appendChild(label);
+                
+                // Export layer checkbox
+                const exportLabel = document.createElement('label');
+                exportLabel.innerHTML = `<input type="checkbox" id="export-layer-${layer.id}" checked> ${layer.name}`;
+                exportLayerDiv.appendChild(exportLabel);
+            });
+        } catch (error) {
+            console.error('Error loading layers:', error);
+        }
+    }
+    
+    // Load projects from database
+    let projectsLayer;
+    async function loadProjects() {
+        try {
+            const response = await fetch('/api/map-viewer/projects');
+            const geojson = await response.json();
+            
+            if (!geojson.features || geojson.features.length === 0) {
+                console.log('No projects with spatial data found');
+                return;
+            }
+            
+            // Remove existing projects layer
+            if (projectsLayer) {
+                map.removeLayer(projectsLayer);
+            }
+            
+            // Add projects as GeoJSON layer
+            projectsLayer = L.geoJSON(geojson, {
+                style: {
+                    color: '#00ff00',
+                    weight: 2,
+                    fillOpacity: 0.1,
+                    dashArray: '5, 5'
+                },
+                onEachFeature: (feature, layer) => {
+                    const props = feature.properties;
+                    const popupContent = `
+                        <strong>${props.project_name}</strong><br>
+                        Project #: ${props.project_number || 'N/A'}<br>
+                        Client: ${props.client_name || 'N/A'}<br>
+                        Drawings: ${props.drawing_count}<br>
+                        <a href="/projects" style="color: var(--accent-color);">View Project</a>
+                    `;
+                    layer.bindPopup(popupContent);
+                }
+            }).addTo(map);
+            
+            // Fit map to show all projects
+            if (geojson.features.length > 0) {
+                map.fitBounds(projectsLayer.getBounds(), { padding: [50, 50] });
+            }
+            
+            console.log(`Loaded ${geojson.features.length} projects on map`);
+        } catch (error) {
+            console.error('Error loading projects:', error);
+        }
+    }
+    
+    // Toggle layer visibility (placeholder)
+    function toggleLayer(layerId) {
+        const checkbox = document.getElementById(`layer-${layerId}`);
+        console.log(`Layer ${layerId} ${checkbox.checked ? 'enabled' : 'disabled'}`);
+        // TODO: Implement WFS layer loading
+    }
+    
+    // Calculate area in acres and square feet
+    function calculateArea(bounds) {
+        const polygon = turf.polygon([[
+            [bounds.getWest(), bounds.getSouth()],
+            [bounds.getEast(), bounds.getSouth()],
+            [bounds.getEast(), bounds.getNorth()],
+            [bounds.getWest(), bounds.getNorth()],
+            [bounds.getWest(), bounds.getSouth()]
+        ]]);
+        
+        const areaSqMeters = turf.area(polygon);
+        const sqft = areaSqMeters * 10.7639;
+        const acres = sqft / 43560;
+        
+        return { sqft, acres };
+    }
+    
+    // Measurement tools
+    function startMeasureDistance() {
+        alert('Distance measurement: Click multiple points on the map, double-click to finish');
+        // TODO: Implement polyline measurement
+    }
+    
+    function startMeasureArea() {
+        alert('Area measurement: Click points to draw a polygon, double-click to finish');
+        // TODO: Implement polygon measurement
+    }
+    
+    function clearMeasurements() {
+        measurementLayer.clearLayers();
+    }
+    
+    // Address search
+    async function searchAddress() {
+        const query = document.getElementById('address-search').value;
+        if (!query) return;
+        
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Sonoma County, CA')}&limit=1`);
+            const data = await response.json();
+            
+            if (data.length > 0) {
+                const result = data[0];
+                const lat = parseFloat(result.lat);
+                const lon = parseFloat(result.lon);
+                
+                // Remove previous search marker
+                if (searchMarker) {
+                    map.removeLayer(searchMarker);
+                }
+                
+                // Add new marker
+                searchMarker = L.marker([lat, lon]).addTo(map);
+                searchMarker.bindPopup(`<strong>${result.display_name}</strong>`).openPopup();
+                
+                // Pan to location
+                map.setView([lat, lon], 15);
+            } else {
+                alert('Address not found');
+            }
+        } catch (error) {
+            console.error('Search error:', error);
+            alert('Search failed');
+        }
+    }
+    
+    // Export functions
+    function startExport() {
+        if (!currentBbox) {
+            alert('Please draw a bounding box first');
+            return;
+        }
+        
+        document.getElementById('modal-overlay').classList.add('show');
+        document.getElementById('export-modal').classList.add('show');
+    }
+    
+    function closeExportModal() {
+        document.getElementById('modal-overlay').classList.remove('show');
+        document.getElementById('export-modal').classList.remove('show');
+    }
+    
+    async function submitExport() {
+        if (!currentBbox) return;
+        
+        // Gather export parameters
+        const formats = [];
+        if (document.getElementById('format-shp').checked) formats.push('shp');
+        if (document.getElementById('format-dxf').checked) formats.push('dxf');
+        if (document.getElementById('format-png').checked) formats.push('png');
+        
+        const layers = [];
+        availableLayers.forEach(layer => {
+            if (document.getElementById(`export-layer-${layer.id}`).checked) {
+                layers.push(layer.id);
+            }
+        });
+        
+        const params = {
+            bbox: currentBbox,
+            formats: formats,
+            layers: layers,
+            png_options: {
+                north_arrow: document.getElementById('opt-north-arrow').checked,
+                scale_bar: document.getElementById('opt-scale-bar').checked
+            }
+        };
+        
+        const statusDiv = document.getElementById('export-status');
+        statusDiv.innerHTML = '<div class="status-processing">Creating export...</div>';
+        
+        try {
+            // Create export job
+            const response = await fetch('/api/map-export/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                statusDiv.innerHTML = `<div class="status-error">Error: ${data.error}</div>`;
+                return;
+            }
+            
+            // Poll for status
+            pollExportStatus(data.job_id);
+            
+        } catch (error) {
+            statusDiv.innerHTML = `<div class="status-error">Error: ${error.message}</div>`;
+        }
+    }
+    
+    async function pollExportStatus(jobId) {
+        const statusDiv = document.getElementById('export-status');
+        
+        const checkStatus = async () => {
+            try {
+                const response = await fetch(`/api/map-export/status/${jobId}`);
+                const data = await response.json();
+                
+                if (data.status === 'complete') {
+                    statusDiv.innerHTML = `
+                        <div class="status-success">
+                            Export complete! (${data.file_size_mb} MB)<br>
+                            <a href="${data.download_url}" class="btn-map" style="display: inline-block; margin-top: 10px;">
+                                <i class="fas fa-download"></i> Download
+                            </a>
+                        </div>
+                    `;
+                } else if (data.status === 'failed') {
+                    statusDiv.innerHTML = `<div class="status-error">Export failed: ${data.error}</div>`;
+                } else {
+                    statusDiv.innerHTML = '<div class="status-processing">Processing export...</div>';
+                    setTimeout(checkStatus, 2000); // Check again in 2 seconds
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status-error">Error checking status: ${error.message}</div>`;
+            }
+        };
+        
+        checkStatus();
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', initMap);
+</script>
+{% endblock %}

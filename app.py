@@ -17,6 +17,8 @@ from contextlib import contextmanager
 from werkzeug.utils import secure_filename
 from dxf_importer import DXFImporter
 from dxf_exporter import DXFExporter
+from map_export_service import MapExportService
+import threading
 
 # Load environment variables (works with both .env file and Replit secrets)
 load_dotenv()
@@ -3226,6 +3228,211 @@ def graph_page():
 def quality_dashboard_page():
     """Quality and Health Dashboard Page"""
     return render_template('quality-dashboard.html')
+
+# ============================================
+# MAP VIEWER & EXPORT ROUTES
+# ============================================
+
+# Initialize map export service
+map_export = MapExportService()
+
+@app.route('/map-viewer')
+def map_viewer_page():
+    """Map Viewer Page"""
+    return render_template('map_viewer.html')
+
+@app.route('/api/map-viewer/layers')
+def get_gis_layers():
+    """Get available GIS layers"""
+    try:
+        query = "SELECT * FROM gis_layers WHERE enabled = true ORDER BY name"
+        layers = execute_query(query)
+        return jsonify({'layers': layers})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/map-viewer/projects')
+def get_map_projects():
+    """Get all projects with spatial data for map display"""
+    try:
+        query = """
+            SELECT 
+                p.project_id,
+                p.project_name,
+                p.project_number,
+                p.client_name,
+                p.description,
+                COUNT(d.drawing_id) as drawing_count,
+                MIN(d.bbox_min_x) as min_x,
+                MIN(d.bbox_min_y) as min_y,
+                MAX(d.bbox_max_x) as max_x,
+                MAX(d.bbox_max_y) as max_y
+            FROM projects p
+            LEFT JOIN drawings d ON d.project_id = p.project_id
+            WHERE d.bbox_min_x IS NOT NULL
+            GROUP BY p.project_id, p.project_name, p.project_number, p.client_name, p.description
+            HAVING MIN(d.bbox_min_x) IS NOT NULL
+            ORDER BY p.created_at DESC
+        """
+        projects = execute_query(query)
+        
+        # Convert to GeoJSON features for map display
+        features = []
+        for proj in projects:
+            if proj['min_x'] and proj['min_y'] and proj['max_x'] and proj['max_y']:
+                features.append({
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'Polygon',
+                        'coordinates': [[
+                            [float(proj['min_x']), float(proj['min_y'])],
+                            [float(proj['max_x']), float(proj['min_y'])],
+                            [float(proj['max_x']), float(proj['max_y'])],
+                            [float(proj['min_x']), float(proj['max_y'])],
+                            [float(proj['min_x']), float(proj['min_y'])]
+                        ]]
+                    },
+                    'properties': {
+                        'project_id': str(proj['project_id']),
+                        'project_name': proj['project_name'],
+                        'project_number': proj['project_number'],
+                        'client_name': proj['client_name'],
+                        'drawing_count': proj['drawing_count']
+                    }
+                })
+        
+        return jsonify({
+            'type': 'FeatureCollection',
+            'features': features
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/map-export/create', methods=['POST'])
+def create_export_job():
+    """Create a new export job"""
+    try:
+        params = request.json
+        job_id = str(uuid.uuid4())
+        
+        # Insert job record
+        query = """
+            INSERT INTO export_jobs (id, status, params, created_at)
+            VALUES (%s, 'pending', %s, NOW())
+            RETURNING id, status, created_at
+        """
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (job_id, json.dumps(params)))
+                result = dict(cur.fetchone())
+        
+        # Process export in background thread
+        def process_export():
+            try:
+                # Update status to processing
+                with get_db() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "UPDATE export_jobs SET status = 'processing' WHERE id = %s",
+                            (job_id,)
+                        )
+                
+                # Create export package
+                export_result = map_export.create_export_package(job_id, params)
+                
+                update_query = """
+                    UPDATE export_jobs
+                    SET status = %s,
+                        download_url = %s,
+                        file_size_mb = %s,
+                        error_message = %s,
+                        expires_at = %s
+                    WHERE id = %s
+                """
+                with get_db() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(update_query, (
+                            export_result['status'],
+                            export_result.get('download_url'),
+                            export_result.get('file_size_mb'),
+                            export_result.get('error_message'),
+                            export_result.get('expires_at'),
+                            job_id
+                        ))
+            except Exception as e:
+                print(f"Export processing error: {e}")
+                with get_db() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "UPDATE export_jobs SET status = 'failed', error_message = %s WHERE id = %s",
+                            (str(e), job_id)
+                        )
+        
+        thread = threading.Thread(target=process_export)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'job_id': str(result['id']),
+            'status': result['status'],
+            'created_at': result['created_at'].isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/map-export/status/<job_id>')
+def get_export_status(job_id):
+    """Get export job status"""
+    try:
+        query = """
+            SELECT id, status, download_url, file_size_mb, 
+                   error_message, created_at, expires_at
+            FROM export_jobs
+            WHERE id = %s::uuid
+        """
+        result = execute_query(query, (job_id,))
+        
+        if not result:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        job = result[0]
+        response = {
+            'job_id': str(job['id']),
+            'status': job['status']
+        }
+        
+        if job['status'] == 'complete':
+            response.update({
+                'download_url': job['download_url'],
+                'file_size_mb': job['file_size_mb'],
+                'expires_at': job['expires_at'].isoformat() if job['expires_at'] else None
+            })
+        elif job['status'] == 'failed':
+            response['error'] = job['error_message']
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/map-export/download/<job_id>/<filename>')
+def download_export(job_id, filename):
+    """Download export file"""
+    try:
+        file_path = os.path.join('/tmp/exports', job_id, filename)
+        
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found or expired'}), 404
+        
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -52,6 +52,7 @@ Preferred communication style: Simple, everyday language.
 - **CAD Standards Portal:** Visual, read-only display of CAD standards.
 - **Data Manager:** CRUD operations for CAD standards data (Abbreviations, Layers, Blocks, Details) with searching and import/export.
 - **DXF Tools:** Full DXF import/export functionality using `ezdxf` with PostGIS GeometryZ.
+- **Map Viewer & Export:** Interactive Leaflet map with coordinate transformation, bounding box export to DXF/SHP/PNG, measurement tools, and WFS layer support.
 - **Sheet Note Manager:** Backend for managing construction drawing notes with standard libraries and custom overrides.
 - **Sheet Set Manager:** System for organizing construction document deliverables and tracking sheet assignments.
 - **Survey & Civil Engineering Schema:** Comprehensive database schema for civil/survey data (points, networks, alignments, parcels) utilizing PostGIS PointZ.
@@ -60,7 +61,8 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 **Python Libraries:**
-- `Flask`, `Flask-Caching`, `psycopg2-binary`, `python-dotenv`, `flask-cors`, `ezdxf`, `openai`.
+- `Flask`, `Flask-Caching`, `psycopg2-binary`, `python-dotenv`, `flask-cors`, `ezdxf`, `openai`
+- **Geospatial:** `pyproj`, `shapely`, `fiona`, `owslib`, `pillow`, `rasterio`
 
 **Database:**
 - `PostgreSQL 12+`
@@ -71,6 +73,7 @@ Preferred communication style: Simple, everyday language.
 - `Font Awesome 6.4.0`
 - `Google Fonts` (Orbitron, Rajdhani)
 - `Vis.js`
+- **Mapping:** `Leaflet.js 1.9.4`, `Leaflet.draw 1.0.4`, `Proj4js 2.9.0`, `Turf.js 6.x`
 
 **Environment Configuration:**
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
@@ -79,6 +82,18 @@ Preferred communication style: Simple, everyday language.
 - **ACAD-GIS FastAPI application:** Main API server sharing the same PostgreSQL/PostGIS database.
 
 ## Recent Changes
+
+**November 4, 2025 - Map Viewer & Export Tool Prototype:**
+- **Interactive Web Map:** Integrated Leaflet.js map viewer with multiple basemap options (OSM, USGS Topo, ESRI Imagery, CartoDB Light/Dark)
+- **Coordinate Systems:** Full support for EPSG:2226 (CA State Plane Zone 2) with real-time coordinate display and transformation from Web Mercator
+- **Bounding Box Export:** Users can draw rectangles on the map to define export areas with automatic area calculation (acres and square feet)
+- **Measurement Tools:** Distance measurement (feet/miles) and area measurement (sq ft/acres) using Turf.js
+- **Address Search:** Nominatim geocoding API integration with Sonoma County bias for finding locations
+- **Export Formats:** DXF, Shapefile (.shp with .prj files), and PNG map images with optional north arrow and scale bar
+- **Background Processing:** Asynchronous export job queue with status polling and download links
+- **Database Integration:** New tables for GIS layers and export job tracking, integrated with existing projects/drawings
+- **GIS Layer Support:** Framework for WFS/WMS layer overlay (Sonoma County parcels, buildings, roads)
+- **Export Service:** Comprehensive geospatial processing pipeline using pyproj, shapely, fiona, ezdxf, owslib, rasterio
 
 **November 4, 2025 - Complete Intelligent DXF Workflow:**
 - **Bidirectional CAD ↔ Database Sync:** Fully functional workflow where database is source of truth and DXF is interchange format (like Git)

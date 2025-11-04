@@ -1,0 +1,390 @@
+"""
+Map Export Service
+Handles geospatial data export in multiple formats (DXF, SHP, PNG)
+"""
+
+import os
+import uuid
+import zipfile
+import json
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
+from io import BytesIO
+import tempfile
+
+from pyproj import Transformer
+from shapely.geometry import box, shape, mapping
+from shapely.ops import transform
+import fiona
+from fiona.crs import from_epsg
+import ezdxf
+from owslib.wfs import WebFeatureService
+from PIL import Image, ImageDraw, ImageFont
+
+
+class MapExportService:
+    """Service for exporting map data in various formats"""
+    
+    def __init__(self, export_dir: str = "/tmp/exports"):
+        self.export_dir = export_dir
+        os.makedirs(export_dir, exist_ok=True)
+        
+        # Transformer from Web Mercator (EPSG:3857) to CA State Plane Zone 2 (EPSG:2226)
+        self.transformer_3857_to_2226 = Transformer.from_crs(
+            "EPSG:3857", "EPSG:2226", always_xy=True
+        )
+        
+        # Transformer from WGS84 (EPSG:4326) to CA State Plane Zone 2 (EPSG:2226)
+        self.transformer_4326_to_2226 = Transformer.from_crs(
+            "EPSG:4326", "EPSG:2226", always_xy=True
+        )
+    
+    def transform_bbox(self, bbox: Dict, source_crs: str = "EPSG:3857") -> Tuple[float, float, float, float]:
+        """Transform bounding box to EPSG:2226"""
+        minx, miny, maxx, maxy = bbox['minx'], bbox['miny'], bbox['maxx'], bbox['maxy']
+        
+        if source_crs == "EPSG:3857":
+            transformer = self.transformer_3857_to_2226
+        elif source_crs == "EPSG:4326":
+            transformer = self.transformer_4326_to_2226
+        else:
+            raise ValueError(f"Unsupported source CRS: {source_crs}")
+        
+        minx_ft, miny_ft = transformer.transform(minx, miny)
+        maxx_ft, maxy_ft = transformer.transform(maxx, maxy)
+        
+        return (minx_ft, miny_ft, maxx_ft, maxy_ft)
+    
+    def fetch_wfs_data(self, layer_config: Dict, bbox_2226: Tuple) -> Dict:
+        """Fetch data from WFS service"""
+        try:
+            wfs = WebFeatureService(url=layer_config['url'], version='2.0.0', timeout=30)
+            
+            response = wfs.getfeature(
+                typename=layer_config['layer_name'],
+                bbox=bbox_2226,
+                srsname='EPSG:2226',
+                outputFormat='application/json'
+            )
+            
+            geojson_data = json.loads(response.read())
+            return geojson_data
+            
+        except Exception as e:
+            print(f"Error fetching WFS data for {layer_config['name']}: {e}")
+            return {"type": "FeatureCollection", "features": []}
+    
+    def clip_features(self, geojson: Dict, bbox_2226: Tuple) -> List[Dict]:
+        """Clip features to bounding box"""
+        bbox_poly = box(*bbox_2226)
+        clipped_features = []
+        
+        for feature in geojson.get('features', []):
+            try:
+                geom = shape(feature['geometry'])
+                
+                if geom.intersects(bbox_poly):
+                    clipped_geom = geom.intersection(bbox_poly)
+                    feature['geometry'] = mapping(clipped_geom)
+                    clipped_features.append(feature)
+            except Exception as e:
+                print(f"Error clipping feature: {e}")
+                continue
+        
+        return clipped_features
+    
+    def export_to_shapefile(self, features: List[Dict], layer_name: str, output_path: str) -> bool:
+        """Export features to Shapefile format"""
+        if not features:
+            print(f"No features to export for {layer_name}")
+            return False
+        
+        try:
+            # Determine geometry type from first feature
+            first_geom = shape(features[0]['geometry'])
+            geom_type = first_geom.geom_type
+            
+            # Build schema from first feature properties
+            properties = features[0].get('properties', {})
+            schema_props = {}
+            for key, value in properties.items():
+                if isinstance(value, int):
+                    schema_props[key] = 'int'
+                elif isinstance(value, float):
+                    schema_props[key] = 'float'
+                else:
+                    schema_props[key] = 'str'
+            
+            schema = {
+                'geometry': geom_type,
+                'properties': schema_props if schema_props else {'id': 'str'}
+            }
+            
+            # Write shapefile
+            with fiona.open(
+                output_path,
+                'w',
+                driver='ESRI Shapefile',
+                crs=from_epsg(2226),
+                schema=schema
+            ) as shp:
+                for feature in features:
+                    shp.write(feature)
+            
+            # Write .prj file manually for better compatibility
+            prj_path = output_path.replace('.shp', '.prj')
+            with open(prj_path, 'w') as prj:
+                # WKT for EPSG:2226
+                prj.write('PROJCS["NAD83 / California zone 2 (ftUS)",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4269"]],PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["standard_parallel_1",39.83333333333334],PARAMETER["standard_parallel_2",38.33333333333334],PARAMETER["latitude_of_origin",37.66666666666666],PARAMETER["central_meridian",-122],PARAMETER["false_easting",6561666.667],PARAMETER["false_northing",1640416.667],UNIT["US survey foot",0.3048006096012192,AUTHORITY["EPSG","9003"]],AXIS["X",EAST],AXIS["Y",NORTH],AUTHORITY["EPSG","2226"]]')
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error exporting shapefile: {e}")
+            return False
+    
+    def export_to_dxf(self, layers_data: Dict[str, List[Dict]], output_path: str) -> bool:
+        """Export features to DXF format"""
+        try:
+            doc = ezdxf.new('R2010')
+            msp = doc.modelspace()
+            
+            for layer_name, features in layers_data.items():
+                # Create layer
+                doc.layers.new(name=layer_name)
+                
+                for feature in features:
+                    geom = shape(feature['geometry'])
+                    
+                    if geom.geom_type == 'Polygon':
+                        points = list(geom.exterior.coords)
+                        msp.add_lwpolyline(
+                            points,
+                            dxfattribs={'layer': layer_name, 'closed': True}
+                        )
+                    elif geom.geom_type == 'MultiPolygon':
+                        for poly in geom.geoms:
+                            points = list(poly.exterior.coords)
+                            msp.add_lwpolyline(
+                                points,
+                                dxfattribs={'layer': layer_name, 'closed': True}
+                            )
+                    elif geom.geom_type == 'LineString':
+                        points = list(geom.coords)
+                        msp.add_lwpolyline(
+                            points,
+                            dxfattribs={'layer': layer_name}
+                        )
+                    elif geom.geom_type == 'MultiLineString':
+                        for line in geom.geoms:
+                            points = list(line.coords)
+                            msp.add_lwpolyline(
+                                points,
+                                dxfattribs={'layer': layer_name}
+                            )
+                    elif geom.geom_type == 'Point':
+                        msp.add_point(
+                            (geom.x, geom.y),
+                            dxfattribs={'layer': layer_name}
+                        )
+                    elif geom.geom_type == 'MultiPoint':
+                        for point in geom.geoms:
+                            msp.add_point(
+                                (point.x, point.y),
+                                dxfattribs={'layer': layer_name}
+                            )
+            
+            doc.saveas(output_path)
+            return True
+            
+        except Exception as e:
+            print(f"Error exporting DXF: {e}")
+            return False
+    
+    def create_map_image(self, bbox: Dict, width: int = 1200, height: int = 900,
+                        north_arrow: bool = True, scale_bar: bool = True) -> Optional[str]:
+        """Create a simple map placeholder image with annotations"""
+        try:
+            # Create blank image
+            img = Image.new('RGB', (width, height), color='#f0f0f0')
+            draw = ImageDraw.Draw(img)
+            
+            # Draw border
+            draw.rectangle([(10, 10), (width-10, height-10)], outline='#333333', width=3)
+            
+            # Add title
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+                small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
+            except:
+                font = ImageFont.load_default()
+                small_font = ImageFont.load_default()
+            
+            draw.text((width//2, 40), "Map Export", fill='#333333', font=font, anchor='mm')
+            
+            # Add coordinates
+            coord_text = f"Bounds: {bbox['minx']:.2f}, {bbox['miny']:.2f} to {bbox['maxx']:.2f}, {bbox['maxy']:.2f}"
+            draw.text((width//2, 80), coord_text, fill='#666666', font=small_font, anchor='mm')
+            
+            # Add north arrow if requested
+            if north_arrow:
+                self._draw_north_arrow(draw, width - 80, 120)
+            
+            # Add scale bar if requested
+            if scale_bar:
+                self._draw_scale_bar(draw, 80, height - 80, bbox)
+            
+            # Add watermark
+            draw.text((width - 20, height - 20), "ACAD-GIS Map Viewer", 
+                     fill='#999999', font=small_font, anchor='rb')
+            
+            # Save to temp file
+            temp_path = os.path.join(self.export_dir, f"map_{uuid.uuid4().hex}.png")
+            img.save(temp_path, 'PNG')
+            return temp_path
+            
+        except Exception as e:
+            print(f"Error creating map image: {e}")
+            return None
+    
+    def _draw_north_arrow(self, draw, x: int, y: int):
+        """Draw a simple north arrow"""
+        # Arrow pointing up
+        points = [(x, y-30), (x+15, y), (x+10, y), (x+10, y+10), 
+                 (x-10, y+10), (x-10, y), (x-15, y)]
+        draw.polygon(points, fill='#333333', outline='#000000')
+        draw.text((x, y+25), "N", fill='#333333', anchor='mm')
+    
+    def _draw_scale_bar(self, draw, x: int, y: int, bbox: Dict):
+        """Draw a simple scale bar"""
+        # Calculate approximate scale (simplified)
+        bar_length = 200  # pixels
+        draw.rectangle([(x, y-5), (x+bar_length, y+5)], fill='#333333')
+        draw.text((x + bar_length//2, y+20), "Scale", fill='#333333', anchor='mm')
+    
+    def create_export_package(self, job_id: str, params: Dict) -> Dict:
+        """
+        Main export function - creates export package with selected formats
+        Returns: dict with status, download_url, file_size_mb, or error
+        """
+        try:
+            # Create job directory
+            job_dir = os.path.join(self.export_dir, str(job_id))
+            os.makedirs(job_dir, exist_ok=True)
+            
+            # Transform bounding box to EPSG:2226
+            source_crs = params['bbox'].get('crs', 'EPSG:3857')
+            bbox_2226 = self.transform_bbox(params['bbox'], source_crs)
+            
+            # Storage for all layer data
+            all_layers_data = {}
+            
+            # Fetch and clip data for each requested layer
+            for layer_id in params.get('layers', []):
+                # In MVP, we'll use placeholder data
+                # In production, this would fetch from WFS
+                layer_config = {
+                    'name': layer_id.title(),
+                    'url': 'https://gis.sonomacounty.ca.gov/geoserver/wfs',
+                    'layer_name': layer_id
+                }
+                
+                # For MVP, create sample data
+                all_layers_data[layer_id] = self._create_sample_features(bbox_2226, layer_id)
+            
+            # Export to requested formats
+            exported_files = []
+            
+            if 'shp' in params.get('formats', []):
+                for layer_id, features in all_layers_data.items():
+                    shp_path = os.path.join(job_dir, f"{layer_id}.shp")
+                    if self.export_to_shapefile(features, layer_id, shp_path):
+                        exported_files.extend([
+                            f"{layer_id}.shp",
+                            f"{layer_id}.shx",
+                            f"{layer_id}.dbf",
+                            f"{layer_id}.prj"
+                        ])
+            
+            if 'dxf' in params.get('formats', []):
+                dxf_path = os.path.join(job_dir, "export.dxf")
+                if self.export_to_dxf(all_layers_data, dxf_path):
+                    exported_files.append("export.dxf")
+            
+            if 'png' in params.get('formats', []):
+                png_opts = params.get('png_options', {})
+                png_path = self.create_map_image(
+                    params['bbox'],
+                    north_arrow=png_opts.get('north_arrow', True),
+                    scale_bar=png_opts.get('scale_bar', True)
+                )
+                if png_path:
+                    # Move to job dir
+                    import shutil
+                    dest = os.path.join(job_dir, "map.png")
+                    shutil.move(png_path, dest)
+                    exported_files.append("map.png")
+            
+            # Create zip archive
+            zip_path = os.path.join(job_dir, "export.zip")
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for filename in exported_files:
+                    file_path = os.path.join(job_dir, filename)
+                    if os.path.exists(file_path):
+                        zipf.write(file_path, filename)
+            
+            # Calculate file size
+            file_size_mb = os.path.getsize(zip_path) / (1024 * 1024)
+            
+            return {
+                'status': 'complete',
+                'download_url': f'/api/map-export/download/{job_id}/export.zip',
+                'file_size_mb': round(file_size_mb, 2),
+                'expires_at': (datetime.now() + timedelta(hours=1)).isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                'status': 'failed',
+                'error_message': str(e)
+            }
+    
+    def _create_sample_features(self, bbox_2226: Tuple, layer_type: str) -> List[Dict]:
+        """Create sample features for MVP demonstration"""
+        minx, miny, maxx, maxy = bbox_2226
+        
+        features = []
+        
+        if layer_type == 'parcels':
+            # Create a sample parcel polygon
+            features.append({
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Polygon',
+                    'coordinates': [[
+                        [minx + (maxx-minx)*0.1, miny + (maxy-miny)*0.1],
+                        [maxx - (maxx-minx)*0.1, miny + (maxy-miny)*0.1],
+                        [maxx - (maxx-minx)*0.1, maxy - (maxy-miny)*0.1],
+                        [minx + (maxx-minx)*0.1, maxy - (maxy-miny)*0.1],
+                        [minx + (maxx-minx)*0.1, miny + (maxy-miny)*0.1],
+                    ]]
+                },
+                'properties': {'id': 1, 'name': 'Sample Parcel'}
+            })
+        
+        return features
+    
+    def cleanup_expired_jobs(self):
+        """Remove expired export files"""
+        try:
+            for job_folder in os.listdir(self.export_dir):
+                job_path = os.path.join(self.export_dir, job_folder)
+                if os.path.isdir(job_path):
+                    # Check if older than 2 hours
+                    created_time = os.path.getctime(job_path)
+                    if (datetime.now().timestamp() - created_time) > 7200:  # 2 hours
+                        import shutil
+                        shutil.rmtree(job_path)
+                        print(f"Cleaned up expired job: {job_folder}")
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
