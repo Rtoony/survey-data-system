@@ -91,6 +91,12 @@ class DXFImporter:
                             self._import_entities(layout, drawing_id, 'PAPER', conn, stats, resolver)
                             self._import_viewports(layout, drawing_id, conn, stats, resolver)
                 
+                # Create intelligent objects from imported entities
+                if self.create_intelligent_objects:
+                    stats['intelligent_objects_created'] = self._create_intelligent_objects(
+                        drawing_id, conn, stats
+                    )
+                
                 conn.commit()
                 
             except Exception as e:
@@ -107,6 +113,87 @@ class DXFImporter:
         stats['linetypes'] = len(stats['linetypes'])
         
         return stats
+    
+    def _create_intelligent_objects(self, drawing_id: str, conn, stats: Dict) -> int:
+        """
+        Create intelligent civil engineering objects from imported DXF entities.
+        
+        Args:
+            drawing_id: UUID of the drawing
+            conn: Database connection
+            stats: Import statistics dictionary
+            
+        Returns:
+            Count of intelligent objects created
+        """
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Get project_id from drawing
+        cur.execute("""
+            SELECT project_id FROM drawings WHERE drawing_id = %s
+        """, (drawing_id,))
+        result = cur.fetchone()
+        
+        if not result:
+            cur.close()
+            return 0
+        
+        project_id = str(result['project_id'])
+        
+        # Query recently imported entities from this drawing
+        cur.execute("""
+            SELECT 
+                entity_id,
+                entity_type,
+                layer_name,
+                ST_AsText(geometry) as geometry_wkt,
+                ST_GeometryType(geometry) as geometry_type,
+                dxf_handle,
+                color_aci,
+                linetype,
+                space_type
+            FROM drawing_entities
+            WHERE drawing_id = %s
+            ORDER BY created_at DESC
+        """, (drawing_id,))
+        
+        entities = cur.fetchall()
+        cur.close()
+        
+        # Initialize intelligent object creator
+        creator = IntelligentObjectCreator(self.db_config, conn=conn)
+        
+        created_count = 0
+        
+        for entity in entities:
+            try:
+                # Prepare entity data dictionary
+                entity_data = {
+                    'entity_id': str(entity['entity_id']),
+                    'entity_type': entity['entity_type'],
+                    'layer_name': entity['layer_name'],
+                    'geometry_wkt': entity['geometry_wkt'],
+                    'geometry_type': entity['geometry_type'].replace('ST_', ''),  # ST_LineString -> LineString
+                    'dxf_handle': entity['dxf_handle'],
+                    'color_aci': entity['color_aci'],
+                    'linetype': entity['linetype'],
+                    'space_type': entity['space_type']
+                }
+                
+                # Attempt to create intelligent object
+                result = creator.create_from_entity(entity_data, drawing_id, project_id)
+                
+                if result:
+                    created_count += 1
+                    object_type, object_id, table_name = result
+                    # Optional: Log successful creation
+                    # print(f"Created {object_type} {object_id} from {entity['entity_type']} on {entity['layer_name']}")
+                    
+            except Exception as e:
+                stats['errors'].append(f"Failed to create intelligent object from entity {entity.get('dxf_handle', 'unknown')}: {str(e)}")
+                continue
+        
+        return created_count
     
     def _import_layers(self, doc, drawing_id: str, 
                        conn, stats: Dict, resolver: DXFLookupService):

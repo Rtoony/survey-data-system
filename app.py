@@ -1882,6 +1882,210 @@ def get_export_jobs():
         return jsonify({'error': str(e)}), 500
 
 # ============================================
+# INTELLIGENT DXF WORKFLOW API
+# ============================================
+
+@app.route('/api/dxf/import-intelligent', methods=['POST'])
+def import_intelligent_dxf():
+    """Import DXF file with intelligent object creation from layer patterns"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.dxf'):
+            return jsonify({'error': 'File must be a DXF file'}), 400
+        
+        # Get parameters
+        drawing_id = request.form.get('drawing_id')
+        if not drawing_id:
+            return jsonify({'error': 'drawing_id is required'}), 400
+        
+        import_modelspace = request.form.get('import_modelspace', 'true') == 'true'
+        import_paperspace = request.form.get('import_paperspace', 'true') == 'true'
+        
+        # Save uploaded file temporarily
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join('/tmp', f'{uuid.uuid4()}_{filename}')
+        file.save(temp_path)
+        
+        try:
+            # Import DXF with intelligent object creation enabled
+            importer = DXFImporter(DB_CONFIG, create_intelligent_objects=True)
+            stats = importer.import_dxf(
+                temp_path,
+                drawing_id,
+                import_modelspace=import_modelspace,
+                import_paperspace=import_paperspace
+            )
+            
+            return jsonify({
+                'success': len(stats['errors']) == 0,
+                'stats': stats,
+                'message': f"Imported {stats.get('entities', 0)} entities and created {stats.get('intelligent_objects_created', 0)} intelligent objects"
+            })
+        
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dxf/export-intelligent', methods=['POST'])
+def export_intelligent_dxf():
+    """Export intelligent objects from a project to DXF file with proper layer names"""
+    try:
+        data = request.get_json()
+        
+        project_id = data.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        include_types = data.get('include_types')  # Optional filter
+        
+        # Generate output file
+        output_filename = f'project_{project_id}_{uuid.uuid4().hex[:8]}.dxf'
+        output_path = os.path.join('/tmp', output_filename)
+        
+        # Export intelligent objects
+        exporter = DXFExporter(DB_CONFIG)
+        stats = exporter.export_intelligent_objects_to_dxf(
+            project_id,
+            output_path,
+            include_types=include_types
+        )
+        
+        if not os.path.exists(output_path):
+            return jsonify({'error': 'Export failed - file not created'}), 500
+        
+        # Send file for download
+        return send_file(
+            output_path,
+            as_attachment=True,
+            download_name=output_filename,
+            mimetype='application/dxf'
+        )
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dxf/reimport', methods=['POST'])
+def reimport_dxf_with_changes():
+    """Re-import a DXF file and detect/merge changes to intelligent objects"""
+    try:
+        from dxf_change_detector import DXFChangeDetector
+        
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.dxf'):
+            return jsonify({'error': 'File must be a DXF file'}), 400
+        
+        # Get parameters
+        drawing_id = request.form.get('drawing_id')
+        if not drawing_id:
+            return jsonify({'error': 'drawing_id is required'}), 400
+        
+        # Save uploaded file temporarily
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join('/tmp', f'{uuid.uuid4()}_{filename}')
+        file.save(temp_path)
+        
+        try:
+            # Step 1: Import DXF entities (without creating new intelligent objects yet)
+            importer = DXFImporter(DB_CONFIG, create_intelligent_objects=False)
+            import_stats = importer.import_dxf(
+                temp_path,
+                drawing_id,
+                import_modelspace=True,
+                import_paperspace=True
+            )
+            
+            # Step 2: Get the reimported entities from database
+            with get_db() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT 
+                            entity_id,
+                            entity_type,
+                            layer_name,
+                            ST_AsText(geometry) as geometry_wkt,
+                            ST_GeometryType(geometry) as geometry_type,
+                            dxf_handle
+                        FROM drawing_entities
+                        WHERE drawing_id = %s
+                    """, (drawing_id,))
+                    
+                    reimported_entities = [dict(row) for row in cur.fetchall()]
+            
+            # Step 3: Detect changes
+            detector = DXFChangeDetector(DB_CONFIG)
+            change_stats = detector.detect_changes(drawing_id, reimported_entities)
+            
+            return jsonify({
+                'success': len(import_stats['errors']) == 0 and len(change_stats['errors']) == 0,
+                'import_stats': import_stats,
+                'change_stats': change_stats,
+                'message': f"Reimported {import_stats.get('entities', 0)} entities, detected {change_stats['geometry_changes']} geometry changes, {change_stats['layer_changes']} layer changes, {change_stats['new_entities']} new entities, {change_stats['deleted_entities']} deletions"
+            })
+        
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dxf/sync-status/<drawing_id>', methods=['GET'])
+def get_sync_status(drawing_id):
+    """Get synchronization status for a drawing's intelligent objects"""
+    try:
+        query = """
+            SELECT 
+                object_type,
+                sync_status,
+                COUNT(*) as count
+            FROM dxf_entity_links
+            WHERE drawing_id = %s
+            GROUP BY object_type, sync_status
+            ORDER BY object_type, sync_status
+        """
+        
+        status_counts = execute_query(query, (drawing_id,))
+        
+        # Get total counts by object type
+        query_totals = """
+            SELECT 
+                object_type,
+                COUNT(*) as total_count,
+                MAX(last_sync_at) as last_sync
+            FROM dxf_entity_links
+            WHERE drawing_id = %s
+            GROUP BY object_type
+            ORDER BY object_type
+        """
+        
+        totals = execute_query(query_totals, (drawing_id,))
+        
+        return jsonify({
+            'status_by_type': status_counts,
+            'totals': totals
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
 # SHEET NOTE MANAGER API
 # ============================================
 

@@ -92,53 +92,70 @@ Complete workflow documentation with:
 
 ---
 
-## 🚧 Next Steps (Not Yet Implemented)
+## ✅ Recently Completed Components
 
 ### 5. Integration with DXF Importer
-**Status:** Partially complete
+**Status:** COMPLETE ✅
 
-The intelligent object creator is built but not yet integrated into the main import flow. Need to:
-- Add optional `create_intelligent_objects` parameter to import workflow
-- Call `IntelligentObjectCreator` after basic entity import
-- Collect statistics on intelligent objects created
-- Handle errors gracefully if object creation fails
+The intelligent object creator is now fully integrated into the DXF importer:
+- ✅ Added `create_intelligent_objects` parameter (default: True)
+- ✅ `_create_intelligent_objects()` method calls `IntelligentObjectCreator` after entity import
+- ✅ Statistics tracked: `intelligent_objects_created` counter in import stats
+- ✅ Graceful error handling - failures don't break import
+- ✅ Queries all imported entities and attempts to create intelligent objects
+- ✅ Full transaction support with rollback on errors
 
 ### 6. Geometry Fingerprinting
-**Status:** Framework in place
+**Status:** COMPLETE ✅
 
-SHA256 hashing is implemented in `IntelligentObjectCreator._create_entity_link()` but not fully utilized. Need to:
-- Store hashes in `dxf_entity_links.geometry_hash`
-- Compare hashes on re-import to detect geometry changes
-- Update database objects when geometry changes detected
+SHA256 hashing is fully implemented for change detection:
+- ✅ Geometry hashes stored in `dxf_entity_links.geometry_hash` on creation
+- ✅ Change detector compares hashes to detect geometry modifications
+- ✅ Updates database objects when geometry changes detected
+- ✅ Tracks last modification timestamps for conflict detection
 
 ### 7. DXF Export Engine
-**Status:** Not started
+**Status:** COMPLETE ✅
 
-Need to build the reverse workflow (Database → DXF):
-- Query intelligent objects from database
-- Generate DXF geometry from PostGIS geometry
-- Create layer names from object properties (reverse of classification)
-- Write DXF file using `ezdxf` library
-- Maintain entity handles for future re-import
+Full intelligent object export functionality built:
+- ✅ `export_intelligent_objects_to_dxf()` method in `DXFExporter`
+- ✅ Queries intelligent objects from database by project
+- ✅ Generates DXF geometry from PostGIS WKT
+- ✅ Creates layer names from object properties (reverse of classification):
+  - Utility lines → "12IN-STORM"
+  - Structures → "MH-STORM"
+  - BMPs → "BMP-BIORETENTION-500CF"
+  - Surfaces → "SURFACE-EG"
+  - Alignments → "CENTERLINE-ROAD"
+  - Survey points → "CONTROL-POINT", "TOPO"
+  - Trees → "TREE-EXIST", "TREE-PROPOSED"
+- ✅ WKT parsing helpers for POINT, LINESTRING, POLYGON
+- ✅ Export statistics tracking
 
 ### 8. Re-Import Change Detection
-**Status:** Not started
+**Status:** COMPLETE ✅
 
-Need to implement the merge logic:
-- Match DXF entities to existing links via handle
-- Detect layer name changes → update object properties
-- Detect geometry changes → update coordinates
-- Detect deletions → mark objects as deleted
-- Handle conflicts (both CAD and DB modified)
+Full change detection and merge logic implemented in `dxf_change_detector.py`:
+- ✅ `DXFChangeDetector` class with `detect_changes()` method
+- ✅ Matches DXF entities to existing links via DXF handle
+- ✅ Detects layer name changes → updates object properties via classification
+- ✅ Detects geometry changes (hash comparison) → updates coordinates
+- ✅ Detects deletions → marks entity links as 'deleted'
+- ✅ Conflict detection when both CAD and DB modified
+- ✅ Updates all intelligent object tables (utilities, BMPs, surfaces, etc.)
+- ✅ Transaction support with full rollback on errors
 
 ### 9. API Endpoints
-**Status:** Not started
+**Status:** COMPLETE ✅
 
-Need REST API for:
-- `POST /api/dxf/import-intelligent` - Import with object creation
-- `GET /api/dxf/export/{project_id}` - Export project to DXF
-- `POST /api/dxf/reimport` - Merge changes from modified DXF
-- `GET /api/dxf/sync-status/{drawing_id}` - Check sync status
+Full REST API for intelligent DXF workflow in `app.py`:
+- ✅ `POST /api/dxf/import-intelligent` - Import with intelligent object creation
+- ✅ `POST /api/dxf/export-intelligent` - Export project intelligent objects to DXF
+- ✅ `POST /api/dxf/reimport` - Re-import with change detection and merge
+- ✅ `GET /api/dxf/sync-status/<drawing_id>` - Get sync status by object type
+- ✅ File upload handling with temporary storage
+- ✅ Statistics and error reporting
+- ✅ File download for exports
 
 ---
 

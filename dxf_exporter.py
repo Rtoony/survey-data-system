@@ -516,3 +516,415 @@ class DXFExporter:
             
         except Exception as e:
             print(f"Failed to record export job: {e}")
+    
+    def export_intelligent_objects_to_dxf(self, project_id: str, output_path: str,
+                                          include_types: Optional[List[str]] = None) -> Dict:
+        """
+        Export a project's intelligent civil engineering objects to DXF file.
+        Generates layer names from object properties (reverse of layer classification).
+        
+        Args:
+            project_id: UUID of the project to export
+            output_path: Path where DXF file should be saved
+            include_types: Optional list of object types to include 
+                          (e.g., ['utility_line', 'bmp', 'surface_model'])
+                          If None, exports all types
+            
+        Returns:
+            Dictionary with export statistics
+        """
+        stats = {
+            'utility_lines': 0,
+            'utility_structures': 0,
+            'bmps': 0,
+            'surface_models': 0,
+            'alignments': 0,
+            'survey_points': 0,
+            'site_trees': 0,
+            'total_entities': 0,
+            'errors': []
+        }
+        
+        try:
+            # Create new DXF document
+            doc = ezdxf.new('R2018')
+            msp = doc.modelspace()
+            
+            # Connect to database
+            conn = psycopg2.connect(**self.db_config)
+            
+            try:
+                # Export each object type
+                if not include_types or 'utility_line' in include_types:
+                    stats['utility_lines'] = self._export_intelligent_utility_lines(
+                        conn, project_id, doc, msp
+                    )
+                
+                if not include_types or 'utility_structure' in include_types:
+                    stats['utility_structures'] = self._export_intelligent_utility_structures(
+                        conn, project_id, doc, msp
+                    )
+                
+                if not include_types or 'bmp' in include_types:
+                    stats['bmps'] = self._export_intelligent_bmps(
+                        conn, project_id, doc, msp
+                    )
+                
+                if not include_types or 'surface_model' in include_types:
+                    stats['surface_models'] = self._export_intelligent_surface_models(
+                        conn, project_id, doc, msp
+                    )
+                
+                if not include_types or 'alignment' in include_types:
+                    stats['alignments'] = self._export_intelligent_alignments(
+                        conn, project_id, doc, msp
+                    )
+                
+                if not include_types or 'survey_point' in include_types:
+                    stats['survey_points'] = self._export_intelligent_survey_points(
+                        conn, project_id, doc, msp
+                    )
+                
+                if not include_types or 'site_tree' in include_types:
+                    stats['site_trees'] = self._export_intelligent_site_trees(
+                        conn, project_id, doc, msp
+                    )
+                
+                # Calculate total
+                stats['total_entities'] = sum([
+                    stats['utility_lines'],
+                    stats['utility_structures'],
+                    stats['bmps'],
+                    stats['surface_models'],
+                    stats['alignments'],
+                    stats['survey_points'],
+                    stats['site_trees']
+                ])
+                
+                # Save DXF file
+                doc.saveas(output_path)
+                
+            finally:
+                conn.close()
+                
+        except Exception as e:
+            stats['errors'].append(f"Export failed: {str(e)}")
+        
+        return stats
+    
+    def _export_intelligent_utility_lines(self, conn, project_id: str, doc, msp) -> int:
+        """Export utility lines with layer names like '12IN-STORM'."""
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("""
+            SELECT 
+                utility_line_id,
+                utility_type,
+                diameter_mm,
+                ST_AsText(line_geometry) as geometry_wkt
+            FROM utility_lines
+            WHERE project_id = %s AND line_geometry IS NOT NULL
+        """, (project_id,))
+        
+        lines = cur.fetchall()
+        cur.close()
+        
+        count = 0
+        for line in lines:
+            try:
+                # Generate layer name: "12IN-STORM"
+                diameter_mm = line.get('diameter_mm')
+                diameter_in = round(diameter_mm / 25.4) if diameter_mm else 0
+                utility_type = (line.get('utility_type') or 'UNKNOWN').upper().replace(' ', '-')
+                
+                layer_name = f"{diameter_in}IN-{utility_type}" if diameter_in else utility_type
+                
+                # Ensure layer exists
+                if layer_name not in doc.layers:
+                    doc.layers.add(layer_name)
+                
+                # Parse WKT and create polyline
+                coords = self._parse_wkt_coords(line['geometry_wkt'])
+                if coords:
+                    msp.add_lwpolyline(coords, dxfattribs={'layer': layer_name})
+                    count += 1
+                    
+            except Exception as e:
+                continue
+        
+        return count
+    
+    def _export_intelligent_utility_structures(self, conn, project_id: str, doc, msp) -> int:
+        """Export utility structures with layer names like 'MH-STORM'."""
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("""
+            SELECT 
+                structure_id,
+                structure_type,
+                utility_type,
+                ST_X(point_geometry) as x,
+                ST_Y(point_geometry) as y,
+                ST_Z(point_geometry) as z
+            FROM utility_structures
+            WHERE project_id = %s AND point_geometry IS NOT NULL
+        """, (project_id,))
+        
+        structures = cur.fetchall()
+        cur.close()
+        
+        count = 0
+        for struct in structures:
+            try:
+                # Generate layer name: "MH-STORM"
+                struct_type = (struct.get('structure_type') or 'STRUCT').upper().replace(' ', '-')
+                if struct_type == 'MANHOLE':
+                    struct_type = 'MH'
+                elif struct_type == 'CATCH-BASIN':
+                    struct_type = 'CB'
+                    
+                utility_type = (struct.get('utility_type') or 'UNKNOWN').upper().replace(' ', '-')
+                layer_name = f"{struct_type}-{utility_type}"
+                
+                # Ensure layer exists
+                if layer_name not in doc.layers:
+                    doc.layers.add(layer_name)
+                
+                # Create point
+                x = struct.get('x', 0)
+                y = struct.get('y', 0)
+                z = struct.get('z', 0)
+                msp.add_point((x, y, z), dxfattribs={'layer': layer_name})
+                count += 1
+                
+            except Exception as e:
+                continue
+        
+        return count
+    
+    def _export_intelligent_bmps(self, conn, project_id: str, doc, msp) -> int:
+        """Export BMPs with layer names like 'BMP-BIORETENTION-500CF'."""
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("""
+            SELECT 
+                bmp_id,
+                bmp_type,
+                design_volume_cf,
+                ST_AsText(location) as location_wkt,
+                ST_AsText(boundary) as boundary_wkt,
+                ST_GeometryType(location) as location_geom_type,
+                ST_GeometryType(boundary) as boundary_geom_type
+            FROM bmps
+            WHERE project_id = %s AND (location IS NOT NULL OR boundary IS NOT NULL)
+        """, (project_id,))
+        
+        bmps = cur.fetchall()
+        cur.close()
+        
+        count = 0
+        for bmp in bmps:
+            try:
+                # Generate layer name: "BMP-BIORETENTION-500CF"
+                bmp_type = (bmp.get('bmp_type') or 'UNKNOWN').upper().replace(' ', '-')
+                volume = bmp.get('design_volume_cf')
+                
+                if volume:
+                    layer_name = f"BMP-{bmp_type}-{int(volume)}CF"
+                else:
+                    layer_name = f"BMP-{bmp_type}"
+                
+                # Ensure layer exists
+                if layer_name not in doc.layers:
+                    doc.layers.add(layer_name)
+                
+                # Export as polygon or point
+                if bmp.get('boundary_wkt') and 'POLYGON' in bmp.get('boundary_geom_type', ''):
+                    coords = self._parse_wkt_coords(bmp['boundary_wkt'])
+                    if coords:
+                        msp.add_lwpolyline(coords, close=True, dxfattribs={'layer': layer_name})
+                        count += 1
+                elif bmp.get('location_wkt'):
+                    coords = self._parse_wkt_coords(bmp['location_wkt'])
+                    if coords:
+                        msp.add_point(coords[0], dxfattribs={'layer': layer_name})
+                        count += 1
+                    
+            except Exception as e:
+                continue
+        
+        return count
+    
+    def _export_intelligent_surface_models(self, conn, project_id: str, doc, msp) -> int:
+        """Export surface models on layers like 'SURFACE-EG'."""
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("""
+            SELECT 
+                surface_id,
+                surface_type,
+                ST_AsText(surface_geometry) as geometry_wkt,
+                ST_GeometryType(surface_geometry) as geometry_type
+            FROM surface_models
+            WHERE project_id = %s AND surface_geometry IS NOT NULL
+        """, (project_id,))
+        
+        surfaces = cur.fetchall()
+        cur.close()
+        
+        count = 0
+        for surface in surfaces:
+            try:
+                # Generate layer name: "SURFACE-EG"
+                surf_type = (surface.get('surface_type') or 'UNKNOWN').upper().replace(' ', '-')
+                if 'EXISTING' in surf_type.upper():
+                    surf_type = 'EG'
+                elif 'PROPOSED' in surf_type.upper() or 'FINISHED' in surf_type.upper():
+                    surf_type = 'FG'
+                    
+                layer_name = f"SURFACE-{surf_type}"
+                
+                # Ensure layer exists
+                if layer_name not in doc.layers:
+                    doc.layers.add(layer_name)
+                
+                # Export boundary polyline
+                coords = self._parse_wkt_coords(surface['geometry_wkt'])
+                if coords:
+                    msp.add_lwpolyline(coords, close=True, dxfattribs={'layer': layer_name})
+                    count += 1
+                    
+            except Exception as e:
+                continue
+        
+        return count
+    
+    def _export_intelligent_alignments(self, conn, project_id: str, doc, msp) -> int:
+        """Export alignments on layers like 'CENTERLINE-ROAD'."""
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("""
+            SELECT 
+                alignment_id,
+                alignment_type,
+                ST_AsText(centerline_geometry) as geometry_wkt
+            FROM horizontal_alignments
+            WHERE project_id = %s AND centerline_geometry IS NOT NULL
+        """, (project_id,))
+        
+        alignments = cur.fetchall()
+        cur.close()
+        
+        count = 0
+        for alignment in alignments:
+            try:
+                # Generate layer name: "CENTERLINE-ROAD"
+                align_type = (alignment.get('alignment_type') or 'ROAD').upper().replace(' ', '-')
+                layer_name = f"CENTERLINE-{align_type}"
+                
+                # Ensure layer exists
+                if layer_name not in doc.layers:
+                    doc.layers.add(layer_name)
+                
+                # Parse WKT and create polyline
+                coords = self._parse_wkt_coords(alignment['geometry_wkt'])
+                if coords:
+                    msp.add_lwpolyline(coords, dxfattribs={'layer': layer_name})
+                    count += 1
+                    
+            except Exception as e:
+                continue
+        
+        return count
+    
+    def _export_intelligent_survey_points(self, conn, project_id: str, doc, msp) -> int:
+        """Export survey points on layers like 'CONTROL-POINT', 'TOPO'."""
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("""
+            SELECT 
+                point_id,
+                point_type,
+                ST_X(point_geometry) as x,
+                ST_Y(point_geometry) as y,
+                ST_Z(point_geometry) as z
+            FROM survey_points
+            WHERE project_id = %s AND point_geometry IS NOT NULL
+        """, (project_id,))
+        
+        points = cur.fetchall()
+        cur.close()
+        
+        count = 0
+        for point in points:
+            try:
+                # Generate layer name: "CONTROL-POINT", "TOPO"
+                point_type = (point.get('point_type') or 'TOPO').upper().replace(' ', '-')
+                if point_type == 'CONTROL':
+                    layer_name = 'CONTROL-POINT'
+                else:
+                    layer_name = point_type
+                
+                # Ensure layer exists
+                if layer_name not in doc.layers:
+                    doc.layers.add(layer_name)
+                
+                # Create point
+                x = point.get('x', 0)
+                y = point.get('y', 0)
+                z = point.get('z', 0)
+                msp.add_point((x, y, z), dxfattribs={'layer': layer_name})
+                count += 1
+                
+            except Exception as e:
+                continue
+        
+        return count
+    
+    def _export_intelligent_site_trees(self, conn, project_id: str, doc, msp) -> int:
+        """Export trees on layers like 'TREE-EXIST', 'TREE-PROPOSED'."""
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("""
+            SELECT 
+                tree_id,
+                tree_status,
+                ST_X(location) as x,
+                ST_Y(location) as y,
+                ST_Z(location) as z
+            FROM site_trees
+            WHERE project_id = %s AND location IS NOT NULL
+        """, (project_id,))
+        
+        trees = cur.fetchall()
+        cur.close()
+        
+        count = 0
+        for tree in trees:
+            try:
+                # Generate layer name: "TREE-EXIST", "TREE-PROPOSED"
+                status = (tree.get('tree_status') or 'EXIST').upper()
+                if 'EXIST' in status:
+                    layer_name = 'TREE-EXIST'
+                elif 'PROPOSED' in status or 'NEW' in status:
+                    layer_name = 'TREE-PROPOSED'
+                elif 'REMOVE' in status:
+                    layer_name = 'TREE-REMOVE'
+                else:
+                    layer_name = f'TREE-{status}'
+                
+                # Ensure layer exists
+                if layer_name not in doc.layers:
+                    doc.layers.add(layer_name)
+                
+                # Create point
+                x = tree.get('x', 0)
+                y = tree.get('y', 0)
+                z = tree.get('z', 0)
+                msp.add_point((x, y, z), dxfattribs={'layer': layer_name})
+                count += 1
+                
+            except Exception as e:
+                continue
+        
+        return count
