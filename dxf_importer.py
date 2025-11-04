@@ -12,15 +12,18 @@ import json
 from typing import Dict, List, Optional, Tuple
 import os
 import math
+import hashlib
 from dxf_lookup_service import DXFLookupService
+from intelligent_object_creator import IntelligentObjectCreator
 
 
 class DXFImporter:
     """Import DXF files and store entities in PostgreSQL database."""
     
-    def __init__(self, db_config: Dict):
+    def __init__(self, db_config: Dict, create_intelligent_objects: bool = True):
         """Initialize importer with database configuration."""
         self.db_config = db_config
+        self.create_intelligent_objects = create_intelligent_objects
     
     def import_dxf(self, file_path: str, drawing_id: int, 
                    coordinate_system: str = 'LOCAL', 
@@ -46,6 +49,12 @@ class DXFImporter:
             'hatches': 0,
             'blocks': 0,
             'viewports': 0,
+            'points': 0,
+            '3dfaces': 0,
+            'solids': 0,
+            'meshes': 0,
+            'leaders': 0,
+            'intelligent_objects_created': 0,
             'layers': set(),
             'linetypes': set(),
             'errors': []
@@ -140,6 +149,21 @@ class DXFImporter:
                 if entity_type in ['LINE', 'POLYLINE', 'LWPOLYLINE', 'ARC', 
                                    'CIRCLE', 'ELLIPSE', 'SPLINE']:
                     self._import_entity(entity, drawing_id, space, conn, stats, resolver)
+                
+                elif entity_type == 'POINT':
+                    self._import_point(entity, drawing_id, space, conn, stats, resolver)
+                
+                elif entity_type == '3DFACE':
+                    self._import_3dface(entity, drawing_id, space, conn, stats, resolver)
+                
+                elif entity_type in ['3DSOLID', 'BODY']:
+                    self._import_3dsolid(entity, drawing_id, space, conn, stats, resolver)
+                
+                elif entity_type in ['MESH', 'POLYMESH', 'POLYFACE']:
+                    self._import_mesh(entity, drawing_id, space, conn, stats, resolver)
+                
+                elif entity_type in ['LEADER', 'MULTILEADER']:
+                    self._import_leader(entity, drawing_id, space, conn, stats, resolver)
                 
                 elif entity_type in ['TEXT', 'MTEXT']:
                     self._import_text(entity, drawing_id, space, conn, stats, resolver)
@@ -482,5 +506,209 @@ class DXFImporter:
                 
             except Exception as e:
                 stats['errors'].append(f"Failed to import viewport: {str(e)}")
+        
+        cur.close()
+    
+    def _import_point(self, entity, drawing_id: int, space: str,
+                      conn, stats: Dict, resolver: DXFLookupService):
+        """Import POINT entity."""
+        cur = conn.cursor()
+        
+        layer_name = entity.dxf.layer
+        location = entity.dxf.location
+        color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
+        linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
+        
+        layer_id, _ = resolver.get_or_create_layer(layer_name, drawing_id, color_aci, linetype)
+        
+        geometry_wkt = f'POINT Z ({location.x} {location.y} {location.z})'
+        
+        cur.execute("""
+            INSERT INTO drawing_entities (
+                drawing_id, entity_type, layer_id, space_type,
+                geometry, color_aci, lineweight, linetype, metadata
+            )
+            VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+        """, (
+            drawing_id, 'POINT', layer_id, space,
+            geometry_wkt, 
+            entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
+            -1, 'ByLayer',
+            json.dumps({'layer_name': layer_name, 'dxf_handle': entity.dxf.handle})
+        ))
+        
+        stats['points'] += 1
+        cur.close()
+    
+    def _import_3dface(self, entity, drawing_id: int, space: str,
+                       conn, stats: Dict, resolver: DXFLookupService):
+        """Import 3DFACE entity (triangular/quad surface faces for TIN surfaces)."""
+        cur = conn.cursor()
+        
+        layer_name = entity.dxf.layer
+        color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
+        linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
+        
+        layer_id, _ = resolver.get_or_create_layer(layer_name, drawing_id, color_aci, linetype)
+        
+        vtx0 = entity.dxf.vtx0
+        vtx1 = entity.dxf.vtx1
+        vtx2 = entity.dxf.vtx2
+        vtx3 = entity.dxf.vtx3 if hasattr(entity.dxf, 'vtx3') else vtx2
+        
+        points = [
+            f'{vtx0.x} {vtx0.y} {vtx0.z}',
+            f'{vtx1.x} {vtx1.y} {vtx1.z}',
+            f'{vtx2.x} {vtx2.y} {vtx2.z}',
+            f'{vtx3.x} {vtx3.y} {vtx3.z}',
+            f'{vtx0.x} {vtx0.y} {vtx0.z}'
+        ]
+        
+        geometry_wkt = f'POLYGON Z (({", ".join(points)}))'
+        
+        cur.execute("""
+            INSERT INTO drawing_entities (
+                drawing_id, entity_type, layer_id, space_type,
+                geometry, color_aci, lineweight, linetype, metadata
+            )
+            VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+        """, (
+            drawing_id, '3DFACE', layer_id, space,
+            geometry_wkt,
+            entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
+            -1, 'ByLayer',
+            json.dumps({'layer_name': layer_name, 'dxf_handle': entity.dxf.handle})
+        ))
+        
+        stats['3dfaces'] += 1
+        cur.close()
+    
+    def _import_3dsolid(self, entity, drawing_id: int, space: str,
+                        conn, stats: Dict, resolver: DXFLookupService):
+        """Import 3DSOLID entity (store as bounding box or centerpoint for now)."""
+        cur = conn.cursor()
+        
+        layer_name = entity.dxf.layer
+        color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
+        linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
+        
+        layer_id, _ = resolver.get_or_create_layer(layer_name, drawing_id, color_aci, linetype)
+        
+        try:
+            if hasattr(entity, 'get_attribs_and_values'):
+                attribs = entity.get_attribs_and_values()
+                metadata = {'layer_name': layer_name, 'dxf_handle': entity.dxf.handle, 'attribs': dict(attribs)}
+            else:
+                metadata = {'layer_name': layer_name, 'dxf_handle': entity.dxf.handle}
+            
+            geometry_wkt = 'POINT Z (0 0 0)'
+            
+            cur.execute("""
+                INSERT INTO drawing_entities (
+                    drawing_id, entity_type, layer_id, space_type,
+                    geometry, color_aci, lineweight, linetype, metadata
+                )
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+            """, (
+                drawing_id, '3DSOLID', layer_id, space,
+                geometry_wkt,
+                entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
+                -1, 'ByLayer',
+                json.dumps(metadata)
+            ))
+            
+            stats['solids'] += 1
+        except Exception as e:
+            stats['errors'].append(f"Failed to import 3DSOLID: {str(e)}")
+        
+        cur.close()
+    
+    def _import_mesh(self, entity, drawing_id: int, space: str,
+                     conn, stats: Dict, resolver: DXFLookupService):
+        """Import MESH/POLYMESH entity (store vertices as multipoint or approximation)."""
+        cur = conn.cursor()
+        
+        layer_name = entity.dxf.layer
+        color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
+        linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
+        
+        layer_id, _ = resolver.get_or_create_layer(layer_name, drawing_id, color_aci, linetype)
+        
+        try:
+            points = []
+            if hasattr(entity, 'vertices'):
+                for vertex in entity.vertices:
+                    if hasattr(vertex, 'dxf') and hasattr(vertex.dxf, 'location'):
+                        loc = vertex.dxf.location
+                        points.append(f'{loc.x} {loc.y} {loc.z}')
+            
+            if points:
+                geometry_wkt = f'MULTIPOINT Z ({", ".join(points)})'
+            else:
+                geometry_wkt = 'POINT Z (0 0 0)'
+            
+            cur.execute("""
+                INSERT INTO drawing_entities (
+                    drawing_id, entity_type, layer_id, space_type,
+                    geometry, color_aci, lineweight, linetype, metadata
+                )
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+            """, (
+                drawing_id, 'MESH', layer_id, space,
+                geometry_wkt,
+                entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
+                -1, 'ByLayer',
+                json.dumps({'layer_name': layer_name, 'dxf_handle': entity.dxf.handle})
+            ))
+            
+            stats['meshes'] += 1
+        except Exception as e:
+            stats['errors'].append(f"Failed to import MESH: {str(e)}")
+        
+        cur.close()
+    
+    def _import_leader(self, entity, drawing_id: int, space: str,
+                       conn, stats: Dict, resolver: DXFLookupService):
+        """Import LEADER/MULTILEADER entity."""
+        cur = conn.cursor()
+        
+        layer_name = entity.dxf.layer
+        color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
+        linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
+        
+        layer_id, _ = resolver.get_or_create_layer(layer_name, drawing_id, color_aci, linetype)
+        
+        try:
+            points = []
+            if hasattr(entity, 'vertices'):
+                for vertex in entity.vertices:
+                    if len(vertex) >= 2:
+                        if len(vertex) == 2:
+                            points.append(f'{vertex[0]} {vertex[1]} 0')
+                        else:
+                            points.append(f'{vertex[0]} {vertex[1]} {vertex[2]}')
+            
+            if points and len(points) >= 2:
+                geometry_wkt = f'LINESTRING Z ({", ".join(points)})'
+            else:
+                geometry_wkt = 'LINESTRING Z (0 0 0, 1 1 0)'
+            
+            cur.execute("""
+                INSERT INTO drawing_entities (
+                    drawing_id, entity_type, layer_id, space_type,
+                    geometry, color_aci, lineweight, linetype, metadata
+                )
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+            """, (
+                drawing_id, 'LEADER', layer_id, space,
+                geometry_wkt,
+                entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
+                -1, 'ByLayer',
+                json.dumps({'layer_name': layer_name, 'dxf_handle': entity.dxf.handle})
+            ))
+            
+            stats['leaders'] += 1
+        except Exception as e:
+            stats['errors'].append(f"Failed to import LEADER: {str(e)}")
         
         cur.close()
