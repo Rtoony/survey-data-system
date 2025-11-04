@@ -25,7 +25,7 @@ class DXFImporter:
         self.db_config = db_config
         self.create_intelligent_objects = create_intelligent_objects
     
-    def import_dxf(self, file_path: str, drawing_id: int, 
+    def import_dxf(self, file_path: str, drawing_id: str, 
                    coordinate_system: str = 'LOCAL', 
                    import_modelspace: bool = True,
                    import_paperspace: bool = True) -> Dict:
@@ -108,7 +108,7 @@ class DXFImporter:
         
         return stats
     
-    def _import_layers(self, doc: ezdxf.document.Drawing, drawing_id: int, 
+    def _import_layers(self, doc, drawing_id: str, 
                        conn, stats: Dict, resolver: DXFLookupService):
         """Import layers and track usage."""
         for layer in doc.layers:
@@ -126,7 +126,7 @@ class DXFImporter:
             # Record layer usage
             resolver.record_layer_usage(drawing_id, layer_id, layer_standard_id)
     
-    def _import_linetypes(self, doc: ezdxf.document.Drawing, drawing_id: int,
+    def _import_linetypes(self, doc, drawing_id: str,
                           conn, stats: Dict, resolver: DXFLookupService):
         """Import linetypes and track usage."""
         for linetype in doc.linetypes:
@@ -139,7 +139,7 @@ class DXFImporter:
             # Record linetype usage
             resolver.record_linetype_usage(drawing_id, linetype_name, linetype_standard_id)
     
-    def _import_entities(self, layout, drawing_id: int, space: str, 
+    def _import_entities(self, layout, drawing_id: str, space: str, 
                          conn, stats: Dict, resolver: DXFLookupService):
         """Import entities from a layout."""
         for entity in layout:
@@ -182,7 +182,7 @@ class DXFImporter:
                     f"Failed to import {entity_type}: {str(e)}"
                 )
     
-    def _import_entity(self, entity, drawing_id: int, space: str, 
+    def _import_entity(self, entity, drawing_id: str, space: str, 
                        conn, stats: Dict, resolver: DXFLookupService):
         """Import generic drawing entity (line, arc, circle, etc.)."""
         cur = conn.cursor()
@@ -294,7 +294,7 @@ class DXFImporter:
         
         return None
     
-    def _import_text(self, entity, drawing_id: int, space: str, 
+    def _import_text(self, entity, drawing_id: str, space: str, 
                      conn, stats: Dict, resolver: DXFLookupService):
         """Import text entity."""
         cur = conn.cursor()
@@ -343,7 +343,7 @@ class DXFImporter:
         stats['text'] += 1
         cur.close()
     
-    def _import_dimension(self, entity, drawing_id: int, space: str,
+    def _import_dimension(self, entity, drawing_id: str, space: str,
                           conn, stats: Dict, resolver: DXFLookupService):
         """Import dimension entity."""
         cur = conn.cursor()
@@ -383,7 +383,7 @@ class DXFImporter:
         stats['dimensions'] += 1
         cur.close()
     
-    def _import_hatch(self, entity, drawing_id: int, space: str,
+    def _import_hatch(self, entity, drawing_id: str, space: str,
                       conn, stats: Dict, resolver: DXFLookupService):
         """Import hatch entity."""
         cur = conn.cursor()
@@ -435,7 +435,7 @@ class DXFImporter:
         
         cur.close()
     
-    def _import_block_insert(self, entity, drawing_id: int, space: str,
+    def _import_block_insert(self, entity, drawing_id: str, space: str,
                              conn, stats: Dict, resolver: DXFLookupService):
         """Import block insert (existing block_inserts table)."""
         cur = conn.cursor()
@@ -470,7 +470,7 @@ class DXFImporter:
         
         cur.close()
     
-    def _import_viewports(self, layout, drawing_id: int, conn, stats: Dict, resolver: DXFLookupService):
+    def _import_viewports(self, layout, drawing_id: str, conn, stats: Dict, resolver: DXFLookupService):
         """Import paper space viewports."""
         cur = conn.cursor()
         
@@ -509,7 +509,7 @@ class DXFImporter:
         
         cur.close()
     
-    def _import_point(self, entity, drawing_id: int, space: str,
+    def _import_point(self, entity, drawing_id: str, space: str,
                       conn, stats: Dict, resolver: DXFLookupService):
         """Import POINT entity."""
         cur = conn.cursor()
@@ -540,7 +540,7 @@ class DXFImporter:
         stats['points'] += 1
         cur.close()
     
-    def _import_3dface(self, entity, drawing_id: int, space: str,
+    def _import_3dface(self, entity, drawing_id: str, space: str,
                        conn, stats: Dict, resolver: DXFLookupService):
         """Import 3DFACE entity (triangular/quad surface faces for TIN surfaces)."""
         cur = conn.cursor()
@@ -583,7 +583,7 @@ class DXFImporter:
         stats['3dfaces'] += 1
         cur.close()
     
-    def _import_3dsolid(self, entity, drawing_id: int, space: str,
+    def _import_3dsolid(self, entity, drawing_id: str, space: str,
                         conn, stats: Dict, resolver: DXFLookupService):
         """Import 3DSOLID entity (store as bounding box or centerpoint for now)."""
         cur = conn.cursor()
@@ -623,7 +623,7 @@ class DXFImporter:
         
         cur.close()
     
-    def _import_mesh(self, entity, drawing_id: int, space: str,
+    def _import_mesh(self, entity, drawing_id: str, space: str,
                      conn, stats: Dict, resolver: DXFLookupService):
         """Import MESH/POLYMESH entity (store vertices as multipoint or approximation)."""
         cur = conn.cursor()
@@ -667,7 +667,7 @@ class DXFImporter:
         
         cur.close()
     
-    def _import_leader(self, entity, drawing_id: int, space: str,
+    def _import_leader(self, entity, drawing_id: str, space: str,
                        conn, stats: Dict, resolver: DXFLookupService):
         """Import LEADER/MULTILEADER entity."""
         cur = conn.cursor()

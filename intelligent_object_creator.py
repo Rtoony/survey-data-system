@@ -44,6 +44,7 @@ class IntelligentObjectCreator:
         
         if self.conn is None:
             self.conn = psycopg2.connect(**self.db_config)
+            self.should_close_conn = True
         
         try:
             result = None
@@ -71,11 +72,16 @@ class IntelligentObjectCreator:
             
             if result:
                 object_type, object_id, table_name = result
-                self._create_entity_link(
-                    drawing_id, entity_data.get('dxf_handle'), entity_data.get('entity_type'),
-                    layer_name, entity_data.get('geometry_wkt'),
-                    object_type, object_id, table_name
-                )
+                dxf_handle = entity_data.get('dxf_handle', '')
+                entity_type = entity_data.get('entity_type', 'UNKNOWN')
+                geometry_wkt = entity_data.get('geometry_wkt', '')
+                
+                if dxf_handle and geometry_wkt:
+                    self._create_entity_link(
+                        drawing_id, dxf_handle, entity_type,
+                        layer_name, geometry_wkt,
+                        object_type, object_id, table_name
+                    )
             
             return result
             
@@ -86,6 +92,9 @@ class IntelligentObjectCreator:
     def _create_utility_line(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
         """Create utility_lines record."""
         if entity_data.get('geometry_type') not in ['LINESTRING', 'LINESTRING Z']:
+            return None
+        
+        if not self.conn:
             return None
         
         cur = self.conn.cursor()
@@ -122,6 +131,9 @@ class IntelligentObjectCreator:
         if entity_data.get('geometry_type') not in ['POINT', 'POINT Z']:
             return None
         
+        if not self.conn:
+            return None
+        
         cur = self.conn.cursor()
         props = classification.properties
         
@@ -152,6 +164,9 @@ class IntelligentObjectCreator:
     
     def _create_bmp(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
         """Create bmps record."""
+        if not self.conn:
+            return None
+        
         cur = self.conn.cursor()
         props = classification.properties
         
@@ -192,6 +207,9 @@ class IntelligentObjectCreator:
     
     def _create_surface_model(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
         """Create surface_models record or add to existing surface."""
+        if not self.conn:
+            return None
+        
         cur = self.conn.cursor()
         props = classification.properties
         
@@ -231,6 +249,9 @@ class IntelligentObjectCreator:
         if entity_data.get('geometry_type') not in ['LINESTRING', 'LINESTRING Z']:
             return None
         
+        if not self.conn:
+            return None
+        
         cur = self.conn.cursor()
         props = classification.properties
         
@@ -261,6 +282,9 @@ class IntelligentObjectCreator:
     def _create_survey_point(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
         """Create survey_points record."""
         if entity_data.get('geometry_type') not in ['POINT', 'POINT Z']:
+            return None
+        
+        if not self.conn:
             return None
         
         cur = self.conn.cursor()
@@ -295,6 +319,9 @@ class IntelligentObjectCreator:
         if entity_data.get('geometry_type') not in ['POINT', 'POINT Z']:
             return None
         
+        if not self.conn:
+            return None
+        
         cur = self.conn.cursor()
         props = classification.properties
         
@@ -325,6 +352,9 @@ class IntelligentObjectCreator:
                            layer_name: str, geometry_wkt: str,
                            object_type: str, object_id: str, table_name: str):
         """Create link between DXF entity and intelligent object."""
+        if not self.conn:
+            return
+        
         cur = self.conn.cursor()
         
         geometry_hash = hashlib.sha256(geometry_wkt.encode()).hexdigest() if geometry_wkt else None
