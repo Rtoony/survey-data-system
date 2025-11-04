@@ -19,11 +19,26 @@ from dxf_importer import DXFImporter
 from dxf_exporter import DXFExporter
 from map_export_service import MapExportService
 import threading
+import json
+from datetime import datetime, date
+from decimal import Decimal
 
 # Load environment variables (works with both .env file and Replit secrets)
 load_dotenv()
 
+# Custom JSON encoder for datetime, date, and Decimal objects
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return float(obj)
+        if isinstance(obj, uuid.UUID):
+            return str(obj)
+        return super().default(obj)
+
 app = Flask(__name__)
+app.json_encoder = CustomJSONEncoder
 CORS(app)
 
 # Configure caching
