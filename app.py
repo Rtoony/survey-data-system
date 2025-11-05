@@ -3862,7 +3862,7 @@ def get_project_entities(drawing_id):
                 e.linetype,
                 e.lineweight,
                 e.transparency,
-                e.metadata,
+                e.attributes,
                 l.layer_name,
                 l.color as layer_color,
                 ST_AsGeoJSON(ST_Transform(e.geometry, 4326)) as geometry
@@ -3904,9 +3904,9 @@ def get_project_entities(drawing_id):
                     'transparency': entity['transparency']
                 }
                 
-                # Add metadata if present
-                if entity['metadata']:
-                    properties['metadata'] = entity['metadata']
+                # Add attributes if present
+                if entity['attributes']:
+                    properties['attributes'] = entity['attributes']
                 
                 features.append({
                     'type': 'Feature',

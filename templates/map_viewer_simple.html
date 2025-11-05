@@ -1121,16 +1121,35 @@
         }
         
         function zoomToProject() {
-            if (!selectedProject || !selectedProject.bbox) {
-                console.error('No project selected or no bbox available');
+            if (!selectedProject) {
+                console.error('No project selected');
+                alert('Please select a project first');
+                return;
+            }
+            
+            if (!selectedProject.bbox) {
+                console.error('Project has no bounding box defined');
+                alert(`Project "${selectedProject.project_name}" has no spatial extent defined. Add drawings with geometry first.`);
                 return;
             }
             
             const bbox = selectedProject.bbox;
             
+            // Validate bbox values are numeric
+            const minX = parseFloat(bbox.min_x);
+            const minY = parseFloat(bbox.min_y);
+            const maxX = parseFloat(bbox.max_x);
+            const maxY = parseFloat(bbox.max_y);
+            
+            if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+                console.error('Invalid bbox values:', bbox);
+                alert(`Project "${selectedProject.project_name}" has invalid spatial coordinates.`);
+                return;
+            }
+            
             // Transform EPSG:2226 coordinates to WGS84
-            const sw = proj4('EPSG:2226', 'EPSG:4326', [bbox.minx, bbox.miny]);
-            const ne = proj4('EPSG:2226', 'EPSG:4326', [bbox.maxx, bbox.maxy]);
+            const sw = proj4('EPSG:2226', 'EPSG:4326', [minX, minY]);
+            const ne = proj4('EPSG:2226', 'EPSG:4326', [maxX, maxY]);
             
             // Fit map to bounds
             map.fitBounds([
@@ -1138,7 +1157,7 @@
                 [ne[1], ne[0]]
             ]);
             
-            console.log(`Zoomed to project: ${selectedProject.name}`);
+            console.log(`Zoomed to project: ${selectedProject.project_name}`);
         }
         
         async function searchAddress() {
