@@ -3369,72 +3369,137 @@ def get_map_projects():
 
 @app.route('/api/map-export/create-simple', methods=['POST'])
 def create_simple_export():
-    """Create a simple test shapefile directly (no database)"""
+    """Create shapefile with real GIS data from Sonoma County"""
     try:
+        import requests
+        from shapely.geometry import shape, box
+        from shapely import geometry as geom_lib
+        from pyproj import Transformer
+        import fiona
+        from fiona.crs import from_epsg
+        
         params = request.json
         bbox = params.get('bbox', {})
+        requested_layers = params.get('layers', ['parcels', 'buildings', 'roads'])
         
-        print(f"Creating simple export for bbox: {bbox}")
+        print(f"Creating export for bbox: {bbox}")
+        print(f"Requested layers: {requested_layers}")
         
         # Create unique ID for this export
         export_id = str(uuid.uuid4())
         export_dir = os.path.join('/tmp/exports', export_id)
         os.makedirs(export_dir, exist_ok=True)
         
-        # Import shapefile libraries
-        from shapely.geometry import box
-        from pyproj import Transformer
-        import fiona
-        from fiona.crs import from_epsg
-        
         # Get bounding box in WGS84
-        minx = bbox['minx']
-        miny = bbox['miny']
-        maxx = bbox['maxx']
-        maxy = bbox['maxy']
+        minx, miny, maxx, maxy = bbox['minx'], bbox['miny'], bbox['maxx'], bbox['maxy']
         
-        # Transform to EPSG:2226 (CA State Plane Zone 2)
+        # Coordinate transformer
         transformer = Transformer.from_crs("EPSG:4326", "EPSG:2226", always_xy=True)
         
-        # Transform corners
-        min_transformed = transformer.transform(minx, miny)
-        max_transformed = transformer.transform(maxx, maxy)
+        # Get GIS layer configurations from database
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM gis_layers WHERE enabled = true AND id = ANY(%s)", (requested_layers,))
+                layers = cur.fetchall()
         
-        # Create box geometry in EPSG:2226
-        bbox_geom = box(min_transformed[0], min_transformed[1], 
-                       max_transformed[0], max_transformed[1])
+        feature_counts = {}
         
-        # Calculate area in acres
-        area_sqft = bbox_geom.area
-        area_acres = area_sqft / 43560
-        
-        # Create shapefile
-        shp_path = os.path.join(export_dir, 'export.shp')
-        
-        schema = {
-            'geometry': 'Polygon',
-            'properties': {
-                'id': 'str',
-                'area_acres': 'float',
-                'area_sqft': 'float',
-                'epsg': 'str'
-            }
-        }
-        
-        with fiona.open(shp_path, 'w', driver='ESRI Shapefile', 
-                       crs=from_epsg(2226), schema=schema) as output:
-            output.write({
-                'geometry': bbox_geom.__geo_interface__,
-                'properties': {
-                    'id': export_id,
-                    'area_acres': round(area_acres, 2),
-                    'area_sqft': round(area_sqft, 2),
-                    'epsg': 'EPSG:2226'
+        # Fetch and export each layer
+        for layer_config in layers:
+            layer_id = layer_config['id']
+            layer_url = layer_config['url']
+            layer_name = layer_config['name']
+            
+            print(f"Fetching {layer_name} from {layer_url}")
+            
+            try:
+                # Query FeatureServer with bounding box
+                query_url = f"{layer_url}/query"
+                query_params = {
+                    'where': '1=1',
+                    'geometry': f'{minx},{miny},{maxx},{maxy}',
+                    'geometryType': 'esriGeometryEnvelope',
+                    'inSR': '4326',
+                    'spatialRel': 'esriSpatialRelIntersects',
+                    'outFields': '*',
+                    'returnGeometry': 'true',
+                    'f': 'geojson'
                 }
-            })
-        
-        print(f"Shapefile created successfully at {shp_path}")
-        print(f"Area: {area_acres:.2f} acres ({area_sqft:.0f} sq ft)")
+                
+                response = requests.get(query_url, params=query_params, timeout=30)
+                response.raise_for_status()
+                geojson_data = response.json()
+                
+                features = geojson_data.get('features', [])
+                feature_counts[layer_id] = len(features)
+                
+                print(f"  Found {len(features)} features in {layer_name}")
+                
+                if len(features) == 0:
+                    continue
+                
+                # Determine geometry type from first feature
+                first_geom = shape(features[0]['geometry'])
+                geom_type = first_geom.geom_type
+                
+                # Create schema based on first feature properties
+                sample_props = features[0]['properties']
+                schema_props = {}
+                for key, value in sample_props.items():
+                    if value is None:
+                        schema_props[key] = 'str'
+                    elif isinstance(value, bool):
+                        schema_props[key] = 'bool'
+                    elif isinstance(value, int):
+                        schema_props[key] = 'int'
+                    elif isinstance(value, float):
+                        schema_props[key] = 'float'
+                    else:
+                        schema_props[key] = 'str'
+                
+                schema = {
+                    'geometry': geom_type,
+                    'properties': schema_props
+                }
+                
+                # Create shapefile for this layer
+                shp_path = os.path.join(export_dir, f'{layer_id}.shp')
+                
+                with fiona.open(shp_path, 'w', driver='ESRI Shapefile',
+                               crs=from_epsg(2226), schema=schema) as output:
+                    for feature in features:
+                        # Transform geometry to EPSG:2226
+                        geom_wgs84 = shape(feature['geometry'])
+                        
+                        # Transform coordinates
+                        if geom_wgs84.geom_type == 'Point':
+                            x, y = transformer.transform(geom_wgs84.x, geom_wgs84.y)
+                            geom_2226 = geom_lib.Point(x, y)
+                        elif geom_wgs84.geom_type in ['LineString', 'MultiLineString']:
+                            coords_2226 = [transformer.transform(x, y) for x, y in geom_wgs84.coords]
+                            geom_2226 = geom_lib.LineString(coords_2226)
+                        elif geom_wgs84.geom_type == 'Polygon':
+                            exterior_2226 = [transformer.transform(x, y) for x, y in geom_wgs84.exterior.coords]
+                            geom_2226 = geom_lib.Polygon(exterior_2226)
+                        elif geom_wgs84.geom_type == 'MultiPolygon':
+                            polys_2226 = []
+                            for poly in geom_wgs84.geoms:
+                                exterior_2226 = [transformer.transform(x, y) for x, y in poly.exterior.coords]
+                                polys_2226.append(geom_lib.Polygon(exterior_2226))
+                            geom_2226 = geom_lib.MultiPolygon(polys_2226)
+                        else:
+                            continue  # Skip unsupported geometry types
+                        
+                        output.write({
+                            'geometry': geom_2226.__geo_interface__,
+                            'properties': feature['properties']
+                        })
+                
+                print(f"  Wrote {len(features)} features to {layer_id}.shp")
+                
+            except Exception as e:
+                print(f"  ERROR fetching {layer_name}: {e}")
+                feature_counts[layer_id] = 0
         
         # Create download URL
         download_url = f"/api/map-export/download-simple/{export_id}"
@@ -3443,9 +3508,8 @@ def create_simple_export():
             'status': 'complete',
             'download_url': download_url,
             'export_id': export_id,
-            'area_acres': round(area_acres, 2),
-            'area_sqft': round(area_sqft, 2),
-            'message': 'Shapefile created successfully'
+            'feature_counts': feature_counts,
+            'message': f'Exported {sum(feature_counts.values())} total features'
         })
         
     except Exception as e:

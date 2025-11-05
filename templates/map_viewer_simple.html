@@ -609,10 +609,19 @@
                 const data = await res.json();
                 
                 if (data.status === 'complete') {
-                    const msg = `Shapefile created successfully!\n\n` +
-                               `Area: ${data.area_acres} acres (${data.area_sqft} sq ft)\n` +
-                               `Coordinate System: EPSG:2226 (CA State Plane Zone 2)\n\n` +
-                               `Click OK to download the ZIP file.`;
+                    let msg = `Export successful!\n\n`;
+                    
+                    if (data.feature_counts) {
+                        msg += `Features exported:\n`;
+                        for (const [layer, count] of Object.entries(data.feature_counts)) {
+                            msg += `  ${layer}: ${count}\n`;
+                        }
+                        msg += `\nTotal: ${Object.values(data.feature_counts).reduce((a,b)=>a+b, 0)} features\n`;
+                    }
+                    
+                    msg += `\nCoordinate System: EPSG:2226 (CA State Plane Zone 2)\n`;
+                    msg += `\nClick OK to download the ZIP file.`;
+                    
                     alert(msg);
                     window.location.href = data.download_url;
                 } else {
