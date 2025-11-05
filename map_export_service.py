@@ -209,11 +209,20 @@ class MapExportService:
     def export_to_kml(self, layers_data: Dict[str, List[Dict]], output_path: str) -> bool:
         """Export features to KML format (Google Earth/Maps compatible)"""
         try:
+            import xml.etree.ElementTree as ET
+            
+            # Create KML root
+            kml = ET.Element('kml', xmlns='http://www.opengis.net/kml/2.2')
+            document = ET.SubElement(kml, 'Document')
+            ET.SubElement(document, 'name').text = 'Map Export'
+            
             # Transform features from EPSG:2226 to WGS84 (EPSG:4326) for KML
-            layers_wgs84 = {}
+            feature_count = 0
             
             for layer_name, features in layers_data.items():
-                transformed_features = []
+                # Create a folder for each layer
+                folder = ET.SubElement(document, 'Folder')
+                ET.SubElement(folder, 'name').text = layer_name
                 
                 for feature in features:
                     try:
@@ -226,89 +235,84 @@ class MapExportService:
                         
                         transformed_geom = transform(transform_coords, geom)
                         
-                        # Create new feature with transformed geometry
-                        transformed_feature = {
-                            'type': 'Feature',
-                            'geometry': mapping(transformed_geom),
-                            'properties': feature.get('properties', {})
-                        }
-                        transformed_features.append(transformed_feature)
+                        # Create placemark
+                        placemark = ET.SubElement(folder, 'Placemark')
+                        
+                        # Add properties as description
+                        props = feature.get('properties', {})
+                        if props:
+                            desc = '<![CDATA[<table>'
+                            for key, value in props.items():
+                                desc += f'<tr><td><b>{key}:</b></td><td>{value}</td></tr>'
+                            desc += '</table>]]>'
+                            ET.SubElement(placemark, 'description').text = desc
+                        
+                        # Add geometry
+                        self._add_kml_geometry(placemark, transformed_geom)
+                        feature_count += 1
                     
                     except Exception as e:
                         print(f"Error transforming feature for KML: {e}")
                         continue
-                
-                if transformed_features:
-                    layers_wgs84[layer_name] = transformed_features
             
-            # Determine geometry type from first feature
-            all_features = []
-            for features in layers_wgs84.values():
-                all_features.extend(features)
-            
-            if not all_features:
+            if feature_count == 0:
                 print("No features to export to KML")
                 return False
             
-            first_geom = shape(all_features[0]['geometry'])
-            geom_type = first_geom.geom_type
+            # Write to file with pretty formatting
+            tree = ET.ElementTree(kml)
+            ET.indent(tree, space='  ')
+            tree.write(output_path, encoding='utf-8', xml_declaration=True)
             
-            # Map geometry types to KML-compatible types
-            kml_geom_type = geom_type
-            if geom_type == 'MultiPolygon':
-                kml_geom_type = 'Polygon'
-            elif geom_type == 'MultiLineString':
-                kml_geom_type = 'LineString'
-            elif geom_type == 'MultiPoint':
-                kml_geom_type = 'Point'
-            
-            # Build schema
-            properties = all_features[0].get('properties', {})
-            schema_props = {}
-            for key, value in properties.items():
-                if isinstance(value, int):
-                    schema_props[key] = 'int'
-                elif isinstance(value, float):
-                    schema_props[key] = 'float'
-                else:
-                    schema_props[key] = 'str'
-            
-            schema = {
-                'geometry': kml_geom_type,
-                'properties': schema_props if schema_props else {'id': 'str'}
-            }
-            
-            # Write KML file using fiona
-            with fiona.open(
-                output_path,
-                'w',
-                driver='KML',
-                crs=from_epsg(4326),
-                schema=schema
-            ) as kml:
-                for feature in all_features:
-                    try:
-                        geom = shape(feature['geometry'])
-                        
-                        # Handle Multi* geometries by writing individual parts
-                        if geom.geom_type.startswith('Multi'):
-                            for sub_geom in geom.geoms:
-                                kml.write({
-                                    'type': 'Feature',
-                                    'geometry': mapping(sub_geom),
-                                    'properties': feature.get('properties', {})
-                                })
-                        else:
-                            kml.write(feature)
-                    except Exception as e:
-                        print(f"Error writing KML feature: {e}")
-                        continue
-            
+            print(f"KML export complete: {feature_count} features")
             return True
             
         except Exception as e:
             print(f"Error exporting KML: {e}")
+            import traceback
+            traceback.print_exc()
             return False
+    
+    def _add_kml_geometry(self, placemark, geom):
+        """Add geometry to KML placemark"""
+        import xml.etree.ElementTree as ET
+        
+        if geom.geom_type == 'Point':
+            point = ET.SubElement(placemark, 'Point')
+            ET.SubElement(point, 'coordinates').text = f'{geom.x},{geom.y},0'
+        
+        elif geom.geom_type == 'MultiPoint':
+            for pt in geom.geoms:
+                point = ET.SubElement(placemark, 'Point')
+                ET.SubElement(point, 'coordinates').text = f'{pt.x},{pt.y},0'
+        
+        elif geom.geom_type == 'LineString':
+            linestring = ET.SubElement(placemark, 'LineString')
+            coords = ' '.join([f'{x},{y},0' for x, y in geom.coords])
+            ET.SubElement(linestring, 'coordinates').text = coords
+        
+        elif geom.geom_type == 'MultiLineString':
+            multigeom = ET.SubElement(placemark, 'MultiGeometry')
+            for line in geom.geoms:
+                linestring = ET.SubElement(multigeom, 'LineString')
+                coords = ' '.join([f'{x},{y},0' for x, y in line.coords])
+                ET.SubElement(linestring, 'coordinates').text = coords
+        
+        elif geom.geom_type == 'Polygon':
+            polygon = ET.SubElement(placemark, 'Polygon')
+            outer = ET.SubElement(polygon, 'outerBoundaryIs')
+            linear_ring = ET.SubElement(outer, 'LinearRing')
+            coords = ' '.join([f'{x},{y},0' for x, y in geom.exterior.coords])
+            ET.SubElement(linear_ring, 'coordinates').text = coords
+        
+        elif geom.geom_type == 'MultiPolygon':
+            multigeom = ET.SubElement(placemark, 'MultiGeometry')
+            for poly in geom.geoms:
+                polygon = ET.SubElement(multigeom, 'Polygon')
+                outer = ET.SubElement(polygon, 'outerBoundaryIs')
+                linear_ring = ET.SubElement(outer, 'LinearRing')
+                coords = ' '.join([f'{x},{y},0' for x, y in poly.exterior.coords])
+                ET.SubElement(linear_ring, 'coordinates').text = coords
     
     def create_map_image(self, bbox: Dict, width: int = 1200, height: int = 900,
                         north_arrow: bool = True, scale_bar: bool = True) -> Optional[str]:
