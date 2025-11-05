@@ -3595,10 +3595,22 @@ def get_database_layer_data(layer_id):
         max_x_2226, max_y_2226 = transformer.transform(maxx, maxy)
         
         # Build query to fetch features within bbox (data in EPSG:2226, transformed to WGS84 for output)
+        # Get all columns except the geometry column to avoid conflicts
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = '{table_name}' 
+                    AND column_name != '{geom_column}'
+                """)
+                columns = [row[0] for row in cur.fetchall()]
+        
+        columns_str = ', '.join(columns)
         query = f"""
             SELECT 
-                ST_AsGeoJSON(ST_Transform({geom_column}, 4326)) as geometry,
-                *
+                ST_AsGeoJSON(ST_Transform({geom_column}, 4326)) as geometry_json,
+                {columns_str}
             FROM {table_name}
             WHERE {geom_column} && ST_MakeEnvelope(%s, %s, %s, %s, 2226)
             LIMIT 1000
@@ -3613,12 +3625,12 @@ def get_database_layer_data(layer_id):
         features = []
         for row in rows:
             import json
-            geom_json = json.loads(row['geometry'])
+            geom_json = json.loads(row['geometry_json'])
             
-            # Build properties (exclude geometry column)
+            # Build properties (exclude geometry_json column)
             properties = {}
             for key, value in row.items():
-                if key not in [geom_column, 'geometry']:
+                if key != 'geometry_json':
                     # Convert datetime/UUID/etc to string
                     if hasattr(value, 'isoformat'):
                         properties[key] = value.isoformat()
