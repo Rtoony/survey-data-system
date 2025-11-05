@@ -83,17 +83,27 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-**November 4, 2025 - Map Viewer & Export Tool Prototype:**
-- **Interactive Web Map:** Integrated Leaflet.js map viewer with multiple basemap options (OSM, USGS Topo, ESRI Imagery, CartoDB Light/Dark)
-- **Coordinate Systems:** Full support for EPSG:2226 (CA State Plane Zone 2) with real-time coordinate display and transformation from Web Mercator
-- **Bounding Box Export:** Users can draw rectangles on the map to define export areas with automatic area calculation (acres and square feet)
-- **Measurement Tools:** Distance measurement (feet/miles) and area measurement (sq ft/acres) using Turf.js
-- **Address Search:** Nominatim geocoding API integration with Sonoma County bias for finding locations
-- **Export Formats:** DXF, Shapefile (.shp with .prj files), and PNG map images with optional north arrow and scale bar
-- **Background Processing:** Asynchronous export job queue with status polling and download links
-- **Database Integration:** New tables for GIS layers and export job tracking, integrated with existing projects/drawings
-- **GIS Layer Support:** Framework for WFS/WMS layer overlay (Sonoma County parcels, buildings, roads)
-- **Export Service:** Comprehensive geospatial processing pipeline using pyproj, shapely, fiona, ezdxf, owslib, rasterio
+**November 5, 2025 - Map Viewer & Export Tool - COMPLETE:**
+- **Interactive Web Map:** Fully functional Leaflet.js map viewer at `/map-viewer` with 5 basemap options (OSM, USGS Topo, ESRI Imagery, CartoDB Light/Dark)
+- **Coordinate Systems:** Complete EPSG:2226 (CA State Plane Zone 2) support with live coordinate display showing both WGS84 and State Plane coordinates as you move the mouse
+- **Drawing Tools:** Leaflet.draw integration for creating bounding boxes to define export areas with automatic area calculation (acres and square feet)
+- **Measurement Tools (COMPLETE):** 
+  - Distance measurement: Click points to draw lines, shows total length in feet/miles with live updates
+  - Area measurement: Click to draw polygons, shows area in square feet/acres with centroid labels
+  - Uses Turf.js for accurate geodesic calculations
+  - Visual feedback with cyan measurement lines and labels
+  - Clear button to remove measurements
+- **Address Search (COMPLETE):** Nominatim geocoding with Sonoma County bias, Enter key support, result markers with popups, auto-pan to location
+- **Export Formats:** Complete multi-format export pipeline:
+  - **Shapefile:** Proper .shp, .shx, .dbf, .prj files with EPSG:2226 projection
+  - **DXF:** AutoCAD-compatible files with organized layers
+  - **PNG:** Map images with optional north arrow and scale bar
+- **Background Processing:** Asynchronous export jobs with threading, status polling every 2 seconds, download links with 1-hour expiration
+- **Database Tables:** `gis_layers` (WFS layer configurations), `export_jobs` (job tracking and status)
+- **Database Integration:** Automatic project display when DXF files are imported with bounding boxes
+- **GIS Layer Support:** Infrastructure for WFS/WMS layers (Sonoma County parcels, buildings, roads) - ready for live data integration
+- **Export Service (`map_export_service.py`):** Complete geospatial processing using pyproj (coordinate transforms), shapely (geometry ops), fiona (Shapefile I/O), ezdxf (DXF generation), PIL (map images)
+- **Initialization Script:** `init_map_viewer_db.py` for easy database setup with sample Sonoma County layer configs
 
 **November 4, 2025 - Complete Intelligent DXF Workflow:**
 - **Bidirectional CAD ↔ Database Sync:** Fully functional workflow where database is source of truth and DXF is interchange format (like Git)
