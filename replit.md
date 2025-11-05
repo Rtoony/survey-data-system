@@ -84,6 +84,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 5, 2025 - Project Viewer Bug Fixes - COMPLETE:**
+- **SQL Column Fix:** Fixed `/api/map-viewer/project-entities` endpoint to query `e.attributes` instead of non-existent `e.metadata` column, eliminating SQL errors when loading entities
+- **Bbox Property Names:** Fixed `zoomToProject()` function to use correct API response format (`bbox.min_x/min_y/max_x/max_y` instead of `bbox.minx/miny/maxx/maxy`)
+- **Defensive Error Handling:** Added comprehensive validation in `zoomToProject()` to check for null/invalid bbox coordinates with user-friendly error messages, preventing NaN/proj4 crashes
+- **Property Name Fixes:** Corrected `selectedProject.project_name` reference in console logs (was incorrectly using `selectedProject.name`)
+- **Production Ready:** All fixes architect-reviewed and verified via curl tests showing successful entity loading with entity type filtering
+
 **November 5, 2025 - Test Data Generator for Spatial Testing - COMPLETE:**
 - **Test Data Script:** Created `create_test_project.py` utility that generates projects with valid Sonoma County coordinates
 - **3D Geometry Support:** Fixed geometry insertion to use GeometryZ format (LINESTRING Z with Z=0 coordinates)
