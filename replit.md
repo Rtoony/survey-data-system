@@ -83,6 +83,11 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 5, 2025 - Map Viewer Template Fix:**
+- **Fixed Map Viewer Route:** Changed `/map-viewer-v2` route in app.py to use full-featured `map_viewer.html` template instead of simplified `map_viewer_dynamic.html`
+- **Restored Features:** Address search, measurement tools (distance/area), drawing tools, and full export functionality now visible and functional
+- **Root Cause:** Route was accidentally pointing to simplified template, hiding completed features from users
+
 **November 5, 2025 - Map Viewer & Export Tool - COMPLETE:**
 - **Interactive Web Map:** Fully functional Leaflet.js map viewer at `/map-viewer` with 5 basemap options (OSM, USGS Topo, ESRI Imagery, CartoDB Light/Dark)
 - **Coordinate Systems:** Complete EPSG:2226 (CA State Plane Zone 2) support with live coordinate display showing both WGS84 and State Plane coordinates as you move the mouse
