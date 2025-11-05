@@ -3372,6 +3372,7 @@ def create_export_job():
     """Create a new export job"""
     try:
         params = request.json
+        print(f"Received export request with params: {params}")
         job_id = str(uuid.uuid4())
         
         # Insert job record
@@ -3380,10 +3381,12 @@ def create_export_job():
             VALUES (%s, 'pending', %s::jsonb, NOW())
             RETURNING id, status, created_at
         """
+        print(f"Attempting to insert job {job_id}")
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query, (job_id, json.dumps(params)))
                 result = dict(cur.fetchone())
+        print(f"Job created successfully: {result}")
         
         # Process export in background thread
         def process_export():
@@ -3438,6 +3441,9 @@ def create_export_job():
         })
         
     except Exception as e:
+        print(f"ERROR in create_export_job: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/map-export/status/<job_id>')
