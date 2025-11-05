@@ -48,11 +48,11 @@ cache = Cache(app)
 
 # Database configuration
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST'),
-    'port': os.getenv('DB_PORT', '5432'),
-    'database': os.getenv('DB_NAME', 'postgres'),
-    'user': os.getenv('DB_USER', 'postgres'),
-    'password': os.getenv('DB_PASSWORD'),
+    'host': os.getenv('PGHOST') or os.getenv('DB_HOST'),
+    'port': os.getenv('PGPORT') or os.getenv('DB_PORT', '5432'),
+    'database': os.getenv('PGDATABASE') or os.getenv('DB_NAME', 'postgres'),
+    'user': os.getenv('PGUSER') or os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('PGPASSWORD') or os.getenv('DB_PASSWORD'),
     'sslmode': 'require',
     'connect_timeout': 10
 }
@@ -3353,21 +3353,26 @@ def get_layer_data(layer_id):
 def get_map_projects():
     """Get all projects with spatial data for map display"""
     try:
-        # Query all drawings with their projects
+        # Query all drawings with their projects and bbox
         query = """
             SELECT 
                 d.drawing_id,
                 d.drawing_name,
                 d.drawing_number,
-                d.is_georeferenced,
-                d.drawing_epsg_code,
-                d.drawing_coordinate_system,
+                d.bbox_min_x,
+                d.bbox_min_y,
+                d.bbox_max_x,
+                d.bbox_max_y,
                 d.created_at,
                 p.project_id,
                 p.project_name,
                 p.client_name
             FROM drawings d
             JOIN projects p ON d.project_id = p.project_id
+            WHERE d.bbox_min_x IS NOT NULL 
+              AND d.bbox_min_y IS NOT NULL 
+              AND d.bbox_max_x IS NOT NULL 
+              AND d.bbox_max_y IS NOT NULL
             ORDER BY d.created_at DESC
         """
         
@@ -3378,36 +3383,11 @@ def get_map_projects():
         
         features = []
         for drawing in drawings:
-            # Get block inserts to calculate bounds
-            insert_query = """
-                SELECT insert_x, insert_y 
-                FROM block_inserts 
-                WHERE drawing_id = %s 
-                LIMIT 10000
-            """
-            with get_db() as conn:
-                with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    cur.execute(insert_query, (drawing['drawing_id'],))
-                    inserts = cur.fetchall()
-            
-            if not inserts:
-                continue
-                
-            # Calculate bounds
-            min_x = min_y = float('inf')
-            max_x = max_y = float('-inf')
-            
-            for insert in inserts:
-                if insert['insert_x'] is not None:
-                    min_x = min(min_x, insert['insert_x'])
-                    max_x = max(max_x, insert['insert_x'])
-                if insert['insert_y'] is not None:
-                    min_y = min(min_y, insert['insert_y'])
-                    max_y = max(max_y, insert['insert_y'])
-            
-            # Skip if no valid coordinates
-            if min_x == float('inf'):
-                continue
+            # Use bbox columns from database
+            min_x = drawing['bbox_min_x']
+            min_y = drawing['bbox_min_y']
+            max_x = drawing['bbox_max_x']
+            max_y = drawing['bbox_max_y']
             
             # Create GeoJSON feature (assume EPSG:2226 for now)
             # Convert State Plane to WGS84 for Leaflet display
@@ -3430,8 +3410,7 @@ def get_map_projects():
                     'project_id': str(drawing['project_id']),
                     'project_name': drawing['project_name'],
                     'client_name': drawing['client_name'],
-                    'epsg_code': drawing['drawing_epsg_code'] or 'EPSG:2226',
-                    'is_georeferenced': drawing['is_georeferenced'],
+                    'epsg_code': 'EPSG:2226',
                     'created_at': drawing['created_at'].isoformat() if drawing['created_at'] else None
                 }
             }
