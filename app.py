@@ -3254,7 +3254,11 @@ map_export = MapExportService()
 @app.route('/map-viewer')
 def map_viewer_page():
     """Map Viewer Page"""
-    return render_template('map_viewer_simple.html')
+    response = make_response(render_template('map_viewer_simple.html'))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/map-test')
 def map_test_page():
