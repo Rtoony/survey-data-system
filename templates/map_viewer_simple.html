@@ -70,6 +70,13 @@
         button:hover { background: #0088ff; }
         button:disabled { opacity: 0.4; cursor: not-allowed; }
         button.active { background: #00ffff; color: #000; }
+        button.warning { background: #ff9900; color: #000; border-color: #ffaa00; }
+        button.error { background: #ff3333; color: #fff; border-color: #ff0000; animation: pulse 1s infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
         
         input, select {
             width: 100%;
@@ -287,10 +294,55 @@
             map.on('draw:created', function(e) {
                 drawnItems.clearLayers();
                 drawnItems.addLayer(e.layer);
-                document.getElementById('export-btn').disabled = false;
-                document.getElementById('draw-rect-btn').innerHTML = '<i class="fas fa-check-circle"></i> Rectangle Drawn';
-                document.getElementById('draw-rect-btn').classList.add('active');
-                console.log('Rectangle drawn');
+                
+                // Calculate area for validation
+                const bounds = e.layer.getBounds();
+                const sw = bounds.getSouthWest();
+                const ne = bounds.getNorthEast();
+                
+                // Convert to State Plane (EPSG:2226) for accurate area calculation
+                const [swX, swY] = proj4('EPSG:4326', 'EPSG:2226', [sw.lng, sw.lat]);
+                const [neX, neY] = proj4('EPSG:4326', 'EPSG:2226', [ne.lng, ne.lat]);
+                
+                // Calculate area in square feet
+                const widthFt = Math.abs(neX - swX);
+                const heightFt = Math.abs(neY - swY);
+                const areaSqFt = widthFt * heightFt;
+                const acres = areaSqFt / 43560;
+                
+                // Maximum area: 2,000,000 sq ft (~46 acres)
+                const MAX_AREA_SQ_FT = 2000000;
+                const warningThreshold = MAX_AREA_SQ_FT * 0.8; // Warn at 80%
+                
+                let buttonHTML = '<i class="fas fa-check-circle"></i> Rectangle Drawn';
+                let buttonClass = 'active';
+                let exportDisabled = false;
+                
+                if (areaSqFt > MAX_AREA_SQ_FT) {
+                    // Area too large - prevent export
+                    buttonHTML = `<i class="fas fa-exclamation-triangle"></i> Area Too Large (${acres.toFixed(1)} ac)`;
+                    buttonClass = 'error';
+                    exportDisabled = true;
+                    alert(`⚠️ Export Area Too Large!\n\nYour selection is ${acres.toFixed(1)} acres (${areaSqFt.toLocaleString()} sq ft).\n\nMaximum allowed: 46 acres (2,000,000 sq ft)\n\nPlease draw a smaller rectangle.`);
+                } else if (areaSqFt > warningThreshold) {
+                    // Close to limit - show warning
+                    buttonHTML = `<i class="fas fa-exclamation-circle"></i> Large Area (${acres.toFixed(1)} ac)`;
+                    buttonClass = 'warning';
+                    const percent = ((areaSqFt / MAX_AREA_SQ_FT) * 100).toFixed(0);
+                    console.warn(`Area is ${percent}% of maximum allowed`);
+                } else {
+                    // Normal size - show area
+                    if (acres >= 0.1) {
+                        buttonHTML = `<i class="fas fa-check-circle"></i> ${acres.toFixed(2)} acres`;
+                    } else {
+                        buttonHTML = `<i class="fas fa-check-circle"></i> ${Math.round(areaSqFt).toLocaleString()} sq ft`;
+                    }
+                }
+                
+                document.getElementById('export-btn').disabled = exportDisabled;
+                document.getElementById('draw-rect-btn').innerHTML = buttonHTML;
+                document.getElementById('draw-rect-btn').className = buttonClass;
+                console.log(`Rectangle drawn: ${areaSqFt.toLocaleString()} sq ft (${acres.toFixed(2)} acres)`);
             });
             
             map.on('draw:drawstart', function(e) {
@@ -412,6 +464,108 @@
             }
         }
         
+        // Professional GIS layer color schemes (industry standard)
+        function getLayerStyle(layerId) {
+            const styles = {
+                // Parcels - Red/Orange (property boundaries)
+                'sonoma_parcels_public': {
+                    color: '#FF5733',
+                    weight: 2,
+                    fillColor: '#FF5733',
+                    fillOpacity: 0.05,
+                    pointColor: '#FF5733'
+                },
+                // Buildings - Dark Gray (structures)
+                'sonoma_buildings': {
+                    color: '#333333',
+                    weight: 1,
+                    fillColor: '#555555',
+                    fillOpacity: 0.4,
+                    pointColor: '#333333'
+                },
+                // Administrative Boundaries - Purple
+                'sonoma_city_limits': {
+                    color: '#9B59B6',
+                    weight: 3,
+                    fillColor: '#9B59B6',
+                    fillOpacity: 0.05,
+                    dashArray: '10, 5',
+                    pointColor: '#9B59B6'
+                },
+                'sonoma_county_boundary': {
+                    color: '#8E44AD',
+                    weight: 4,
+                    fillColor: '#8E44AD',
+                    fillOpacity: 0.02,
+                    dashArray: '15, 10',
+                    pointColor: '#8E44AD'
+                },
+                'sonoma_fire_districts': {
+                    color: '#C0392B',
+                    weight: 2,
+                    fillColor: '#E74C3C',
+                    fillOpacity: 0.1,
+                    dashArray: '5, 5',
+                    pointColor: '#C0392B'
+                },
+                'sonoma_school_districts': {
+                    color: '#2980B9',
+                    weight: 2,
+                    fillColor: '#3498DB',
+                    fillOpacity: 0.08,
+                    dashArray: '8, 4',
+                    pointColor: '#2980B9'
+                },
+                // Water/Drainage - Blue
+                'sonoma_drainage_lines': {
+                    color: '#0066CC',
+                    weight: 2,
+                    fillColor: '#0066CC',
+                    fillOpacity: 0.3,
+                    pointColor: '#0066CC'
+                },
+                'sonoma_drainage_points': {
+                    color: '#0066CC',
+                    weight: 1,
+                    fillColor: '#0066CC',
+                    fillOpacity: 0.7,
+                    pointColor: '#0066CC'
+                },
+                // Parks/Recreation - Green
+                'sonoma_parks_boundaries': {
+                    color: '#27AE60',
+                    weight: 2,
+                    fillColor: '#2ECC71',
+                    fillOpacity: 0.15,
+                    pointColor: '#27AE60'
+                },
+                'sonoma_parks_trails': {
+                    color: '#16A085',
+                    weight: 3,
+                    fillColor: '#16A085',
+                    fillOpacity: 0.5,
+                    pointColor: '#16A085'
+                },
+                // Schools - Orange (points)
+                'sonoma_schools': {
+                    color: '#E67E22',
+                    weight: 1,
+                    fillColor: '#E67E22',
+                    fillOpacity: 0.8,
+                    pointColor: '#E67E22'
+                }
+            };
+            
+            // Default style if layer not found
+            return styles[layerId] || {
+                color: '#0080ff',
+                weight: 2,
+                fillColor: '#0080ff',
+                fillOpacity: 0.1,
+                pointColor: '#0080ff'
+            };
+        }
+        
         async function loadGISLayer(layerId) {
             try {
                 const layerConfig = gisLayersData.find(l => l.id === layerId);
@@ -443,23 +597,28 @@
                 const response = await fetch(`${apiUrl}?${params}`);
                 const geojson = await response.json();
                 
+                // Get professional styling for this layer
+                const layerStyle = getLayerStyle(layerId);
+                
                 // Create Leaflet layer from GeoJSON
                 const layerGroup = L.geoJSON(geojson, {
                     style: function(feature) {
                         return {
-                            color: '#0080ff',
-                            weight: 2,
-                            fillOpacity: 0.1
+                            color: layerStyle.color,
+                            weight: layerStyle.weight,
+                            fillColor: layerStyle.fillColor,
+                            fillOpacity: layerStyle.fillOpacity,
+                            dashArray: layerStyle.dashArray || null
                         };
                     },
                     pointToLayer: function(feature, latlng) {
                         return L.circleMarker(latlng, {
-                            radius: 4,
-                            fillColor: '#0080ff',
+                            radius: layerId === 'sonoma_schools' ? 6 : 4,
+                            fillColor: layerStyle.pointColor,
                             color: '#fff',
                             weight: 1,
                             opacity: 1,
-                            fillOpacity: 0.6
+                            fillOpacity: layerStyle.fillOpacity || 0.7
                         });
                     },
                     onEachFeature: function(feature, layer) {

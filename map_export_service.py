@@ -232,7 +232,7 @@ class MapExportService:
             
             # Add scale bar if requested
             if scale_bar:
-                self._draw_scale_bar(draw, 80, height - 80, bbox)
+                self._draw_scale_bar(draw, 80, height - 80, bbox, width)
             
             # Add watermark
             draw.text((width - 20, height - 20), "ACAD-GIS Map Viewer", 
@@ -248,19 +248,135 @@ class MapExportService:
             return None
     
     def _draw_north_arrow(self, draw, x: int, y: int):
-        """Draw a simple north arrow"""
-        # Arrow pointing up
-        points = [(x, y-30), (x+15, y), (x+10, y), (x+10, y+10), 
-                 (x-10, y+10), (x-10, y), (x-15, y)]
-        draw.polygon(points, fill='#333333', outline='#000000')
-        draw.text((x, y+25), "N", fill='#333333', anchor='mm')
+        """Draw a professional compass rose north arrow"""
+        import math
+        
+        # Outer circle
+        radius = 35
+        draw.ellipse([(x-radius, y-radius), (x+radius, y+radius)], 
+                     outline='#000000', width=2)
+        
+        # Cardinal points - North (filled black)
+        north_points = [
+            (x, y-radius+5),           # Top point
+            (x-8, y-3),                # Left base
+            (x, y-8),                  # Center indent
+            (x+8, y-3),                # Right base
+        ]
+        draw.polygon(north_points, fill='#000000', outline='#000000')
+        
+        # South (white with black outline)
+        south_points = [
+            (x, y+radius-5),           # Bottom point
+            (x-8, y+3),                # Left base
+            (x, y+8),                  # Center indent
+            (x+8, y+3),                # Right base
+        ]
+        draw.polygon(south_points, fill='#FFFFFF', outline='#000000')
+        
+        # East (white with black outline)
+        east_points = [
+            (x+radius-5, y),           # Right point
+            (x+3, y-8),                # Top base
+            (x+8, y),                  # Center indent
+            (x+3, y+8),                # Bottom base
+        ]
+        draw.polygon(east_points, fill='#FFFFFF', outline='#000000')
+        
+        # West (white with black outline)
+        west_points = [
+            (x-radius+5, y),           # Left point
+            (x-3, y-8),                # Top base
+            (x-8, y),                  # Center indent
+            (x-3, y+8),                # Bottom base
+        ]
+        draw.polygon(west_points, fill='#FFFFFF', outline='#000000')
+        
+        # Add small "N" label
+        try:
+            label_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+        except:
+            label_font = ImageFont.load_default()
+        
+        draw.text((x, y-radius-15), "N", fill='#000000', font=label_font, anchor='mm')
     
-    def _draw_scale_bar(self, draw, x: int, y: int, bbox: Dict):
-        """Draw a simple scale bar"""
-        # Calculate approximate scale (simplified)
-        bar_length = 200  # pixels
-        draw.rectangle([(x, y-5), (x+bar_length, y+5)], fill='#333333')
-        draw.text((x + bar_length//2, y+20), "Scale", fill='#333333', anchor='mm')
+    def _draw_scale_bar(self, draw, x: int, y: int, bbox: Dict, image_width: int):
+        """Draw a professional scale bar with proper measurements in feet"""
+        # Calculate real-world distance in feet (bbox is in EPSG:2226 - US Survey Feet)
+        map_width_ft = abs(bbox['maxx'] - bbox['minx'])
+        
+        # Determine nice round number for scale bar
+        # Target: 1/5 of map width for the scale bar
+        target_distance = map_width_ft / 5
+        
+        # Round to nice numbers
+        if target_distance >= 5280:  # More than a mile
+            # Use miles
+            miles = target_distance / 5280
+            if miles >= 10:
+                nice_distance = round(miles / 10) * 10
+                label = f"{int(nice_distance)} mi"
+                real_distance_ft = nice_distance * 5280
+            elif miles >= 5:
+                nice_distance = 5
+                label = "5 mi"
+                real_distance_ft = 26400
+            elif miles >= 2:
+                nice_distance = 2
+                label = "2 mi"
+                real_distance_ft = 10560
+            else:
+                nice_distance = 1
+                label = "1 mi"
+                real_distance_ft = 5280
+        else:
+            # Use feet
+            if target_distance >= 1000:
+                nice_distance = round(target_distance / 1000) * 1000
+            elif target_distance >= 500:
+                nice_distance = 500
+            elif target_distance >= 200:
+                nice_distance = 200
+            elif target_distance >= 100:
+                nice_distance = 100
+            else:
+                nice_distance = max(50, round(target_distance / 50) * 50)
+            label = f"{int(nice_distance)} ft"
+            real_distance_ft = nice_distance
+        
+        # Calculate bar length in pixels using actual image width (minus margins)
+        usable_width = image_width - 40  # Account for 20px margins on each side
+        bar_length_px = int((real_distance_ft / map_width_ft) * usable_width * 0.8)
+        bar_length_px = min(bar_length_px, 250)  # Max 250px
+        
+        # Draw scale bar background (white with black border)
+        padding = 10
+        bar_height = 15
+        bg_width = bar_length_px + 2*padding
+        bg_height = 50
+        
+        # Background rectangle
+        draw.rectangle([(x-padding, y-bg_height//2), (x+bg_width, y+bg_height//2)],
+                      fill='#FFFFFF', outline='#000000', width=2)
+        
+        # Checkered scale bar (black and white segments)
+        num_segments = 4
+        segment_length = bar_length_px // num_segments
+        
+        for i in range(num_segments):
+            seg_x = x + i * segment_length
+            fill_color = '#000000' if i % 2 == 0 else '#FFFFFF'
+            draw.rectangle([(seg_x, y-bar_height//2+5), (seg_x+segment_length, y+bar_height//2-5)],
+                          fill=fill_color, outline='#000000', width=1)
+        
+        # Add scale label
+        try:
+            scale_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 12)
+        except:
+            scale_font = ImageFont.load_default()
+        
+        draw.text((x + bar_length_px//2, y+bar_height//2+12), label, 
+                 fill='#000000', font=scale_font, anchor='mm')
     
     def create_export_package(self, job_id: str, params: Dict) -> Dict:
         """
