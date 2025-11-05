@@ -3375,18 +3375,19 @@ def create_export_job():
         print(f"Received export request with params: {params}")
         job_id = str(uuid.uuid4())
         
-        # Insert job record
+        # Insert job record - let database generate ID
         query = """
-            INSERT INTO export_jobs (id, status, params, created_at)
-            VALUES (%s, 'pending', %s::jsonb, NOW())
+            INSERT INTO export_jobs (status, params, created_at)
+            VALUES ('pending', %s::jsonb, NOW())
             RETURNING id, status, created_at
         """
-        print(f"Attempting to insert job {job_id}")
+        print(f"Attempting to insert job")
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, (job_id, json.dumps(params)))
+                cur.execute(query, (json.dumps(params),))
                 result = dict(cur.fetchone())
-        print(f"Job created successfully: {result}")
+        job_id = str(result['id'])
+        print(f"Job created successfully with id: {job_id}")
         
         # Process export in background thread
         def process_export():
