@@ -3275,12 +3275,102 @@ def map_test_page():
 
 @app.route('/api/map-viewer/layers')
 def get_gis_layers():
-    """Get available GIS layers"""
+    """Get available GIS layers (external Sonoma County layers)"""
     try:
         query = "SELECT * FROM gis_layers WHERE enabled = true ORDER BY name"
         layers = execute_query(query)
         return jsonify({'layers': layers})
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/map-viewer/database-layers')
+def get_database_layers():
+    """Get available database layers (user's PostGIS data)"""
+    try:
+        # Define the database layers that contain geospatial data
+        db_layers = [
+            {
+                'id': 'survey_points',
+                'name': 'Survey Points',
+                'table': 'survey_points',
+                'geom_column': 'geometry',
+                'geom_type': 'Point',
+                'enabled': True,
+                'description': 'Survey control points and topo shots'
+            },
+            {
+                'id': 'utility_lines',
+                'name': 'Utility Lines',
+                'table': 'utility_lines',
+                'geom_column': 'geometry',
+                'geom_type': 'LineString',
+                'enabled': True,
+                'description': 'Water, sewer, storm, electric, gas lines'
+            },
+            {
+                'id': 'utility_structures',
+                'name': 'Utility Structures',
+                'table': 'utility_structures',
+                'geom_column': 'geometry',
+                'geom_type': 'Point',
+                'enabled': True,
+                'description': 'Manholes, valves, meters, structures'
+            },
+            {
+                'id': 'parcels',
+                'name': 'Parcels',
+                'table': 'parcels',
+                'geom_column': 'geometry',
+                'geom_type': 'Polygon',
+                'enabled': True,
+                'description': 'Property parcel boundaries'
+            },
+            {
+                'id': 'horizontal_alignments',
+                'name': 'Alignments',
+                'table': 'horizontal_alignments',
+                'geom_column': 'geometry',
+                'geom_type': 'LineString',
+                'enabled': True,
+                'description': 'Horizontal centerline alignments'
+            },
+            {
+                'id': 'surface_features',
+                'name': 'Surface Features',
+                'table': 'surface_features',
+                'geom_column': 'geometry',
+                'geom_type': 'Mixed',
+                'enabled': True,
+                'description': 'General site features (points, lines, polygons)'
+            },
+            {
+                'id': 'drawing_entities',
+                'name': 'CAD Entities',
+                'table': 'drawing_entities',
+                'geom_column': 'geometry',
+                'geom_type': 'Mixed',
+                'enabled': True,
+                'description': 'Lines, polylines, arcs, circles from CAD drawings'
+            }
+        ]
+        
+        # Check which tables actually exist and have data
+        available_layers = []
+        for layer in db_layers:
+            try:
+                count_query = f"SELECT COUNT(*) as count FROM {layer['table']}"
+                result = execute_query(count_query)
+                if result and result[0]['count'] > 0:
+                    layer['feature_count'] = result[0]['count']
+                    available_layers.append(layer)
+            except Exception as e:
+                # Table doesn't exist or error checking - skip it
+                print(f"Skipping layer {layer['id']}: {e}")
+                continue
+        
+        return jsonify({'layers': available_layers})
+    except Exception as e:
+        print(f"Error getting database layers: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/map-viewer/layer-data/<layer_id>')
@@ -3345,6 +3435,91 @@ def get_layer_data(layer_id):
         
     except Exception as e:
         print(f"Error fetching layer data: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/map-viewer/database-layer-data/<layer_id>')
+def get_database_layer_data(layer_id):
+    """Fetch database layer data from PostGIS tables"""
+    try:
+        # Map layer IDs to table and geometry column
+        layer_map = {
+            'survey_points': ('survey_points', 'geometry', 'Point'),
+            'utility_lines': ('utility_lines', 'geometry', 'LineString'),
+            'utility_structures': ('utility_structures', 'geometry', 'Point'),
+            'parcels': ('parcels', 'geometry', 'Polygon'),
+            'horizontal_alignments': ('horizontal_alignments', 'geometry', 'LineString'),
+            'surface_features': ('surface_features', 'geometry', 'Mixed'),
+            'drawing_entities': ('drawing_entities', 'geometry', 'Mixed')
+        }
+        
+        if layer_id not in layer_map:
+            return jsonify({'error': 'Invalid layer ID'}), 400
+        
+        table_name, geom_column, geom_type = layer_map[layer_id]
+        
+        # Get bbox from request params (WGS84)
+        minx = request.args.get('minx', type=float)
+        miny = request.args.get('miny', type=float)
+        maxx = request.args.get('maxx', type=float)
+        maxy = request.args.get('maxy', type=float)
+        
+        if not all([minx, miny, maxx, maxy]):
+            return jsonify({'error': 'Missing bbox parameters'}), 400
+        
+        # Transform bbox from WGS84 to EPSG:2226 for PostGIS query
+        from pyproj import Transformer
+        transformer = Transformer.from_crs("EPSG:4326", "EPSG:2226", always_xy=True)
+        min_x_2226, min_y_2226 = transformer.transform(minx, miny)
+        max_x_2226, max_y_2226 = transformer.transform(maxx, maxy)
+        
+        # Build query to fetch features within bbox (data in EPSG:2226, transformed to WGS84 for output)
+        query = f"""
+            SELECT 
+                ST_AsGeoJSON(ST_Transform({geom_column}, 4326)) as geometry,
+                *
+            FROM {table_name}
+            WHERE {geom_column} && ST_MakeEnvelope(%s, %s, %s, %s, 2226)
+            LIMIT 1000
+        """
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (min_x_2226, min_y_2226, max_x_2226, max_y_2226))
+                rows = cur.fetchall()
+        
+        # Convert to GeoJSON features
+        features = []
+        for row in rows:
+            import json
+            geom_json = json.loads(row['geometry'])
+            
+            # Build properties (exclude geometry column)
+            properties = {}
+            for key, value in row.items():
+                if key not in [geom_column, 'geometry']:
+                    # Convert datetime/UUID/etc to string
+                    if hasattr(value, 'isoformat'):
+                        properties[key] = value.isoformat()
+                    elif value is None:
+                        continue
+                    else:
+                        properties[key] = str(value)
+            
+            features.append({
+                'type': 'Feature',
+                'geometry': geom_json,
+                'properties': properties
+            })
+        
+        return jsonify({
+            'type': 'FeatureCollection',
+            'features': features
+        })
+        
+    except Exception as e:
+        print(f"Error fetching database layer data: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500

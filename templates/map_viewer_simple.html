@@ -258,8 +258,15 @@
             </div>
             
             <div class="section">
-                <h3><i class="fas fa-layer-group"></i> GIS Layers</h3>
-                <div id="gis-layers-container" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
+                <h3><i class="fas fa-database"></i> Database Layers</h3>
+                <div id="db-layers-container" style="font-size: 11px; max-height: 150px; overflow-y: auto;">
+                    Loading database layers...
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3><i class="fas fa-layer-group"></i> Sonoma County Layers</h3>
+                <div id="gis-layers-container" style="font-size: 11px; max-height: 150px; overflow-y: auto;">
                     Loading layers...
                 </div>
                 <div id="gis-status" style="color: #888; font-size: 10px; margin-top: 5px;">
@@ -399,7 +406,12 @@
             proj4.defs("EPSG:2226", "+proj=lcc +lat_1=39.83333333333334 +lat_2=38.33333333333334 +lat_0=37.66666666666666 +lon_0=-122 +x_0=2000000.0001016 +y_0=500000.0001016001 +ellps=GRS80 +datum=NAD83 +to_meter=0.3048006096012192 +no_defs");
             
             // Create map
-            map = L.map('map').setView([38.5, -122.8], 10);
+            map = L.map('map', {
+                zoomDelta: 0.25,  // Finer zoom control (default is 1)
+                zoomSnap: 0.25,   // Allows fractional zoom levels
+                wheelPxPerZoomLevel: 120,  // Slower scroll zoom (default is 60)
+                boxZoom: true  // Enable shift+drag zoom box (default is true, explicit for clarity)
+            }).setView([38.5, -122.8], 10);
             
             // Initialize measurement variables
             measureMode = null;
@@ -562,6 +574,7 @@
             
             // Load data
             loadProjects();
+            loadDatabaseLayers();
             loadGISLayers();
             
             console.log('Map initialized!');
@@ -575,7 +588,9 @@
         let projectsVisible = true;
         let projectColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#95afc0', '#c56cf0', '#ffbe76'];
         let gisLayersData = [];
-        let activeGISLayers = {};  // Store active GIS layers on map
+        let dbLayersData = [];  // Database layers
+        let activeGISLayers = {};  // Store active Sonoma County GIS layers on map
+        let activeDBLayers = {};   // Store active database layers on map
         
         async function loadGISLayers() {
             try {
@@ -592,10 +607,11 @@
                 container.innerHTML = gisLayersData
                     .filter(layer => layer.enabled)
                     .map(layer => `
-                        <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                        <label style="display: flex; align-items: center; margin-bottom: 8px; cursor: pointer;">
                             <input type="checkbox" id="layer-${layer.id}" 
+                                   style="margin: 0; margin-right: 8px; flex-shrink: 0;"
                                    onchange="toggleLayerSelection('${layer.id}', this.checked)">
-                            <span style="margin-left: 5px;" id="label-${layer.id}">${layer.name}</span>
+                            <span id="label-${layer.id}">${layer.name}</span>
                         </label>
                     `).join('');
                 
@@ -603,6 +619,54 @@
                 console.error('Error loading GIS layers:', error);
                 document.getElementById('gis-layers-container').innerHTML = 
                     '<div style="color: #ff4444;">Error loading layers</div>';
+            }
+        }
+        
+        async function loadDatabaseLayers() {
+            try {
+                const res = await fetch('/api/map-viewer/database-layers');
+                const data = await res.json();
+                dbLayersData = data.layers || [];
+                
+                const container = document.getElementById('db-layers-container');
+                if (dbLayersData.length === 0) {
+                    container.innerHTML = '<div style="color: #888;">No database layers with data</div>';
+                    return;
+                }
+                
+                container.innerHTML = dbLayersData
+                    .map(layer => `
+                        <label style="display: flex; align-items: center; margin-bottom: 8px; cursor: pointer;" title="${layer.description || ''} (${layer.feature_count} features)">
+                            <input type="checkbox" id="db-layer-${layer.id}" 
+                                   style="margin: 0; margin-right: 8px; flex-shrink: 0;"
+                                   onchange="toggleDBLayerSelection('${layer.id}', this.checked)">
+                            <span id="db-label-${layer.id}">${layer.name} (${layer.feature_count})</span>
+                        </label>
+                    `).join('');
+                
+            } catch (error) {
+                console.error('Error loading database layers:', error);
+                document.getElementById('db-layers-container').innerHTML = 
+                    '<div style="color: #ff4444;">Error loading database layers</div>';
+            }
+        }
+        
+        async function toggleDBLayerSelection(layerId, checked) {
+            console.log(`Database layer ${layerId} ${checked ? 'loading...' : 'removing...'}`);
+            
+            const label = document.getElementById(`db-label-${layerId}`);
+            
+            if (checked) {
+                // Load and display the database layer
+                label.innerHTML = label.textContent + ' <i class="fas fa-spinner fa-spin"></i>';
+                await loadDBLayer(layerId);
+            } else {
+                // Remove the layer from map
+                if (activeDBLayers[layerId]) {
+                    map.removeLayer(activeDBLayers[layerId]);
+                    delete activeDBLayers[layerId];
+                    console.log(`Database layer ${layerId} removed from map`);
+                }
             }
         }
         
@@ -725,6 +789,112 @@
                 fillOpacity: 0.1,
                 pointColor: '#0080ff'
             };
+        }
+        
+        async function loadDBLayer(layerId) {
+            try {
+                const layerConfig = dbLayersData.find(l => l.id === layerId);
+                if (!layerConfig) {
+                    console.error(`Database layer config not found for ${layerId}`);
+                    return;
+                }
+                
+                // Get current map bounds for query
+                const bounds = map.getBounds();
+                const bbox = {
+                    minx: bounds.getWest(),
+                    miny: bounds.getSouth(),
+                    maxx: bounds.getEast(),
+                    maxy: bounds.getNorth()
+                };
+                
+                console.log(`Fetching ${layerConfig.name} data from database...`);
+                
+                // Fetch database layer data
+                const apiUrl = `/api/map-viewer/database-layer-data/${layerId}`;
+                const params = new URLSearchParams({
+                    'minx': bbox.minx,
+                    'miny': bbox.miny,
+                    'maxx': bbox.maxx,
+                    'maxy': bbox.maxy
+                });
+                
+                const response = await fetch(`${apiUrl}?${params}`);
+                const geojson = await response.json();
+                
+                // Database layer styles (CAD/engineering colors)
+                const dbLayerStyles = {
+                    'survey_points': { color: '#FFFF00', pointColor: '#FFFF00', fillOpacity: 0.8 },  // Yellow
+                    'utility_lines': { color: '#00FFFF', weight: 2 },  // Cyan
+                    'utility_structures': { color: '#FF00FF', pointColor: '#FF00FF', fillOpacity: 0.9 },  // Magenta
+                    'parcels': { color: '#FF0000', weight: 2, fillColor: '#FF0000', fillOpacity: 0.1 },  // Red
+                    'horizontal_alignments': { color: '#00FF00', weight: 3 },  // Green
+                    'surface_features': { color: '#FFFFFF', weight: 1 },  // White
+                    'drawing_entities': { color: '#808080', weight: 1 }  // Gray
+                };
+                
+                const layerStyle = dbLayerStyles[layerId] || { color: '#00FFFF', weight: 2 };
+                
+                // Create Leaflet layer from GeoJSON
+                const layerGroup = L.geoJSON(geojson, {
+                    style: function(feature) {
+                        return {
+                            color: layerStyle.color,
+                            weight: layerStyle.weight || 2,
+                            fillColor: layerStyle.fillColor || layerStyle.color,
+                            fillOpacity: layerStyle.fillOpacity || 0.2
+                        };
+                    },
+                    pointToLayer: function(feature, latlng) {
+                        return L.circleMarker(latlng, {
+                            radius: 5,
+                            fillColor: layerStyle.pointColor || layerStyle.color,
+                            color: '#000',
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: layerStyle.fillOpacity || 0.8
+                        });
+                    },
+                    onEachFeature: function(feature, layer) {
+                        // Add popup with properties
+                        if (feature.properties) {
+                            const props = feature.properties;
+                            let popupContent = `<div style="font-size: 11px; max-width: 250px;">`;
+                            popupContent += `<strong>${layerConfig.name}</strong><br>`;
+                            for (const [key, value] of Object.entries(props)) {
+                                if (value && key !== 'geometry') {
+                                    const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                    const displayValue = String(value).length > 50 ? 
+                                        String(value).substring(0, 50) + '...' : value;
+                                    popupContent += `<b>${displayKey}:</b> ${displayValue}<br>`;
+                                }
+                            }
+                            popupContent += `</div>`;
+                            layer.bindPopup(popupContent);
+                        }
+                    }
+                });
+                
+                layerGroup.addTo(map);
+                activeDBLayers[layerId] = layerGroup;
+                
+                // Update label to show feature count
+                const label = document.getElementById(`db-label-${layerId}`);
+                const featureCount = geojson.features ? geojson.features.length : 0;
+                label.innerHTML = `${layerConfig.name} (${featureCount})`;
+                
+                console.log(`${layerConfig.name}: Loaded ${featureCount} features from database`);
+                
+            } catch (error) {
+                console.error(`Error loading database layer ${layerId}:`, error);
+                const label = document.getElementById(`db-label-${layerId}`);
+                if (label) {
+                    label.innerHTML = label.textContent.replace(' <i class="fas fa-spinner fa-spin"></i>', ' ❌');
+                }
+                
+                // Uncheck the box
+                document.getElementById(`db-layer-${layerId}`).checked = false;
+            }
         }
         
         async function loadGISLayer(layerId) {
