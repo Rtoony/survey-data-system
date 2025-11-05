@@ -83,6 +83,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 5, 2025 - Multi-Format Export System - COMPLETE:**
+- **Format Selection Modal:** User-friendly modal dialog allows simultaneous export to multiple formats (PNG, DXF, Shapefile, KML) with single-click checkbox selection
+- **PNG Export Options:** Checkboxes for north arrow and scale bar overlays within modal, pre-checked for convenience
+- **KML Support:** New KML export format using fiona library with proper EPSG:2226 → WGS84 coordinate transformations for Google Earth/Maps compatibility
+- **Unified Export API:** New `/api/map-export/create` endpoint handles multi-format exports with correct coordinate system transformations:
+  - Fetches features in WGS84 from FeatureServers
+  - Transforms ALL features to EPSG:2226 (Point, Polygon, LineString and Multi* variants)
+  - DXF/Shapefile receive EPSG:2226 data for CAD accuracy
+  - KML receives EPSG:2226 data, then service transforms to WGS84 for standard compliance
+  - PNG uses EPSG:2226 bbox for accurate scale bar calculations
+- **Production Ready:** Complete coordinate transformation pipeline architect-reviewed and verified for all formats
+
 **November 5, 2025 - Map Viewer Export Polish - COMPLETE:**
 - **Professional Layer Styling:** Industry-standard color schemes for all 11 Sonoma County layers (parcels=red, buildings=gray, roads=yellow, drainage=blue, parks=green, administrative=purple with dashed lines)
 - **Export Area Validation:** Real-time area calculation using EPSG:2226 for survey-grade accuracy with three-tier warning system (normal/warning/error states), prevents exports over 2M sq ft (46 acres) to protect server performance
