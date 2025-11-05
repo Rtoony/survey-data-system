@@ -259,20 +259,138 @@
             }
         }
         
+        let measureMode = null;
+        let measurePoints = [];
+        let measureLayer = new L.FeatureGroup().addTo(map);
+        
         function measureDistance() {
-            alert('Click points on map to measure. Double-click to finish.');
+            measureMode = 'distance';
+            measurePoints = [];
+            document.getElementById('btn-distance').classList.add('active');
+            document.getElementById('btn-area').classList.remove('active');
+            map.getContainer().style.cursor = 'crosshair';
+            alert('Click points on map. Double-click to finish.');
         }
         
         function measureArea() {
+            measureMode = 'area';
+            measurePoints = [];
+            document.getElementById('btn-area').classList.add('active');
+            document.getElementById('btn-distance').classList.remove('active');
+            map.getContainer().style.cursor = 'crosshair';
             alert('Click points to draw polygon. Double-click to finish.');
         }
         
         function clearMeasurements() {
-            console.log('Clear measurements');
+            measureLayer.clearLayers();
+            measureMode = null;
+            measurePoints = [];
+            map.getContainer().style.cursor = '';
+            document.getElementById('btn-distance').classList.remove('active');
+            document.getElementById('btn-area').classList.remove('active');
         }
         
-        function openExportModal() {
-            alert('Export functionality will open a modal here');
+        // Measurement click handler
+        map.on('click', function(e) {
+            if (!measureMode) return;
+            
+            measurePoints.push(e.latlng);
+            
+            if (measureMode === 'distance' && measurePoints.length > 1) {
+                const line = turf.lineString(measurePoints.map(p => [p.lng, p.lat]));
+                const meters = turf.length(line, {units: 'meters'});
+                const feet = meters * 3.28084;
+                const miles = feet / 5280;
+                const label = miles > 0.1 ? `${miles.toFixed(2)} mi` : `${feet.toFixed(0)} ft`;
+                
+                L.polyline(measurePoints, {color: '#00ff00', weight: 3})
+                    .addTo(measureLayer)
+                    .bindPopup(label)
+                    .openPopup();
+            }
+            
+            if (measureMode === 'area' && measurePoints.length >= 3) {
+                const coords = measurePoints.map(p => [p.lng, p.lat]);
+                coords.push(coords[0]);
+                const poly = turf.polygon([coords]);
+                const sqm = turf.area(poly);
+                const sqft = sqm * 10.7639;
+                const acres = sqft / 43560;
+                const label = acres > 0.1 ? `${acres.toFixed(2)} acres` : `${sqft.toFixed(0)} sq ft`;
+                
+                L.polygon(measurePoints, {color: '#00ff00', fillOpacity: 0.2})
+                    .addTo(measureLayer)
+                    .bindPopup(label)
+                    .openPopup();
+            }
+        });
+        
+        map.on('dblclick', function() {
+            if (measureMode) {
+                setTimeout(clearMeasurements, 100);
+            }
+        });
+        
+        async function openExportModal() {
+            const layers = drawnItems.getLayers();
+            if (layers.length === 0) {
+                alert('Please draw a rectangle on the map first');
+                return;
+            }
+            
+            const bbox = layers[0].getBounds();
+            const params = {
+                bbox: {
+                    minx: bbox.getWest(),
+                    miny: bbox.getSouth(),
+                    maxx: bbox.getEast(),
+                    maxy: bbox.getNorth(),
+                    crs: 'EPSG:4326'
+                },
+                formats: ['shp', 'dxf', 'png'],
+                layers: ['parcels', 'buildings', 'roads'],
+                png_options: {
+                    north_arrow: true,
+                    scale_bar: true
+                }
+            };
+            
+            try {
+                const res = await fetch('/api/map-export/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(params)
+                });
+                const data = await res.json();
+                
+                if (data.job_id) {
+                    alert('Export started! Job ID: ' + data.job_id + '\n\nCheck console for status.');
+                    pollExport(data.job_id);
+                } else {
+                    alert('Export failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Export error: ' + e.message);
+            }
+        }
+        
+        async function pollExport(jobId) {
+            const check = async () => {
+                const res = await fetch(`/api/map-export/status/${jobId}`);
+                const data = await res.json();
+                
+                if (data.status === 'complete') {
+                    console.log('Export complete! Download:', data.download_url);
+                    alert('Export complete!\n\nDownload: ' + data.download_url);
+                    window.open(data.download_url, '_blank');
+                } else if (data.status === 'failed') {
+                    alert('Export failed: ' + data.error);
+                } else {
+                    console.log('Export processing...');
+                    setTimeout(check, 2000);
+                }
+            };
+            check();
         }
     </script>
 </body>
