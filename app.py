@@ -3377,7 +3377,7 @@ def create_export_job():
         # Insert job record
         query = """
             INSERT INTO export_jobs (id, status, params, created_at)
-            VALUES (%s, 'pending', %s, NOW())
+            VALUES (%s, 'pending', %s::jsonb, NOW())
             RETURNING id, status, created_at
         """
         with get_db() as conn:
