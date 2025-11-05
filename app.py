@@ -431,12 +431,15 @@ def get_drawings():
                 d.*,
                 p.project_name,
                 p.project_number,
+                COALESCE(COUNT(de.entity_id), 0) as entity_count,
                 CASE 
-                    WHEN d.entity_count > 0 THEN true 
+                    WHEN COUNT(de.entity_id) > 0 THEN true 
                     ELSE false 
                 END as has_content
             FROM drawings d
             LEFT JOIN projects p ON d.project_id = p.project_id
+            LEFT JOIN drawing_entities de ON d.drawing_id = de.drawing_id
+            GROUP BY d.drawing_id, p.project_name, p.project_number
             ORDER BY d.created_at DESC
             LIMIT 500
         """
@@ -3799,6 +3802,56 @@ def get_project_entities(drawing_id):
         
     except Exception as e:
         print(f"Error fetching project entities: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/map-viewer/drawing-extent/<drawing_id>')
+def get_drawing_extent(drawing_id):
+    """Get bounding box extent for a drawing's entities in WGS84"""
+    try:
+        from pyproj import Transformer
+        
+        query = """
+            SELECT 
+                ST_XMin(ST_Extent(geometry)) as xmin,
+                ST_YMin(ST_Extent(geometry)) as ymin,
+                ST_XMax(ST_Extent(geometry)) as xmax,
+                ST_YMax(ST_Extent(geometry)) as ymax,
+                COUNT(*) as entity_count
+            FROM drawing_entities
+            WHERE drawing_id = %s
+        """
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (drawing_id,))
+                result = cur.fetchone()
+        
+        if not result or result['entity_count'] == 0:
+            return jsonify({'error': 'No entities found for this drawing'}), 404
+        
+        # Transform from SRID 2226 (California State Plane) to WGS84
+        transformer = Transformer.from_crs("EPSG:2226", "EPSG:4326", always_xy=True)
+        
+        # Transform the bounding box corners
+        sw_lon, sw_lat = transformer.transform(result['xmin'], result['ymin'])
+        ne_lon, ne_lat = transformer.transform(result['xmax'], result['ymax'])
+        
+        return jsonify({
+            'bounds': [[sw_lat, sw_lon], [ne_lat, ne_lon]],
+            'entity_count': result['entity_count'],
+            'native_bounds': {
+                'xmin': float(result['xmin']),
+                'ymin': float(result['ymin']),
+                'xmax': float(result['xmax']),
+                'ymax': float(result['ymax']),
+                'srid': 2226
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error getting drawing extent: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
