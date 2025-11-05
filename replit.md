@@ -81,3 +81,26 @@ Preferred communication style: Simple, everyday language.
 
 **Related Systems:**
 - **ACAD-GIS FastAPI application:** Main API server sharing the same PostgreSQL/PostGIS database.
+
+## Recent Changes
+
+**November 5, 2025 - DXF Project Display on Map Viewer - COMPLETE:**
+- **Project Bounding Boxes:** Imported DXF projects now display as dashed orange boxes on the map showing spatial extents
+- **Coordinate Transformation:** Fixed `/api/map-viewer/projects` to properly transform EPSG:2226 coordinates to WGS84 using pyproj Transformer
+- **Entity Display:** New `/api/map-viewer/project-entities/<drawing_id>` endpoint fetches CAD entities (lines, polylines, arcs, circles) from drawing_entities table
+- **Interactive Loading:** Click project boxes to load CAD entities, click again to toggle visibility
+- **CAD Styling:** Entities styled with AutoCAD Color Index (ACI) colors (1=red, 2=yellow, 3=green, 4=cyan, 5=blue, 6=magenta, 7=white) and respect lineweight/transparency properties
+- **Performance Limits:** 5000 entity limit per drawing to protect performance
+- **Database Integration:** Seamlessly integrates with existing DXF import/export workflow - import DXF files through other tools, view them on the map
+- **Production Ready:** All features architect-reviewed and verified for coordinate accuracy, SQL injection safety, and UX
+
+**November 5, 2025 - Database Layer Integration & UI Polish - COMPLETE:**
+- **Database Layer Display:** Map viewer now shows user's own PostGIS database layers alongside Sonoma County data with dedicated "Database Layers" section in sidebar
+- **Database Layer API:** Two new endpoints: `/api/map-viewer/database-layers` (enumerate available tables with feature counts) and `/api/map-viewer/database-layer-data/<layer_id>` (fetch GeoJSON with bbox filtering)
+- **Coordinate Transformation:** Backend transforms WGS84 map bounds to EPSG:2226 for PostGIS queries, returns features in WGS84 for display, maintains 1000 feature limit per query
+- **CAD Color Schemes:** Professional engineering colors for database layers (yellow survey points, cyan utilities, magenta structures, red parcels, green alignments)
+- **Layer Management:** On-demand loading with checkboxes, feature count display, property popups, spinner feedback, and proper cleanup
+- **Supported Tables:** survey_points, utility_lines, utility_structures, parcels, horizontal_alignments, surface_features, drawing_entities
+- **Zoom Controls:** Finer zoom sensitivity with zoomDelta: 0.25, wheelPxPerZoomLevel: 120, plus shift+drag box zoom enabled
+- **UI Polish:** Fixed checkbox alignment with flexbox layout for both Sonoma County and Database Layers sections
+- **Production Ready:** All features architect-reviewed and verified for coordinate handling, SQL injection safety, and performance
