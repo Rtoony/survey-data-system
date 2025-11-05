@@ -153,7 +153,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
     
     <script>
-        let map, basemaps, drawnItems;
+        let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -164,6 +164,11 @@
             
             // Create map
             map = L.map('map').setView([38.5, -122.8], 10);
+            
+            // Initialize measurement variables
+            measureMode = null;
+            measurePoints = [];
+            measureLayer = new L.FeatureGroup().addTo(map);
             
             // Basemaps
             basemaps = {
@@ -221,6 +226,47 @@
                 `;
             });
             
+            // Measurement click handler
+            map.on('click', function(e) {
+                if (!measureMode) return;
+                
+                measurePoints.push(e.latlng);
+                
+                if (measureMode === 'distance' && measurePoints.length > 1) {
+                    const line = turf.lineString(measurePoints.map(p => [p.lng, p.lat]));
+                    const meters = turf.length(line, {units: 'meters'});
+                    const feet = meters * 3.28084;
+                    const miles = feet / 5280;
+                    const label = miles > 0.1 ? `${miles.toFixed(2)} mi` : `${feet.toFixed(0)} ft`;
+                    
+                    L.polyline(measurePoints, {color: '#00ff00', weight: 3})
+                        .addTo(measureLayer)
+                        .bindPopup(label)
+                        .openPopup();
+                }
+                
+                if (measureMode === 'area' && measurePoints.length >= 3) {
+                    const coords = measurePoints.map(p => [p.lng, p.lat]);
+                    coords.push(coords[0]);
+                    const poly = turf.polygon([coords]);
+                    const sqm = turf.area(poly);
+                    const sqft = sqm * 10.7639;
+                    const acres = sqft / 43560;
+                    const label = acres > 0.1 ? `${acres.toFixed(2)} acres` : `${sqft.toFixed(0)} sq ft`;
+                    
+                    L.polygon(measurePoints, {color: '#00ff00', fillOpacity: 0.2})
+                        .addTo(measureLayer)
+                        .bindPopup(label)
+                        .openPopup();
+                }
+            });
+            
+            map.on('dblclick', function() {
+                if (measureMode) {
+                    setTimeout(clearMeasurements, 100);
+                }
+            });
+            
             console.log('Map initialized!');
             setTimeout(() => {
                 map.invalidateSize();
@@ -259,77 +305,33 @@
             }
         }
         
-        let measureMode = null;
-        let measurePoints = [];
-        let measureLayer = new L.FeatureGroup().addTo(map);
-        
         function measureDistance() {
+            if (!map || !measureLayer) return;
             measureMode = 'distance';
             measurePoints = [];
             document.getElementById('btn-distance').classList.add('active');
             document.getElementById('btn-area').classList.remove('active');
             map.getContainer().style.cursor = 'crosshair';
-            alert('Click points on map. Double-click to finish.');
         }
         
         function measureArea() {
+            if (!map || !measureLayer) return;
             measureMode = 'area';
             measurePoints = [];
             document.getElementById('btn-area').classList.add('active');
             document.getElementById('btn-distance').classList.remove('active');
             map.getContainer().style.cursor = 'crosshair';
-            alert('Click points to draw polygon. Double-click to finish.');
         }
         
         function clearMeasurements() {
+            if (!measureLayer) return;
             measureLayer.clearLayers();
             measureMode = null;
             measurePoints = [];
-            map.getContainer().style.cursor = '';
+            if (map) map.getContainer().style.cursor = '';
             document.getElementById('btn-distance').classList.remove('active');
             document.getElementById('btn-area').classList.remove('active');
         }
-        
-        // Measurement click handler
-        map.on('click', function(e) {
-            if (!measureMode) return;
-            
-            measurePoints.push(e.latlng);
-            
-            if (measureMode === 'distance' && measurePoints.length > 1) {
-                const line = turf.lineString(measurePoints.map(p => [p.lng, p.lat]));
-                const meters = turf.length(line, {units: 'meters'});
-                const feet = meters * 3.28084;
-                const miles = feet / 5280;
-                const label = miles > 0.1 ? `${miles.toFixed(2)} mi` : `${feet.toFixed(0)} ft`;
-                
-                L.polyline(measurePoints, {color: '#00ff00', weight: 3})
-                    .addTo(measureLayer)
-                    .bindPopup(label)
-                    .openPopup();
-            }
-            
-            if (measureMode === 'area' && measurePoints.length >= 3) {
-                const coords = measurePoints.map(p => [p.lng, p.lat]);
-                coords.push(coords[0]);
-                const poly = turf.polygon([coords]);
-                const sqm = turf.area(poly);
-                const sqft = sqm * 10.7639;
-                const acres = sqft / 43560;
-                const label = acres > 0.1 ? `${acres.toFixed(2)} acres` : `${sqft.toFixed(0)} sq ft`;
-                
-                L.polygon(measurePoints, {color: '#00ff00', fillOpacity: 0.2})
-                    .addTo(measureLayer)
-                    .bindPopup(label)
-                    .openPopup();
-            }
-        });
-        
-        map.on('dblclick', function() {
-            if (measureMode) {
-                setTimeout(clearMeasurements, 100);
-            }
-        });
         
         async function openExportModal() {
             const layers = drawnItems.getLayers();
