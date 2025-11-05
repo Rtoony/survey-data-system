@@ -3256,7 +3256,8 @@ def map_viewer_page():
     """Map Viewer Page"""
     import time
     response = make_response(render_template('map_viewer_simple.html', cache_bust=int(time.time())))
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate, max-age=0, s-maxage=0'
+    response.headers['Surrogate-Control'] = 'no-store'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     response.headers['X-Accel-Expires'] = '0'
@@ -3267,7 +3268,8 @@ def map_viewer_v2_page():
     """Map Viewer Page V2 - Uncached"""
     import time
     response = make_response(render_template('map_viewer_simple.html', cache_bust=int(time.time())))
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate, max-age=0, s-maxage=0'
+    response.headers['Surrogate-Control'] = 'no-store'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     response.headers['X-Accel-Expires'] = '0'
