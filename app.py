@@ -3,7 +3,7 @@ ACAD-GIS Schema Explorer & Data Manager
 A companion tool for viewing and managing your Supabase database
 """
 
-from flask import Flask, render_template, jsonify, request, send_file
+from flask import Flask, render_template, jsonify, request, send_file, make_response
 from flask_cors import CORS
 from flask_caching import Cache
 import psycopg2
