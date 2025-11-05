@@ -88,12 +88,56 @@
             font-family: monospace;
             font-size: 11px;
         }
+        
+        .project-info {
+            background: #001a33;
+            border: 2px solid #00ffff;
+            padding: 12px;
+            border-radius: 5px;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+        
+        .project-info strong {
+            color: #00ffff;
+            display: block;
+            margin-bottom: 2px;
+        }
+        
+        .project-info .value {
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        
+        .coming-soon {
+            color: #888;
+            font-size: 10px;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="sidebar">
             <h2 style="color: #00ffff; margin-bottom: 20px;">Map Viewer</h2>
+            
+            <div class="section">
+                <h3><i class="fas fa-map-marked-alt"></i> Project Location</h3>
+                <div class="project-info">
+                    <strong>State Plane Zone</strong>
+                    <div class="value">CA Zone 2 (EPSG:2226)</div>
+                    
+                    <strong>County</strong>
+                    <div class="value">Sonoma County</div>
+                    
+                    <strong>Units</strong>
+                    <div class="value">US Survey Feet</div>
+                    
+                    <div class="coming-soon">
+                        <i class="fas fa-lock"></i> Zone/County selection coming soon
+                    </div>
+                </div>
+            </div>
             
             <div class="section">
                 <h3><i class="fas fa-map"></i> Basemap</h3>
