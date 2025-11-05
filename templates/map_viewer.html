@@ -255,7 +255,7 @@
                 <div class="control-section">
                     <h3>Search</h3>
                     <div class="control-row">
-                        <input type="text" id="address-search" placeholder="Search address...">
+                        <input type="text" id="address-search" placeholder="Search address..." onkeypress="if(event.key==='Enter') searchAddress()">
                     </div>
                     <button class="btn-map" onclick="searchAddress()" style="width: 100%; margin-top: 5px;">
                         <i class="fas fa-search"></i> Search
@@ -561,19 +561,119 @@
     }
     
     // Measurement tools
+    let measureMode = null;
+    let measurePoints = [];
+    let tempLine = null;
+    let tempPolygon = null;
+    
     function startMeasureDistance() {
-        alert('Distance measurement: Click multiple points on the map, double-click to finish');
-        // TODO: Implement polyline measurement
+        clearMeasurements();
+        measureMode = 'distance';
+        measurePoints = [];
+        map.getContainer().style.cursor = 'crosshair';
+        alert('Click points on the map to measure distance. Double-click to finish.');
     }
     
     function startMeasureArea() {
-        alert('Area measurement: Click points to draw a polygon, double-click to finish');
-        // TODO: Implement polygon measurement
+        clearMeasurements();
+        measureMode = 'area';
+        measurePoints = [];
+        map.getContainer().style.cursor = 'crosshair';
+        alert('Click points to draw a polygon. Double-click to finish.');
     }
     
     function clearMeasurements() {
         measurementLayer.clearLayers();
+        measureMode = null;
+        measurePoints = [];
+        tempLine = null;
+        tempPolygon = null;
+        map.getContainer().style.cursor = '';
     }
+    
+    // Handle map clicks for measurements
+    map.on('click', function(e) {
+        if (!measureMode) return;
+        
+        measurePoints.push([e.latlng.lng, e.latlng.lat]);
+        
+        // Add point marker
+        L.circleMarker(e.latlng, {
+            radius: 4,
+            color: '#00ffff',
+            fillColor: '#00ffff',
+            fillOpacity: 1
+        }).addTo(measurementLayer);
+        
+        if (measureMode === 'distance' && measurePoints.length >= 2) {
+            // Calculate distance
+            const line = turf.lineString(measurePoints);
+            const lengthMeters = turf.length(line, { units: 'meters' });
+            const lengthFeet = lengthMeters * 3.28084;
+            const lengthMiles = lengthFeet / 5280;
+            
+            // Draw line
+            if (tempLine) measurementLayer.removeLayer(tempLine);
+            tempLine = L.polyline(measurePoints.map(p => [p[1], p[0]]), {
+                color: '#00ffff',
+                weight: 2
+            }).addTo(measurementLayer);
+            
+            // Add label at midpoint
+            const midpoint = measurePoints[Math.floor(measurePoints.length / 2)];
+            const label = lengthMiles > 0.1 ? 
+                `${lengthMiles.toFixed(2)} mi` : 
+                `${lengthFeet.toFixed(0)} ft`;
+            
+            L.marker([midpoint[1], midpoint[0]], {
+                icon: L.divIcon({
+                    className: 'measurement-label',
+                    html: `<div style="background: rgba(0,0,0,0.8); color: #00ffff; padding: 4px 8px; border-radius: 3px; font-size: 12px; white-space: nowrap;">${label}</div>`
+                })
+            }).addTo(measurementLayer);
+        }
+        
+        if (measureMode === 'area' && measurePoints.length >= 3) {
+            // Close polygon for area calculation
+            const closedPoints = [...measurePoints, measurePoints[0]];
+            const polygon = turf.polygon([closedPoints]);
+            const areaSqMeters = turf.area(polygon);
+            const areaSqFt = areaSqMeters * 10.7639;
+            const areaAcres = areaSqFt / 43560;
+            
+            // Draw polygon
+            if (tempPolygon) measurementLayer.removeLayer(tempPolygon);
+            tempPolygon = L.polygon(measurePoints.map(p => [p[1], p[0]]), {
+                color: '#00ffff',
+                fillColor: '#00ffff',
+                fillOpacity: 0.2,
+                weight: 2
+            }).addTo(measurementLayer);
+            
+            // Add label at centroid
+            const centroid = turf.centroid(polygon);
+            const label = areaAcres > 0.1 ? 
+                `${areaAcres.toFixed(2)} acres` : 
+                `${areaSqFt.toFixed(0)} sq ft`;
+            
+            L.marker([centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]], {
+                icon: L.divIcon({
+                    className: 'measurement-label',
+                    html: `<div style="background: rgba(0,0,0,0.8); color: #00ffff; padding: 4px 8px; border-radius: 3px; font-size: 12px; white-space: nowrap;">${label}</div>`
+                })
+            }).addTo(measurementLayer);
+        }
+    });
+    
+    // Handle double-click to finish measurement
+    map.on('dblclick', function(e) {
+        if (measureMode) {
+            setTimeout(() => {
+                measureMode = null;
+                map.getContainer().style.cursor = '';
+            }, 100);
+        }
+    });
     
     // Address search
     async function searchAddress() {
