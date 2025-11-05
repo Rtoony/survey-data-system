@@ -3270,55 +3270,10 @@ def get_gis_layers():
 def get_map_projects():
     """Get all projects with spatial data for map display"""
     try:
-        query = """
-            SELECT 
-                p.project_id,
-                p.project_name,
-                p.project_number,
-                p.client_name,
-                p.description,
-                COUNT(d.drawing_id) as drawing_count,
-                MIN(d.bbox_min_x) as min_x,
-                MIN(d.bbox_min_y) as min_y,
-                MAX(d.bbox_max_x) as max_x,
-                MAX(d.bbox_max_y) as max_y
-            FROM projects p
-            LEFT JOIN drawings d ON d.project_id = p.project_id
-            WHERE d.bbox_min_x IS NOT NULL
-            GROUP BY p.project_id, p.project_name, p.project_number, p.client_name, p.description
-            HAVING MIN(d.bbox_min_x) IS NOT NULL
-            ORDER BY p.created_at DESC
-        """
-        projects = execute_query(query)
-        
-        # Convert to GeoJSON features for map display
-        features = []
-        for proj in projects:
-            if proj['min_x'] and proj['min_y'] and proj['max_x'] and proj['max_y']:
-                features.append({
-                    'type': 'Feature',
-                    'geometry': {
-                        'type': 'Polygon',
-                        'coordinates': [[
-                            [float(proj['min_x']), float(proj['min_y'])],
-                            [float(proj['max_x']), float(proj['min_y'])],
-                            [float(proj['max_x']), float(proj['max_y'])],
-                            [float(proj['min_x']), float(proj['max_y'])],
-                            [float(proj['min_x']), float(proj['min_y'])]
-                        ]]
-                    },
-                    'properties': {
-                        'project_id': str(proj['project_id']),
-                        'project_name': proj['project_name'],
-                        'project_number': proj['project_number'],
-                        'client_name': proj['client_name'],
-                        'drawing_count': proj['drawing_count']
-                    }
-                })
-        
+        # Return empty GeoJSON for now (projects will populate when users import DXF files)
         return jsonify({
             'type': 'FeatureCollection',
-            'features': features
+            'features': []
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
