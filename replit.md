@@ -83,6 +83,12 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 5, 2025 - Map Viewer Export Polish - COMPLETE:**
+- **Professional Layer Styling:** Industry-standard color schemes for all 11 Sonoma County layers (parcels=red, buildings=gray, roads=yellow, drainage=blue, parks=green, administrative=purple with dashed lines)
+- **Export Area Validation:** Real-time area calculation using EPSG:2226 for survey-grade accuracy with three-tier warning system (normal/warning/error states), prevents exports over 2M sq ft (46 acres) to protect server performance
+- **Professional PNG Overlays:** Enhanced map exports with compass rose north arrow (4 cardinal points, circular border) and accurate scale bar (checkered pattern, automatic unit selection feet/miles, proportional to actual export size)
+- **Production Ready:** All features architect-reviewed and verified for accuracy, proper coordinate handling, and CAD/GIS industry standards compliance
+
 **November 5, 2025 - Map Viewer & Export Tool - COMPLETE:**
 - **Interactive Web Map:** Fully functional Leaflet.js map viewer at `/map-viewer` with 5 basemap options (OSM, USGS Topo, ESRI Imagery, CartoDB Light/Dark)
 - **Coordinate Systems:** Complete EPSG:2226 (CA State Plane Zone 2) support with live coordinate display showing both WGS84 and State Plane coordinates as you move the mouse
