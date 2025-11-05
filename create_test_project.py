@@ -30,8 +30,22 @@ def create_test_project():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
+    # Debug: Check database connection
+    cur.execute("SELECT current_database(), current_schema();")
+    db_info = cur.fetchone()
+    print(f"Connected to database: {db_info['current_database']}, schema: {db_info['current_schema']}")
+    
+    # Check if bbox columns exist
+    cur.execute("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'drawings' AND column_name LIKE 'bbox%'
+    """)
+    bbox_cols = cur.fetchall()
+    print(f"BBox columns found: {[col['column_name'] for col in bbox_cols]}")
+    
     try:
-        print("Creating test project with Sonoma County spatial data...")
+        print("\nCreating test project with Sonoma County spatial data...")
         
         # 1. Create a test project
         project_id = str(uuid.uuid4())
@@ -51,30 +65,41 @@ def create_test_project():
         project = cur.fetchone()
         print(f"✓ Created project: {project['project_name']} ({project_id})")
         
-        # 2. Create a test drawing
-        drawing_id = str(uuid.uuid4())
-        cur.execute("""
-            INSERT INTO drawings (
-                drawing_id, project_id, drawing_name, drawing_number
-            )
-            VALUES (%s, %s, %s, %s)
-            RETURNING drawing_id, drawing_name
-        """, (
-            drawing_id,
-            project_id,
-            'Site Plan - Santa Rosa',
-            'SP-001'
-        ))
-        drawing = cur.fetchone()
-        print(f"✓ Created drawing: {drawing['drawing_name']} ({drawing_id})")
-        
-        # 3. Create entities with Sonoma County State Plane coordinates (SRID 2226)
+        # 2. Create entities with Sonoma County State Plane coordinates (SRID 2226)
         # These coordinates are for downtown Santa Rosa area
         # Approximate center: 38.4404° N, 122.7144° W
         # In SRID 2226: X ≈ 6,049,000 ft, Y ≈ 2,001,000 ft
         
         center_x = 6049000  # Feet
         center_y = 2001000  # Feet
+        
+        # Calculate bounding box for the drawing (based on entity extents)
+        bbox_min_x = center_x - 250
+        bbox_min_y = center_y - 50  
+        bbox_max_x = center_x + 400
+        bbox_max_y = center_y + 300
+        
+        # Create a test drawing with bounding box
+        drawing_id = str(uuid.uuid4())
+        cur.execute("""
+            INSERT INTO drawings (
+                drawing_id, project_id, drawing_name, drawing_number,
+                bbox_min_x, bbox_min_y, bbox_max_x, bbox_max_y
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING drawing_id, drawing_name
+        """, (
+            drawing_id,
+            project_id,
+            'Site Plan - Santa Rosa',
+            'SP-001',
+            bbox_min_x,
+            bbox_min_y,
+            bbox_max_x,
+            bbox_max_y
+        ))
+        drawing = cur.fetchone()
+        print(f"✓ Created drawing: {drawing['drawing_name']} ({drawing_id})")
         
         # Create a simple layer first
         cur.execute("""
