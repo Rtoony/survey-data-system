@@ -476,6 +476,18 @@
     <script>
         let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
         
+        // Project Viewer global variables
+        let projectsData = [];
+        let selectedProject = null;
+        let activeEntityLayers = {};
+        
+        // GIS Layers global variables
+        let gisLayersData = [];
+        let activeGISLayers = {};
+        let projectsLayer = null;
+        let projectsVisible = true;
+        let projectColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#95afc0', '#c56cf0', '#ffbe76'];
+        
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Initializing simple map...');
@@ -664,17 +676,6 @@
                 console.log('Map tiles should be visible now');
             }, 100);
         });
-        
-        let projectsLayer = null;
-        let projectsVisible = true;
-        let projectColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#95afc0', '#c56cf0', '#ffbe76'];
-        let gisLayersData = [];
-        let activeGISLayers = {};  // Store active Sonoma County GIS layers on map
-        
-        // Project Viewer global variables
-        let projectsData = [];
-        let selectedProject = null;
-        let activeEntityLayers = {};
         
         async function loadGISLayers() {
             try {
