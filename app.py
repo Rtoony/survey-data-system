@@ -3,7 +3,7 @@ ACAD-GIS Schema Explorer & Data Manager
 A companion tool for viewing and managing your Supabase database
 """
 
-from flask import Flask, render_template, jsonify, request, send_file, make_response
+from flask import Flask, render_template, jsonify, request, send_file, make_response, redirect
 from flask_cors import CORS
 from flask_caching import Cache
 import psycopg2
@@ -3253,15 +3253,8 @@ map_export = MapExportService()
 
 @app.route('/map-viewer')
 def map_viewer_page():
-    """Map Viewer Page"""
-    import time
-    response = make_response(render_template('map_viewer_simple.html', cache_bust=int(time.time())))
-    response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate, max-age=0, s-maxage=0'
-    response.headers['Surrogate-Control'] = 'no-store'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    response.headers['X-Accel-Expires'] = '0'
-    return response
+    """Redirect to uncached map viewer"""
+    return redirect('/map-viewer-v2', code=302)
 
 @app.route('/map-viewer-v2')
 def map_viewer_v2_page():
