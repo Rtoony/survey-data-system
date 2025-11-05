@@ -71,18 +71,30 @@
                 </select>
             </div>
             <div class="form-group">
-                <label for="cad_units">CAD Units</label>
-                <select id="cad_units" name="cad_units">
-                    <option value="Feet">Feet</option>
-                    <option value="Inches">Inches</option>
-                    <option value="Meters">Meters</option>
-                    <option value="Centimeters">Centimeters</option>
-                    <option value="Millimeters">Millimeters</option>
+                <label for="sheet_title">Sheet Title</label>
+                <input type="text" id="sheet_title" name="sheet_title" placeholder="e.g., Site Grading Plan">
+            </div>
+            <div class="form-group">
+                <label for="scale">Scale</label>
+                <input type="text" id="scale" name="scale" placeholder="e.g., 1:100, 1/8&quot;=1'-0&quot;">
+            </div>
+            <div class="form-group">
+                <label for="discipline">Discipline</label>
+                <select id="discipline" name="discipline">
+                    <option value="">Select Discipline</option>
+                    <option value="Civil">Civil</option>
+                    <option value="Survey">Survey</option>
+                    <option value="Structural">Structural</option>
+                    <option value="Architecture">Architecture</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Landscape">Landscape</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="scale_factor">Scale Factor</label>
-                <input type="number" id="scale_factor" name="scale_factor" value="1.0" step="0.1" min="0.1">
+                <label for="drawing_type">Drawing Type</label>
+                <input type="text" id="drawing_type" name="drawing_type" placeholder="e.g., Site Plan, Detail, Section">
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
@@ -232,9 +244,10 @@ let selectedDrawings = new Set();
 async function loadProjects() {
     try {
         const response = await fetch('/api/projects');
-        allProjects = await response.json();
+        const data = await response.json();
+        allProjects = data.projects || [];
         
-        if (!allProjects.error) {
+        if (!data.error) {
             const projectSelect = document.getElementById('project_id');
             const projectFilter = document.getElementById('projectFilter');
             
@@ -258,16 +271,16 @@ async function loadProjects() {
 async function loadDrawings() {
     try {
         const response = await fetch('/api/drawings');
-        allDrawings = await response.json();
+        const data = await response.json();
 
         const drawingsDiv = document.getElementById('drawings');
         const loadingDiv = document.getElementById('loading');
 
-        if (allDrawings.error) {
+        if (data.error) {
             drawingsDiv.innerHTML = `
                 <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
                     <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                    <p>Error loading drawings: ${allDrawings.error}</p>
+                    <p>Error loading drawings: ${data.error}</p>
                 </div>
             `;
             loadingDiv.style.display = 'none';
@@ -275,6 +288,7 @@ async function loadDrawings() {
             return;
         }
 
+        allDrawings = data.drawings || [];
         renderDrawings(allDrawings);
 
         loadingDiv.style.display = 'none';
@@ -321,8 +335,8 @@ function renderDrawings(drawings) {
                         <th>Drawing Name</th>
                         <th>Number</th>
                         <th>Project</th>
-                        <th>Units</th>
-                        <th>Has Content</th>
+                        <th>Discipline</th>
+                        <th>Entities</th>
                         <th>Created</th>
                         <th style="text-align: center;">Actions</th>
                     </tr>
@@ -340,8 +354,8 @@ function renderDrawings(drawings) {
                             <td><strong>${d.drawing_name || '-'}</strong></td>
                             <td>${d.drawing_number || '-'}</td>
                             <td>${d.project_name || d.project_number || '-'}</td>
-                            <td>${d.cad_units || 'Feet'}</td>
-                            <td>${d.has_content ? '<span class="badge-success badge">YES</span>' : '<span class="badge badge">NO</span>'}</td>
+                            <td>${d.discipline || '-'}</td>
+                            <td><span class="badge">${d.entity_count || 0}</span></td>
                             <td>${formatDate(d.created_at)}</td>
                             <td style="text-align: center;">
                                 <button 
@@ -462,8 +476,10 @@ async function createDrawing(event) {
         drawing_name: formData.get('drawing_name'),
         drawing_number: formData.get('drawing_number') || null,
         project_id: formData.get('project_id') || null,
-        cad_units: formData.get('cad_units'),
-        scale_factor: parseFloat(formData.get('scale_factor'))
+        sheet_title: formData.get('sheet_title') || null,
+        scale: formData.get('scale') || null,
+        discipline: formData.get('discipline') || null,
+        drawing_type: formData.get('drawing_type') || null
     };
 
     try {

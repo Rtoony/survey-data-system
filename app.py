@@ -386,7 +386,7 @@ def get_drawings():
                 p.project_name,
                 p.project_number,
                 CASE 
-                    WHEN d.dxf_content IS NOT NULL THEN true 
+                    WHEN d.entity_count > 0 THEN true 
                     ELSE false 
                 END as has_content
             FROM drawings d
@@ -395,7 +395,7 @@ def get_drawings():
             LIMIT 500
         """
         drawings = execute_query(query)
-        return jsonify(drawings)
+        return jsonify({'drawings': drawings})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

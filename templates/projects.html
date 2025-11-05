@@ -207,16 +207,16 @@ let selectedProjects = new Set();
 async function loadProjects() {
     try {
         const response = await fetch('/api/projects');
-        allProjects = await response.json();
+        const data = await response.json();
 
         const projectsDiv = document.getElementById('projects');
         const loadingDiv = document.getElementById('loading');
 
-        if (allProjects.error) {
+        if (data.error) {
             projectsDiv.innerHTML = `
                 <div style="text-align: center; padding: 2rem; color: var(--color-accent-red);">
                     <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                    <p>Error loading projects: ${allProjects.error}</p>
+                    <p>Error loading projects: ${data.error}</p>
                 </div>
             `;
             loadingDiv.style.display = 'none';
@@ -224,6 +224,7 @@ async function loadProjects() {
             return;
         }
 
+        allProjects = data.projects || [];
         renderProjects(allProjects);
 
         loadingDiv.style.display = 'none';
