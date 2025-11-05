@@ -3262,6 +3262,17 @@ def map_viewer_page():
     response.headers['X-Accel-Expires'] = '0'
     return response
 
+@app.route('/map-viewer-v2')
+def map_viewer_v2_page():
+    """Map Viewer Page V2 - Uncached"""
+    import time
+    response = make_response(render_template('map_viewer_simple.html', cache_bust=int(time.time())))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    response.headers['X-Accel-Expires'] = '0'
+    return response
+
 @app.route('/map-test')
 def map_test_page():
     """Simple Map Test Page (no base template)"""
