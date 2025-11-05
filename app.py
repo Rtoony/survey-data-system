@@ -3258,14 +3258,17 @@ def map_viewer_page():
 
 @app.route('/map-viewer-v2')
 def map_viewer_v2_page():
-    """Map Viewer Page V2 - Uncached"""
+    """Map Viewer Page V2 - Uncached with cookie to bypass Fastly CDN"""
     import time
-    response = make_response(render_template('map_viewer_simple.html', cache_bust=int(time.time())))
+    timestamp = int(time.time())
+    response = make_response(render_template('map_viewer_simple.html', cache_bust=timestamp))
     response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate, max-age=0, s-maxage=0'
     response.headers['Surrogate-Control'] = 'no-store'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     response.headers['X-Accel-Expires'] = '0'
+    # Set cookie to force Fastly CDN to treat response as private/uncacheable
+    response.set_cookie('mapviewer_build', str(timestamp), max_age=0, path='/map-viewer-v2')
     return response
 
 @app.route('/map-test')
