@@ -3254,10 +3254,12 @@ map_export = MapExportService()
 @app.route('/map-viewer')
 def map_viewer_page():
     """Map Viewer Page"""
-    response = make_response(render_template('map_viewer_simple.html'))
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    import time
+    response = make_response(render_template('map_viewer_simple.html', cache_bust=int(time.time())))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
+    response.headers['X-Accel-Expires'] = '0'
     return response
 
 @app.route('/map-test')
