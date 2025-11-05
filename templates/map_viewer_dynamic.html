@@ -347,6 +347,7 @@
         let projectsVisible = true;
         let projectColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#95afc0', '#c56cf0', '#ffbe76'];
         let gisLayersData = [];
+        let loadedGISLayers = {};
         
         async function loadGISLayers() {
             try {
@@ -371,6 +372,13 @@
                         </label>
                     `).join('');
                 
+                gisLayersData.forEach(layer => {
+                    const checkbox = document.getElementById(`layer-${layer.id}`);
+                    if (checkbox && checkbox.checked) {
+                        toggleLayerSelection(layer.id, true);
+                    }
+                });
+                
             } catch (error) {
                 console.error('Error loading GIS layers:', error);
                 document.getElementById('gis-layers-container').innerHTML = 
@@ -378,8 +386,57 @@
             }
         }
         
-        function toggleLayerSelection(layerId, checked) {
+        async function toggleLayerSelection(layerId, checked) {
             console.log(`Layer ${layerId} ${checked ? 'selected' : 'deselected'}`);
+            
+            if (checked) {
+                const layerConfig = gisLayersData.find(l => l.id === layerId);
+                if (!layerConfig) return;
+                
+                if (loadedGISLayers[layerId]) {
+                    loadedGISLayers[layerId].addTo(map);
+                    return;
+                }
+                
+                try {
+                    const url = `${layerConfig.url}/query?where=1=1&outFields=*&f=geojson`;
+                    console.log(`Fetching ${layerConfig.name} from ${url}`);
+                    
+                    const res = await fetch(url);
+                    const geojson = await res.json();
+                    
+                    const layerStyle = {
+                        color: '#0066cc',
+                        weight: 2,
+                        fillOpacity: 0.2,
+                        fillColor: '#0088ff'
+                    };
+                    
+                    const gisLayer = L.geoJSON(geojson, {
+                        style: layerStyle,
+                        onEachFeature: (feature, layer) => {
+                            if (feature.properties) {
+                                const props = Object.entries(feature.properties)
+                                    .filter(([key, val]) => val !== null && key !== 'OBJECTID')
+                                    .map(([key, val]) => `<strong>${key}:</strong> ${val}`)
+                                    .join('<br>');
+                                layer.bindPopup(`<div style="font-size: 11px;">${props}</div>`);
+                            }
+                        }
+                    }).addTo(map);
+                    
+                    loadedGISLayers[layerId] = gisLayer;
+                    console.log(`Loaded ${geojson.features.length} features for ${layerConfig.name}`);
+                    
+                } catch (error) {
+                    console.error(`Error loading layer ${layerId}:`, error);
+                    document.getElementById(`layer-${layerId}`).checked = false;
+                }
+            } else {
+                if (loadedGISLayers[layerId]) {
+                    map.removeLayer(loadedGISLayers[layerId]);
+                }
+            }
         }
         
         async function loadProjects() {
