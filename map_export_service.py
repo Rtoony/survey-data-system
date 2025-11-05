@@ -38,6 +38,11 @@ class MapExportService:
         self.transformer_4326_to_2226 = Transformer.from_crs(
             "EPSG:4326", "EPSG:2226", always_xy=True
         )
+        
+        # Transformer from CA State Plane Zone 2 (EPSG:2226) to WGS84 (EPSG:4326) for KML export
+        self.transformer_2226_to_4326 = Transformer.from_crs(
+            "EPSG:2226", "EPSG:4326", always_xy=True
+        )
     
     def transform_bbox(self, bbox: Dict, source_crs: str = "EPSG:3857") -> Tuple[float, float, float, float]:
         """Transform bounding box to EPSG:2226"""
@@ -199,6 +204,110 @@ class MapExportService:
             
         except Exception as e:
             print(f"Error exporting DXF: {e}")
+            return False
+    
+    def export_to_kml(self, layers_data: Dict[str, List[Dict]], output_path: str) -> bool:
+        """Export features to KML format (Google Earth/Maps compatible)"""
+        try:
+            # Transform features from EPSG:2226 to WGS84 (EPSG:4326) for KML
+            layers_wgs84 = {}
+            
+            for layer_name, features in layers_data.items():
+                transformed_features = []
+                
+                for feature in features:
+                    try:
+                        # Transform geometry to WGS84
+                        geom = shape(feature['geometry'])
+                        
+                        def transform_coords(x, y, z=None):
+                            lon, lat = self.transformer_2226_to_4326.transform(x, y)
+                            return (lon, lat) if z is None else (lon, lat, z)
+                        
+                        transformed_geom = transform(transform_coords, geom)
+                        
+                        # Create new feature with transformed geometry
+                        transformed_feature = {
+                            'type': 'Feature',
+                            'geometry': mapping(transformed_geom),
+                            'properties': feature.get('properties', {})
+                        }
+                        transformed_features.append(transformed_feature)
+                    
+                    except Exception as e:
+                        print(f"Error transforming feature for KML: {e}")
+                        continue
+                
+                if transformed_features:
+                    layers_wgs84[layer_name] = transformed_features
+            
+            # Determine geometry type from first feature
+            all_features = []
+            for features in layers_wgs84.values():
+                all_features.extend(features)
+            
+            if not all_features:
+                print("No features to export to KML")
+                return False
+            
+            first_geom = shape(all_features[0]['geometry'])
+            geom_type = first_geom.geom_type
+            
+            # Map geometry types to KML-compatible types
+            kml_geom_type = geom_type
+            if geom_type == 'MultiPolygon':
+                kml_geom_type = 'Polygon'
+            elif geom_type == 'MultiLineString':
+                kml_geom_type = 'LineString'
+            elif geom_type == 'MultiPoint':
+                kml_geom_type = 'Point'
+            
+            # Build schema
+            properties = all_features[0].get('properties', {})
+            schema_props = {}
+            for key, value in properties.items():
+                if isinstance(value, int):
+                    schema_props[key] = 'int'
+                elif isinstance(value, float):
+                    schema_props[key] = 'float'
+                else:
+                    schema_props[key] = 'str'
+            
+            schema = {
+                'geometry': kml_geom_type,
+                'properties': schema_props if schema_props else {'id': 'str'}
+            }
+            
+            # Write KML file using fiona
+            with fiona.open(
+                output_path,
+                'w',
+                driver='KML',
+                crs=from_epsg(4326),
+                schema=schema
+            ) as kml:
+                for feature in all_features:
+                    try:
+                        geom = shape(feature['geometry'])
+                        
+                        # Handle Multi* geometries by writing individual parts
+                        if geom.geom_type.startswith('Multi'):
+                            for sub_geom in geom.geoms:
+                                kml.write({
+                                    'type': 'Feature',
+                                    'geometry': mapping(sub_geom),
+                                    'properties': feature.get('properties', {})
+                                })
+                        else:
+                            kml.write(feature)
+                    except Exception as e:
+                        print(f"Error writing KML feature: {e}")
+                        continue
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error exporting KML: {e}")
             return False
     
     def create_map_image(self, bbox: Dict, width: int = 1200, height: int = 900,

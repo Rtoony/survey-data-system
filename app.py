@@ -3609,6 +3609,248 @@ def create_simple_export():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/map-export/create', methods=['POST'])
+def create_multi_format_export():
+    """Create export with multiple formats (PNG, DXF, SHP, KML)"""
+    try:
+        import requests
+        from shapely.geometry import shape
+        from pyproj import Transformer
+        
+        params = request.json
+        bbox = params.get('bbox', {})
+        requested_layers = params.get('layers', [])
+        formats = params.get('formats', ['shp'])  # Default to shapefile only
+        png_options = params.get('png_options', {'north_arrow': True, 'scale_bar': True})
+        
+        print(f"Creating multi-format export:")
+        print(f"  Formats: {formats}")
+        print(f"  Layers: {requested_layers}")
+        print(f"  PNG options: {png_options}")
+        
+        # Create unique ID for this export
+        export_id = str(uuid.uuid4())
+        export_dir = os.path.join('/tmp/exports', export_id)
+        os.makedirs(export_dir, exist_ok=True)
+        
+        # Get bounding box in WGS84
+        minx, miny, maxx, maxy = bbox['minx'], bbox['miny'], bbox['maxx'], bbox['maxy']
+        
+        # Coordinate transformer
+        transformer = Transformer.from_crs("EPSG:4326", "EPSG:2226", always_xy=True)
+        
+        # Get GIS layer configurations from database
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM gis_layers WHERE enabled = true AND id = ANY(%s)", (requested_layers,))
+                layers = cur.fetchall()
+        
+        print(f"Found {len(layers)} layers in database")
+        
+        # Fetch all layer data
+        all_layers_data = {}
+        feature_counts = {}
+        
+        for layer_config in layers:
+            layer_id = layer_config['id']
+            layer_url = layer_config['url']
+            layer_name = layer_config['name']
+            
+            print(f"Fetching {layer_name}...")
+            
+            try:
+                # Query FeatureServer with bounding box
+                query_url = f"{layer_url}/query"
+                query_params = {
+                    'where': '1=1',
+                    'geometry': f'{minx},{miny},{maxx},{maxy}',
+                    'geometryType': 'esriGeometryEnvelope',
+                    'inSR': '4326',
+                    'spatialRel': 'esriSpatialRelIntersects',
+                    'outFields': '*',
+                    'returnGeometry': 'true',
+                    'outSR': '4326',
+                    'f': 'json'
+                }
+                
+                response = requests.get(query_url, params=query_params, timeout=30)
+                response.raise_for_status()
+                esri_data = response.json()
+                
+                # Convert ESRI JSON to GeoJSON
+                from arcgis2geojson import arcgis2geojson
+                
+                features = []
+                for esri_feature in esri_data.get('features', []):
+                    try:
+                        geojson_feature = arcgis2geojson(esri_feature)
+                        if geojson_feature.get('geometry') is not None:
+                            features.append(geojson_feature)
+                    except Exception as e:
+                        continue
+                
+                feature_counts[layer_id] = len(features)
+                all_layers_data[layer_id] = features
+                print(f"  Found {len(features)} features")
+                
+            except Exception as e:
+                print(f"  ERROR fetching {layer_name}: {e}")
+                feature_counts[layer_id] = 0
+        
+        # Transform all features to EPSG:2226 first (needed for DXF, SHP, KML, PNG)
+        from shapely import geometry as geom_lib
+        all_layers_2226 = {}
+        
+        for layer_id, features_wgs84 in all_layers_data.items():
+            if not features_wgs84:
+                continue
+            
+            transformed_features = []
+            for feature in features_wgs84:
+                try:
+                    geom_wgs84 = shape(feature['geometry'])
+                    
+                    # Transform to EPSG:2226
+                    if geom_wgs84.geom_type == 'Polygon':
+                        exterior_2226 = [transformer.transform(x, y) for x, y in geom_wgs84.exterior.coords]
+                        geom_2226 = geom_lib.Polygon(exterior_2226)
+                    elif geom_wgs84.geom_type == 'MultiPolygon':
+                        polys_2226 = []
+                        for poly in geom_wgs84.geoms:
+                            exterior_2226 = [transformer.transform(x, y) for x, y in poly.exterior.coords]
+                            polys_2226.append(geom_lib.Polygon(exterior_2226))
+                        geom_2226 = geom_lib.MultiPolygon(polys_2226)
+                    elif geom_wgs84.geom_type == 'LineString':
+                        coords_2226 = [transformer.transform(x, y) for x, y in geom_wgs84.coords]
+                        geom_2226 = geom_lib.LineString(coords_2226)
+                    elif geom_wgs84.geom_type == 'MultiLineString':
+                        lines_2226 = []
+                        for line in geom_wgs84.geoms:
+                            coords_2226 = [transformer.transform(x, y) for x, y in line.coords]
+                            lines_2226.append(geom_lib.LineString(coords_2226))
+                        geom_2226 = geom_lib.MultiLineString(lines_2226)
+                    elif geom_wgs84.geom_type == 'Point':
+                        x, y = transformer.transform(geom_wgs84.x, geom_wgs84.y)
+                        geom_2226 = geom_lib.Point(x, y)
+                    elif geom_wgs84.geom_type == 'MultiPoint':
+                        points_2226 = []
+                        for point in geom_wgs84.geoms:
+                            x, y = transformer.transform(point.x, point.y)
+                            points_2226.append(geom_lib.Point(x, y))
+                        geom_2226 = geom_lib.MultiPoint(points_2226)
+                    else:
+                        continue  # Skip unsupported geometry types
+                    
+                    transformed_features.append({
+                        'type': 'Feature',
+                        'geometry': geom_2226.__geo_interface__,
+                        'properties': feature['properties']
+                    })
+                except Exception as e:
+                    print(f"Error transforming feature: {e}")
+                    continue
+            
+            all_layers_2226[layer_id] = transformed_features
+        
+        # Now create each requested format
+        created_files = []
+        
+        # 1. Shapefile (SHP)
+        if 'shp' in formats:
+            print("Creating Shapefile...")
+            from map_export_service import MapExportService
+            export_service = MapExportService()
+            
+            for layer_id, features_2226 in all_layers_2226.items():
+                if not features_2226:
+                    continue
+                
+                try:
+                    shp_path = os.path.join(export_dir, f'{layer_id}.shp')
+                    if export_service.export_to_shapefile(features_2226, layer_id, shp_path):
+                        created_files.append(f'{layer_id}.shp')
+                except Exception as e:
+                    print(f"Error creating shapefile for {layer_id}: {e}")
+        
+        # 2. DXF
+        if 'dxf' in formats:
+            print("Creating DXF...")
+            try:
+                from map_export_service import MapExportService
+                export_service = MapExportService()
+                
+                dxf_path = os.path.join(export_dir, 'export.dxf')
+                if export_service.export_to_dxf(all_layers_2226, dxf_path):
+                    created_files.append('export.dxf')
+            except Exception as e:
+                print(f"Error creating DXF: {e}")
+        
+        # 3. KML
+        if 'kml' in formats:
+            print("Creating KML...")
+            try:
+                from map_export_service import MapExportService
+                export_service = MapExportService()
+                
+                # KML export expects EPSG:2226 data and transforms to WGS84 internally
+                kml_path = os.path.join(export_dir, 'export.kml')
+                if export_service.export_to_kml(all_layers_2226, kml_path):
+                    created_files.append('export.kml')
+            except Exception as e:
+                print(f"Error creating KML: {e}")
+        
+        # 4. PNG
+        if 'png' in formats:
+            print("Creating PNG...")
+            try:
+                from map_export_service import MapExportService
+                export_service = MapExportService()
+                
+                # Transform bbox to EPSG:2226 for scale calculations
+                bbox_2226 = export_service.transform_bbox(bbox, 'EPSG:4326')
+                bbox_dict = {
+                    'minx': bbox_2226[0],
+                    'miny': bbox_2226[1],
+                    'maxx': bbox_2226[2],
+                    'maxy': bbox_2226[3]
+                }
+                
+                png_path = export_service.create_map_image(
+                    bbox_dict,
+                    north_arrow=png_options.get('north_arrow', True),
+                    scale_bar=png_options.get('scale_bar', True)
+                )
+                
+                if png_path and os.path.exists(png_path):
+                    # Move to export dir
+                    import shutil
+                    dest_path = os.path.join(export_dir, 'map.png')
+                    shutil.move(png_path, dest_path)
+                    created_files.append('map.png')
+            except Exception as e:
+                print(f"Error creating PNG: {e}")
+        
+        print(f"Created files: {created_files}")
+        
+        # Create download URL
+        download_url = f"/api/map-export/download-simple/{export_id}"
+        
+        return jsonify({
+            'status': 'complete',
+            'download_url': download_url,
+            'export_id': export_id,
+            'feature_counts': feature_counts,
+            'formats': formats,
+            'created_files': created_files,
+            'message': f'Exported {sum(feature_counts.values())} total features in {len(formats)} format(s)'
+        })
+        
+    except Exception as e:
+        print(f"ERROR in create_multi_format_export: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/map-export/download-simple/<export_id>')
 def download_simple_export(export_id):
     """Download simple export as ZIP file"""
