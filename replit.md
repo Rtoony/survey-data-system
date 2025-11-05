@@ -94,15 +94,23 @@ Preferred communication style: Simple, everyday language.
   - Visual feedback with cyan measurement lines and labels
   - Clear button to remove measurements
 - **Address Search (COMPLETE):** Nominatim geocoding with Sonoma County bias, Enter key support, result markers with popups, auto-pan to location
+- **Interactive GIS Layer Loading (COMPLETE):**
+  - On-demand layer loading: Users check/uncheck boxes to show/hide GIS layers on map
+  - Live data from Sonoma County FeatureServers (12 layers: parcels, buildings, roads, etc.)
+  - Backend API endpoint (`/api/map-viewer/layer-data/<layer_id>`) handles ESRI JSON to GeoJSON conversion
+  - Visual feedback: spinner while loading, feature count display, error handling
+  - Feature popups: Click any map feature to see its properties
+  - Performance optimized: 1000 feature limit per layer, bbox-based queries
+  - Uses `arcgis2geojson` library for robust MultiPolygon and null geometry handling
 - **Export Formats:** Complete multi-format export pipeline:
   - **Shapefile:** Proper .shp, .shx, .dbf, .prj files with EPSG:2226 projection
   - **DXF:** AutoCAD-compatible files with organized layers
   - **PNG:** Map images with optional north arrow and scale bar
+  - Fixed critical bug: Sonoma County FeatureServers only support `f=json` (ESRI JSON), not `f=geojson`
 - **Background Processing:** Asynchronous export jobs with threading, status polling every 2 seconds, download links with 1-hour expiration
 - **Database Tables:** `gis_layers` (WFS layer configurations), `export_jobs` (job tracking and status)
 - **Database Integration:** Automatic project display when DXF files are imported with bounding boxes
-- **GIS Layer Support:** Infrastructure for WFS/WMS layers (Sonoma County parcels, buildings, roads) - ready for live data integration
-- **Export Service (`map_export_service.py`):** Complete geospatial processing using pyproj (coordinate transforms), shapely (geometry ops), fiona (Shapefile I/O), ezdxf (DXF generation), PIL (map images)
+- **Export Service (`map_export_service.py`):** Complete geospatial processing using pyproj (coordinate transforms), shapely (geometry ops), fiona (Shapefile I/O), ezdxf (DXF generation), PIL (map images), arcgis2geojson (ESRI JSON conversion)
 - **Initialization Script:** `init_map_viewer_db.py` for easy database setup with sample Sonoma County layer configs
 
 **November 4, 2025 - Complete Intelligent DXF Workflow:**
