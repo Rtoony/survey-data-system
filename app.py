@@ -3745,11 +3745,113 @@ def get_map_projects():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/map-viewer/project-structure')
+def get_project_structure():
+    """Get all projects with nested drawings and entity type counts"""
+    try:
+        # Query all projects with their drawings
+        query = """
+            SELECT 
+                p.project_id,
+                p.project_name,
+                p.client_name,
+                p.description,
+                d.drawing_id,
+                d.drawing_name,
+                d.drawing_number,
+                d.bbox_min_x,
+                d.bbox_min_y,
+                d.bbox_max_x,
+                d.bbox_max_y
+            FROM projects p
+            LEFT JOIN drawings d ON p.project_id = d.project_id
+            WHERE d.bbox_min_x IS NOT NULL
+            ORDER BY p.project_name, d.drawing_name
+        """
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query)
+                rows = cur.fetchall()
+        
+        # Group by project
+        projects = {}
+        for row in rows:
+            project_id = str(row['project_id'])
+            
+            if project_id not in projects:
+                projects[project_id] = {
+                    'project_id': project_id,
+                    'project_name': row['project_name'],
+                    'client_name': row['client_name'],
+                    'description': row['description'],
+                    'drawings': [],
+                    'bbox': {
+                        'min_x': row['bbox_min_x'],
+                        'min_y': row['bbox_min_y'],
+                        'max_x': row['bbox_max_x'],
+                        'max_y': row['bbox_max_y']
+                    }
+                }
+            
+            # Update project bbox to include all drawings
+            if row['bbox_min_x'] is not None:
+                projects[project_id]['bbox']['min_x'] = min(projects[project_id]['bbox']['min_x'], row['bbox_min_x'])
+                projects[project_id]['bbox']['min_y'] = min(projects[project_id]['bbox']['min_y'], row['bbox_min_y'])
+                projects[project_id]['bbox']['max_x'] = max(projects[project_id]['bbox']['max_x'], row['bbox_max_x'])
+                projects[project_id]['bbox']['max_y'] = max(projects[project_id]['bbox']['max_y'], row['bbox_max_y'])
+            
+            if row['drawing_id']:
+                drawing_id = str(row['drawing_id'])
+                
+                # Get entity type counts for this drawing (exclude TEXT and HATCH)
+                entity_query = """
+                    SELECT 
+                        entity_type,
+                        COUNT(*) as count
+                    FROM drawing_entities
+                    WHERE drawing_id = %s
+                    AND entity_type NOT IN ('TEXT', 'MTEXT', 'HATCH', 'ATTDEF', 'ATTRIB')
+                    GROUP BY entity_type
+                    ORDER BY count DESC
+                """
+                
+                with get_db() as conn2:
+                    with conn2.cursor(cursor_factory=RealDictCursor) as cur2:
+                        cur2.execute(entity_query, (drawing_id,))
+                        entity_types = cur2.fetchall()
+                
+                projects[project_id]['drawings'].append({
+                    'drawing_id': drawing_id,
+                    'drawing_name': row['drawing_name'],
+                    'drawing_number': row['drawing_number'],
+                    'entity_types': [
+                        {
+                            'type': et['entity_type'],
+                            'count': et['count']
+                        }
+                        for et in entity_types
+                    ],
+                    'total_entities': sum(et['count'] for et in entity_types)
+                })
+        
+        return jsonify({
+            'projects': list(projects.values())
+        })
+    except Exception as e:
+        print(f"Error fetching project structure: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/map-viewer/project-entities/<drawing_id>')
 def get_project_entities(drawing_id):
-    """Get all drawing entities for a specific DXF project"""
+    """Get all drawing entities for a specific DXF project, optionally filtered by entity type"""
     try:
         import json
+        
+        # Get optional entity_type filter from query params
+        entity_type = request.args.get('entity_type', None)
         
         # Query drawing entities with layer information
         query = """
@@ -3767,12 +3869,21 @@ def get_project_entities(drawing_id):
             FROM drawing_entities e
             LEFT JOIN layers l ON e.layer_id = l.layer_id
             WHERE e.drawing_id = %s
-            LIMIT 5000
+            AND e.entity_type NOT IN ('TEXT', 'MTEXT', 'HATCH', 'ATTDEF', 'ATTRIB')
         """
+        
+        params = [drawing_id]
+        
+        # Add entity type filter if specified
+        if entity_type:
+            query += " AND e.entity_type = %s"
+            params.append(entity_type)
+        
+        query += " LIMIT 5000"
         
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, (drawing_id,))
+                cur.execute(query, tuple(params))
                 entities = cur.fetchall()
         
         # Convert to GeoJSON features

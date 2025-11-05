@@ -213,6 +213,74 @@
         .modal-buttons button {
             flex: 1;
         }
+        
+        /* Accordion styles for drawings */
+        .drawing-item {
+            margin-bottom: 8px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .drawing-header {
+            background: rgba(0, 255, 255, 0.1);
+            padding: 8px 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        
+        .drawing-header:hover {
+            background: rgba(0, 255, 255, 0.2);
+        }
+        
+        .drawing-title {
+            font-weight: bold;
+            color: #00ffff;
+            font-size: 12px;
+        }
+        
+        .drawing-count {
+            color: #888;
+            font-size: 10px;
+        }
+        
+        .drawing-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            padding: 0 10px;
+        }
+        
+        .drawing-content.open {
+            max-height: 500px;
+            padding: 10px;
+        }
+        
+        .entity-type-item {
+            display: flex;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 11px;
+        }
+        
+        .entity-type-item input[type="checkbox"] {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        
+        .entity-type-label {
+            flex: 1;
+            cursor: pointer;
+        }
+        
+        .entity-type-count {
+            color: #888;
+            font-size: 10px;
+            margin-left: 5px;
+        }
     </style>
 </head>
 <body>
@@ -240,6 +308,11 @@
             
             <div class="section">
                 <h3><i class="fas fa-map"></i> Basemap</h3>
+                <label style="display: flex; align-items: center; margin-bottom: 10px; cursor: pointer;">
+                    <input type="checkbox" id="basemap-toggle" checked onchange="toggleBasemap()" 
+                           style="margin-right: 8px;">
+                    <span>Show Basemap</span>
+                </label>
                 <select id="basemap-select" onchange="changeBasemap(this.value)">
                     <option value="osm">OpenStreetMap</option>
                     <option value="topo">USGS Topo</option>
@@ -248,19 +321,24 @@
             </div>
             
             <div class="section">
-                <h3><i class="fas fa-project-diagram"></i> DXF Projects</h3>
-                <button id="btn-toggle-projects" onclick="toggleProjects()" class="active">
-                    <i class="fas fa-eye"></i> Show Projects
+                <h3><i class="fas fa-folder-open"></i> Project Viewer</h3>
+                
+                <!-- Project Selector -->
+                <label style="color: #aaa; font-size: 11px; margin-bottom: 5px; display: block;">Select Project:</label>
+                <select id="project-select" onchange="selectProject(this.value)" style="margin-bottom: 10px; width: 100%;">
+                    <option value="">Loading projects...</option>
+                </select>
+                
+                <!-- Zoom to Project Button -->
+                <button id="btn-zoom-project" onclick="zoomToProject()" disabled style="margin-bottom: 10px; width: 100%;">
+                    <i class="fas fa-search-location"></i> Zoom to Project
                 </button>
-                <div id="project-count" style="color: #888; font-size: 11px; margin-top: 5px;">
-                    Loading projects...
-                </div>
-            </div>
-            
-            <div class="section">
-                <h3><i class="fas fa-database"></i> Database Layers</h3>
-                <div id="db-layers-container" style="font-size: 11px; max-height: 150px; overflow-y: auto;">
-                    Loading database layers...
+                
+                <!-- Drawings Container -->
+                <div id="drawings-container" style="font-size: 11px; max-height: 300px; overflow-y: auto;">
+                    <div style="color: #888; text-align: center; padding: 10px;">
+                        Select a project to view drawings
+                    </div>
                 </div>
             </div>
             
@@ -422,19 +500,23 @@
             basemaps = {
                 osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenStreetMap',
-                    maxZoom: 19
+                    maxZoom: 22,  // Increased for CAD detail viewing
+                    maxNativeZoom: 19  // OSM only has tiles up to 19, but we can overzoom
                 }),
                 topo: L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', {
                     attribution: 'USGS',
-                    maxZoom: 16
+                    maxZoom: 22,
+                    maxNativeZoom: 16
                 }),
                 imagery: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                     attribution: 'ESRI',
-                    maxZoom: 19
+                    maxZoom: 22,
+                    maxNativeZoom: 19
                 })
             };
             
-            basemaps.osm.addTo(map);
+            currentBasemap = basemaps.osm;
+            currentBasemap.addTo(map);
             
             // Drawing layer
             drawnItems = new L.FeatureGroup();
@@ -573,8 +655,7 @@
             });
             
             // Load data
-            loadProjects();
-            loadDatabaseLayers();
+            loadProjectStructure();
             loadGISLayers();
             
             console.log('Map initialized!');
@@ -588,9 +669,12 @@
         let projectsVisible = true;
         let projectColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#95afc0', '#c56cf0', '#ffbe76'];
         let gisLayersData = [];
-        let dbLayersData = [];  // Database layers
         let activeGISLayers = {};  // Store active Sonoma County GIS layers on map
-        let activeDBLayers = {};   // Store active database layers on map
+        
+        // Project Viewer global variables
+        let projectsData = [];
+        let selectedProject = null;
+        let activeEntityLayers = {};
         
         async function loadGISLayers() {
             try {
@@ -622,53 +706,6 @@
             }
         }
         
-        async function loadDatabaseLayers() {
-            try {
-                const res = await fetch('/api/map-viewer/database-layers');
-                const data = await res.json();
-                dbLayersData = data.layers || [];
-                
-                const container = document.getElementById('db-layers-container');
-                if (dbLayersData.length === 0) {
-                    container.innerHTML = '<div style="color: #888;">No database layers with data</div>';
-                    return;
-                }
-                
-                container.innerHTML = dbLayersData
-                    .map(layer => `
-                        <label style="display: flex; align-items: center; margin-bottom: 8px; cursor: pointer;" title="${layer.description || ''} (${layer.feature_count} features)">
-                            <input type="checkbox" id="db-layer-${layer.id}" 
-                                   style="margin: 0; margin-right: 8px; flex-shrink: 0;"
-                                   onchange="toggleDBLayerSelection('${layer.id}', this.checked)">
-                            <span id="db-label-${layer.id}">${layer.name} (${layer.feature_count})</span>
-                        </label>
-                    `).join('');
-                
-            } catch (error) {
-                console.error('Error loading database layers:', error);
-                document.getElementById('db-layers-container').innerHTML = 
-                    '<div style="color: #ff4444;">Error loading database layers</div>';
-            }
-        }
-        
-        async function toggleDBLayerSelection(layerId, checked) {
-            console.log(`Database layer ${layerId} ${checked ? 'loading...' : 'removing...'}`);
-            
-            const label = document.getElementById(`db-label-${layerId}`);
-            
-            if (checked) {
-                // Load and display the database layer
-                label.innerHTML = label.textContent + ' <i class="fas fa-spinner fa-spin"></i>';
-                await loadDBLayer(layerId);
-            } else {
-                // Remove the layer from map
-                if (activeDBLayers[layerId]) {
-                    map.removeLayer(activeDBLayers[layerId]);
-                    delete activeDBLayers[layerId];
-                    console.log(`Database layer ${layerId} removed from map`);
-                }
-            }
-        }
         
         async function toggleLayerSelection(layerId, checked) {
             console.log(`Layer ${layerId} ${checked ? 'loading...' : 'removing...'}`);
@@ -791,111 +828,6 @@
             };
         }
         
-        async function loadDBLayer(layerId) {
-            try {
-                const layerConfig = dbLayersData.find(l => l.id === layerId);
-                if (!layerConfig) {
-                    console.error(`Database layer config not found for ${layerId}`);
-                    return;
-                }
-                
-                // Get current map bounds for query
-                const bounds = map.getBounds();
-                const bbox = {
-                    minx: bounds.getWest(),
-                    miny: bounds.getSouth(),
-                    maxx: bounds.getEast(),
-                    maxy: bounds.getNorth()
-                };
-                
-                console.log(`Fetching ${layerConfig.name} data from database...`);
-                
-                // Fetch database layer data
-                const apiUrl = `/api/map-viewer/database-layer-data/${layerId}`;
-                const params = new URLSearchParams({
-                    'minx': bbox.minx,
-                    'miny': bbox.miny,
-                    'maxx': bbox.maxx,
-                    'maxy': bbox.maxy
-                });
-                
-                const response = await fetch(`${apiUrl}?${params}`);
-                const geojson = await response.json();
-                
-                // Database layer styles (CAD/engineering colors)
-                const dbLayerStyles = {
-                    'survey_points': { color: '#FFFF00', pointColor: '#FFFF00', fillOpacity: 0.8 },  // Yellow
-                    'utility_lines': { color: '#00FFFF', weight: 2 },  // Cyan
-                    'utility_structures': { color: '#FF00FF', pointColor: '#FF00FF', fillOpacity: 0.9 },  // Magenta
-                    'parcels': { color: '#FF0000', weight: 2, fillColor: '#FF0000', fillOpacity: 0.1 },  // Red
-                    'horizontal_alignments': { color: '#00FF00', weight: 3 },  // Green
-                    'surface_features': { color: '#FFFFFF', weight: 1 },  // White
-                    'drawing_entities': { color: '#808080', weight: 1 }  // Gray
-                };
-                
-                const layerStyle = dbLayerStyles[layerId] || { color: '#00FFFF', weight: 2 };
-                
-                // Create Leaflet layer from GeoJSON
-                const layerGroup = L.geoJSON(geojson, {
-                    style: function(feature) {
-                        return {
-                            color: layerStyle.color,
-                            weight: layerStyle.weight || 2,
-                            fillColor: layerStyle.fillColor || layerStyle.color,
-                            fillOpacity: layerStyle.fillOpacity || 0.2
-                        };
-                    },
-                    pointToLayer: function(feature, latlng) {
-                        return L.circleMarker(latlng, {
-                            radius: 5,
-                            fillColor: layerStyle.pointColor || layerStyle.color,
-                            color: '#000',
-                            weight: 1,
-                            opacity: 1,
-                            fillOpacity: layerStyle.fillOpacity || 0.8
-                        });
-                    },
-                    onEachFeature: function(feature, layer) {
-                        // Add popup with properties
-                        if (feature.properties) {
-                            const props = feature.properties;
-                            let popupContent = `<div style="font-size: 11px; max-width: 250px;">`;
-                            popupContent += `<strong>${layerConfig.name}</strong><br>`;
-                            for (const [key, value] of Object.entries(props)) {
-                                if (value && key !== 'geometry') {
-                                    const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                                    const displayValue = String(value).length > 50 ? 
-                                        String(value).substring(0, 50) + '...' : value;
-                                    popupContent += `<b>${displayKey}:</b> ${displayValue}<br>`;
-                                }
-                            }
-                            popupContent += `</div>`;
-                            layer.bindPopup(popupContent);
-                        }
-                    }
-                });
-                
-                layerGroup.addTo(map);
-                activeDBLayers[layerId] = layerGroup;
-                
-                // Update label to show feature count
-                const label = document.getElementById(`db-label-${layerId}`);
-                const featureCount = geojson.features ? geojson.features.length : 0;
-                label.innerHTML = `${layerConfig.name} (${featureCount})`;
-                
-                console.log(`${layerConfig.name}: Loaded ${featureCount} features from database`);
-                
-            } catch (error) {
-                console.error(`Error loading database layer ${layerId}:`, error);
-                const label = document.getElementById(`db-label-${layerId}`);
-                if (label) {
-                    label.innerHTML = label.textContent.replace(' <i class="fas fa-spinner fa-spin"></i>', ' ❌');
-                }
-                
-                // Uncheck the box
-                document.getElementById(`db-layer-${layerId}`).checked = false;
-            }
-        }
         
         async function loadGISLayer(layerId) {
             try {
@@ -993,172 +925,219 @@
             }
         }
         
-        let activeProjectEntities = {};  // Store loaded project entities
-        
-        async function loadProjects() {
+        async function loadProjectStructure() {
             try {
-                const res = await fetch('/api/map-viewer/projects');
+                const res = await fetch('/api/map-viewer/project-structure');
                 const data = await res.json();
                 
-                if (data.features && data.features.length > 0) {
-                    projectsLayer = L.featureGroup();
-                    
-                    data.features.forEach((feature, idx) => {
-                        // Coordinates are already in WGS84 from backend
-                        const coords = feature.geometry.coordinates[0];
-                        const color = '#FF8C00';  // Dark orange for all projects
-                        
-                        // Convert GeoJSON [lon, lat] to Leaflet [lat, lon]
-                        const leafletCoords = coords.map(([lon, lat]) => [lat, lon]);
-                        
-                        const polygon = L.polygon(leafletCoords, {
-                            color: color,
-                            fillColor: color,
-                            fillOpacity: 0.15,
-                            weight: 3,
-                            dashArray: '10, 5'  // Dashed outline
-                        });
-                        
-                        const props = feature.properties;
-                        const drawingId = props.drawing_id;
-                        
-                        // Make clickable to load entities
-                        polygon.on('click', async function() {
-                            if (activeProjectEntities[drawingId]) {
-                                // Already loaded - toggle visibility
-                                if (map.hasLayer(activeProjectEntities[drawingId])) {
-                                    map.removeLayer(activeProjectEntities[drawingId]);
-                                } else {
-                                    map.addLayer(activeProjectEntities[drawingId]);
-                                }
-                            } else {
-                                // Load entities
-                                await loadProjectEntities(drawingId, props.drawing_name);
-                            }
-                        });
-                        
-                        polygon.bindPopup(`
-                            <div style="font-size: 12px;">
-                                <strong style="color: ${color};">${props.drawing_name || 'Untitled'}</strong><br>
-                                <strong>Project:</strong> ${props.project_name || 'N/A'}<br>
-                                ${props.client_name ? `<strong>Client:</strong> ${props.client_name}<br>` : ''}
-                                ${props.drawing_number ? `<strong>Number:</strong> ${props.drawing_number}<br>` : ''}
-                                <strong>EPSG:</strong> ${props.epsg_code}<br>
-                                <div style="margin-top: 8px; padding: 6px; background: #333; border-radius: 3px;">
-                                    <i class="fas fa-hand-pointer"></i> Click box to load entities
-                                </div>
-                            </div>
-                        `);
-                        
-                        projectsLayer.addLayer(polygon);
-                    });
-                    
-                    projectsLayer.addTo(map);
-                    document.getElementById('project-count').textContent = 
-                        `${data.features.length} project${data.features.length !== 1 ? 's' : ''} found`;
-                } else {
-                    document.getElementById('project-count').textContent = 'No projects with spatial data';
-                }
-            } catch (e) {
-                console.error('Error loading projects:', e);
-                document.getElementById('project-count').textContent = 'Error loading projects';
-            }
-        }
-        
-        async function loadProjectEntities(drawingId, drawingName) {
-            try {
-                console.log(`Loading entities for drawing ${drawingId}...`);
+                projectsData = data.projects || [];
                 
-                // Fetch entities
-                const res = await fetch(`/api/map-viewer/project-entities/${drawingId}`);
-                const geojson = await res.json();
-                
-                if (!geojson.features || geojson.features.length === 0) {
-                    console.log(`No entities found for ${drawingName}`);
+                const select = document.getElementById('project-select');
+                if (projectsData.length === 0) {
+                    select.innerHTML = '<option value="">No projects available</option>';
                     return;
                 }
                 
-                // CAD color mapping (AutoCAD Color Index to hex)
-                const aciColors = {
-                    1: '#FF0000',  // Red
-                    2: '#FFFF00',  // Yellow
-                    3: '#00FF00',  // Green
-                    4: '#00FFFF',  // Cyan
-                    5: '#0000FF',  // Blue
-                    6: '#FF00FF',  // Magenta
-                    7: '#FFFFFF',  // White
-                    8: '#808080',  // Gray
-                    9: '#C0C0C0'   // Light Gray
-                };
+                select.innerHTML = '<option value="">Select a project...</option>' +
+                    projectsData.map(project => 
+                        `<option value="${project.project_id}">${project.project_name} (${project.drawings.length} drawings)</option>`
+                    ).join('');
                 
-                // Create layer group for these entities
-                const entitiesLayer = L.geoJSON(geojson, {
-                    style: function(feature) {
-                        const props = feature.properties;
-                        const color = aciColors[props.color_aci] || props.layer_color || '#FFFFFF';
-                        
-                        return {
-                            color: color,
-                            weight: props.lineweight ? Math.max(1, props.lineweight / 100) : 1,
-                            opacity: props.transparency ? 1 - (props.transparency / 255) : 1
-                        };
-                    },
-                    pointToLayer: function(feature, latlng) {
-                        const props = feature.properties;
-                        const color = aciColors[props.color_aci] || props.layer_color || '#FFFFFF';
-                        
-                        return L.circleMarker(latlng, {
-                            radius: 3,
-                            fillColor: color,
-                            color: color,
-                            weight: 1,
-                            opacity: props.transparency ? 1 - (props.transparency / 255) : 1,
-                            fillOpacity: 0.8
-                        });
-                    },
-                    onEachFeature: function(feature, layer) {
-                        const props = feature.properties;
-                        layer.bindPopup(`
-                            <div style="font-size: 11px;">
-                                <strong>Entity: ${props.entity_type}</strong><br>
-                                <strong>Layer:</strong> ${props.layer_name || 'N/A'}<br>
-                                ${props.linetype ? `<strong>Linetype:</strong> ${props.linetype}<br>` : ''}
-                                ${props.color_aci ? `<strong>Color:</strong> ACI ${props.color_aci}<br>` : ''}
-                            </div>
-                        `);
-                    }
-                });
-                
-                entitiesLayer.addTo(map);
-                activeProjectEntities[drawingId] = entitiesLayer;
-                
-                console.log(`Loaded ${geojson.count} entities for ${drawingName}`);
-                
-            } catch (error) {
-                console.error(`Error loading project entities:`, error);
-            }
-        }
-        
-        function toggleProjects() {
-            if (!projectsLayer) return;
-            
-            projectsVisible = !projectsVisible;
-            const btn = document.getElementById('btn-toggle-projects');
-            
-            if (projectsVisible) {
-                projectsLayer.addTo(map);
-                btn.classList.add('active');
-                btn.innerHTML = '<i class="fas fa-eye"></i> Show Projects';
-            } else {
-                map.removeLayer(projectsLayer);
-                btn.classList.remove('active');
-                btn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Projects';
+                console.log(`Loaded ${projectsData.length} projects`);
+            } catch (e) {
+                console.error('Error loading project structure:', e);
+                document.getElementById('project-select').innerHTML = '<option value="">Error loading projects</option>';
             }
         }
         
         function changeBasemap(id) {
             Object.values(basemaps).forEach(l => map.removeLayer(l));
-            basemaps[id].addTo(map);
+            currentBasemap = basemaps[id];
+            currentBasemap.addTo(map);
+        }
+        
+        function toggleBasemap() {
+            const checked = document.getElementById('basemap-toggle').checked;
+            if (checked) {
+                if (currentBasemap) {
+                    currentBasemap.addTo(map);
+                }
+            } else {
+                if (currentBasemap && map.hasLayer(currentBasemap)) {
+                    map.removeLayer(currentBasemap);
+                }
+            }
+        }
+        
+        function selectProject(projectId) {
+            if (!projectId) {
+                selectedProject = null;
+                document.getElementById('btn-zoom-project').disabled = true;
+                document.getElementById('drawings-container').innerHTML = 
+                    '<div style="color: #888; text-align: center; padding: 10px;">Select a project to view drawings</div>';
+                return;
+            }
+            
+            selectedProject = projectsData.find(p => p.project_id === projectId);
+            if (!selectedProject) return;
+            
+            document.getElementById('btn-zoom-project').disabled = false;
+            buildDrawingsAccordion(selectedProject.drawings);
+        }
+        
+        function buildDrawingsAccordion(drawings) {
+            const container = document.getElementById('drawings-container');
+            
+            if (!drawings || drawings.length === 0) {
+                container.innerHTML = '<div style="color: #888; text-align: center; padding: 10px;">No drawings in this project</div>';
+                return;
+            }
+            
+            container.innerHTML = drawings.map(drawing => {
+                const totalEntities = drawing.total_entities || 0;
+                
+                return `
+                    <div class="drawing-item">
+                        <div class="drawing-header" onclick="toggleDrawing('${drawing.drawing_id}')">
+                            <div>
+                                <div class="drawing-title">${drawing.drawing_name}</div>
+                                <div class="drawing-count">${totalEntities} entities</div>
+                            </div>
+                            <i class="fas fa-chevron-down" id="chevron-${drawing.drawing_id}"></i>
+                        </div>
+                        <div class="drawing-content" id="content-${drawing.drawing_id}">
+                            ${drawing.entity_types.map(et => `
+                                <div class="entity-type-item">
+                                    <input type="checkbox" id="entity-${drawing.drawing_id}-${et.type}" 
+                                           onchange="toggleEntityType('${drawing.drawing_id}', '${et.type}', this.checked)">
+                                    <label class="entity-type-label" for="entity-${drawing.drawing_id}-${et.type}">
+                                        ${et.type}
+                                        <span class="entity-type-count">(${et.count})</span>
+                                    </label>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function toggleDrawing(drawingId) {
+            const content = document.getElementById(`content-${drawingId}`);
+            const chevron = document.getElementById(`chevron-${drawingId}`);
+            
+            if (content.classList.contains('open')) {
+                content.classList.remove('open');
+                chevron.style.transform = 'rotate(0deg)';
+            } else {
+                content.classList.add('open');
+                chevron.style.transform = 'rotate(180deg)';
+            }
+        }
+        
+        async function toggleEntityType(drawingId, entityType, checked) {
+            const layerKey = `${drawingId}_${entityType}`;
+            
+            if (checked) {
+                try {
+                    console.log(`Loading ${entityType} entities for drawing ${drawingId}...`);
+                    
+                    const res = await fetch(`/api/map-viewer/project-entities/${drawingId}?entity_type=${entityType}`);
+                    const geojson = await res.json();
+                    
+                    if (!geojson.features || geojson.features.length === 0) {
+                        console.log(`No ${entityType} entities found`);
+                        document.getElementById(`entity-${drawingId}-${entityType}`).checked = false;
+                        return;
+                    }
+                    
+                    // CAD color mapping (AutoCAD Color Index to hex)
+                    const aciColors = {
+                        1: '#FF0000',  // Red
+                        2: '#FFFF00',  // Yellow
+                        3: '#00FF00',  // Green
+                        4: '#00FFFF',  // Cyan
+                        5: '#0000FF',  // Blue
+                        6: '#FF00FF',  // Magenta
+                        7: '#FFFFFF',  // White
+                        8: '#808080',  // Gray
+                        9: '#C0C0C0'   // Light Gray
+                    };
+                    
+                    const entitiesLayer = L.geoJSON(geojson, {
+                        style: function(feature) {
+                            const props = feature.properties;
+                            const color = aciColors[props.color_aci] || props.layer_color || '#FFFFFF';
+                            
+                            return {
+                                color: color,
+                                weight: props.lineweight ? Math.max(1, props.lineweight / 100) : 1,
+                                opacity: props.transparency ? 1 - (props.transparency / 255) : 1
+                            };
+                        },
+                        pointToLayer: function(feature, latlng) {
+                            const props = feature.properties;
+                            const color = aciColors[props.color_aci] || props.layer_color || '#FFFFFF';
+                            
+                            return L.circleMarker(latlng, {
+                                radius: 3,
+                                fillColor: color,
+                                color: color,
+                                weight: 1,
+                                opacity: props.transparency ? 1 - (props.transparency / 255) : 1,
+                                fillOpacity: 0.8
+                            });
+                        },
+                        onEachFeature: function(feature, layer) {
+                            const props = feature.properties;
+                            layer.bindPopup(`
+                                <div style="font-size: 11px;">
+                                    <strong>Entity: ${props.entity_type}</strong><br>
+                                    <strong>Layer:</strong> ${props.layer_name || 'N/A'}<br>
+                                    ${props.linetype ? `<strong>Linetype:</strong> ${props.linetype}<br>` : ''}
+                                    ${props.color_aci ? `<strong>Color:</strong> ACI ${props.color_aci}<br>` : ''}
+                                </div>
+                            `);
+                        }
+                    });
+                    
+                    entitiesLayer.addTo(map);
+                    activeEntityLayers[layerKey] = entitiesLayer;
+                    
+                    console.log(`Loaded ${geojson.features.length} ${entityType} entities`);
+                    
+                } catch (error) {
+                    console.error(`Error loading ${entityType} entities:`, error);
+                    document.getElementById(`entity-${drawingId}-${entityType}`).checked = false;
+                }
+            } else {
+                if (activeEntityLayers[layerKey]) {
+                    map.removeLayer(activeEntityLayers[layerKey]);
+                    delete activeEntityLayers[layerKey];
+                    console.log(`Removed ${entityType} entities for drawing ${drawingId}`);
+                }
+            }
+        }
+        
+        function zoomToProject() {
+            if (!selectedProject || !selectedProject.bbox) {
+                console.error('No project selected or no bbox available');
+                return;
+            }
+            
+            const bbox = selectedProject.bbox;
+            
+            // Transform EPSG:2226 coordinates to WGS84
+            const sw = proj4('EPSG:2226', 'EPSG:4326', [bbox.minx, bbox.miny]);
+            const ne = proj4('EPSG:2226', 'EPSG:4326', [bbox.maxx, bbox.maxy]);
+            
+            // Fit map to bounds
+            map.fitBounds([
+                [sw[1], sw[0]],  // [lat, lon]
+                [ne[1], ne[0]]
+            ]);
+            
+            console.log(`Zoomed to project: ${selectedProject.name}`);
         }
         
         async function searchAddress() {
@@ -1174,10 +1153,6 @@
                 
                 if (data.length > 0) {
                     map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 16);
-                    L.marker([parseFloat(data[0].lat), parseFloat(data[0].lon)])
-                        .addTo(map)
-                        .bindPopup(data[0].display_name)
-                        .openPopup();
                     status.innerHTML = '<span style="color: #0f0;">Found!</span>';
                 } else {
                     status.innerHTML = '<span style="color: #f00;">Not found</span>';
