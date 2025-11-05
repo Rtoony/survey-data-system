@@ -376,6 +376,52 @@ def delete_project(project_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/projects/<project_id>', methods=['PUT'])
+def update_project(project_id):
+    """Update an existing project"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+            
+        project_name = data.get('project_name')
+        client_name = data.get('client_name')
+        project_number = data.get('project_number')
+        description = data.get('description')
+
+        if not project_name:
+            return jsonify({'error': 'project_name is required'}), 400
+
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE projects 
+                    SET project_name = %s, 
+                        client_name = %s, 
+                        project_number = %s, 
+                        description = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE project_id = %s
+                    RETURNING project_id, project_name, client_name, project_number, updated_at
+                    """,
+                    (project_name, client_name, project_number, description, project_id)
+                )
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Project not found'}), 404
+                conn.commit()
+                
+                return jsonify({
+                    'project_id': str(result[0]),
+                    'project_name': result[1],
+                    'client_name': result[2],
+                    'project_number': result[3],
+                    'updated_at': result[4].isoformat() if result[4] else None
+                })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/drawings')
 def get_drawings():
     """Get all drawings"""
@@ -455,6 +501,58 @@ def delete_drawing(drawing_id):
                 cur.execute('DELETE FROM drawings WHERE drawing_id = %s', (drawing_id,))
                 conn.commit()
         return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/drawings/<drawing_id>', methods=['PUT'])
+def update_drawing(drawing_id):
+    """Update an existing drawing"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+            
+        drawing_name = data.get('drawing_name')
+        drawing_number = data.get('drawing_number')
+        project_id = data.get('project_id') or None
+        drawing_type = data.get('drawing_type')
+        scale = data.get('scale')
+        discipline = data.get('discipline')
+        sheet_title = data.get('sheet_title')
+
+        if not drawing_name:
+            return jsonify({'error': 'drawing_name is required'}), 400
+
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE drawings 
+                    SET drawing_name = %s, 
+                        drawing_number = %s, 
+                        project_id = %s, 
+                        drawing_type = %s, 
+                        scale = %s, 
+                        discipline = %s,
+                        sheet_title = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE drawing_id = %s
+                    RETURNING drawing_id, drawing_name, drawing_number, project_id, updated_at
+                    """,
+                    (drawing_name, drawing_number, project_id, drawing_type, scale, discipline, sheet_title, drawing_id)
+                )
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Drawing not found'}), 404
+                conn.commit()
+                
+                return jsonify({
+                    'drawing_id': str(result[0]),
+                    'drawing_name': result[1],
+                    'drawing_number': result[2],
+                    'project_id': str(result[3]) if result[3] else None,
+                    'updated_at': result[4].isoformat() if result[4] else None
+                })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

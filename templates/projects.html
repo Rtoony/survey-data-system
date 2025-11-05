@@ -67,6 +67,40 @@
     </div>
 </div>
 
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="fas fa-edit"></i> Edit Project</h2>
+            <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <form id="editForm" onsubmit="updateProject(event)">
+            <input type="hidden" id="edit_project_id" name="project_id">
+            <div class="form-group">
+                <label for="edit_project_name">Project Name <span style="color: #ff6b6b;">*</span></label>
+                <input type="text" id="edit_project_name" name="project_name" required placeholder="e.g., Main Street Renovation">
+            </div>
+            <div class="form-group">
+                <label for="edit_client_name">Client Name</label>
+                <input type="text" id="edit_client_name" name="client_name" placeholder="e.g., ACME Corporation">
+            </div>
+            <div class="form-group">
+                <label for="edit_project_number">Project Number</label>
+                <input type="text" id="edit_project_number" name="project_number" placeholder="e.g., 2025-001">
+            </div>
+            <div class="form-group">
+                <label for="edit_description">Description</label>
+                <textarea id="edit_description" name="description" rows="3" placeholder="Project description"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Update Project
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <style>
 .modal {
     display: none;
@@ -291,6 +325,14 @@ function renderProjects(projects) {
                             <td>${formatDate(p.created_at)}</td>
                             <td style="text-align: center;">
                                 <button 
+                                    class="btn btn-icon btn-primary" 
+                                    onclick='openEditModal(${JSON.stringify(p)})'
+                                    title="Edit project"
+                                    style="margin-right: 5px;"
+                                >
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button 
                                     class="btn btn-icon btn-danger" 
                                     onclick="deleteItem('/api/projects', '${p.project_id}', '${p.project_name}')"
                                     title="Delete project"
@@ -419,10 +461,61 @@ async function createProject(event) {
     }
 }
 
+function openEditModal(project) {
+    document.getElementById('editModal').style.display = 'block';
+    document.getElementById('edit_project_id').value = project.project_id;
+    document.getElementById('edit_project_name').value = project.project_name || '';
+    document.getElementById('edit_client_name').value = project.client_name || '';
+    document.getElementById('edit_project_number').value = project.project_number || '';
+    document.getElementById('edit_description').value = project.description || '';
+    document.getElementById('edit_project_name').focus();
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+    document.getElementById('editForm').reset();
+}
+
+async function updateProject(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const projectId = formData.get('project_id');
+    const data = {
+        project_name: formData.get('project_name'),
+        client_name: formData.get('client_name') || null,
+        project_number: formData.get('project_number') || null,
+        description: formData.get('description') || null
+    };
+
+    try {
+        const response = await fetch(`/api/projects/${projectId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            closeEditModal();
+            location.reload();
+        } else {
+            const error = await response.json();
+            alert(`Error: ${error.error || 'Failed to update project'}`);
+        }
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
 window.onclick = function(event) {
-    const modal = document.getElementById('createModal');
-    if (event.target == modal) {
+    const createModal = document.getElementById('createModal');
+    const editModal = document.getElementById('editModal');
+    if (event.target == createModal) {
         closeCreateModal();
+    } else if (event.target == editModal) {
+        closeEditModal();
     }
 }
 

@@ -106,6 +106,64 @@
     </div>
 </div>
 
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="fas fa-edit"></i> Edit Drawing</h2>
+            <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <form id="editForm" onsubmit="updateDrawing(event)">
+            <input type="hidden" id="edit_drawing_id" name="drawing_id">
+            <div class="form-group">
+                <label for="edit_drawing_name">Drawing Name <span style="color: #ff6b6b;">*</span></label>
+                <input type="text" id="edit_drawing_name" name="drawing_name" required placeholder="e.g., Site Plan">
+            </div>
+            <div class="form-group">
+                <label for="edit_drawing_number">Drawing Number</label>
+                <input type="text" id="edit_drawing_number" name="drawing_number" placeholder="e.g., A-001">
+            </div>
+            <div class="form-group">
+                <label for="edit_project_id">Project (Optional)</label>
+                <select id="edit_project_id" name="project_id">
+                    <option value="">No Project</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="edit_sheet_title">Sheet Title</label>
+                <input type="text" id="edit_sheet_title" name="sheet_title" placeholder="e.g., Site Grading Plan">
+            </div>
+            <div class="form-group">
+                <label for="edit_scale">Scale</label>
+                <input type="text" id="edit_scale" name="scale" placeholder="e.g., 1:100, 1/8&quot;=1'-0&quot;">
+            </div>
+            <div class="form-group">
+                <label for="edit_discipline">Discipline</label>
+                <select id="edit_discipline" name="discipline">
+                    <option value="">Select Discipline</option>
+                    <option value="Civil">Civil</option>
+                    <option value="Survey">Survey</option>
+                    <option value="Structural">Structural</option>
+                    <option value="Architecture">Architecture</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Landscape">Landscape</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="edit_drawing_type">Drawing Type</label>
+                <input type="text" id="edit_drawing_type" name="drawing_type" placeholder="e.g., Site Plan, Detail, Section">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Update Drawing
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <style>
 .modal {
     display: none;
@@ -359,6 +417,14 @@ function renderDrawings(drawings) {
                             <td>${formatDate(d.created_at)}</td>
                             <td style="text-align: center;">
                                 <button 
+                                    class="btn btn-icon btn-primary" 
+                                    onclick='openEditModal(${JSON.stringify(d)})'
+                                    title="Edit drawing"
+                                    style="margin-right: 5px;"
+                                >
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button 
                                     class="btn btn-icon btn-danger" 
                                     onclick="deleteItem('/api/drawings', '${d.drawing_id}', '${d.drawing_name}')"
                                     title="Delete drawing"
@@ -503,10 +569,79 @@ async function createDrawing(event) {
     }
 }
 
+function openEditModal(drawing) {
+    document.getElementById('editModal').style.display = 'block';
+    document.getElementById('edit_drawing_id').value = drawing.drawing_id;
+    document.getElementById('edit_drawing_name').value = drawing.drawing_name || '';
+    document.getElementById('edit_drawing_number').value = drawing.drawing_number || '';
+    document.getElementById('edit_project_id').value = drawing.project_id || '';
+    document.getElementById('edit_sheet_title').value = drawing.sheet_title || '';
+    document.getElementById('edit_scale').value = drawing.scale || '';
+    document.getElementById('edit_discipline').value = drawing.discipline || '';
+    document.getElementById('edit_drawing_type').value = drawing.drawing_type || '';
+    document.getElementById('edit_drawing_name').focus();
+    
+    const editProjectSelect = document.getElementById('edit_project_id');
+    editProjectSelect.innerHTML = '<option value="">No Project</option>';
+    allProjects.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.project_id;
+        option.textContent = `${p.project_name}${p.client_name ? ' - ' + p.client_name : ''}`;
+        if (p.project_id === drawing.project_id) {
+            option.selected = true;
+        }
+        editProjectSelect.appendChild(option);
+    });
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+    document.getElementById('editForm').reset();
+}
+
+async function updateDrawing(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const drawingId = formData.get('drawing_id');
+    const data = {
+        drawing_name: formData.get('drawing_name'),
+        drawing_number: formData.get('drawing_number') || null,
+        project_id: formData.get('project_id') || null,
+        sheet_title: formData.get('sheet_title') || null,
+        scale: formData.get('scale') || null,
+        discipline: formData.get('discipline') || null,
+        drawing_type: formData.get('drawing_type') || null
+    };
+
+    try {
+        const response = await fetch(`/api/drawings/${drawingId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            closeEditModal();
+            location.reload();
+        } else {
+            const error = await response.json();
+            alert(`Error: ${error.error || 'Failed to update drawing'}`);
+        }
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
 window.onclick = function(event) {
-    const modal = document.getElementById('createModal');
-    if (event.target == modal) {
+    const createModal = document.getElementById('createModal');
+    const editModal = document.getElementById('editModal');
+    if (event.target == createModal) {
         closeCreateModal();
+    } else if (event.target == editModal) {
+        closeEditModal();
     }
 }
 
