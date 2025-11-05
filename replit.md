@@ -84,6 +84,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 5, 2025 - Auto-Calculate Project Bounding Boxes - COMPLETE:**
+- **Dynamic Bbox Calculation:** Modified `/api/map-viewer/project-structure` to automatically calculate bounding boxes from entity geometry when drawing.bbox is null
+- **Edge Case Handling:** Added CASE statements to only calculate ST_Extent when entities exist, preventing null overwrites
+- **New Projects Visible:** All projects now appear in dropdown regardless of whether bbox is set in drawings table
+- **Newest First Ordering:** Changed ordering to `created_at DESC` so newest projects appear at top of list
+- **Production Ready:** Architect-reviewed and verified - handles all edge cases (drawings with/without bbox, with/without entities)
+
 **November 5, 2025 - Project Viewer Bug Fixes - COMPLETE:**
 - **SQL Column Fix:** Fixed `/api/map-viewer/project-entities` endpoint to query `e.attributes` instead of non-existent `e.metadata` column, eliminating SQL errors when loading entities
 - **Bbox Property Names:** Fixed `zoomToProject()` function to use correct API response format (`bbox.min_x/min_y/max_x/max_y` instead of `bbox.minx/miny/maxx/maxy`)
