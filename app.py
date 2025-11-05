@@ -3283,6 +3283,72 @@ def get_gis_layers():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/map-viewer/layer-data/<layer_id>')
+def get_layer_data(layer_id):
+    """Fetch GIS layer data from FeatureServer and convert to GeoJSON"""
+    try:
+        import requests
+        from arcgis2geojson import arcgis2geojson
+        
+        # Get layer config
+        query = "SELECT * FROM gis_layers WHERE id = %s AND enabled = true"
+        layers = execute_query(query, (layer_id,))
+        
+        if not layers:
+            return jsonify({'error': 'Layer not found'}), 404
+        
+        layer_config = layers[0]
+        
+        # Get bbox from request params
+        minx = request.args.get('minx', type=float)
+        miny = request.args.get('miny', type=float)
+        maxx = request.args.get('maxx', type=float)
+        maxy = request.args.get('maxy', type=float)
+        
+        if not all([minx, miny, maxx, maxy]):
+            return jsonify({'error': 'Missing bbox parameters'}), 400
+        
+        # Query FeatureServer with ESRI JSON format
+        query_url = f"{layer_config['url']}/query"
+        query_params = {
+            'where': '1=1',
+            'geometry': f'{minx},{miny},{maxx},{maxy}',
+            'geometryType': 'esriGeometryEnvelope',
+            'inSR': '4326',
+            'outSR': '4326',
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': '*',
+            'returnGeometry': 'true',
+            'resultRecordCount': '1000',
+            'f': 'json'  # ESRI JSON format
+        }
+        
+        response = requests.get(query_url, params=query_params, timeout=30)
+        response.raise_for_status()
+        esri_data = response.json()
+        
+        # Convert ESRI JSON to GeoJSON
+        features = []
+        for esri_feature in esri_data.get('features', []):
+            try:
+                geojson_feature = arcgis2geojson(esri_feature)
+                if geojson_feature.get('geometry') is not None:
+                    features.append(geojson_feature)
+            except Exception as e:
+                print(f"Failed to convert feature: {e}")
+                continue
+        
+        return jsonify({
+            'type': 'FeatureCollection',
+            'features': features
+        })
+        
+    except Exception as e:
+        print(f"Error fetching layer data: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/map-viewer/projects')
 def get_map_projects():
     """Get all projects with spatial data for map display"""

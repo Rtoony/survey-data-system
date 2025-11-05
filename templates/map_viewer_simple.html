@@ -362,6 +362,7 @@
         let projectsVisible = true;
         let projectColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#95afc0', '#c56cf0', '#ffbe76'];
         let gisLayersData = [];
+        let activeGISLayers = {};  // Store active GIS layers on map
         
         async function loadGISLayers() {
             try {
@@ -380,9 +381,8 @@
                     .map(layer => `
                         <label style="display: block; margin-bottom: 8px; cursor: pointer;">
                             <input type="checkbox" id="layer-${layer.id}" 
-                                   onchange="toggleLayerSelection('${layer.id}', this.checked)" 
-                                   ${layer.id === 'sonoma_parcels_public' || layer.id === 'sonoma_buildings' ? 'checked' : ''}>
-                            <span style="margin-left: 5px;">${layer.name}</span>
+                                   onchange="toggleLayerSelection('${layer.id}', this.checked)">
+                            <span style="margin-left: 5px;" id="label-${layer.id}">${layer.name}</span>
                         </label>
                     `).join('');
                 
@@ -393,8 +393,114 @@
             }
         }
         
-        function toggleLayerSelection(layerId, checked) {
-            console.log(`Layer ${layerId} ${checked ? 'selected' : 'deselected'}`);
+        async function toggleLayerSelection(layerId, checked) {
+            console.log(`Layer ${layerId} ${checked ? 'loading...' : 'removing...'}`);
+            
+            const label = document.getElementById(`label-${layerId}`);
+            
+            if (checked) {
+                // Load and display the layer
+                label.innerHTML = label.textContent + ' <i class="fas fa-spinner fa-spin"></i>';
+                await loadGISLayer(layerId);
+            } else {
+                // Remove the layer from map
+                if (activeGISLayers[layerId]) {
+                    map.removeLayer(activeGISLayers[layerId]);
+                    delete activeGISLayers[layerId];
+                    console.log(`Layer ${layerId} removed from map`);
+                }
+            }
+        }
+        
+        async function loadGISLayer(layerId) {
+            try {
+                const layerConfig = gisLayersData.find(l => l.id === layerId);
+                if (!layerConfig) {
+                    console.error(`Layer config not found for ${layerId}`);
+                    return;
+                }
+                
+                // Get current map bounds for query
+                const bounds = map.getBounds();
+                const bbox = {
+                    minx: bounds.getWest(),
+                    miny: bounds.getSouth(),
+                    maxx: bounds.getEast(),
+                    maxy: bounds.getNorth()
+                };
+                
+                console.log(`Fetching ${layerConfig.name} data...`);
+                
+                // Use backend API to fetch and convert layer data
+                const apiUrl = `/api/map-viewer/layer-data/${layerId}`;
+                const params = new URLSearchParams({
+                    'minx': bbox.minx,
+                    'miny': bbox.miny,
+                    'maxx': bbox.maxx,
+                    'maxy': bbox.maxy
+                });
+                
+                const response = await fetch(`${apiUrl}?${params}`);
+                const geojson = await response.json();
+                
+                // Create Leaflet layer from GeoJSON
+                const layerGroup = L.geoJSON(geojson, {
+                    style: function(feature) {
+                        return {
+                            color: '#0080ff',
+                            weight: 2,
+                            fillOpacity: 0.1
+                        };
+                    },
+                    pointToLayer: function(feature, latlng) {
+                        return L.circleMarker(latlng, {
+                            radius: 4,
+                            fillColor: '#0080ff',
+                            color: '#fff',
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.6
+                        });
+                    },
+                    onEachFeature: function(feature, layer) {
+                        // Add popup with properties
+                        if (feature.properties) {
+                            const props = feature.properties;
+                            let popupContent = `<div style="font-size: 11px; max-width: 200px;">`;
+                            popupContent += `<strong>${layerConfig.name}</strong><br>`;
+                            
+                            // Show first 5 properties
+                            const keys = Object.keys(props).slice(0, 5);
+                            keys.forEach(key => {
+                                if (props[key] !== null && props[key] !== '') {
+                                    popupContent += `<strong>${key}:</strong> ${props[key]}<br>`;
+                                }
+                            });
+                            popupContent += `</div>`;
+                            layer.bindPopup(popupContent);
+                        }
+                    }
+                });
+                
+                layerGroup.addTo(map);
+                activeGISLayers[layerId] = layerGroup;
+                
+                const featureCount = geojson.features ? geojson.features.length : 0;
+                console.log(`${layerConfig.name}: Loaded ${featureCount} features`);
+                
+                // Update label
+                const label = document.getElementById(`label-${layerId}`);
+                label.innerHTML = `${layerConfig.name} <span style="color: #888;">(${featureCount})</span>`;
+                
+            } catch (error) {
+                console.error(`Error loading layer ${layerId}:`, error);
+                const label = document.getElementById(`label-${layerId}`);
+                const layerConfig = gisLayersData.find(l => l.id === layerId);
+                label.innerHTML = `${layerConfig.name} <span style="color: #ff4444;">⚠</span>`;
+                
+                // Uncheck the box
+                document.getElementById(`layer-${layerId}`).checked = false;
+            }
         }
         
         async function loadProjects() {
