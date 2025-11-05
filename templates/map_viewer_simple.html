@@ -159,6 +159,27 @@
             </div>
             
             <div class="section">
+                <h3><i class="fas fa-layer-group"></i> GIS Layers</h3>
+                <div style="font-size: 11px;">
+                    <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                        <input type="checkbox" id="layer-parcels" onchange="toggleGISLayer('parcels', this.checked)">
+                        <span style="margin-left: 5px;">Parcels</span>
+                    </label>
+                    <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                        <input type="checkbox" id="layer-roads" onchange="toggleGISLayer('roads', this.checked)">
+                        <span style="margin-left: 5px;">Roads</span>
+                    </label>
+                    <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                        <input type="checkbox" id="layer-buildings" onchange="toggleGISLayer('buildings', this.checked)">
+                        <span style="margin-left: 5px;">Buildings</span>
+                    </label>
+                </div>
+                <div id="gis-status" style="color: #888; font-size: 10px; margin-top: 5px;">
+                    Ready to load layers
+                </div>
+            </div>
+            
+            <div class="section">
                 <h3><i class="fas fa-search"></i> Search</h3>
                 <input type="text" id="search-input" placeholder="Address in Sonoma County"
                        onkeypress="if(event.key==='Enter') searchAddress()">
@@ -401,6 +422,102 @@
                 map.removeLayer(projectsLayer);
                 btn.classList.remove('active');
                 btn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Projects';
+            }
+        }
+        
+        // GIS Layers management
+        let gisLayers = {};
+        let gisLayerConfigs = {
+            'parcels': {
+                url: 'https://socogis.sonomacounty.ca.gov/map/rest/services/CRAPublic/ParcelsPublic/FeatureServer/0',
+                style: {color: '#FF5733', weight: 1, fillOpacity: 0.1}
+            },
+            'roads': {
+                url: 'https://socogis.sonomacounty.ca.gov/map/rest/services/TPWPublic/Streets_Roads/FeatureServer/0',
+                style: {color: '#FFC300', weight: 2}
+            },
+            'buildings': {
+                url: 'https://socogis.sonomacounty.ca.gov/map/rest/services/BASEPublic/Buildings/FeatureServer/0',
+                style: {color: '#333333', weight: 1, fillOpacity: 0.3}
+            }
+        };
+        
+        async function toggleGISLayer(layerId, enabled) {
+            const status = document.getElementById('gis-status');
+            
+            if (enabled) {
+                if (gisLayers[layerId]) {
+                    // Layer already loaded, just show it
+                    map.addLayer(gisLayers[layerId]);
+                    status.textContent = `${layerId} visible`;
+                } else {
+                    // Load the layer
+                    status.textContent = `Loading ${layerId}...`;
+                    await loadGISLayer(layerId);
+                }
+            } else {
+                // Hide the layer
+                if (gisLayers[layerId]) {
+                    map.removeLayer(gisLayers[layerId]);
+                    status.textContent = `${layerId} hidden`;
+                }
+            }
+        }
+        
+        async function loadGISLayer(layerId) {
+            const status = document.getElementById('gis-status');
+            const config = gisLayerConfigs[layerId];
+            
+            try {
+                // Get current map bounds in WGS84
+                const bounds = map.getBounds();
+                
+                // Transform to State Plane for query
+                const sw = proj4('EPSG:4326', 'EPSG:2226', [bounds.getWest(), bounds.getSouth()]);
+                const ne = proj4('EPSG:4326', 'EPSG:2226', [bounds.getEast(), bounds.getNorth()]);
+                
+                const bbox = `${sw[0]},${sw[1]},${ne[0]},${ne[1]}`;
+                
+                // Query ESRI FeatureServer
+                const queryUrl = `${config.url}/query?` + 
+                    `geometry=${encodeURIComponent(bbox)}` +
+                    `&geometryType=esriGeometryEnvelope` +
+                    `&inSR=2226` +
+                    `&spatialRel=esriSpatialRelIntersects` +
+                    `&outFields=*` +
+                    `&returnGeometry=true` +
+                    `&outSR=4326` +
+                    `&f=geojson`;
+                
+                const res = await fetch(queryUrl);
+                const data = await res.json();
+                
+                if (data && data.features) {
+                    // Create Leaflet layer
+                    const layer = L.geoJSON(data, {
+                        style: config.style,
+                        onEachFeature: (feature, layer) => {
+                            if (feature.properties) {
+                                let popup = '<div style="font-size: 11px;">';
+                                Object.keys(feature.properties).slice(0, 5).forEach(key => {
+                                    popup += `<strong>${key}:</strong> ${feature.properties[key]}<br>`;
+                                });
+                                popup += '</div>';
+                                layer.bindPopup(popup);
+                            }
+                        }
+                    });
+                    
+                    gisLayers[layerId] = layer;
+                    layer.addTo(map);
+                    status.textContent = `${layerId}: ${data.features.length} features loaded`;
+                } else {
+                    status.textContent = `${layerId}: No features found`;
+                }
+            } catch (e) {
+                console.error(`Error loading ${layerId}:`, e);
+                status.textContent = `${layerId}: Load error`;
+                document.getElementById(`layer-${layerId}`).checked = false;
             }
         }
         
