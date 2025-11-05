@@ -84,6 +84,15 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 5, 2025 - Test Data Generator for Spatial Testing - COMPLETE:**
+- **Test Data Script:** Created `create_test_project.py` utility that generates projects with valid Sonoma County coordinates
+- **3D Geometry Support:** Fixed geometry insertion to use GeometryZ format (LINESTRING Z with Z=0 coordinates)
+- **SRID Compatibility:** Uses SRID 0 for geometry insertion to match DXF importer patterns
+- **Realistic Test Data:** Generates projects at (6049000, 2001000) feet in EPSG:2226 near downtown Santa Rosa
+- **Sample Entities:** Creates buildings, street centerlines, and roundabouts for realistic CAD testing
+- **Automated Creation:** Simple `python create_test_project.py` command creates complete project with entities
+- **Entity Count Fix:** Drawing Manager now shows actual entity counts via LEFT JOIN with drawing_entities table instead of stale entity_count column
+
 **November 5, 2025 - DXF Project Display on Map Viewer - COMPLETE:**
 - **Project Bounding Boxes:** Imported DXF projects now display as dashed orange boxes on the map showing spatial extents
 - **Coordinate Transformation:** Fixed `/api/map-viewer/projects` to properly transform EPSG:2226 coordinates to WGS84 using pyproj Transformer
