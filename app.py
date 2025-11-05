@@ -3275,12 +3275,96 @@ def get_gis_layers():
 def get_map_projects():
     """Get all projects with spatial data for map display"""
     try:
-        # Return empty GeoJSON for now (projects will populate when users import DXF files)
+        # Query all drawings with their projects
+        query = """
+            SELECT 
+                d.drawing_id,
+                d.drawing_name,
+                d.drawing_number,
+                d.is_georeferenced,
+                d.drawing_epsg_code,
+                d.drawing_coordinate_system,
+                d.created_at,
+                p.project_id,
+                p.project_name,
+                p.client_name
+            FROM drawings d
+            JOIN projects p ON d.project_id = p.project_id
+            ORDER BY d.created_at DESC
+        """
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query)
+                drawings = cur.fetchall()
+        
+        features = []
+        for drawing in drawings:
+            # Get block inserts to calculate bounds
+            insert_query = """
+                SELECT insert_x, insert_y 
+                FROM block_inserts 
+                WHERE drawing_id = %s 
+                LIMIT 10000
+            """
+            with get_db() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(insert_query, (drawing['drawing_id'],))
+                    inserts = cur.fetchall()
+            
+            if not inserts:
+                continue
+                
+            # Calculate bounds
+            min_x = min_y = float('inf')
+            max_x = max_y = float('-inf')
+            
+            for insert in inserts:
+                if insert['insert_x'] is not None:
+                    min_x = min(min_x, insert['insert_x'])
+                    max_x = max(max_x, insert['insert_x'])
+                if insert['insert_y'] is not None:
+                    min_y = min(min_y, insert['insert_y'])
+                    max_y = max(max_y, insert['insert_y'])
+            
+            # Skip if no valid coordinates
+            if min_x == float('inf'):
+                continue
+            
+            # Create GeoJSON feature (assume EPSG:2226 for now)
+            # Convert State Plane to WGS84 for Leaflet display
+            feature = {
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Polygon',
+                    'coordinates': [[
+                        [min_x, min_y],
+                        [max_x, min_y],
+                        [max_x, max_y],
+                        [min_x, max_y],
+                        [min_x, min_y]
+                    ]]
+                },
+                'properties': {
+                    'drawing_id': str(drawing['drawing_id']),
+                    'drawing_name': drawing['drawing_name'],
+                    'drawing_number': drawing['drawing_number'],
+                    'project_id': str(drawing['project_id']),
+                    'project_name': drawing['project_name'],
+                    'client_name': drawing['client_name'],
+                    'epsg_code': drawing['drawing_epsg_code'] or 'EPSG:2226',
+                    'is_georeferenced': drawing['is_georeferenced'],
+                    'created_at': drawing['created_at'].isoformat() if drawing['created_at'] else None
+                }
+            }
+            features.append(feature)
+        
         return jsonify({
             'type': 'FeatureCollection',
-            'features': []
+            'features': features
         })
     except Exception as e:
+        print(f"Error fetching projects: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/map-export/create', methods=['POST'])

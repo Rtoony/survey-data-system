@@ -149,6 +149,16 @@
             </div>
             
             <div class="section">
+                <h3><i class="fas fa-project-diagram"></i> DXF Projects</h3>
+                <button id="btn-toggle-projects" onclick="toggleProjects()" class="active">
+                    <i class="fas fa-eye"></i> Show Projects
+                </button>
+                <div id="project-count" style="color: #888; font-size: 11px; margin-top: 5px;">
+                    Loading projects...
+                </div>
+            </div>
+            
+            <div class="section">
                 <h3><i class="fas fa-search"></i> Search</h3>
                 <input type="text" id="search-input" placeholder="Address in Sonoma County"
                        onkeypress="if(event.key==='Enter') searchAddress()">
@@ -311,12 +321,88 @@
                 }
             });
             
+            // Load projects
+            loadProjects();
+            
             console.log('Map initialized!');
             setTimeout(() => {
                 map.invalidateSize();
                 console.log('Map tiles should be visible now');
             }, 100);
         });
+        
+        let projectsLayer = null;
+        let projectsVisible = true;
+        let projectColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#95afc0', '#c56cf0', '#ffbe76'];
+        
+        async function loadProjects() {
+            try {
+                const res = await fetch('/api/map-viewer/projects');
+                const data = await res.json();
+                
+                if (data.features && data.features.length > 0) {
+                    projectsLayer = L.featureGroup();
+                    
+                    data.features.forEach((feature, idx) => {
+                        const coords = feature.geometry.coordinates[0];
+                        const color = projectColors[idx % projectColors.length];
+                        
+                        // Transform State Plane to WGS84
+                        const transformedCoords = coords.map(([x, y]) => {
+                            const [lng, lat] = proj4('EPSG:2226', 'EPSG:4326', [x, y]);
+                            return [lat, lng];
+                        });
+                        
+                        const polygon = L.polygon(transformedCoords, {
+                            color: color,
+                            fillColor: color,
+                            fillOpacity: 0.3,
+                            weight: 2
+                        });
+                        
+                        const props = feature.properties;
+                        polygon.bindPopup(`
+                            <div style="font-size: 12px;">
+                                <strong style="color: ${color};">${props.drawing_name || 'Untitled'}</strong><br>
+                                <strong>Project:</strong> ${props.project_name || 'N/A'}<br>
+                                ${props.client_name ? `<strong>Client:</strong> ${props.client_name}<br>` : ''}
+                                ${props.drawing_number ? `<strong>Number:</strong> ${props.drawing_number}<br>` : ''}
+                                <strong>EPSG:</strong> ${props.epsg_code}<br>
+                                <strong>Georeferenced:</strong> ${props.is_georeferenced ? 'Yes' : 'No'}
+                            </div>
+                        `);
+                        
+                        projectsLayer.addLayer(polygon);
+                    });
+                    
+                    projectsLayer.addTo(map);
+                    document.getElementById('project-count').textContent = 
+                        `${data.features.length} project${data.features.length !== 1 ? 's' : ''} found`;
+                } else {
+                    document.getElementById('project-count').textContent = 'No projects with spatial data';
+                }
+            } catch (e) {
+                console.error('Error loading projects:', e);
+                document.getElementById('project-count').textContent = 'Error loading projects';
+            }
+        }
+        
+        function toggleProjects() {
+            if (!projectsLayer) return;
+            
+            projectsVisible = !projectsVisible;
+            const btn = document.getElementById('btn-toggle-projects');
+            
+            if (projectsVisible) {
+                projectsLayer.addTo(map);
+                btn.classList.add('active');
+                btn.innerHTML = '<i class="fas fa-eye"></i> Show Projects';
+            } else {
+                map.removeLayer(projectsLayer);
+                btn.classList.remove('active');
+                btn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Projects';
+            }
+        }
         
         function changeBasemap(id) {
             Object.values(basemaps).forEach(l => map.removeLayer(l));
