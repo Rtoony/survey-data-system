@@ -63,14 +63,14 @@ class DXFLookupService:
         try:
             # First, check if layer exists in layer_standards
             cur.execute("""
-                SELECT layer_standard_id, layer_name
+                SELECT layer_id, layer_name
                 FROM layer_standards
                 WHERE layer_name = %s
                 LIMIT 1
             """, (layer_name,))
             
             layer_standard = cur.fetchone()
-            layer_standard_id = layer_standard['layer_standard_id'] if layer_standard else None
+            layer_standard_id = layer_standard['layer_id'] if layer_standard else None
             
             # Check if layer exists in layers table for this drawing
             if drawing_id:
@@ -102,9 +102,10 @@ class DXFLookupService:
                 cur.execute("""
                     INSERT INTO layers (
                         layer_id, drawing_id, layer_name, layer_standard_id,
-                        color, linetype, is_frozen, is_locked, is_plottable
+                        color, linetype, is_frozen, is_locked, 
+                        quality_score, tags, attributes
                     )
-                    VALUES (%s::uuid, %s::uuid, %s, %s::uuid, %s, %s, false, false, true)
+                    VALUES (%s::uuid, %s::uuid, %s, %s::uuid, %s, %s, false, false, 0.5, '{}', '{}')
                 """, (layer_id, drawing_id, layer_name, layer_standard_id, color_aci, linetype))
                 
                 if not self.external_conn:

@@ -143,18 +143,19 @@ class DXFImporter:
         # Query recently imported entities from this drawing
         cur.execute("""
             SELECT 
-                entity_id,
-                entity_type,
-                layer_name,
-                ST_AsText(geometry) as geometry_wkt,
-                ST_GeometryType(geometry) as geometry_type,
-                dxf_handle,
-                color_aci,
-                linetype,
-                space_type
-            FROM drawing_entities
-            WHERE drawing_id = %s
-            ORDER BY created_at DESC
+                de.entity_id,
+                de.entity_type,
+                l.layer_name,
+                ST_AsText(de.geometry) as geometry_wkt,
+                ST_GeometryType(de.geometry) as geometry_type,
+                de.dxf_handle,
+                de.color_aci,
+                de.linetype,
+                de.space_type
+            FROM drawing_entities de
+            LEFT JOIN layers l ON de.layer_id = l.layer_id
+            WHERE de.drawing_id = %s
+            ORDER BY de.created_at DESC
         """, (drawing_id,))
         
         entities = cur.fetchall()
@@ -279,6 +280,8 @@ class DXFImporter:
         color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
         lineweight = entity.dxf.lineweight if hasattr(entity.dxf, 'lineweight') else -1
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
+        dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
+        transparency = entity.dxf.transparency if hasattr(entity.dxf, 'transparency') else 0
         
         # Resolve layer to get layer_id
         layer_id, _ = resolver.get_or_create_layer(layer_name, drawing_id, color_aci, linetype)
@@ -287,21 +290,24 @@ class DXFImporter:
         geometry_wkt = self._entity_to_wkt(entity)
         
         if geometry_wkt:
-            # Store DXF-specific properties in metadata
-            metadata = {
-                'layer_name': layer_name,  # Store for reference
+            # Store DXF-specific properties in attributes
+            attributes = {
+                'layer_name': layer_name,
                 'linetype': linetype,
+                'entity_type': entity_type
             }
             
             cur.execute("""
                 INSERT INTO drawing_entities (
                     drawing_id, entity_type, layer_id, space_type,
-                    geometry, color_aci, lineweight, linetype, metadata
+                    geometry, dxf_handle, color_aci, lineweight, linetype, 
+                    transparency, quality_score, tags, attributes
                 )
-                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, 0.5, '{}', %s)
             """, (
                 drawing_id, entity_type, layer_id, space,
-                geometry_wkt, color_aci, lineweight, linetype, json.dumps(metadata)
+                geometry_wkt, dxf_handle, color_aci, lineweight, linetype,
+                transparency, json.dumps(attributes)
             ))
             
             stats['entities'] += 1
@@ -388,6 +394,7 @@ class DXFImporter:
         
         entity_type = entity.dxftype()
         layer_name = entity.dxf.layer
+        dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
         
         # Resolve layer to get layer_id
         layer_id, _ = resolver.get_or_create_layer(layer_name, drawing_id)
@@ -415,16 +422,25 @@ class DXFImporter:
         # Create point geometry
         geometry_wkt = f'POINT Z ({insert_point.x} {insert_point.y} {insert_point.z})'
         
+        # Attributes for AI optimization
+        attributes = {
+            'layer_name': layer_name,
+            'text_style': style_name,
+            'entity_type': entity_type
+        }
+        
         cur.execute("""
             INSERT INTO drawing_text (
                 drawing_id, layer_id, space_type, text_content,
                 insertion_point, text_height, rotation_angle,
-                text_style, horizontal_justification, vertical_justification
+                text_style, horizontal_justification, vertical_justification,
+                dxf_handle, quality_score, tags, attributes
             )
-            VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s, %s)
+            VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, %s, 0.5, '{}', %s)
         """, (
             drawing_id, layer_id, space, text_content,
-            geometry_wkt, height, rotation, style_name, h_just, v_just
+            geometry_wkt, height, rotation, style_name, h_just, v_just,
+            dxf_handle, json.dumps(attributes)
         ))
         
         stats['text'] += 1
@@ -437,34 +453,36 @@ class DXFImporter:
         
         layer_name = entity.dxf.layer
         dim_type = entity.dxftype()
+        dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
         
         # Resolve layer to get layer_id
         layer_id, _ = resolver.get_or_create_layer(layer_name, drawing_id)
         
-        # Get dimension points
-        defpoint = entity.dxf.defpoint
-        defpoint2 = entity.dxf.defpoint2 if hasattr(entity.dxf, 'defpoint2') else defpoint
-        
-        # Create line geometry from dimension points
-        geometry_wkt = f'LINESTRING Z ({defpoint.x} {defpoint.y} {defpoint.z}, {defpoint2.x} {defpoint2.y} {defpoint2.z})'
-        defpoint_wkt = f'POINT Z ({defpoint.x} {defpoint.y} {defpoint.z})'
-        
-        # Get measurement
-        measurement = entity.dxf.text if hasattr(entity.dxf, 'text') else ''
+        # Get measurement and text
+        dimension_text = entity.dxf.text if hasattr(entity.dxf, 'text') else ''
+        measured_value = float(entity.get_measurement()) if hasattr(entity, 'get_measurement') else None
         
         # Get dimension style
         dimstyle_name = entity.dxf.dimstyle if hasattr(entity.dxf, 'dimstyle') else 'Standard'
-        dimstyle_id = resolver.get_or_create_dimension_style(dimstyle_name)
+        
+        # Attributes for AI optimization
+        attributes = {
+            'layer_name': layer_name,
+            'dimension_style': dimstyle_name,
+            'entity_type': dim_type
+        }
         
         cur.execute("""
             INSERT INTO drawing_dimensions (
                 drawing_id, layer_id, space_type, dimension_type,
-                geometry, override_value, dimension_style, dimension_style_id
+                measured_value, dimension_text, dimension_style,
+                dxf_handle, quality_score, tags, attributes
             )
-            VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s::uuid)
+            VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, 0.5, '{}', %s)
         """, (
             drawing_id, layer_id, space, dim_type,
-            geometry_wkt, measurement, dimstyle_name, dimstyle_id
+            measured_value, dimension_text, dimstyle_name,
+            dxf_handle, json.dumps(attributes)
         ))
         
         stats['dimensions'] += 1
@@ -476,11 +494,11 @@ class DXFImporter:
         cur = conn.cursor()
         
         layer_name = entity.dxf.layer
-        pattern_name = entity.dxf.pattern_name
+        pattern_name = entity.dxf.pattern_name if hasattr(entity.dxf, 'pattern_name') else 'SOLID'
+        dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
         
-        # Resolve layer and pattern to get IDs
+        # Resolve layer to get layer_id
         layer_id, _ = resolver.get_or_create_layer(layer_name, drawing_id)
-        pattern_id = resolver.get_or_create_hatch_pattern(pattern_name)
         
         # Get hatch boundary
         try:
@@ -502,17 +520,25 @@ class DXFImporter:
                 # Get pattern properties
                 scale = entity.dxf.pattern_scale if hasattr(entity.dxf, 'pattern_scale') else 1.0
                 angle = entity.dxf.pattern_angle if hasattr(entity.dxf, 'pattern_angle') else 0.0
-                is_solid = pattern_name.upper() == 'SOLID' if pattern_name else False
+                
+                # Attributes for AI optimization
+                attributes = {
+                    'layer_name': layer_name,
+                    'pattern_name': pattern_name,
+                    'is_solid': pattern_name.upper() == 'SOLID'
+                }
                 
                 cur.execute("""
                     INSERT INTO drawing_hatches (
-                        drawing_id, layer_id, space_type, pattern_name, pattern_id,
-                        boundary_geometry, pattern_scale, pattern_angle, is_solid
+                        drawing_id, layer_id, space_type, hatch_pattern,
+                        boundary_geometry, hatch_scale, hatch_angle,
+                        dxf_handle, quality_score, tags, attributes
                     )
-                    VALUES (%s, %s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, 0.5, '{}', %s)
                 """, (
-                    drawing_id, layer_id, space, pattern_name, pattern_id,
-                    geometry_wkt, scale, angle, is_solid
+                    drawing_id, layer_id, space, pattern_name,
+                    geometry_wkt, scale, angle,
+                    dxf_handle, json.dumps(attributes)
                 ))
                 
                 stats['hatches'] += 1
@@ -524,11 +550,16 @@ class DXFImporter:
     
     def _import_block_insert(self, entity, drawing_id: str, space: str,
                              conn, stats: Dict, resolver: DXFLookupService):
-        """Import block insert (existing block_inserts table)."""
+        """Import block insert."""
         cur = conn.cursor()
         
+        layer_name = entity.dxf.layer
         block_name = entity.dxf.name
         insert_point = entity.dxf.insert
+        dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
+        
+        # Resolve layer to get layer_id
+        layer_id, _ = resolver.get_or_create_layer(layer_name, drawing_id)
         
         # Get transformation
         scale_x = entity.dxf.xscale if hasattr(entity.dxf, 'xscale') else 1.0
@@ -539,16 +570,25 @@ class DXFImporter:
         # Create point geometry
         geometry_wkt = f'POINT Z ({insert_point.x} {insert_point.y} {insert_point.z})'
         
+        # Attributes for AI optimization
+        attributes = {
+            'layer_name': layer_name,
+            'block_name': block_name,
+            'entity_type': 'INSERT'
+        }
+        
         try:
             cur.execute("""
                 INSERT INTO block_inserts (
-                    drawing_id, block_name, insertion_point,
-                    scale_x, scale_y, scale_z, rotation
+                    drawing_id, layer_id, block_name, insertion_point,
+                    scale_x, scale_y, scale_z, rotation,
+                    dxf_handle, quality_score, tags, attributes
                 )
-                VALUES (%s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+                VALUES (%s::uuid, %s::uuid, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, 0.5, '{}', %s)
             """, (
-                drawing_id, block_name, geometry_wkt,
-                scale_x, scale_y, scale_z, rotation
+                drawing_id, layer_id, block_name, geometry_wkt,
+                scale_x, scale_y, scale_z, rotation,
+                dxf_handle, json.dumps(attributes)
             ))
             
             stats['blocks'] += 1
