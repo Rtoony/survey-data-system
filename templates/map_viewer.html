@@ -4,7 +4,9 @@
 
 {% block extra_head %}
 <!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""/>
 <!-- Leaflet Draw CSS -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 
@@ -32,11 +34,32 @@
         flex: 1;
         position: relative;
         background: #001428;
+        z-index: 1;
     }
     
     #map {
         height: 100%;
         width: 100%;
+        z-index: 100 !important;
+        position: absolute !important;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+    
+    /* Ensure Leaflet tiles render properly */
+    .leaflet-container {
+        background: #ddd !important;
+        z-index: 100 !important;
+    }
+    
+    .leaflet-tile-pane {
+        z-index: 200 !important;
+    }
+    
+    .leaflet-map-pane {
+        z-index: 100 !important;
     }
     
     /* Sidebar sections */
@@ -427,6 +450,10 @@ function initMap() {
         osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap',
             maxZoom: 19
+        }).on('tileerror', function(error, tile) {
+            console.error('Tile loading error:', error);
+        }).on('load', function() {
+            console.log('OSM tiles loaded successfully');
         }),
         topo: L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'USGS',
@@ -448,6 +475,37 @@ function initMap() {
     
     // Add default basemap
     basemaps[currentBasemap].addTo(map);
+    
+    // Force map to recognize its container size
+    setTimeout(() => {
+        map.invalidateSize();
+        console.log('Map size invalidated');
+        const mapDiv = document.getElementById('map');
+        console.log('Map container dimensions:', mapDiv.offsetWidth, 'x', mapDiv.offsetHeight);
+        console.log('Map div classes:', mapDiv.className);
+        console.log('Map div has leaflet-container class:', mapDiv.classList.contains('leaflet-container'));
+        
+        // Check if tiles are visible
+        const tiles = document.querySelectorAll('.leaflet-tile');
+        console.log('Number of tile images loaded:', tiles.length);
+        if (tiles.length > 0) {
+            console.log('First tile src:', tiles[0].src);
+            console.log('First tile dimensions:', tiles[0].width, 'x', tiles[0].height);
+            const tileStyle = window.getComputedStyle(tiles[0]);
+            console.log('First tile opacity:', tileStyle.opacity);
+            console.log('First tile visibility:', tileStyle.visibility);
+            console.log('First tile display:', tileStyle.display);
+            console.log('First tile position:', tileStyle.position);
+            console.log('First tile z-index:', tileStyle.zIndex);
+        }
+        
+        const tilePane = document.querySelector('.leaflet-tile-pane');
+        if (tilePane) {
+            const paneStyle = window.getComputedStyle(tilePane);
+            console.log('Tile pane opacity:', paneStyle.opacity);
+            console.log('Tile pane transform:', paneStyle.transform);
+        }
+    }, 500);
     
     // Initialize layers
     drawnItems = new L.FeatureGroup();

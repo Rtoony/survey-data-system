@@ -1,0 +1,1337 @@
+# Comprehensive Technical Specification: Open-Source GIS Web Mapping & Export Tool
+
+## Project Overview
+
+A web application that allows users to view, interact with, and export georeferenced mapping data for engineering and planning purposes. The tool emphasizes accurate coordinate systems (California State Plane zones), open-source components, and professional-grade exports compatible with AutoCAD, ArcGIS, and other industry tools.
+
+---
+
+## Phase 1 MVP Scope (Sonoma County, CA State Plane Zone 2)
+
+### Core Functionality
+1. Interactive web map with selectable basemaps (Leaflet)
+2. User-drawn bounding box for export area definition
+3. Toggle layers: parcels, buildings, roads (from Sonoma County GIS servers)
+4. Export clipped vector data to SHP, DXF formats (with .prj files)
+5. Export georeferenced map image (GeoTIFF)
+6. Export visual map screenshot (PNG) with optional north arrow and scale bar
+7. Asynchronous processing queue with download links
+8. Basic measurement tools and address search
+
+### Coordinate System
+- **Primary CRS**: NAD83 California State Plane Zone 2, US Feet (EPSG:2226)
+- All exports must be in this coordinate system
+- Leaflet basemap can remain in Web Mercator (EPSG:3857) for display, but export bounding box calculations must account for CRS transformation
+
+---
+
+## Technical Architecture
+
+### Tech Stack
+
+**Frontend:**
+- HTML5/CSS3/JavaScript (vanilla or lightweight framework)
+- **Leaflet.js** v1.9+ for mapping
+- **Leaflet.draw** for bounding box drawing
+- **Turf.js** for client-side measurements
+- **Proj4js** for coordinate transformations in browser
+- **Leaflet.MiniMap** (optional) for overview map
+- **Leaflet.Coordinates** for coordinate display
+
+**Backend:**
+- **Python 3.10+**
+- **FastAPI** for REST API
+- **Celery** for asynchronous task queue
+- **Redis** as message broker for Celery
+- **GDAL/OGR 3.6+** (via osgeo Python bindings)
+- **Fiona** for Shapefile I/O
+- **pyproj** for coordinate transformations
+- **Shapely** for geometry operations
+- **ezdxf** for DXF generation
+- **OWSLib** for WFS/WMS requests
+- **Pillow** for image manipulation (north arrow, scale bar)
+- **rasterio** for GeoTIFF creation
+
+**Database:**
+- **Supabase** (PostgreSQL 14+ with PostGIS extension)
+- Store: layer configurations, county/zone metadata, export job status, download links
+
+**Infrastructure:**
+- **Docker** & **Docker Compose** for containerization
+- **nginx** as reverse proxy
+- **Ubuntu 22.04 LTS** base image recommended
+- Cloud hosting: DigitalOcean, AWS, or similar
+
+---
+
+## System Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        USER BROWSER                          │
+│  ┌────────────┐  ┌──────────────┐  ┌──────────────────┐    │
+│  │  Leaflet   │  │ Layer Toggle │  │  Bounding Box    │    │
+│  │   Map      │  │   Controls   │  │     Drawing      │    │
+│  └────────────┘  └──────────────┘  └──────────────────┘    │
+│          │                │                   │              │
+│          └────────────────┴───────────────────┘              │
+│                           │                                  │
+│                  ┌────────▼─────────┐                        │
+│                  │  FastAPI Client  │                        │
+│                  │   (fetch API)    │                        │
+│                  └────────┬─────────┘                        │
+└───────────────────────────┼──────────────────────────────────┘
+                            │ HTTPS
+┌───────────────────────────▼──────────────────────────────────┐
+│                     BACKEND SERVER                            │
+│  ┌─────────────────────────────────────────────────────┐     │
+│  │              FastAPI Application                     │     │
+│  │  /api/layers          - Get available layers        │     │
+│  │  /api/export/create   - Submit export job           │     │
+│  │  /api/export/status   - Check job status            │     │
+│  │  /api/export/download - Download completed export   │     │
+│  └────────┬────────────────────────────────────────────┘     │
+│           │                                                   │
+│  ┌────────▼─────────┐         ┌──────────────────┐          │
+│  │  Celery Worker   │◄────────┤  Redis Message   │          │
+│  │  (Background     │         │     Broker       │          │
+│  │   Processing)    │         └──────────────────┘          │
+│  └────────┬─────────┘                                        │
+│           │                                                   │
+│  ┌────────▼──────────────────────────────────────┐          │
+│  │        Geospatial Processing Pipeline          │          │
+│  │  1. Fetch from WFS (OWSLib)                    │          │
+│  │  2. Clip to bbox (Shapely)                     │          │
+│  │  3. Reproject (pyproj)                         │          │
+│  │  4. Export formats:                            │          │
+│  │     - SHP (Fiona)                              │          │
+│  │     - DXF (ezdxf)                              │          │
+│  │     - GeoTIFF (rasterio)                       │          │
+│  │     - PNG (Pillow)                             │          │
+│  │  5. Zip & store                                │          │
+│  └────────┬──────────────────────────────────────┘          │
+│           │                                                   │
+│  ┌────────▼─────────┐         ┌──────────────────┐          │
+│  │   File Storage   │         │    Supabase      │          │
+│  │ (/tmp/exports/)  │         │   PostgreSQL     │          │
+│  │  (temp, 1hr TTL) │         │   (metadata)     │          │
+│  └──────────────────┘         └──────────────────┘          │
+└───────────────────────────────────────────────────────────────┘
+                            │
+┌───────────────────────────▼──────────────────────────────────┐
+│                  EXTERNAL GIS SERVERS                         │
+│  - Sonoma County Parcel WFS                                   │
+│  - Sonoma County Buildings WFS                                │
+│  - Sonoma County Roads WFS                                    │
+└───────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Detailed Feature Specifications
+
+### 1. Map Interface
+
+**Basemap Options (Leaflet Tile Layers):**
+- OpenStreetMap Standard
+- OpenStreetMap HOT
+- USGS Topo
+- ESRI World Imagery (free tier)
+- CartoDB Positron (light)
+- CartoDB Dark Matter (dark)
+
+**User Controls:**
+- Basemap selector dropdown
+- Layer toggle checkboxes for each GIS layer
+- Opacity sliders (0-100%) for each layer
+- Brightness/Contrast sliders for basemap
+- Zoom controls
+- Coordinate display (show cursor position in EPSG:2226)
+
+**State Plane Zone Boundary:**
+- Display CA State Plane Zone 2 boundary as a polygon overlay
+- Fade/gray out areas outside the zone (reduce opacity of basemap tiles outside boundary)
+- Prevent export if bounding box extends significantly outside zone (warn user)
+
+### 2. Bounding Box Export Tool
+
+**Drawing:**
+- Use Leaflet.draw rectangle tool
+- Display area in sq ft and acres as user draws
+- Max area: **2,000,000 sq ft (~46 acres)** - reasonable for small to medium sites
+- Show warning if box too large; prevent submission
+
+**Export Form (Modal/Sidebar):**
+```
+┌─────────────────────────────────────┐
+│  Export Configuration               │
+├─────────────────────────────────────┤
+│  Format Selection:                  │
+│  ☑ Shapefile (.shp)                 │
+│  ☑ DXF (.dxf)                       │
+│  ☐ GeoTIFF (future)                 │
+│  ☑ Map Image (.png)                 │
+│                                     │
+│  Map Image Options:                 │
+│  ☑ Include North Arrow              │
+│  ☑ Include Scale Bar                │
+│                                     │
+│  Layers to Include:                 │
+│  ☑ Parcels                          │
+│  ☑ Buildings                        │
+│  ☑ Roads                            │
+│                                     │
+│  Email (optional):                  │
+│  [____________________]             │
+│                                     │
+│  [Cancel]  [Create Export]          │
+└─────────────────────────────────────┘
+```
+
+**Processing Workflow:**
+1. User submits export request
+2. Frontend sends POST to `/api/export/create` with:
+   - Bounding box coordinates (in EPSG:3857 from Leaflet)
+   - Selected layers
+   - Selected formats
+   - Map image options
+3. Backend creates Celery task, returns job ID
+4. Frontend polls `/api/export/status/{job_id}` every 2 seconds
+5. When complete, frontend displays download link
+6. Download available at `/api/export/download/{job_id}/{filename}.zip`
+7. Link expires after 1 hour; files deleted from server
+
+### 3. Measurement Tools
+
+**Distance Measurement:**
+- Polyline drawing tool
+- Display total length in feet and miles
+- Show segment lengths on hover
+- Clear/delete measurements
+
+**Area Measurement:**
+- Polygon drawing tool
+- Display area in sq ft and acres
+- Perimeter in feet
+- Clear/delete measurements
+
+**Implementation:** Use Turf.js for client-side calculations
+
+### 4. Address Search
+
+**Geocoding Service:**
+- Use **Nominatim** (OpenStreetMap) API (free, open-source)
+- Endpoint: `https://nominatim.openstreetmap.org/search`
+- Bias results to Sonoma County bounding box
+
+**UI:**
+- Search bar in top-right
+- Dropdown with top 5 results
+- Click result to pan/zoom map
+- Drop a temporary marker on selected address
+
+### 5. Map Image Export (PNG Screenshot)
+
+**Requirements:**
+- Capture current map view exactly as displayed
+- Optionally add north arrow (top-right corner)
+- Optionally add scale bar (bottom-left)
+- Add subtle watermark/attribution (bottom-right): "Created with [App Name]"
+
+**Technical Approach:**
+- **Option A (Client-side):** Use Leaflet.easyPrint plugin or leaflet-image
+  - Pro: No server load
+  - Con: Limited control over north arrow/scale bar styling
+  
+- **Option B (Server-side, recommended):**
+  - Send current map state (center, zoom, layers, bbox) to backend
+  - Use headless browser (Playwright/Puppeteer) or static map API
+  - Overlay north arrow and scale bar using Pillow
+  - Return PNG
+
+**For MVP, use Option A with client-side annotation library**
+
+### 6. Georeferenced Map Image Export (GeoTIFF)
+
+**Purpose:** 
+- Export the visible basemap as a georeferenced raster
+- Useful for bringing into CAD or GIS as a background
+
+**Technical Approach:**
+- Use WMS GetMap request to fetch basemap tiles at higher resolution
+- Stitch tiles together
+- Write georeferencing info (GeoTransform, Projection)
+- Export as GeoTIFF using rasterio
+
+**Implementation Details:**
+- Target resolution: ~1-2 feet/pixel (appropriate for engineering scale)
+- Apply user's brightness/contrast settings
+- Include selected CRS (EPSG:2226)
+
+---
+
+## Backend API Specification
+
+### Endpoints
+
+#### `GET /api/config`
+Returns initial configuration data.
+
+**Response:**
+```json
+{
+  "counties": [
+    {
+      "id": "sonoma",
+      "name": "Sonoma County",
+      "state_plane_zone": "CA_Zone_2",
+      "epsg_code": 2226,
+      "bounds": {
+        "minx": 1821000,
+        "miny": 606000,
+        "maxx": 2084000,
+        "maxy": 894000
+      }
+    }
+  ],
+  "basemaps": [
+    {
+      "id": "osm",
+      "name": "OpenStreetMap",
+      "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "attribution": "© OpenStreetMap contributors"
+    }
+  ]
+}
+```
+
+#### `GET /api/layers?county={county_id}`
+Returns available GIS layers for a county.
+
+**Response:**
+```json
+{
+  "layers": [
+    {
+      "id": "parcels",
+      "name": "Parcels",
+      "type": "WFS",
+      "url": "https://gis.sonomacounty.ca.gov/geoserver/wfs",
+      "layer_name": "parcels",
+      "style": {
+        "color": "#FF5733",
+        "weight": 2,
+        "fillOpacity": 0.1
+      }
+    },
+    {
+      "id": "buildings",
+      "name": "Buildings",
+      "type": "WFS",
+      "url": "https://gis.sonomacounty.ca.gov/geoserver/wfs",
+      "layer_name": "buildings",
+      "style": {
+        "color": "#333333",
+        "weight": 1,
+        "fillOpacity": 0.6
+      }
+    },
+    {
+      "id": "roads",
+      "name": "Roads",
+      "type": "WFS",
+      "url": "https://gis.sonomacounty.ca.gov/geoserver/wfs",
+      "layer_name": "roads",
+      "style": {
+        "color": "#FFC300",
+        "weight": 2
+      }
+    }
+  ]
+}
+```
+
+#### `POST /api/export/create`
+Submits an export job.
+
+**Request Body:**
+```json
+{
+  "bbox": {
+    "minx": -122.7,
+    "miny": 38.3,
+    "maxx": -122.6,
+    "maxy": 38.4,
+    "crs": "EPSG:4326"
+  },
+  "target_crs": "EPSG:2226",
+  "county": "sonoma",
+  "layers": ["parcels", "buildings", "roads"],
+  "formats": ["shp", "dxf", "png"],
+  "png_options": {
+    "north_arrow": true,
+    "scale_bar": true
+  },
+  "email": "user@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "job_id": "abc123-def456-789",
+  "status": "pending",
+  "created_at": "2025-11-04T10:30:00Z"
+}
+```
+
+#### `GET /api/export/status/{job_id}`
+Checks export job status.
+
+**Response (Processing):**
+```json
+{
+  "job_id": "abc123-def456-789",
+  "status": "processing",
+  "progress": 65,
+  "message": "Fetching buildings layer..."
+}
+```
+
+**Response (Complete):**
+```json
+{
+  "job_id": "abc123-def456-789",
+  "status": "complete",
+  "download_url": "/api/export/download/abc123-def456-789/export.zip",
+  "expires_at": "2025-11-04T11:30:00Z",
+  "file_size_mb": 3.2
+}
+```
+
+**Response (Failed):**
+```json
+{
+  "job_id": "abc123-def456-789",
+  "status": "failed",
+  "error": "WFS service unavailable for parcels layer"
+}
+```
+
+#### `GET /api/export/download/{job_id}/{filename}`
+Downloads the export zip file.
+
+**Response:** Binary file download (application/zip)
+
+---
+
+## Geospatial Processing Pipeline (Celery Task)
+
+### Task: `process_export(job_id, params)`
+
+**Steps:**
+
+1. **Validate & Transform Bounding Box**
+   ```python
+   from pyproj import Transformer
+   
+   transformer = Transformer.from_crs("EPSG:4326", "EPSG:2226", always_xy=True)
+   minx_ft, miny_ft = transformer.transform(params['bbox']['minx'], params['bbox']['miny'])
+   maxx_ft, maxy_ft = transformer.transform(params['bbox']['maxx'], params['bbox']['maxy'])
+   bbox_2226 = (minx_ft, miny_ft, maxx_ft, maxy_ft)
+   ```
+
+2. **Fetch WFS Data for Each Layer**
+   ```python
+   from owslib.wfs import WebFeatureService
+   
+   wfs = WebFeatureService(url=layer_config['url'], version='2.0.0')
+   response = wfs.getfeature(
+       typename=layer_config['layer_name'],
+       bbox=bbox_2226,
+       srsname='EPSG:2226',
+       outputFormat='application/json'
+   )
+   geojson = json.loads(response.read())
+   ```
+
+3. **Clip Geometries to Bounding Box**
+   ```python
+   from shapely.geometry import shape, box
+   
+   bbox_poly = box(*bbox_2226)
+   clipped_features = []
+   
+   for feature in geojson['features']:
+       geom = shape(feature['geometry'])
+       if geom.intersects(bbox_poly):
+           clipped_geom = geom.intersection(bbox_poly)
+           feature['geometry'] = clipped_geom.__geo_interface__
+           clipped_features.append(feature)
+   ```
+
+4. **Export to Shapefile**
+   ```python
+   import fiona
+   from fiona.crs import from_epsg
+   
+   schema = {
+       'geometry': 'Polygon',  # or LineString, Point
+       'properties': {'id': 'int', 'name': 'str'}
+   }
+   
+   with fiona.open(
+       f'/tmp/exports/{job_id}/parcels.shp',
+       'w',
+       driver='ESRI Shapefile',
+       crs=from_epsg(2226),
+       schema=schema
+   ) as shp:
+       for feature in clipped_features:
+           shp.write(feature)
+   ```
+   
+   **Critical:** Also write `.prj` file with WKT definition of EPSG:2226
+
+5. **Export to DXF**
+   ```python
+   import ezdxf
+   
+   doc = ezdxf.new('R2010')
+   msp = doc.modelspace()
+   
+   for feature in clipped_features:
+       geom = shape(feature['geometry'])
+       if geom.geom_type == 'Polygon':
+           points = list(geom.exterior.coords)
+           msp.add_lwpolyline(points, dxfattribs={'layer': 'Parcels'})
+       elif geom.geom_type == 'LineString':
+           points = list(geom.coords)
+           msp.add_lwpolyline(points, dxfattribs={'layer': 'Roads'})
+       elif geom.geom_type == 'Point':
+           msp.add_point((geom.x, geom.y), dxfattribs={'layer': 'Points'})
+   
+   doc.saveas(f'/tmp/exports/{job_id}/layers.dxf')
+   ```
+
+6. **Export PNG Map Image**
+   - Use leaflet-image or server-side rendering
+   - Add north arrow and scale bar using Pillow
+   - Save as PNG
+
+7. **Create Zip Archive**
+   ```python
+   import zipfile
+   
+   with zipfile.ZipFile(f'/tmp/exports/{job_id}/export.zip', 'w') as zipf:
+       zipf.write(f'/tmp/exports/{job_id}/parcels.shp')
+       zipf.write(f'/tmp/exports/{job_id}/parcels.shx')
+       zipf.write(f'/tmp/exports/{job_id}/parcels.dbf')
+       zipf.write(f'/tmp/exports/{job_id}/parcels.prj')
+       zipf.write(f'/tmp/exports/{job_id}/layers.dxf')
+       zipf.write(f'/tmp/exports/{job_id}/map.png')
+   ```
+
+8. **Update Job Status in Database**
+   ```python
+   supabase.table('export_jobs').update({
+       'status': 'complete',
+       'download_url': f'/api/export/download/{job_id}/export.zip',
+       'expires_at': datetime.now() + timedelta(hours=1)
+   }).eq('id', job_id).execute()
+   ```
+
+9. **Send Email Notification (Optional)**
+   ```python
+   if params.get('email'):
+       send_email(
+           to=params['email'],
+           subject='Your export is ready',
+           body=f'Download: {download_url}'
+       )
+   ```
+
+10. **Schedule Cleanup Task**
+    ```python
+    cleanup_export.apply_async((job_id,), countdown=3600)  # 1 hour
+    ```
+
+---
+
+## Database Schema (Supabase/PostgreSQL)
+
+### Table: `counties`
+```sql
+CREATE TABLE counties (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    state_plane_zone TEXT NOT NULL,
+    epsg_code INTEGER NOT NULL,
+    bounds GEOMETRY(POLYGON, 4326) NOT NULL
+);
+```
+
+### Table: `layers`
+```sql
+CREATE TABLE layers (
+    id TEXT PRIMARY KEY,
+    county_id TEXT REFERENCES counties(id),
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,  -- 'WFS', 'WMS'
+    url TEXT NOT NULL,
+    layer_name TEXT NOT NULL,
+    style JSONB,
+    enabled BOOLEAN DEFAULT true
+);
+```
+
+### Table: `export_jobs`
+```sql
+CREATE TABLE export_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    status TEXT NOT NULL,  -- 'pending', 'processing', 'complete', 'failed'
+    params JSONB NOT NULL,
+    download_url TEXT,
+    file_size_mb FLOAT,
+    error TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP,
+    email TEXT
+);
+
+CREATE INDEX idx_export_jobs_status ON export_jobs(status);
+CREATE INDEX idx_export_jobs_created_at ON export_jobs(created_at);
+```
+
+### Table: `users` (Future)
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Table: `saved_projects` (Future)
+```sql
+CREATE TABLE saved_projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    name TEXT NOT NULL,
+    config JSONB NOT NULL,  -- stores map state, layers, bbox, etc.
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+## Frontend Implementation Guide
+
+### Project Structure
+```
+frontend/
+├── index.html
+├── css/
+│   └── styles.css
+├── js/
+│   ├── main.js
+│   ├── map.js
+│   ├── layers.js
+│   ├── export.js
+│   ├── measurements.js
+│   └── utils.js
+└── assets/
+    ├── north-arrow.png
+    └── logo.png
+```
+
+### Key JavaScript Modules
+
+#### `map.js` - Initialize Leaflet Map
+```javascript
+import L from 'leaflet';
+import 'leaflet-draw';
+
+const map = L.map('map', {
+    center: [38.5, -122.8],  // Sonoma County
+    zoom: 10,
+    crs: L.CRS.EPSG3857  // Web Mercator for display
+});
+
+// Add basemap
+const basemap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+// Display coordinates
+map.on('mousemove', (e) => {
+    const { lat, lng } = e.latlng;
+    // Transform to EPSG:2226 using proj4
+    const [x, y] = proj4('EPSG:3857', 'EPSG:2226', [lng, lat]);
+    document.getElementById('coords').innerText = `X: ${x.toFixed(2)} ft, Y: ${y.toFixed(2)} ft`;
+});
+```
+
+#### `layers.js` - Load WFS Layers
+```javascript
+async function loadLayer(layerConfig) {
+    const response = await fetch(
+        `${layerConfig.url}?service=WFS&version=2.0.0&request=GetFeature&typename=${layerConfig.layer_name}&outputFormat=application/json&srsname=EPSG:3857`
+    );
+    const geojson = await response.json();
+    
+    const layer = L.geoJSON(geojson, {
+        style: layerConfig.style,
+        onEachFeature: (feature, layer) => {
+            layer.bindPopup(JSON.stringify(feature.properties));
+        }
+    }).addTo(map);
+    
+    return layer;
+}
+```
+
+#### `export.js` - Handle Export Workflow
+```javascript
+async function createExport(bbox, layers, formats, options) {
+    const response = await fetch('/api/export/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bbox, layers, formats, ...options })
+    });
+    
+    const { job_id } = await response.json();
+    
+    // Poll for status
+    const interval = setInterval(async () => {
+        const status = await fetch(`/api/export/status/${job_id}`).then(r => r.json());
+        
+        if (status.status === 'complete') {
+            clearInterval(interval);
+            showDownloadLink(status.download_url);
+        } else if (status.status === 'failed') {
+            clearInterval(interval);
+            showError(status.error);
+        } else {
+            updateProgress(status.progress);
+        }
+    }, 2000);
+}
+```
+
+#### `measurements.js` - Measurement Tools
+```javascript
+import * as turf from '@turf/turf';
+
+function measureDistance(latlngs) {
+    const line = turf.lineString(latlngs.map(ll => [ll.lng, ll.lat]));
+    const lengthMeters = turf.length(line, { units: 'meters' });
+    const lengthFeet = lengthMeters * 3.28084;
+    return lengthFeet;
+}
+
+function measureArea(latlngs) {
+    const polygon = turf.polygon([latlngs.map(ll => [ll.lng, ll.lat])]);
+    const areaMeters = turf.area(polygon);
+    const areaSqFt = areaMeters * 10.7639;
+    const areaAcres = areaSqFt / 43560;
+    return { sqft: areaSqFt, acres: areaAcres };
+}
+```
+
+---
+
+## Backend Implementation Guide (FastAPI)
+
+### Project Structure
+```
+backend/
+├── app/
+│   ├── main.py
+│   ├── config.py
+│   ├── database.py
+│   ├── models.py
+│   ├── routers/
+│   │   ├── config.py
+│   │   ├── layers.py
+│   │   └── export.py
+│   ├── tasks/
+│   │   └── export_tasks.py
+│   └── utils/
+│       ├── geo_utils.py
+│       └── file_utils.py
+├── requirements.txt
+├── Dockerfile
+└── docker-compose.yml
+```
+
+### `main.py` - FastAPI Application
+```python
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.routers import config, layers, export
+
+app = FastAPI(title="GIS Export Tool API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure properly for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(config.router, prefix="/api", tags=["config"])
+app.include_router(layers.router, prefix="/api", tags=["layers"])
+app.include_router(export.router, prefix="/api/export", tags=["export"])
+
+@app.get("/")
+def root():
+    return {"message": "GIS Export Tool API"}
+```
+
+### `routers/export.py` - Export Endpoints
+```python
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel
+from app.tasks.export_tasks import process_export
+from app.database import get_db
+
+router = APIRouter()
+
+class ExportRequest(BaseModel):
+    bbox: dict
+    target_crs: str
+    county: str
+    layers: list[str]
+    formats: list[str]
+    png_options: dict = {}
+    email: str = None
+
+@router.post("/create")
+async def create_export(request: ExportRequest, background_tasks: BackgroundTasks):
+    # Validate bbox size
+    bbox_area = (request.bbox['maxx'] - request.bbox['minx']) * \
+                (request.bbox['maxy'] - request.bbox['miny'])
+    
+    # Transform to EPSG:2226 to check area in sq ft
+    from pyproj import Transformer
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:2226", always_xy=True)
+    minx, miny = transformer.transform(request.bbox['minx'], request.bbox['miny'])
+    maxx, maxy = transformer.transform(request.bbox['maxx'], request.bbox['maxy'])
+    area_sqft = (maxx - minx) * (maxy - miny)
+    
+    MAX_AREA_SQFT = 2_000_000
+    if area_sqft > MAX_AREA_SQFT:
+        raise HTTPException(400, f"Bounding box too large: {area_sqft:.0f} sq ft (max: {MAX_AREA_SQFT} sq ft)")
+    
+    # Create job record
+    db = get_db()
+    job = db.table('export_jobs').insert({
+        'status': 'pending',
+        'params': request.dict()
+    }).execute()
+    
+    job_id = job.data[0]['id']
+    
+    # Queue Celery task
+    process_export.delay(job_id, request.dict())
+    
+    return {
+        'job_id': job_id,
+        'status': 'pending',
+        'created_at': job.data[0]['created_at']
+    }
+
+@router.get("/status/{job_id}")
+async def get_export_status(job_id: str):
+    db = get_db()
+    job = db.table('export_jobs').select('*').eq('id', job_id).execute()
+    
+    if not job.data:
+        raise HTTPException(404, "Job not found")
+    
+    return job.data[0]
+
+@router.get("/download/{job_id}/{filename}")
+async def download_export(job_id: str, filename: str):
+    from fastapi.responses import FileResponse
+    import os
+    
+    filepath = f"/tmp/exports/{job_id}/{filename}"
+    
+    if not os.path.exists(filepath):
+        raise HTTPException(404, "File not found or expired")
+    
+    return FileResponse(
+        filepath,
+        media_type='application/zip',
+        filename=filename
+    )
+```
+
+### `tasks/export_tasks.py` - Celery Tasks
+```python
+from celery import Celery
+from app.config import settings
+from app.utils.geo_utils import fetch_wfs_data, clip_to_bbox, export_to_shapefile, export_to_dxf
+from app.utils.file_utils import create_zip
+from app.database import get_db
+import os
+from datetime import datetime, timedelta
+
+celery_app = Celery('tasks', broker=settings.REDIS_URL)
+
+@celery_app.task(bind=True)
+def process_export(self, job_id: str, params: dict):
+    db = get_db()
+    
+    try:
+        # Update status
+        db.table('export_jobs').update({'status': 'processing'}).eq('id', job_id).execute()
+        
+        # Create export directory
+        export_dir = f"/tmp/exports/{job_id}"
+        os.makedirs(export_dir, exist_ok=True)
+        
+        # Process each layer
+        for layer_id in params['layers']:
+            self.update_state(state='PROGRESS', meta={'message': f'Fetching {layer_id}...'})
+            
+            # Fetch WFS data
+            features = fetch_wfs_data(
+                layer_id=layer_id,
+                bbox=params['bbox'],
+                target_crs=params['target_crs']
+            )
+            
+            # Clip to bbox
+            clipped = clip_to_bbox(features, params['bbox'])
+            
+            # Export formats
+            if 'shp' in params['formats']:
+                export_to_shapefile(clipped, f"{export_dir}/{layer_id}.shp", params['target_crs'])
+            
+            if 'dxf' in params['formats']:
+                export_to_dxf(clipped, f"{export_dir}/{layer_id}.dxf", layer_id)
+        
+        # Create PNG map image
+        if 'png' in params['formats']:
+            # Implementation depends on approach (client-side or server-side)
+            pass
+        
+        # Create zip
+        zip_path = f"{export_dir}/export.zip"
+        create_zip(export_dir, zip_path)
+        
+        # Calculate file size
+        file_size_mb = os.path.getsize(zip_path) / (1024 * 1024)
+        
+        # Update job status
+        db.table('export_jobs').update({
+            'status': 'complete',
+            'download_url': f'/api/export/download/{job_id}/export.zip',
+            'file_size_mb': file_size_mb,
+            'expires_at': datetime.now() + timedelta(hours=1)
+        }).eq('id', job_id).execute()
+        
+        # Schedule cleanup
+        cleanup_export.apply_async((job_id,), countdown=3600)
+        
+    except Exception as e:
+        db.table('export_jobs').update({
+            'status': 'failed',
+            'error': str(e)
+        }).eq('id', job_id).execute()
+        raise
+
+@celery_app.task
+def cleanup_export(job_id: str):
+    import shutil
+    export_dir = f"/tmp/exports/{job_id}"
+    if os.path.exists(export_dir):
+        shutil.rmtree(export_dir)
+```
+
+### `utils/geo_utils.py` - Geospatial Utilities
+```python
+from owslib.wfs import WebFeatureService
+from pyproj import Transformer
+from shapely.geometry import shape, box
+import fiona
+from fiona.crs import from_epsg
+import ezdxf
+import json
+
+def fetch_wfs_data(layer_id: str, bbox: dict, target_crs: str) -> dict:
+    """Fetch features from WFS service"""
+    # Get layer config from database
+    from app.database import get_db
+    db = get_db()
+    layer_config = db.table('layers').select('*').eq('id', layer_id).execute().data[0]
+    
+    # Transform bbox to target CRS
+    transformer = Transformer.from_crs(bbox['crs'], target_crs, always_xy=True)
+    minx, miny = transformer.transform(bbox['minx'], bbox['miny'])
+    maxx, maxy = transformer.transform(bbox['maxx'], bbox['maxy'])
+    bbox_transformed = (minx, miny, maxx, maxy)
+    
+    # Fetch from WFS
+    wfs = WebFeatureService(layer_config['url'], version='2.0.0')
+    response = wfs.getfeature(
+        typename=layer_config['layer_name'],
+        bbox=bbox_transformed,
+        srsname=target_crs,
+        outputFormat='application/json'
+    )
+    
+    return json.loads(response.read())
+
+def clip_to_bbox(geojson: dict, bbox: dict) -> dict:
+    """Clip features to bounding box"""
+    bbox_poly = box(bbox['minx'], bbox['miny'], bbox['maxx'], bbox['maxy'])
+    clipped_features = []
+    
+    for feature in geojson['features']:
+        geom = shape(feature['geometry'])
+        if geom.intersects(bbox_poly):
+            clipped_geom = geom.intersection(bbox_poly)
+            feature['geometry'] = clipped_geom.__geo_interface__
+            clipped_features.append(feature)
+    
+    return {
+        'type': 'FeatureCollection',
+        'features': clipped_features
+    }
+
+def export_to_shapefile(geojson: dict, output_path: str, crs: str):
+    """Export GeoJSON to Shapefile"""
+    epsg_code = int(crs.split(':')[1])
+    
+    # Determine geometry type
+    geom_type = geojson['features'][0]['geometry']['type']
+    
+    # Define schema
+    properties = geojson['features'][0]['properties']
+    schema = {
+        'geometry': geom_type,
+        'properties': {k: type(v).__name__ for k, v in properties.items()}
+    }
+    
+    with fiona.open(
+        output_path,
+        'w',
+        driver='ESRI Shapefile',
+        crs=from_epsg(epsg_code),
+        schema=schema
+    ) as shp:
+        for feature in geojson['features']:
+            shp.write(feature)
+
+def export_to_dxf(geojson: dict, output_path: str, layer_name: str):
+    """Export GeoJSON to DXF"""
+    doc = ezdxf.new('R2010')
+    msp = doc.modelspace()
+    
+    for feature in geojson['features']:
+        geom = shape(feature['geometry'])
+        
+        if geom.geom_type == 'Polygon':
+            points = list(geom.exterior.coords)
+            msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+        elif geom.geom_type == 'LineString':
+            points = list(geom.coords)
+            msp.add_lwpolyline(points, dxfattribs={'layer': layer_name})
+        elif geom.geom_type == 'Point':
+            msp.add_point((geom.x, geom.y), dxfattribs={'layer': layer_name})
+        elif geom.geom_type == 'MultiPolygon':
+            for poly in geom.geoms:
+                points = list(poly.exterior.coords)
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+    
+    doc.saveas(output_path)
+```
+
+---
+
+## Docker Configuration
+
+### `Dockerfile`
+```dockerfile
+FROM osgeo/gdal:ubuntu-full-3.7.0
+
+# Install Python and dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    python3-dev \
+    redis-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy requirements
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### `docker-compose.yml`
+```yaml
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    depends_on:
+      - redis
+    volumes:
+      - ./tmp/exports:/tmp/exports
+
+  celery_worker:
+    build: .
+    command: celery -A app.tasks.export_tasks worker --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    depends_on:
+      - redis
+    volumes:
+      - ./tmp/exports:/tmp/exports
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./frontend:/usr/share/nginx/html
+    depends_on:
+      - web
+```
+
+### `requirements.txt`
+```
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+celery==5.3.4
+redis==5.0.1
+pydantic==2.5.0
+python-multipart==0.0.6
+supabase==2.0.3
+owslib==0.29.3
+fiona==1.9.5
+shapely==2.0.2
+pyproj==3.6.1
+ezdxf==1.1.3
+rasterio==1.3.9
+Pillow==10.1.0
+GDAL==3.7.0
+```
+
+---
+
+## Critical Implementation Notes for LLM Coding Agent
+
+### 1. Coordinate System Handling
+**CRITICAL:** All exports MUST be in EPSG:2226. The Leaflet map displays in EPSG:3857 (Web Mercator), but:
+- When user draws bounding box, transform coordinates to EPSG:2226 before querying WFS
+- When fetching WFS data, request `srsname=EPSG:2226`
+- When writing Shapefiles, set `crs=from_epsg(2226)`
+- When writing DXF, coordinates are already in EPSG:2226 (no CRS metadata in DXF format)
+- Always include a `.prj` file with Shapefiles containing WKT for EPSG:2226
+
+### 2. WFS Query Best Practices
+- Always specify `outputFormat=application/json` for GeoJSON
+- Use `bbox` parameter with format: `minx,miny,maxx,maxy,EPSG:2226`
+- Set `srsname=EPSG:2226` to get data in target CRS
+- Add error handling for WFS timeouts/failures
+- Consider WFS pagination for large datasets (`startIndex` and `maxFeatures`)
+
+### 3. Shapefile Components
+A complete Shapefile export requires ALL of these files:
+- `.shp` - geometry
+- `.shx` - index
+- `.dbf` - attributes
+- `.prj` - projection definition (WKT format)
+- Optional: `.cpg` - codepage (UTF-8)
+
+### 4. DXF Layer Organization
+- Create separate DXF layers for each GIS layer (parcels, buildings, roads)
+- Use meaningful layer names
+- Set appropriate colors per layer
+- Handle MultiPolygons by iterating through constituent polygons
+
+### 5. Geometry Clipping
+- Use Shapely's `intersection()` method for precise clipping
+- Handle different geometry types: Point, LineString, Polygon, Multi*
+- Validate geometries with `is_valid` before exporting
+- Use `buffer(0)` to fix self-intersecting polygons
+
+### 6. Error Handling Strategies
+```python
+# Example error handling pattern
+try:
+    features = fetch_wfs_data(...)
+except requests.Timeout:
+    raise HTTPException(504, "WFS service timeout")
+except Exception as e:
+    raise HTTPException(500, f"WFS error: {str(e)}")
+```
+
+### 7. File Cleanup
+- Set up Celery beat scheduler to clean up old exports
+- Delete files after 1 hour expiration
+- Consider disk space monitoring
+- Log cleanup operations
+
+### 8. Testing Checklist
+- [ ] Bounding box transforms correctly to EPSG:2226
+- [ ] Shapefile opens in QGIS/ArcGIS with correct projection
+- [ ] DXF opens in AutoCAD at correct coordinates
+- [ ] GeoTIFF has correct georeference (check with `gdalinfo`)
+- [ ] Large exports complete without timeout
+- [ ] Failed exports are cleaned up properly
+- [ ] Download links expire correctly
+
+### 9. Sonoma County GIS Resources
+**Actual WFS endpoints to use (verify current URLs):**
+- Base URL: `https://gis.sonomacounty.ca.gov/geoserver/wfs`
+- Common layer names:
+  - `sonomacounty:parcels`
+  - `sonomacounty:buildings`
+  - `sonomacounty:roads`
+
+**Before implementing, verify:**
+- Current WFS endpoint URL
+- Available layer names
+- Service capabilities (`GetCapabilities` request)
+- Supported coordinate systems
+
+### 10. Future Expansion Considerations
+When adding more counties/zones:
+- Create lookup table: county → state plane zone → EPSG code
+- Implement zone boundary polygons for fading/locking
+- Handle zone transitions (e.g., sites spanning multiple zones)
+- Add zone validation before export
+
+---
+
+## Deployment Checklist
+
+### Development Environment
+- [ ] Install Docker & Docker Compose
+- [ ] Set up Supabase project
+- [ ] Create `.env` file with Supabase credentials
+- [ ] Initialize database schema
+- [ ] Populate counties and layers tables
+- [ ] Test WFS connections
+- [ ] Run `docker-compose up`
+
+### Testing
+- [ ] Test coordinate transformations
+- [ ] Verify Shapefile exports in QGIS
+- [ ] Verify DXF exports in AutoCAD/LibreCAD
+- [ ] Test bounding box size limits
+- [ ] Test export queue system
+- [ ] Test file cleanup
+- [ ] Load testing (5-10 concurrent exports)
+
+### Production Deployment
+- [ ] Set up cloud VM (2 CPU, 4GB RAM minimum)
+- [ ] Configure domain and SSL certificate
+- [ ] Set up nginx reverse proxy
+- [ ] Configure CORS properly
+- [ ] Set up monitoring (e.g., Sentry)
+- [ ] Set up logging
+- [ ] Configure backup for Supabase
+- [ ] Set up email service (for notifications)
+- [ ] Document API endpoints
+- [ ] Create user documentation
+
+---
+
+## Example Prompts for LLM Coding Agent
+
+**For Claude Code or similar:**
+
+> "Using this specification document, create a FastAPI backend for a GIS export tool. Start with the export endpoint that accepts a bounding box and layer IDs, transforms coordinates to EPSG:2226, fetches WFS data, and exports to Shapefile format. Include proper error handling and coordinate system management."
+
+> "Implement the Celery task `process_export` that fetches WFS data for parcels, buildings, and roads from Sonoma County GIS servers, clips geometries to a bounding box, and exports to Shapefile and DXF formats. Ensure all exports are in EPSG:2226."
+
+> "Create a Leaflet-based frontend that displays a map of Sonoma County, allows users to draw a bounding box using Leaflet.draw, and submits an export request to the FastAPI backend. Include coordinate display in EPSG:2226 and layer toggles."
+
+> "Set up Docker Compose configuration with FastAPI, Celery worker, and Redis. Use the osgeo/gdal base image to ensure GDAL libraries are available. Include volume mounts for temporary export files."
+
+---
+
+## Success Metrics
+
+**MVP is successful when:**
+1. User can view Sonoma County with at least 3 GIS layers
+2. User can draw bounding box and export to SHP + DXF
+3. Exported files open correctly in QGIS, ArcGIS, and AutoCAD at correct coordinates (EPSG:2226)
+4. Export completes in <30 seconds for typical site (~5 acres)
+5. Download link works and expires after 1 hour
+6. No server crashes under 5 concurrent users
+
+---
+
+## Future Enhancements (Post-MVP)
+
+1. **Additional Counties & Zones**
+   - Expand to all 58 CA counties
+   - Support all 6 CA State Plane zones
+   - Auto-detect zone from bounding box location
+
+2. **Aerial Imagery & Surfaces**
+   - Integrate with USGS/NAIP for aerial imagery
+   - Support LiDAR DEMs and contours
+   - Use headless QGIS for raster processing
+   - Tile caching for performance
+
+3. **User Accounts & Projects**
+   - User registration/login
+   - Save map configurations as projects
+   - Export history
+   - Usage quotas and paid tiers
+
+4. **Advanced Visualization**
+   - Custom symbology editor
+   - Attribute-based styling
+   - Time-series data animation
+   - 3D terrain visualization
+
+5. **Additional Export Formats**
+   - GeoPackage (GPKG)
+   - KML/KMZ for Google Earth
+   - GeoJSON
+   - PDF map layouts
+
+6. **Analysis Tools**
+   - Buffer analysis
+   - Slope/aspect from DEMs
+   - Viewshed analysis
+   - Parcel reports
+
+---
+
+This specification should provide everything needed to build the MVP. Good luck with the prototype! Let me know if you need clarification on any section.
