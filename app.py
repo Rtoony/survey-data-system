@@ -3414,6 +3414,16 @@ def create_simple_export():
                 cur.execute("SELECT * FROM gis_layers WHERE enabled = true AND id = ANY(%s)", (requested_layers,))
                 layers = cur.fetchall()
         
+        print(f"Found {len(layers)} layers in database matching requested layers")
+        if len(layers) == 0:
+            print(f"WARNING: No layers found! Requested: {requested_layers}")
+            print("Checking all available layers...")
+            with get_db() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("SELECT id, name, enabled FROM gis_layers")
+                    all_layers = cur.fetchall()
+                    print(f"All layers in DB: {all_layers}")
+        
         feature_counts = {}
         
         # Fetch and export each layer
@@ -3435,15 +3445,39 @@ def create_simple_export():
                     'spatialRel': 'esriSpatialRelIntersects',
                     'outFields': '*',
                     'returnGeometry': 'true',
-                    'f': 'geojson'
+                    'outSR': '4326',  # Return in WGS84
+                    'f': 'json'  # ESRI JSON format (geojson not supported)
                 }
                 
                 response = requests.get(query_url, params=query_params, timeout=30)
                 response.raise_for_status()
-                geojson_data = response.json()
+                esri_data = response.json()
                 
-                features = geojson_data.get('features', [])
+                # Convert ESRI JSON features to GeoJSON using arcgis2geojson library
+                from arcgis2geojson import arcgis2geojson
+                
+                features = []
+                skipped = 0
+                total_features = len(esri_data.get('features', []))
+                
+                for esri_feature in esri_data.get('features', []):
+                    try:
+                        # arcgis2geojson handles all geometry types, MultiPolygons, null geoms
+                        geojson_feature = arcgis2geojson(esri_feature)
+                        
+                        # Skip features with null geometries
+                        if geojson_feature.get('geometry') is not None:
+                            features.append(geojson_feature)
+                        else:
+                            skipped += 1
+                    except Exception as e:
+                        print(f"  WARNING: Failed to convert feature: {e}")
+                        skipped += 1
+                        continue
+                
                 feature_counts[layer_id] = len(features)
+                if skipped > 0:
+                    print(f"  Skipped {skipped}/{total_features} features (null/invalid geometries)")
                 
                 print(f"  Found {len(features)} features in {layer_name}")
                 

@@ -35,6 +35,15 @@ wheels = [
 ]
 
 [[package]]
+name = "arcgis2geojson"
+version = "3.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/78/04/8f50099f2a1af522119bc0b552719904a2cee5a2abb70a9c0eec72071a5a/arcgis2geojson-3.1.1.tar.gz", hash = "sha256:cab61e119a59bbee0df091531e6a242ca0835c348ab68e2f4671b39464c3bb4d", size = 5266, upload-time = "2025-10-22T18:05:27.248Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d5/02/16cbc3a6ada4937f64336b4b0e68e32be8817ccefc91ed13c3e4575ef552/arcgis2geojson-3.1.1-py3-none-any.whl", hash = "sha256:5c52b2ea460072d6961e0c37cc0407d3ae9f7c65bca6cae92435378edfa324b1", size = 6331, upload-time = "2025-10-22T18:05:26.281Z" },
+]
+
+[[package]]
 name = "attrs"
 version = "25.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1230,6 +1239,7 @@ name = "repl-nix-workspace"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "arcgis2geojson" },
     { name = "ezdxf" },
     { name = "fiona" },
     { name = "flask" },
@@ -1248,6 +1258,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "arcgis2geojson", specifier = ">=3.1.1" },
     { name = "ezdxf", specifier = ">=1.4.3" },
     { name = "fiona", specifier = ">=1.10.1" },
     { name = "flask", specifier = ">=3.1.2" },

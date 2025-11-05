@@ -192,10 +192,13 @@
             
             <div class="section">
                 <h3><i class="fas fa-file-export"></i> Export</h3>
+                <button id="draw-rect-btn" onclick="startDrawingRectangle()">
+                    <i class="fas fa-vector-square"></i> Draw Rectangle
+                </button>
                 <button id="export-btn" onclick="openExportModal()" disabled>
                     <i class="fas fa-download"></i> Create Export
                 </button>
-                <small style="color: #888;">Draw rectangle on map first</small>
+                <small style="color: #888;">Step 1: Draw, Step 2: Export</small>
             </div>
             
             <div class="section">
@@ -258,28 +261,40 @@
             map.addLayer(drawnItems);
             
             // Draw controls
-            const drawControl = new L.Control.Draw({
-                position: 'topright',
-                draw: {
-                    rectangle: true,
-                    polygon: false,
-                    polyline: false,
-                    circle: false,
-                    marker: false,
-                    circlemarker: false
-                },
-                edit: {
-                    featureGroup: drawnItems
-                }
-            });
-            map.addControl(drawControl);
+            console.log('Creating draw control...');
+            try {
+                const drawControl = new L.Control.Draw({
+                    position: 'topright',
+                    draw: {
+                        rectangle: true,
+                        polygon: false,
+                        polyline: false,
+                        circle: false,
+                        marker: false,
+                        circlemarker: false
+                    },
+                    edit: {
+                        featureGroup: drawnItems
+                    }
+                });
+                map.addControl(drawControl);
+                console.log('Draw control added successfully');
+            } catch(err) {
+                console.error('Error creating draw control:', err);
+            }
             
             // Draw events
             map.on('draw:created', function(e) {
                 drawnItems.clearLayers();
                 drawnItems.addLayer(e.layer);
                 document.getElementById('export-btn').disabled = false;
+                document.getElementById('draw-rect-btn').innerHTML = '<i class="fas fa-check-circle"></i> Rectangle Drawn';
+                document.getElementById('draw-rect-btn').classList.add('active');
                 console.log('Rectangle drawn');
+            });
+            
+            map.on('draw:drawstart', function(e) {
+                console.log('Drawing started');
             });
             
             // Coordinate display
@@ -500,6 +515,23 @@
             map.getContainer().style.cursor = 'crosshair';
         }
         
+        function startDrawingRectangle() {
+            console.log('Starting rectangle drawing...');
+            if (!map) {
+                alert('Map not ready');
+                return;
+            }
+            // Enable rectangle drawing programmatically
+            new L.Draw.Rectangle(map, {
+                shapeOptions: {
+                    color: '#00ffff',
+                    weight: 2,
+                    fillOpacity: 0.1
+                }
+            }).enable();
+            console.log('Rectangle drawing enabled');
+        }
+        
         function clearMeasurements() {
             if (!measureLayer) return;
             measureLayer.clearLayers();
@@ -543,6 +575,8 @@
             };
             
             console.log('Creating simple shapefile export...');
+            console.log('Export params:', params);
+            console.log('Selected layers:', selectedLayers);
             
             try {
                 const res = await fetch('/api/map-export/create-simple', {
