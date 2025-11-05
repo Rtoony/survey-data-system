@@ -3528,6 +3528,8 @@ def get_database_layer_data(layer_id):
 def get_map_projects():
     """Get all projects with spatial data for map display"""
     try:
+        from pyproj import Transformer
+        
         # Query all drawings with their projects and bbox
         query = """
             SELECT 
@@ -3556,26 +3558,36 @@ def get_map_projects():
                 cur.execute(query)
                 drawings = cur.fetchall()
         
+        # Transformer to convert EPSG:2226 to WGS84 for map display
+        transformer = Transformer.from_crs("EPSG:2226", "EPSG:4326", always_xy=True)
+        
         features = []
         for drawing in drawings:
-            # Use bbox columns from database
-            min_x = drawing['bbox_min_x']
-            min_y = drawing['bbox_min_y']
-            max_x = drawing['bbox_max_x']
-            max_y = drawing['bbox_max_y']
+            # Get bbox in EPSG:2226 (State Plane)
+            min_x_2226 = drawing['bbox_min_x']
+            min_y_2226 = drawing['bbox_min_y']
+            max_x_2226 = drawing['bbox_max_x']
+            max_y_2226 = drawing['bbox_max_y']
             
-            # Create GeoJSON feature (assume EPSG:2226 for now)
-            # Convert State Plane to WGS84 for Leaflet display
+            # Transform all 4 corners to WGS84
+            min_lon, min_lat = transformer.transform(min_x_2226, min_y_2226)
+            max_lon, max_lat = transformer.transform(max_x_2226, max_y_2226)
+            
+            # Also transform the other two corners for accurate bbox
+            top_left_lon, top_left_lat = transformer.transform(min_x_2226, max_y_2226)
+            bottom_right_lon, bottom_right_lat = transformer.transform(max_x_2226, min_y_2226)
+            
+            # Create GeoJSON polygon in WGS84 (lon, lat order for GeoJSON)
             feature = {
                 'type': 'Feature',
                 'geometry': {
                     'type': 'Polygon',
                     'coordinates': [[
-                        [min_x, min_y],
-                        [max_x, min_y],
-                        [max_x, max_y],
-                        [min_x, max_y],
-                        [min_x, min_y]
+                        [min_lon, min_lat],              # Bottom-left
+                        [bottom_right_lon, bottom_right_lat],  # Bottom-right
+                        [max_lon, max_lat],              # Top-right
+                        [top_left_lon, top_left_lat],    # Top-left
+                        [min_lon, min_lat]               # Close the ring
                     ]]
                 },
                 'properties': {
@@ -3597,6 +3609,81 @@ def get_map_projects():
         })
     except Exception as e:
         print(f"Error fetching projects: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/map-viewer/project-entities/<drawing_id>')
+def get_project_entities(drawing_id):
+    """Get all drawing entities for a specific DXF project"""
+    try:
+        import json
+        
+        # Query drawing entities with layer information
+        query = """
+            SELECT 
+                e.entity_id,
+                e.entity_type,
+                e.color_aci,
+                e.linetype,
+                e.lineweight,
+                e.transparency,
+                e.metadata,
+                l.layer_name,
+                l.color as layer_color,
+                ST_AsGeoJSON(ST_Transform(e.geometry, 4326)) as geometry
+            FROM drawing_entities e
+            LEFT JOIN layers l ON e.layer_id = l.layer_id
+            WHERE e.drawing_id = %s
+            LIMIT 5000
+        """
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (drawing_id,))
+                entities = cur.fetchall()
+        
+        # Convert to GeoJSON features
+        features = []
+        for entity in entities:
+            try:
+                geom_json = json.loads(entity['geometry'])
+                
+                # Build properties
+                properties = {
+                    'entity_id': str(entity['entity_id']),
+                    'entity_type': entity['entity_type'],
+                    'layer_name': entity['layer_name'],
+                    'color_aci': entity['color_aci'],
+                    'layer_color': entity['layer_color'],
+                    'linetype': entity['linetype'],
+                    'lineweight': entity['lineweight'],
+                    'transparency': entity['transparency']
+                }
+                
+                # Add metadata if present
+                if entity['metadata']:
+                    properties['metadata'] = entity['metadata']
+                
+                features.append({
+                    'type': 'Feature',
+                    'geometry': geom_json,
+                    'properties': properties
+                })
+            except Exception as e:
+                print(f"Error processing entity {entity.get('entity_id')}: {e}")
+                continue
+        
+        return jsonify({
+            'type': 'FeatureCollection',
+            'features': features,
+            'count': len(features)
+        })
+        
+    except Exception as e:
+        print(f"Error fetching project entities: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/map-export/create-simple', methods=['POST'])

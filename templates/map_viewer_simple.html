@@ -993,6 +993,8 @@
             }
         }
         
+        let activeProjectEntities = {};  // Store loaded project entities
+        
         async function loadProjects() {
             try {
                 const res = await fetch('/api/map-viewer/projects');
@@ -1002,23 +1004,39 @@
                     projectsLayer = L.featureGroup();
                     
                     data.features.forEach((feature, idx) => {
+                        // Coordinates are already in WGS84 from backend
                         const coords = feature.geometry.coordinates[0];
-                        const color = projectColors[idx % projectColors.length];
+                        const color = '#FF8C00';  // Dark orange for all projects
                         
-                        // Transform State Plane to WGS84
-                        const transformedCoords = coords.map(([x, y]) => {
-                            const [lng, lat] = proj4('EPSG:2226', 'EPSG:4326', [x, y]);
-                            return [lat, lng];
-                        });
+                        // Convert GeoJSON [lon, lat] to Leaflet [lat, lon]
+                        const leafletCoords = coords.map(([lon, lat]) => [lat, lon]);
                         
-                        const polygon = L.polygon(transformedCoords, {
+                        const polygon = L.polygon(leafletCoords, {
                             color: color,
                             fillColor: color,
-                            fillOpacity: 0.3,
-                            weight: 2
+                            fillOpacity: 0.15,
+                            weight: 3,
+                            dashArray: '10, 5'  // Dashed outline
                         });
                         
                         const props = feature.properties;
+                        const drawingId = props.drawing_id;
+                        
+                        // Make clickable to load entities
+                        polygon.on('click', async function() {
+                            if (activeProjectEntities[drawingId]) {
+                                // Already loaded - toggle visibility
+                                if (map.hasLayer(activeProjectEntities[drawingId])) {
+                                    map.removeLayer(activeProjectEntities[drawingId]);
+                                } else {
+                                    map.addLayer(activeProjectEntities[drawingId]);
+                                }
+                            } else {
+                                // Load entities
+                                await loadProjectEntities(drawingId, props.drawing_name);
+                            }
+                        });
+                        
                         polygon.bindPopup(`
                             <div style="font-size: 12px;">
                                 <strong style="color: ${color};">${props.drawing_name || 'Untitled'}</strong><br>
@@ -1026,7 +1044,9 @@
                                 ${props.client_name ? `<strong>Client:</strong> ${props.client_name}<br>` : ''}
                                 ${props.drawing_number ? `<strong>Number:</strong> ${props.drawing_number}<br>` : ''}
                                 <strong>EPSG:</strong> ${props.epsg_code}<br>
-                                <strong>Georeferenced:</strong> ${props.is_georeferenced ? 'Yes' : 'No'}
+                                <div style="margin-top: 8px; padding: 6px; background: #333; border-radius: 3px;">
+                                    <i class="fas fa-hand-pointer"></i> Click box to load entities
+                                </div>
                             </div>
                         `);
                         
@@ -1042,6 +1062,80 @@
             } catch (e) {
                 console.error('Error loading projects:', e);
                 document.getElementById('project-count').textContent = 'Error loading projects';
+            }
+        }
+        
+        async function loadProjectEntities(drawingId, drawingName) {
+            try {
+                console.log(`Loading entities for drawing ${drawingId}...`);
+                
+                // Fetch entities
+                const res = await fetch(`/api/map-viewer/project-entities/${drawingId}`);
+                const geojson = await res.json();
+                
+                if (!geojson.features || geojson.features.length === 0) {
+                    console.log(`No entities found for ${drawingName}`);
+                    return;
+                }
+                
+                // CAD color mapping (AutoCAD Color Index to hex)
+                const aciColors = {
+                    1: '#FF0000',  // Red
+                    2: '#FFFF00',  // Yellow
+                    3: '#00FF00',  // Green
+                    4: '#00FFFF',  // Cyan
+                    5: '#0000FF',  // Blue
+                    6: '#FF00FF',  // Magenta
+                    7: '#FFFFFF',  // White
+                    8: '#808080',  // Gray
+                    9: '#C0C0C0'   // Light Gray
+                };
+                
+                // Create layer group for these entities
+                const entitiesLayer = L.geoJSON(geojson, {
+                    style: function(feature) {
+                        const props = feature.properties;
+                        const color = aciColors[props.color_aci] || props.layer_color || '#FFFFFF';
+                        
+                        return {
+                            color: color,
+                            weight: props.lineweight ? Math.max(1, props.lineweight / 100) : 1,
+                            opacity: props.transparency ? 1 - (props.transparency / 255) : 1
+                        };
+                    },
+                    pointToLayer: function(feature, latlng) {
+                        const props = feature.properties;
+                        const color = aciColors[props.color_aci] || props.layer_color || '#FFFFFF';
+                        
+                        return L.circleMarker(latlng, {
+                            radius: 3,
+                            fillColor: color,
+                            color: color,
+                            weight: 1,
+                            opacity: props.transparency ? 1 - (props.transparency / 255) : 1,
+                            fillOpacity: 0.8
+                        });
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const props = feature.properties;
+                        layer.bindPopup(`
+                            <div style="font-size: 11px;">
+                                <strong>Entity: ${props.entity_type}</strong><br>
+                                <strong>Layer:</strong> ${props.layer_name || 'N/A'}<br>
+                                ${props.linetype ? `<strong>Linetype:</strong> ${props.linetype}<br>` : ''}
+                                ${props.color_aci ? `<strong>Color:</strong> ACI ${props.color_aci}<br>` : ''}
+                            </div>
+                        `);
+                    }
+                });
+                
+                entitiesLayer.addTo(map);
+                activeProjectEntities[drawingId] = entitiesLayer;
+                
+                console.log(`Loaded ${geojson.count} entities for ${drawingName}`);
+                
+            } catch (error) {
+                console.error(`Error loading project entities:`, error);
             }
         }
         
