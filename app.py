@@ -3254,7 +3254,12 @@ map_export = MapExportService()
 @app.route('/map-viewer')
 def map_viewer_page():
     """Map Viewer Page"""
-    return render_template('map_viewer.html')
+    return render_template('map_viewer_simple.html')
+
+@app.route('/map-test')
+def map_test_page():
+    """Simple Map Test Page (no base template)"""
+    return render_template('map_viewer_simple.html')
 
 @app.route('/api/map-viewer/layers')
 def get_gis_layers():
