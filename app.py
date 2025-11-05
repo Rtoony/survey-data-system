@@ -3377,7 +3377,7 @@ def create_export_job():
         
         # Insert job record - let database generate ID
         query = """
-            INSERT INTO public.export_jobs (status, params, created_at)
+            INSERT INTO map_export_jobs (status, params, created_at)
             VALUES ('pending', %s::jsonb, NOW())
             RETURNING id, status, created_at
         """
@@ -3402,7 +3402,7 @@ def create_export_job():
                 with get_db() as conn:
                     with conn.cursor() as cur:
                         cur.execute(
-                            "UPDATE export_jobs SET status = 'processing' WHERE id = %s",
+                            "UPDATE map_export_jobs SET status = 'processing' WHERE id = %s",
                             (job_id,)
                         )
                 
@@ -3410,7 +3410,7 @@ def create_export_job():
                 export_result = map_export.create_export_package(job_id, params)
                 
                 update_query = """
-                    UPDATE export_jobs
+                    UPDATE map_export_jobs
                     SET status = %s,
                         download_url = %s,
                         file_size_mb = %s,
@@ -3433,7 +3433,7 @@ def create_export_job():
                 with get_db() as conn:
                     with conn.cursor() as cur:
                         cur.execute(
-                            "UPDATE export_jobs SET status = 'failed', error_message = %s WHERE id = %s",
+                            "UPDATE map_export_jobs SET status = 'failed', error_message = %s WHERE id = %s",
                             (str(e), job_id)
                         )
         
@@ -3460,7 +3460,7 @@ def get_export_status(job_id):
         query = """
             SELECT id, status, download_url, file_size_mb, 
                    error_message, created_at, expires_at
-            FROM export_jobs
+            FROM map_export_jobs
             WHERE id = %s::uuid
         """
         result = execute_query(query, (job_id,))
