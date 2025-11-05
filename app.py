@@ -3750,6 +3750,7 @@ def get_project_structure():
     """Get all projects with nested drawings and entity type counts"""
     try:
         # Query all projects with their drawings
+        # Include projects even without bbox - will calculate from entities if needed
         query = """
             SELECT 
                 p.project_id,
@@ -3762,11 +3763,41 @@ def get_project_structure():
                 d.bbox_min_x,
                 d.bbox_min_y,
                 d.bbox_max_x,
-                d.bbox_max_y
+                d.bbox_max_y,
+                -- Calculate bbox from entities if drawing bbox is null
+                -- Only calculate from entities if they exist (COUNT > 0)
+                COALESCE(
+                    d.bbox_min_x, 
+                    CASE WHEN (SELECT COUNT(*) FROM drawing_entities WHERE drawing_id = d.drawing_id) > 0 
+                        THEN (SELECT ST_XMin(ST_Extent(geometry)) FROM drawing_entities WHERE drawing_id = d.drawing_id AND geometry IS NOT NULL)
+                        ELSE NULL 
+                    END
+                ) as calc_min_x,
+                COALESCE(
+                    d.bbox_min_y, 
+                    CASE WHEN (SELECT COUNT(*) FROM drawing_entities WHERE drawing_id = d.drawing_id) > 0 
+                        THEN (SELECT ST_YMin(ST_Extent(geometry)) FROM drawing_entities WHERE drawing_id = d.drawing_id AND geometry IS NOT NULL)
+                        ELSE NULL 
+                    END
+                ) as calc_min_y,
+                COALESCE(
+                    d.bbox_max_x, 
+                    CASE WHEN (SELECT COUNT(*) FROM drawing_entities WHERE drawing_id = d.drawing_id) > 0 
+                        THEN (SELECT ST_XMax(ST_Extent(geometry)) FROM drawing_entities WHERE drawing_id = d.drawing_id AND geometry IS NOT NULL)
+                        ELSE NULL 
+                    END
+                ) as calc_max_x,
+                COALESCE(
+                    d.bbox_max_y, 
+                    CASE WHEN (SELECT COUNT(*) FROM drawing_entities WHERE drawing_id = d.drawing_id) > 0 
+                        THEN (SELECT ST_YMax(ST_Extent(geometry)) FROM drawing_entities WHERE drawing_id = d.drawing_id AND geometry IS NOT NULL)
+                        ELSE NULL 
+                    END
+                ) as calc_max_y
             FROM projects p
             LEFT JOIN drawings d ON p.project_id = d.project_id
-            WHERE d.bbox_min_x IS NOT NULL
-            ORDER BY p.project_name, d.drawing_name
+            WHERE d.drawing_id IS NOT NULL
+            ORDER BY p.created_at DESC, p.project_name, d.drawing_name
         """
         
         with get_db() as conn:
@@ -3779,6 +3810,12 @@ def get_project_structure():
         for row in rows:
             project_id = str(row['project_id'])
             
+            # Use calculated bbox (from entities) if drawing bbox is null
+            bbox_min_x = row['calc_min_x']
+            bbox_min_y = row['calc_min_y']
+            bbox_max_x = row['calc_max_x']
+            bbox_max_y = row['calc_max_y']
+            
             if project_id not in projects:
                 projects[project_id] = {
                     'project_id': project_id,
@@ -3787,19 +3824,27 @@ def get_project_structure():
                     'description': row['description'],
                     'drawings': [],
                     'bbox': {
-                        'min_x': row['bbox_min_x'],
-                        'min_y': row['bbox_min_y'],
-                        'max_x': row['bbox_max_x'],
-                        'max_y': row['bbox_max_y']
-                    }
+                        'min_x': bbox_min_x,
+                        'min_y': bbox_min_y,
+                        'max_x': bbox_max_x,
+                        'max_y': bbox_max_y
+                    } if bbox_min_x is not None else None
                 }
             
             # Update project bbox to include all drawings
-            if row['bbox_min_x'] is not None:
-                projects[project_id]['bbox']['min_x'] = min(projects[project_id]['bbox']['min_x'], row['bbox_min_x'])
-                projects[project_id]['bbox']['min_y'] = min(projects[project_id]['bbox']['min_y'], row['bbox_min_y'])
-                projects[project_id]['bbox']['max_x'] = max(projects[project_id]['bbox']['max_x'], row['bbox_max_x'])
-                projects[project_id]['bbox']['max_y'] = max(projects[project_id]['bbox']['max_y'], row['bbox_max_y'])
+            if bbox_min_x is not None:
+                if projects[project_id]['bbox'] is None:
+                    projects[project_id]['bbox'] = {
+                        'min_x': bbox_min_x,
+                        'min_y': bbox_min_y,
+                        'max_x': bbox_max_x,
+                        'max_y': bbox_max_y
+                    }
+                else:
+                    projects[project_id]['bbox']['min_x'] = min(projects[project_id]['bbox']['min_x'], bbox_min_x)
+                    projects[project_id]['bbox']['min_y'] = min(projects[project_id]['bbox']['min_y'], bbox_min_y)
+                    projects[project_id]['bbox']['max_x'] = max(projects[project_id]['bbox']['max_x'], bbox_max_x)
+                    projects[project_id]['bbox']['max_y'] = max(projects[project_id]['bbox']['max_y'], bbox_max_y)
             
             if row['drawing_id']:
                 drawing_id = str(row['drawing_id'])
