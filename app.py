@@ -3367,88 +3367,118 @@ def get_map_projects():
         print(f"Error fetching projects: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/map-export/create', methods=['POST'])
-def create_export_job():
-    """Create a new export job"""
+@app.route('/api/map-export/create-simple', methods=['POST'])
+def create_simple_export():
+    """Create a simple test shapefile directly (no database)"""
     try:
         params = request.json
-        print(f"Received export request with params: {params}")
-        job_id = str(uuid.uuid4())
+        bbox = params.get('bbox', {})
         
-        # Insert job record - let database generate ID
-        query = """
-            INSERT INTO map_export_jobs (status, params, created_at)
-            VALUES ('pending', %s::jsonb, NOW())
-            RETURNING id, status, created_at
-        """
-        print(f"Attempting to insert job")
-        try:
-            with get_db() as conn:
-                with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    print(f"Executing query: {query}")
-                    print(f"With params: {json.dumps(params)[:200]}")
-                    cur.execute(query, (json.dumps(params),))
-                    result = dict(cur.fetchone())
-            job_id = str(result['id'])
-            print(f"Job created successfully with id: {job_id}")
-        except Exception as e:
-            print(f"Database insert error: {e}")
-            raise
+        print(f"Creating simple export for bbox: {bbox}")
         
-        # Process export in background thread
-        def process_export():
-            try:
-                # Update status to processing
-                with get_db() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute(
-                            "UPDATE map_export_jobs SET status = 'processing' WHERE id = %s",
-                            (job_id,)
-                        )
-                
-                # Create export package
-                export_result = map_export.create_export_package(job_id, params)
-                
-                update_query = """
-                    UPDATE map_export_jobs
-                    SET status = %s,
-                        download_url = %s,
-                        file_size_mb = %s,
-                        error_message = %s,
-                        expires_at = %s
-                    WHERE id = %s
-                """
-                with get_db() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute(update_query, (
-                            export_result['status'],
-                            export_result.get('download_url'),
-                            export_result.get('file_size_mb'),
-                            export_result.get('error_message'),
-                            export_result.get('expires_at'),
-                            job_id
-                        ))
-            except Exception as e:
-                print(f"Export processing error: {e}")
-                with get_db() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute(
-                            "UPDATE map_export_jobs SET status = 'failed', error_message = %s WHERE id = %s",
-                            (str(e), job_id)
-                        )
+        # Create unique ID for this export
+        export_id = str(uuid.uuid4())
+        export_dir = os.path.join('/tmp/exports', export_id)
+        os.makedirs(export_dir, exist_ok=True)
         
-        thread = threading.Thread(target=process_export)
-        thread.daemon = True
-        thread.start()
+        # Import shapefile libraries
+        from shapely.geometry import box
+        from pyproj import Transformer
+        import fiona
+        from fiona.crs import from_epsg
+        
+        # Get bounding box in WGS84
+        minx = bbox['minx']
+        miny = bbox['miny']
+        maxx = bbox['maxx']
+        maxy = bbox['maxy']
+        
+        # Transform to EPSG:2226 (CA State Plane Zone 2)
+        transformer = Transformer.from_crs("EPSG:4326", "EPSG:2226", always_xy=True)
+        
+        # Transform corners
+        min_transformed = transformer.transform(minx, miny)
+        max_transformed = transformer.transform(maxx, maxy)
+        
+        # Create box geometry in EPSG:2226
+        bbox_geom = box(min_transformed[0], min_transformed[1], 
+                       max_transformed[0], max_transformed[1])
+        
+        # Calculate area in acres
+        area_sqft = bbox_geom.area
+        area_acres = area_sqft / 43560
+        
+        # Create shapefile
+        shp_path = os.path.join(export_dir, 'export.shp')
+        
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {
+                'id': 'str',
+                'area_acres': 'float',
+                'area_sqft': 'float',
+                'epsg': 'str'
+            }
+        }
+        
+        with fiona.open(shp_path, 'w', driver='ESRI Shapefile', 
+                       crs=from_epsg(2226), schema=schema) as output:
+            output.write({
+                'geometry': bbox_geom.__geo_interface__,
+                'properties': {
+                    'id': export_id,
+                    'area_acres': round(area_acres, 2),
+                    'area_sqft': round(area_sqft, 2),
+                    'epsg': 'EPSG:2226'
+                }
+            })
+        
+        print(f"Shapefile created successfully at {shp_path}")
+        print(f"Area: {area_acres:.2f} acres ({area_sqft:.0f} sq ft)")
+        
+        # Create download URL
+        download_url = f"/api/map-export/download-simple/{export_id}"
         
         return jsonify({
-            'job_id': str(result['id']),
-            'status': result['status'],
-            'created_at': result['created_at'].isoformat()
+            'status': 'complete',
+            'download_url': download_url,
+            'export_id': export_id,
+            'area_acres': round(area_acres, 2),
+            'area_sqft': round(area_sqft, 2),
+            'message': 'Shapefile created successfully'
         })
         
     except Exception as e:
-        print(f"ERROR in create_export_job: {e}")
+        print(f"ERROR in create_simple_export: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/map-export/download-simple/<export_id>')
+def download_simple_export(export_id):
+    """Download simple export as ZIP file"""
+    try:
+        export_dir = os.path.join('/tmp/exports', export_id)
+        
+        if not os.path.exists(export_dir):
+            return jsonify({'error': 'Export not found or expired'}), 404
+        
+        # Create ZIP file with all shapefile components
+        import zipfile
+        zip_path = os.path.join('/tmp', f'{export_id}.zip')
+        
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for filename in os.listdir(export_dir):
+                file_path = os.path.join(export_dir, filename)
+                zipf.write(file_path, filename)
+        
+        return send_file(zip_path, 
+                        as_attachment=True,
+                        download_name=f'sonoma_export_{export_id[:8]}.zip',
+                        mimetype='application/zip')
+        
+    except Exception as e:
+        print(f"Download error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500

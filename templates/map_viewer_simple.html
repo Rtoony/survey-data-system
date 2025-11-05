@@ -595,30 +595,31 @@
                     maxx: bbox.getEast(),
                     maxy: bbox.getNorth(),
                     crs: 'EPSG:4326'
-                },
-                formats: ['shp', 'dxf', 'png'],
-                layers: ['parcels', 'buildings', 'roads'],
-                png_options: {
-                    north_arrow: true,
-                    scale_bar: true
                 }
             };
             
+            console.log('Creating simple shapefile export...');
+            
             try {
-                const res = await fetch('/api/map-export/create', {
+                const res = await fetch('/api/map-export/create-simple', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(params)
                 });
                 const data = await res.json();
                 
-                if (data.job_id) {
-                    alert('Export started! Job ID: ' + data.job_id + '\n\nCheck console for status.');
-                    pollExport(data.job_id);
+                if (data.status === 'complete') {
+                    const msg = `Shapefile created successfully!\n\n` +
+                               `Area: ${data.area_acres} acres (${data.area_sqft} sq ft)\n` +
+                               `Coordinate System: EPSG:2226 (CA State Plane Zone 2)\n\n` +
+                               `Click OK to download the ZIP file.`;
+                    alert(msg);
+                    window.location.href = data.download_url;
                 } else {
                     alert('Export failed: ' + (data.error || 'Unknown error'));
                 }
             } catch (e) {
+                console.error('Export error:', e);
                 alert('Export error: ' + e.message);
             }
         }
