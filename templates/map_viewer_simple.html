@@ -1091,13 +1091,22 @@
                         6: '#FF00FF',  // Magenta
                         7: '#FFFFFF',  // White
                         8: '#808080',  // Gray
-                        9: '#C0C0C0'   // Light Gray
+                        9: '#C0C0C0',  // Light Gray
+                        256: '#FF00FF' // ByLayer - use magenta for visibility
                     };
                     
                     const entitiesLayer = L.geoJSON(cleanedGeoJSON, {
                         style: function(feature) {
                             const props = feature.properties;
-                            const color = aciColors[props.color_aci] || props.layer_color || '#FFFFFF';
+                            let color = aciColors[props.color_aci];
+                            
+                            if (!color && props.layer_color) {
+                                color = aciColors[props.layer_color];
+                            }
+                            
+                            if (!color || color === '#FFFFFF') {
+                                color = '#FF00FF';
+                            }
                             
                             return {
                                 color: color,
@@ -1107,7 +1116,15 @@
                         },
                         pointToLayer: function(feature, latlng) {
                             const props = feature.properties;
-                            const color = aciColors[props.color_aci] || props.layer_color || '#FFFFFF';
+                            let color = aciColors[props.color_aci];
+                            
+                            if (!color && props.layer_color) {
+                                color = aciColors[props.layer_color];
+                            }
+                            
+                            if (!color || color === '#FFFFFF') {
+                                color = '#FF00FF';
+                            }
                             
                             return L.circleMarker(latlng, {
                                 radius: 3,
@@ -1134,7 +1151,12 @@
                     entitiesLayer.addTo(map);
                     activeEntityLayers[layerKey] = entitiesLayer;
                     
+                    const bounds = entitiesLayer.getBounds();
                     console.log(`Loaded ${geojson.features.length} ${entityType} entities`);
+                    console.log(`  Entity layer bounds:`, bounds);
+                    console.log(`  Map center:`, map.getCenter());
+                    console.log(`  Map zoom:`, map.getZoom());
+                    console.log(`  Map bounds:`, map.getBounds());
                     
                 } catch (error) {
                     console.error(`Error loading ${entityType} entities:`, error);
