@@ -630,7 +630,7 @@ def standards_overview():
             'layers': 'layer_standards',
             'blocks': 'block_definitions',
             'colors': 'color_standards',
-            'linetypes': 'linetype_standards',
+            'linetypes': 'linetypes',
             'text_styles': 'text_styles',
             'hatches': 'hatch_patterns',
             'details': 'detail_standards',
@@ -756,11 +756,10 @@ def get_linetype_standards():
                 linetype_id,
                 linetype_name,
                 description,
-                pattern,
-                dxf_pattern,
-                scale_factor,
+                pattern_definition,
                 usage_context
-            FROM linetype_standards
+            FROM linetypes
+            WHERE is_active = true
             ORDER BY linetype_name
         """
         linetypes = execute_query(query)
@@ -1993,22 +1992,25 @@ def get_drawings_for_dxf():
 
 @app.route('/api/dxf/export-jobs', methods=['GET'])
 def get_export_jobs():
-    """Get export job history"""
+    """Get export job history from map export jobs table"""
     try:
         query = """
             SELECT 
-                ej.export_job_id,
-                ej.drawing_id,
+                ej.id as export_job_id,
+                ej.params->>'drawing_id' as drawing_id,
                 d.drawing_name,
-                ej.export_format,
-                ej.dxf_version,
+                ej.params->>'export_format' as export_format,
+                ej.params->>'dxf_version' as dxf_version,
                 ej.status,
-                ej.metrics,
-                ej.started_at,
-                ej.completed_at
+                ej.params->>'metrics' as metrics,
+                ej.created_at as started_at,
+                ej.expires_at as completed_at,
+                ej.download_url,
+                ej.file_size_mb,
+                ej.error_message
             FROM export_jobs ej
-            LEFT JOIN drawings d ON ej.drawing_id = d.drawing_id
-            ORDER BY ej.started_at DESC
+            LEFT JOIN drawings d ON (ej.params->>'drawing_id')::uuid = d.drawing_id
+            ORDER BY ej.created_at DESC
             LIMIT 50
         """
         
