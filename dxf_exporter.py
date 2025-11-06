@@ -105,7 +105,7 @@ class DXFExporter:
     def _get_drawing_info(self, drawing_id: str, cur) -> Optional[Dict]:
         """Get drawing information."""
         cur.execute("""
-            SELECT drawing_name, cad_units, scale_factor
+            SELECT drawing_name
             FROM drawings
             WHERE drawing_id = %s::uuid
         """, (drawing_id,))
