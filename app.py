@@ -4321,10 +4321,10 @@ def create_multi_format_export():
                                 SELECT 
                                     entity_id,
                                     entity_type,
-                                    layer_name,
                                     color_aci,
                                     linetype,
                                     lineweight,
+                                    transparency,
                                     ST_AsGeoJSON(ST_Transform(geometry, 4326)) as geometry_json,
                                     attributes
                                 FROM drawing_entities
@@ -4344,12 +4344,12 @@ def create_multi_format_export():
                                     'type': 'Feature',
                                     'geometry': json.loads(row['geometry_json']),
                                     'properties': {
-                                        'entity_id': row['entity_id'],
+                                        'entity_id': str(row['entity_id']),
                                         'entity_type': row['entity_type'],
-                                        'layer_name': row['layer_name'],
                                         'color_aci': row['color_aci'],
-                                        'linetype': row['linetype'],
-                                        'lineweight': row['lineweight']
+                                        'linetype': row['linetype'] or 'Continuous',
+                                        'lineweight': row['lineweight'] or 0,
+                                        'transparency': row['transparency'] or 0
                                     }
                                 }
                                 features.append(feature)
