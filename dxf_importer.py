@@ -290,27 +290,37 @@ class DXFImporter:
         geometry_wkt = self._entity_to_wkt(entity)
         
         if geometry_wkt:
-            # Store DXF-specific properties in attributes
-            attributes = {
-                'layer_name': layer_name,
-                'linetype': linetype,
-                'entity_type': entity_type
-            }
-            
-            cur.execute("""
-                INSERT INTO drawing_entities (
-                    drawing_id, entity_type, layer_id, space_type,
-                    geometry, dxf_handle, color_aci, lineweight, linetype, 
-                    transparency, quality_score, tags, attributes
-                )
-                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, 0.5, '{}', %s)
-            """, (
-                drawing_id, entity_type, layer_id, space,
-                geometry_wkt, dxf_handle, color_aci, lineweight, linetype,
-                transparency, json.dumps(attributes)
-            ))
-            
-            stats['entities'] += 1
+            try:
+                # Store DXF-specific properties in attributes
+                attributes = {
+                    'layer_name': layer_name,
+                    'linetype': linetype,
+                    'entity_type': entity_type
+                }
+                
+                # Use SRID 0 for local/non-georeferenced coordinates (standard for CAD files)
+                cur.execute("""
+                    INSERT INTO drawing_entities (
+                        drawing_id, entity_type, layer_id, space_type,
+                        geometry, dxf_handle, color_aci, lineweight, linetype, 
+                        transparency, quality_score, tags, attributes
+                    )
+                    VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s, %s, 0.5, '{}', %s)
+                """, (
+                    drawing_id, entity_type, layer_id, space,
+                    geometry_wkt, dxf_handle, color_aci, lineweight, linetype,
+                    transparency, json.dumps(attributes)
+                ))
+                
+                stats['entities'] += 1
+            except Exception as e:
+                error_msg = f"Failed to insert {entity_type} on layer {layer_name}: {str(e)}"
+                print(f"ERROR: {error_msg}")
+                stats['errors'].append(error_msg)
+        else:
+            error_msg = f"Failed to convert {entity_type} on layer {layer_name} to WKT geometry"
+            print(f"WARNING: {error_msg}")
+            stats['errors'].append(error_msg)
         
         cur.close()
     
@@ -419,7 +429,7 @@ class DXFImporter:
             h_just = 'LEFT'
             v_just = 'BASELINE'
         
-        # Create point geometry
+        # Create point geometry (SRID 0 for local coordinates)
         geometry_wkt = f'POINT Z ({insert_point.x} {insert_point.y} {insert_point.z})'
         
         # Attributes for AI optimization
@@ -436,7 +446,7 @@ class DXFImporter:
                 text_style, horizontal_justification, vertical_justification,
                 dxf_handle, quality_score, tags, attributes
             )
-            VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, %s, 0.5, '{}', %s)
+            VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s, %s, %s, 0.5, '{}', %s)
         """, (
             drawing_id, layer_id, space, text_content,
             geometry_wkt, height, rotation, style_name, h_just, v_just,
@@ -534,7 +544,7 @@ class DXFImporter:
                         boundary_geometry, hatch_scale, hatch_angle,
                         dxf_handle, quality_score, tags, attributes
                     )
-                    VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, 0.5, '{}', %s)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, 0.5, '{}', %s)
                 """, (
                     drawing_id, layer_id, space, pattern_name,
                     geometry_wkt, scale, angle,
@@ -584,7 +594,7 @@ class DXFImporter:
                     scale_x, scale_y, scale_z, rotation,
                     dxf_handle, quality_score, tags, attributes
                 )
-                VALUES (%s::uuid, %s::uuid, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, 0.5, '{}', %s)
+                VALUES (%s::uuid, %s::uuid, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s, %s, 0.5, '{}', %s)
             """, (
                 drawing_id, layer_id, block_name, geometry_wkt,
                 scale_x, scale_y, scale_z, rotation,
