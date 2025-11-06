@@ -163,3 +163,27 @@ Preferred communication style: Simple, everyday language.
   - Auto-created "Storm Gravity Network" with all pipes assigned
 - **Result:** Gravity Network Editor now functional with user's first DXF import
 - **Future Work:** Extend patterns (N-, RW-, P-), add geometry normalization to other object types, create unit tests
+
+**November 6, 2025 - Gravity Network Editor: Diagram and Editing Complete:**
+- **Network Diagram Visualization:** SVG renderer displays pipes and structures
+  - Parses GeoJSON geometries from PostGIS database
+  - Auto-calculates bounding box from all pipes/structures
+  - Auto-scales to fit 500px viewport with proper margins
+  - Pipes: Cyan lines with directional arrows, labeled with pipe number and diameter
+  - Structures: Magenta circles, labeled with structure number and rim elevation
+  - Timing fix: Renders after workspace is visible to ensure correct dimensions
+  - Fallback width (800px) prevents zero-width collapse
+- **Editable Tables:** Full CRUD functionality for pipes and structures
+  - Structures: Edit structure number, rim elevation, invert elevation, size (auto-converts mm↔inches), condition
+  - Pipes: Edit pipe number, diameter, material, upstream/downstream inverts
+  - Real-time change tracking in local state (changedData object)
+  - Pending changes message guides user to save
+- **Robust Save Functionality:** Persists edits to database with error handling
+  - Iterates through all changed structures and pipes
+  - Sends PUT requests to /api/pipe-networks/<id>/structures/<id> and /api/pipe-networks/<id>/pipes/<id>
+  - Checks response.ok for each request
+  - Tracks success/error counts separately
+  - Shows specific feedback: "Saved X changes, Y failed" with console logging for debugging
+  - Refreshes data after save to show updated values
+- **Complete Workflow:** Import DXF → Auto-create network → Select network → View diagram → Edit attributes → Save → Persist
+- **Status:** Fully functional gravity network editor ready for testing. Task 6 (real-time diagram label updates) deferred - current behavior reloads after save.
