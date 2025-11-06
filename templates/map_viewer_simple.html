@@ -334,6 +334,14 @@
                     <i class="fas fa-search-location"></i> Zoom to Project
                 </button>
                 
+                <!-- Project Areas Toggle -->
+                <div style="margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
+                        <input type="checkbox" id="show-project-areas" onchange="toggleProjectAreas(this.checked)" style="margin-right: 8px;">
+                        <span style="color: #aaa; font-size: 11px;">Show Project Areas</span>
+                    </label>
+                </div>
+                
                 <!-- Drawings Container -->
                 <div id="drawings-container" style="font-size: 11px; max-height: 300px; overflow-y: auto;">
                     <div style="color: #888; text-align: center; padding: 10px;">
@@ -480,6 +488,7 @@
         let projectsData = [];
         let selectedProject = null;
         let activeEntityLayers = {};
+        let projectAreasLayer = null;
         
         // GIS Layers global variables
         let gisLayersData = [];
@@ -1036,6 +1045,24 @@
             }
         }
         
+        function stripZCoordinates(geojson) {
+            const processCoordinates = (coords) => {
+                if (typeof coords[0] === 'number') {
+                    return [coords[0], coords[1]];
+                }
+                return coords.map(processCoordinates);
+            };
+            
+            const cleanedGeoJSON = JSON.parse(JSON.stringify(geojson));
+            cleanedGeoJSON.features.forEach(feature => {
+                if (feature.geometry && feature.geometry.coordinates) {
+                    feature.geometry.coordinates = processCoordinates(feature.geometry.coordinates);
+                }
+            });
+            
+            return cleanedGeoJSON;
+        }
+        
         async function toggleEntityType(drawingId, entityType, checked) {
             const layerKey = `${drawingId}_${entityType}`;
             
@@ -1052,6 +1079,8 @@
                         return;
                     }
                     
+                    const cleanedGeoJSON = stripZCoordinates(geojson);
+                    
                     // CAD color mapping (AutoCAD Color Index to hex)
                     const aciColors = {
                         1: '#FF0000',  // Red
@@ -1065,7 +1094,7 @@
                         9: '#C0C0C0'   // Light Gray
                     };
                     
-                    const entitiesLayer = L.geoJSON(geojson, {
+                    const entitiesLayer = L.geoJSON(cleanedGeoJSON, {
                         style: function(feature) {
                             const props = feature.properties;
                             const color = aciColors[props.color_aci] || props.layer_color || '#FFFFFF';
@@ -1158,6 +1187,62 @@
             ]);
             
             console.log(`Zoomed to project: ${selectedProject.project_name}`);
+        }
+        
+        function drawProjectAreas() {
+            const rectangles = [];
+            
+            projectsData.forEach(project => {
+                if (!project.bbox) return;
+                
+                const bbox = project.bbox;
+                const minX = parseFloat(bbox.min_x);
+                const minY = parseFloat(bbox.min_y);
+                const maxX = parseFloat(bbox.max_x);
+                const maxY = parseFloat(bbox.max_y);
+                
+                if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+                    return;
+                }
+                
+                const sw = proj4('EPSG:2226', 'EPSG:4326', [minX, minY]);
+                const ne = proj4('EPSG:2226', 'EPSG:4326', [maxX, maxY]);
+                
+                const rectangle = L.rectangle(
+                    [[sw[1], sw[0]], [ne[1], ne[0]]],
+                    {
+                        color: '#FF8C00',
+                        weight: 2,
+                        dashArray: '5, 10',
+                        fillOpacity: 0.1,
+                        fillColor: '#FF8C00'
+                    }
+                );
+                
+                rectangle.bindPopup(`
+                    <div style="font-size: 11px;">
+                        <strong>${project.project_name}</strong><br>
+                        Drawings: ${project.drawings.length}
+                    </div>
+                `);
+                
+                rectangles.push(rectangle);
+            });
+            
+            return L.layerGroup(rectangles);
+        }
+        
+        function toggleProjectAreas(checked) {
+            if (checked) {
+                if (!projectAreasLayer) {
+                    projectAreasLayer = drawProjectAreas();
+                }
+                projectAreasLayer.addTo(map);
+            } else {
+                if (projectAreasLayer) {
+                    map.removeLayer(projectAreasLayer);
+                }
+            }
         }
         
         async function searchAddress() {
