@@ -3912,7 +3912,11 @@ def get_project_entities(drawing_id):
                 e.attributes,
                 l.layer_name,
                 l.color as layer_color,
-                ST_AsGeoJSON(ST_Transform(e.geometry, 4326)) as geometry
+                CASE 
+                    WHEN ST_SRID(e.geometry) = 0 THEN ST_AsGeoJSON(e.geometry)
+                    ELSE ST_AsGeoJSON(ST_Transform(e.geometry, 4326))
+                END as geometry,
+                ST_SRID(e.geometry) as srid
             FROM drawing_entities e
             LEFT JOIN layers l ON e.layer_id = l.layer_id
             WHERE e.drawing_id = %s
@@ -3948,7 +3952,8 @@ def get_project_entities(drawing_id):
                     'layer_color': entity['layer_color'],
                     'linetype': entity['linetype'],
                     'lineweight': entity['lineweight'],
-                    'transparency': entity['transparency']
+                    'transparency': entity['transparency'],
+                    'srid': entity['srid']
                 }
                 
                 # Add attributes if present
@@ -3978,7 +3983,7 @@ def get_project_entities(drawing_id):
 
 @app.route('/api/map-viewer/drawing-extent/<drawing_id>')
 def get_drawing_extent(drawing_id):
-    """Get bounding box extent for a drawing's entities in WGS84"""
+    """Get bounding box extent for a drawing's entities"""
     try:
         from pyproj import Transformer
         
@@ -3988,21 +3993,39 @@ def get_drawing_extent(drawing_id):
                 ST_YMin(ST_Extent(geometry)) as ymin,
                 ST_XMax(ST_Extent(geometry)) as xmax,
                 ST_YMax(ST_Extent(geometry)) as ymax,
-                COUNT(*) as entity_count
+                COUNT(*) as entity_count,
+                (SELECT ST_SRID(geometry) FROM drawing_entities WHERE drawing_id = %s LIMIT 1) as srid
             FROM drawing_entities
             WHERE drawing_id = %s
         """
         
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, (drawing_id,))
+                cur.execute(query, (drawing_id, drawing_id))
                 result = cur.fetchone()
         
         if not result or result['entity_count'] == 0:
             return jsonify({'error': 'No entities found for this drawing'}), 404
         
-        # Transform from SRID 2226 (California State Plane) to WGS84
-        transformer = Transformer.from_crs("EPSG:2226", "EPSG:4326", always_xy=True)
+        srid = result['srid'] or 0
+        
+        # For SRID 0 (local CAD coordinates), return native bounds without transformation
+        if srid == 0:
+            return jsonify({
+                'bounds': None,  # Can't display on geographic map
+                'entity_count': result['entity_count'],
+                'native_bounds': {
+                    'xmin': float(result['xmin']),
+                    'ymin': float(result['ymin']),
+                    'xmax': float(result['xmax']),
+                    'ymax': float(result['ymax']),
+                    'srid': 0
+                },
+                'is_local_coordinates': True
+            })
+        
+        # Transform from geographic SRID to WGS84 for map display
+        transformer = Transformer.from_crs(f"EPSG:{srid}", "EPSG:4326", always_xy=True)
         
         # Transform the bounding box corners
         sw_lon, sw_lat = transformer.transform(result['xmin'], result['ymin'])
@@ -4016,8 +4039,9 @@ def get_drawing_extent(drawing_id):
                 'ymin': float(result['ymin']),
                 'xmax': float(result['xmax']),
                 'ymax': float(result['ymax']),
-                'srid': 2226
-            }
+                'srid': srid
+            },
+            'is_local_coordinates': False
         })
         
     except Exception as e:

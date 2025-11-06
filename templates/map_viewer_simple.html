@@ -1079,6 +1079,15 @@
                         return;
                     }
                     
+                    // Check if this is SRID 0 (local CAD coordinates)
+                    const firstFeature = geojson.features[0];
+                    if (firstFeature && firstFeature.properties && firstFeature.properties.srid === 0) {
+                        alert(`⚠️ Local CAD Coordinates Detected\n\nThis drawing uses local CAD coordinates (SRID 0) and cannot be displayed on a geographic map.\n\nFound ${geojson.count} ${entityType} entities.\n\nTo view these entities:\n• Export to DXF and open in AutoCAD\n• Or use a CAD viewer that supports local coordinates`);
+                        console.log(`${entityType} entities use SRID 0 (local coordinates) - cannot display on geographic map`);
+                        document.getElementById(`entity-${drawingId}-${entityType}`).checked = false;
+                        return;
+                    }
+                    
                     const cleanedGeoJSON = stripZCoordinates(geojson);
                     
                     // CAD color mapping (AutoCAD Color Index to hex)
