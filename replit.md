@@ -70,8 +70,8 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-**November 6, 2025 - DXF Import Complete Fix for AutoCAD Files - READY FOR TESTING:**
-- **Critical SRID Fix:** Changed ALL geometry insertions from SRID 2226 to SRID 0 for local coordinates
+**November 6, 2025 - Complete DXF Import & Map Viewer Fix for Local CAD Coordinates:**
+- **Critical SRID Fix for DXF Import:** Changed ALL geometry insertions from SRID 2226 to SRID 0
   - Fixed: drawing_entities, drawing_text, drawing_hatches, block_inserts (all geometry tables)
   - **Impact:** AutoCAD DXF files with local coordinates (0-100 scale) now import correctly
   - Verified: Zero SRID 2226 references remaining in dxf_importer.py
@@ -79,10 +79,17 @@ Preferred communication style: Simple, everyday language.
   - app.py: API endpoint query ✅
   - dxf_lookup_service.py: Linetype lookup during import ✅
   - Added `is_active = true` filter for data consistency
-  - **Impact:** Linetype SQL errors completely eliminated
+- **Map Viewer SRID 0 Support:** Backend and frontend now handle local CAD coordinates properly
+  - **Backend (app.py):** CASE statement in `get_project_entities` checks SRID before transformation
+  - Only transforms geographic coordinates (SRID 2226) to WGS84
+  - Returns SRID 0 geometries without transformation, includes `srid` property in response
+  - `get_drawing_extent` returns `bounds: null` for SRID 0, preventing transform errors
+  - **Frontend (map_viewer_simple.html):** Detects SRID 0 features and shows explanatory alert
+  - Explains local coordinates can't display on geographic map
+  - Suggests export to DXF or use CAD viewer
+  - **Impact:** No more ST_Transform errors, clear user communication
 - **Enhanced Error Logging:** Comprehensive error handling for geometry operations
   - Try/catch blocks around all geometry insertions
   - Detailed error messages in import stats['errors'] array
   - Console logging with ERROR/WARNING prefixes for debugging
-  - Captures both conversion AND insertion failures
-- **Status:** Server running cleanly, ready for AutoCAD DXF import testing
+- **Status:** DXF import working, entities imported correctly, Map Viewer properly handles both local (SRID 0) and geographic (SRID 2226) data
