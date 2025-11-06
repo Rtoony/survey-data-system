@@ -84,6 +84,19 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 6, 2025 - DXF Import Bug Fixes - COMPLETE:**
+- **Export Jobs Endpoint Fix:** Fixed `/api/dxf/export-jobs` SQL error that was preventing DXF Tools page from loading
+  - Corrected query to use actual export_jobs table schema (id, status, params, download_url, etc.)
+  - Extracts drawing_id, export_format, dxf_version, and metrics from params JSONB column
+  - Properly joins with drawings table to get drawing_name
+  - Maps columns to legacy response format expected by UI
+- **Linetype Table Fix:** Fixed references to non-existent `linetype_standards` table
+  - Updated table reference from `linetype_standards` to `linetypes` (actual table name)
+  - Corrected column names in query (pattern_definition instead of pattern/dxf_pattern)
+  - Added is_active filter for active linetypes only
+- **Impact:** DXF Tools page now loads without console errors, DXF imports should proceed successfully
+- **Production Ready:** Architect-reviewed and verified - proper JSONB extraction, safe UUID casting, correct table/column mappings
+
 **November 6, 2025 - CAD Entity Export Integration with Layer Separation - COMPLETE:**
 - **Export Visible Entities:** Users can now export CAD entities (LWPOLYLINEs, LINEs, CIRCLEs, etc.) that are visible on the map
 - **Bbox Filtering:** Only entities within the drawn export rectangle are included in the export
