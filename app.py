@@ -4252,6 +4252,7 @@ def create_multi_format_export():
     try:
         import requests
         from shapely.geometry import shape
+        from shapely import geometry as geom_lib
         from pyproj import Transformer
         
         params = request.json
@@ -4311,16 +4312,26 @@ def create_multi_format_export():
                         try:
                             geom_2226 = shape(feature['geometry'])
                             
-                            # Transform to WGS84
+                            # Transform to WGS84 (handle both 2D and 3D geometries)
                             if geom_2226.geom_type == 'LineString':
-                                coords_wgs84 = [back_transformer.transform(x, y) for x, y in geom_2226.coords]
+                                # Handle 3D coordinates (x, y, z) by ignoring Z
+                                coords_wgs84 = []
+                                for coord in geom_2226.coords:
+                                    x, y = coord[0], coord[1]  # Ignore Z if present
+                                    lon, lat = back_transformer.transform(x, y)
+                                    coords_wgs84.append((lon, lat))
                                 geom_wgs84 = geom_lib.LineString(coords_wgs84)
                             elif geom_2226.geom_type == 'Polygon':
-                                exterior_wgs84 = [back_transformer.transform(x, y) for x, y in geom_2226.exterior.coords]
+                                exterior_wgs84 = []
+                                for coord in geom_2226.exterior.coords:
+                                    x, y = coord[0], coord[1]  # Ignore Z if present
+                                    lon, lat = back_transformer.transform(x, y)
+                                    exterior_wgs84.append((lon, lat))
                                 geom_wgs84 = geom_lib.Polygon(exterior_wgs84)
                             elif geom_2226.geom_type == 'Point':
-                                x, y = back_transformer.transform(geom_2226.x, geom_2226.y)
-                                geom_wgs84 = geom_lib.Point(x, y)
+                                x, y = geom_2226.x, geom_2226.y
+                                lon, lat = back_transformer.transform(x, y)
+                                geom_wgs84 = geom_lib.Point(lon, lat)
                             else:
                                 geom_wgs84 = geom_2226  # Keep as-is for unsupported types
                             
@@ -4331,6 +4342,8 @@ def create_multi_format_export():
                             })
                         except Exception as e:
                             print(f"Error transforming drawing entity: {e}")
+                            import traceback
+                            traceback.print_exc()
                             continue
                     
                     all_layers_data[layer_name] = features_wgs84
