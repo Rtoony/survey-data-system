@@ -37,6 +37,7 @@ class LayerClassifier:
         ]
         
         self.structure_patterns = [
+            (r'(SD|SS|W|G|E|F)[-_]STRUCTURE[-_](MANHOLE|MH|CLEANOUT|CO|CB|CATCH[-_]?BASIN|INLET|VALVE|HYDRANT|FES)', 'utility_structure'),
             (r'(MH|MANHOLE|MHOLE)[-_]?(STORM|SEWER|SANITARY)?', 'utility_structure'),
             (r'(CB|CATCH[-_]?BASIN)[-_]?(STORM)?', 'utility_structure'),
             (r'(INLET|FES|VALVE|HYDRANT|CLEANOUT|CO)[-_]?(STORM|WATER)?', 'utility_structure'),
@@ -161,6 +162,15 @@ class LayerClassifier:
     
     def _classify_structure(self, layer_name: str) -> Optional[LayerClassification]:
         """Classify utility structure layers."""
+        prefix_map = {
+            'sd': 'storm',
+            'ss': 'sanitary',
+            'w': 'water',
+            'g': 'gas',
+            'e': 'electric',
+            'f': 'fire'
+        }
+        
         for pattern, obj_type in self.structure_patterns:
             match = re.search(pattern, layer_name, re.IGNORECASE)
             if match:
@@ -182,20 +192,44 @@ class LayerClassifier:
                     'CO': 'Cleanout'
                 }
                 
-                properties['structure_type'] = structure_type_map.get(
-                    groups[0].upper().replace('-', ' ').replace('_', ' '),
-                    groups[0]
-                )
+                first_group = groups[0].lower()
+                if first_group in prefix_map:
+                    properties['utility_type'] = prefix_map[first_group]
+                    if len(groups) > 1 and groups[1]:
+                        properties['structure_type'] = structure_type_map.get(
+                            groups[1].upper().replace('-', ' ').replace('_', ' '),
+                            groups[1]
+                        )
+                else:
+                    properties['structure_type'] = structure_type_map.get(
+                        groups[0].upper().replace('-', ' ').replace('_', ' '),
+                        groups[0]
+                    )
+                    
+                    if len(groups) > 1 and groups[1]:
+                        utility_map = {
+                            'STORM': 'Storm',
+                            'SEWER': 'Sanitary',
+                            'SANITARY': 'Sanitary',
+                            'WATER': 'Water'
+                        }
+                        properties['utility_type'] = utility_map.get(groups[1].upper(), groups[1])
+                
+                if 'utility_type' in properties:
+                    utility_type_map = {
+                        'storm': 'Storm',
+                        'sanitary': 'Sanitary',
+                        'water': 'Water',
+                        'gas': 'Gas',
+                        'electric': 'Electric',
+                        'fire': 'Fire'
+                    }
+                    properties['utility_type'] = utility_type_map.get(
+                        properties['utility_type'].lower(), properties['utility_type']
+                    )
                 
                 network_mode = None
-                if len(groups) > 1 and groups[1]:
-                    utility_map = {
-                        'STORM': 'Storm',
-                        'SEWER': 'Sanitary',
-                        'SANITARY': 'Sanitary',
-                        'WATER': 'Water'
-                    }
-                    properties['utility_type'] = utility_map.get(groups[1].upper(), groups[1])
+                if 'utility_type' in properties:
                     network_mode = self._determine_network_mode(properties['utility_type'])
                 
                 return LayerClassification(
