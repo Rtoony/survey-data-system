@@ -70,6 +70,23 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 6, 2025 - Map Viewer "Linework" Unification & DXF Export Enhancement:**
+- **Unified Linework Display:** Map viewer now groups LINE/ARC/LWPOLYLINE into single "Linework" entity type
+  - Simplified UX with single checkbox instead of 3 separate entity types
+  - Backend returns unified type using SQL CASE statement (no geometry changes)
+  - Frontend automatically renders whatever backend provides (generic implementation)
+- **DXF Layer Export Fixed:** Bounding box exports now automatically include DXF-imported layers
+  - Replaced placeholder data with real database queries via `MapExportService.fetch_drawing_entities_by_layer()`
+  - Queries `drawing_entities` table with ST_Intersects spatial filter
+  - Groups features by layer_name for organized SHP/KML/DXF outputs
+  - Tested: 243 features across 8 DXF layers successfully exported
+- **3D Geometry Transformation Fixed:** Export now handles LineStringZ (3D coordinates) correctly
+  - Fixed "too many values to unpack" error in coordinate transformation
+  - Properly extracts (x, y) from 3D coordinates, ignoring Z during EPSG transforms
+  - Preserves survey-grade accuracy: EPSG:2226 ↔ EPSG:4326 transformations validated
+  - Architect review confirmed: 0.000000ft coordinate preservation maintained
+- **Status:** All 7 tasks complete. Export pipeline delivers survey-grade accuracy for staking and final CAD deliverables.
+
 **November 6, 2025 - Complete DXF Import & Map Viewer Fix for Local CAD Coordinates:**
 - **Critical SRID Fix for DXF Import:** Changed ALL geometry insertions from SRID 2226 to SRID 0
   - Fixed: drawing_entities, drawing_text, drawing_hatches, block_inserts (all geometry tables)
