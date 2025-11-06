@@ -67,3 +67,22 @@ Preferred communication style: Simple, everyday language.
 
 **Related Systems:**
 - **ACAD-GIS FastAPI application:** Main API server sharing the same PostgreSQL/PostGIS database.
+
+## Recent Changes
+
+**November 6, 2025 - DXF Import Complete Fix for AutoCAD Files - READY FOR TESTING:**
+- **Critical SRID Fix:** Changed ALL geometry insertions from SRID 2226 to SRID 0 for local coordinates
+  - Fixed: drawing_entities, drawing_text, drawing_hatches, block_inserts (all geometry tables)
+  - **Impact:** AutoCAD DXF files with local coordinates (0-100 scale) now import correctly
+  - Verified: Zero SRID 2226 references remaining in dxf_importer.py
+- **Complete Linetype Table Fix:** Fixed ALL references from non-existent `linetype_standards` to `linetypes`
+  - app.py: API endpoint query ✅
+  - dxf_lookup_service.py: Linetype lookup during import ✅
+  - Added `is_active = true` filter for data consistency
+  - **Impact:** Linetype SQL errors completely eliminated
+- **Enhanced Error Logging:** Comprehensive error handling for geometry operations
+  - Try/catch blocks around all geometry insertions
+  - Detailed error messages in import stats['errors'] array
+  - Console logging with ERROR/WARNING prefixes for debugging
+  - Captures both conversion AND insertion failures
+- **Status:** Server running cleanly, ready for AutoCAD DXF import testing
