@@ -20,6 +20,9 @@
             <select id="networkSelect" onchange="loadNetwork()">
                 <option value="">Loading networks...</option>
             </select>
+            <button class="btn-primary" onclick="autoConnectPipes()" id="autoConnectBtn" disabled>
+                <i class="fas fa-link"></i> Auto-Connect Pipes
+            </button>
             <button class="btn-primary" onclick="saveChanges()" id="saveBtn" disabled>
                 <i class="fas fa-save"></i> Save Changes
             </button>
@@ -298,6 +301,7 @@ async function loadNetwork() {
         document.getElementById('workspace').style.display = 'grid';
         document.getElementById('networkDetails').style.display = 'block';
         document.getElementById('saveBtn').disabled = false;
+        document.getElementById('autoConnectBtn').disabled = false;
         
         setTimeout(() => renderDiagram(), 50);
     } catch (error) {
@@ -420,6 +424,52 @@ async function saveChanges() {
     } catch (error) {
         console.error('Error saving changes:', error);
         showStatus('Error saving changes: ' + error.message, true);
+    }
+}
+
+async function autoConnectPipes() {
+    const networkId = currentNetwork?.network_id;
+    if (!networkId) {
+        showStatus('No network selected', true);
+        return;
+    }
+    
+    const confirmMsg = 'This will automatically connect pipes to nearby structures (within 5 feet). Continue?';
+    if (!confirm(confirmMsg)) {
+        return;
+    }
+    
+    try {
+        showStatus('Connecting pipes to structures...', false);
+        document.getElementById('autoConnectBtn').disabled = true;
+        
+        const response = await fetch(`/api/pipe-networks/${networkId}/auto-connect`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tolerance_feet: 5.0 })
+        });
+        
+        const results = await response.json();
+        
+        if (results.success) {
+            const msg = `Connected ${results.fully_connected} of ${results.total_pipes} pipes successfully!`;
+            showStatus(msg, false);
+            
+            if (results.unconnected_start?.length > 0 || results.unconnected_end?.length > 0) {
+                console.log('Unconnected pipe starts:', results.unconnected_start);
+                console.log('Unconnected pipe ends:', results.unconnected_end);
+            }
+            
+            await loadNetwork();
+        } else {
+            showStatus(`Error: ${results.error}`, true);
+        }
+        
+    } catch (error) {
+        console.error('Error auto-connecting pipes:', error);
+        showStatus('Error connecting pipes: ' + error.message, true);
+    } finally {
+        document.getElementById('autoConnectBtn').disabled = false;
     }
 }
 
