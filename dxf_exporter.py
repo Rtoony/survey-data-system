@@ -114,17 +114,15 @@ class DXFExporter:
     def _setup_layers(self, drawing_id: str, doc: ezdxf.document.Drawing,
                       cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Create layers in DXF document."""
-        # Get layers used in this drawing by joining through layers table
+        # Get layers used in this drawing
         query = """
-            SELECT DISTINCT l.layer_name, l.color, l.linetype,
-                   ls.color_rgb, ls.lineweight
-            FROM layers l
-            LEFT JOIN layer_standards ls ON l.layer_standard_id = ls.layer_standard_id
-            WHERE l.drawing_id = %s::uuid
+            SELECT DISTINCT layer_name, color, linetype, color_rgb, lineweight
+            FROM layers
+            WHERE drawing_id = %s
         """
         
         if layer_filter:
-            query += " AND l.layer_name = ANY(%s)"
+            query += " AND layer_name = ANY(%s)"
             cur.execute(query, (drawing_id, layer_filter))
         else:
             cur.execute(query, (drawing_id,))
