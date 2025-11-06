@@ -3851,15 +3851,23 @@ def get_project_structure():
             if row['drawing_id']:
                 drawing_id = str(row['drawing_id'])
                 
-                # Get entity type counts for this drawing (exclude TEXT and HATCH)
+                # Get entity type counts for this drawing (combine LINE/ARC/LWPOLYLINE into Linework)
                 entity_query = """
                     SELECT 
-                        entity_type,
+                        CASE 
+                            WHEN entity_type IN ('LINE', 'ARC', 'LWPOLYLINE', 'POLYLINE', 'CIRCLE', 'ELLIPSE', 'SPLINE') 
+                            THEN 'Linework'
+                            ELSE entity_type
+                        END as entity_type,
                         COUNT(*) as count
                     FROM drawing_entities
                     WHERE drawing_id = %s
                     AND entity_type NOT IN ('TEXT', 'MTEXT', 'HATCH', 'ATTDEF', 'ATTRIB')
-                    GROUP BY entity_type
+                    GROUP BY CASE 
+                        WHEN entity_type IN ('LINE', 'ARC', 'LWPOLYLINE', 'POLYLINE', 'CIRCLE', 'ELLIPSE', 'SPLINE') 
+                        THEN 'Linework'
+                        ELSE entity_type
+                    END
                     ORDER BY count DESC
                 """
                 
@@ -3925,10 +3933,13 @@ def get_project_entities(drawing_id):
         
         params = [drawing_id]
         
-        # Add entity type filter if specified
+        # Add entity type filter if specified (translate "Linework" to all line-based types)
         if entity_type:
-            query += " AND e.entity_type = %s"
-            params.append(entity_type)
+            if entity_type == 'Linework':
+                query += " AND e.entity_type IN ('LINE', 'ARC', 'LWPOLYLINE', 'POLYLINE', 'CIRCLE', 'ELLIPSE', 'SPLINE')"
+            else:
+                query += " AND e.entity_type = %s"
+                params.append(entity_type)
         
         query += " LIMIT 5000"
         
