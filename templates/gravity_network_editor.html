@@ -294,11 +294,12 @@ async function loadNetwork() {
         displayNetworkInfo();
         displayStructures();
         displayPipes();
-        renderDiagram();
         
         document.getElementById('workspace').style.display = 'grid';
         document.getElementById('networkDetails').style.display = 'block';
         document.getElementById('saveBtn').disabled = false;
+        
+        setTimeout(() => renderDiagram(), 50);
     } catch (error) {
         console.error('Error loading network:', error);
         showStatus('Error loading network data', true);
@@ -373,42 +374,191 @@ function updatePipe(pipeId, field, value) {
 
 async function saveChanges() {
     let savedCount = 0;
+    let errorCount = 0;
     const networkId = currentNetwork.network_id;
     
     try {
         for (const [structId, changes] of Object.entries(changedData.structures)) {
-            await fetch(`/api/pipe-networks/${networkId}/structures/${structId}`, {
+            const response = await fetch(`/api/pipe-networks/${networkId}/structures/${structId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(changes)
             });
-            savedCount++;
+            
+            if (response.ok) {
+                savedCount++;
+            } else {
+                errorCount++;
+                console.error(`Failed to save structure ${structId}:`, await response.text());
+            }
         }
         
         for (const [pipeId, changes] of Object.entries(changedData.pipes)) {
-            await fetch(`/api/pipe-networks/${networkId}/pipes/${pipeId}`, {
+            const response = await fetch(`/api/pipe-networks/${networkId}/pipes/${pipeId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(changes)
             });
-            savedCount++;
+            
+            if (response.ok) {
+                savedCount++;
+            } else {
+                errorCount++;
+                console.error(`Failed to save pipe ${pipeId}:`, await response.text());
+            }
         }
         
         changedData = { structures: {}, pipes: {} };
-        showStatus(`Saved ${savedCount} changes successfully`, false);
+        
+        if (errorCount > 0) {
+            showStatus(`Saved ${savedCount} changes, ${errorCount} failed - check console`, true);
+        } else {
+            showStatus(`Saved ${savedCount} changes successfully`, false);
+        }
+        
         await loadNetwork();
     } catch (error) {
         console.error('Error saving changes:', error);
-        showStatus('Error saving changes', true);
+        showStatus('Error saving changes: ' + error.message, true);
     }
 }
 
 function renderDiagram() {
     const svg = document.getElementById('diagramSvg');
-    const width = svg.clientWidth;
+    const width = svg.clientWidth || 800;
     const height = 500;
     
-    svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#00ffff" font-size="16">Network diagram rendering will be added in the next phase</text>';
+    if (pipesData.length === 0 && structuresData.length === 0) {
+        svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#00ffff" font-size="16">No geometry data to display</text>';
+        return;
+    }
+    
+    const bounds = calculateBounds();
+    if (!bounds) {
+        svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#00ffff" font-size="16">Unable to calculate bounds</text>';
+        return;
+    }
+    
+    const margin = 40;
+    const drawWidth = width - 2 * margin;
+    const drawHeight = height - 2 * margin;
+    
+    const xRange = bounds.maxX - bounds.minX || 1;
+    const yRange = bounds.maxY - bounds.minY || 1;
+    
+    const scale = Math.min(drawWidth / xRange, drawHeight / yRange) * 0.9;
+    
+    const toScreenX = (x) => margin + (x - bounds.minX) * scale;
+    const toScreenY = (y) => height - margin - (y - bounds.minY) * scale;
+    
+    let svgContent = '';
+    
+    svgContent += `<defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+            <polygon points="0 0, 10 3, 0 6" fill="#00ffff" opacity="0.6" />
+        </marker>
+    </defs>`;
+    
+    pipesData.forEach((pipe, idx) => {
+        if (!pipe.geometry) return;
+        
+        try {
+            const geom = JSON.parse(pipe.geometry);
+            if (geom.type === 'LineString' && geom.coordinates.length >= 2) {
+                const coords = geom.coordinates;
+                const pathData = coords.map((coord, i) => 
+                    `${i === 0 ? 'M' : 'L'} ${toScreenX(coord[0])},${toScreenY(coord[1])}`
+                ).join(' ');
+                
+                const lastCoord = coords[coords.length - 1];
+                const secondLastCoord = coords[coords.length - 2];
+                
+                svgContent += `<path d="${pathData}" stroke="#00ffff" stroke-width="2" fill="none" opacity="0.7" marker-end="url(#arrowhead)" />`;
+                
+                const midIdx = Math.floor(coords.length / 2);
+                const midCoord = coords[midIdx];
+                const label = pipe.line_number || `P${idx + 1}`;
+                const diameter = pipe.diameter_mm ? `${Math.round(pipe.diameter_mm)}mm` : '';
+                
+                svgContent += `<text x="${toScreenX(midCoord[0])}" y="${toScreenY(midCoord[1]) - 5}" 
+                    fill="#00ffff" font-size="10" text-anchor="middle">${label}</text>`;
+                if (diameter) {
+                    svgContent += `<text x="${toScreenX(midCoord[0])}" y="${toScreenY(midCoord[1]) + 10}" 
+                        fill="#0088ff" font-size="9" text-anchor="middle">${diameter}</text>`;
+                }
+            }
+        } catch (e) {
+            console.error('Error rendering pipe geometry:', e, pipe);
+        }
+    });
+    
+    structuresData.forEach((struct, idx) => {
+        if (!struct.geometry) return;
+        
+        try {
+            const geom = JSON.parse(struct.geometry);
+            if (geom.type === 'Point' && geom.coordinates.length >= 2) {
+                const x = toScreenX(geom.coordinates[0]);
+                const y = toScreenY(geom.coordinates[1]);
+                
+                svgContent += `<circle cx="${x}" cy="${y}" r="6" fill="none" stroke="#ff00ff" stroke-width="2" />`;
+                svgContent += `<circle cx="${x}" cy="${y}" r="3" fill="#ff00ff" opacity="0.5" />`;
+                
+                const label = struct.structure_number || `S${idx + 1}`;
+                svgContent += `<text x="${x + 10}" y="${y - 8}" fill="#ff00ff" font-size="11" font-weight="bold">${label}</text>`;
+                
+                if (struct.rim_elevation) {
+                    svgContent += `<text x="${x + 10}" y="${y + 4}" fill="#ff88ff" font-size="9">Rim: ${struct.rim_elevation}ft</text>`;
+                }
+            }
+        } catch (e) {
+            console.error('Error rendering structure geometry:', e, struct);
+        }
+    });
+    
+    svgContent += `<rect x="${margin}" y="${margin}" width="${drawWidth}" height="${drawHeight}" 
+        fill="none" stroke="rgba(0,255,255,0.2)" stroke-width="1" stroke-dasharray="5,5" />`;
+    
+    svg.innerHTML = svgContent;
+}
+
+function calculateBounds() {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let hasData = false;
+    
+    pipesData.forEach(pipe => {
+        if (!pipe.geometry) return;
+        try {
+            const geom = JSON.parse(pipe.geometry);
+            if (geom.type === 'LineString') {
+                geom.coordinates.forEach(coord => {
+                    minX = Math.min(minX, coord[0]);
+                    minY = Math.min(minY, coord[1]);
+                    maxX = Math.max(maxX, coord[0]);
+                    maxY = Math.max(maxY, coord[1]);
+                    hasData = true;
+                });
+            }
+        } catch (e) {}
+    });
+    
+    structuresData.forEach(struct => {
+        if (!struct.geometry) return;
+        try {
+            const geom = JSON.parse(struct.geometry);
+            if (geom.type === 'Point') {
+                minX = Math.min(minX, geom.coordinates[0]);
+                minY = Math.min(minY, geom.coordinates[1]);
+                maxX = Math.max(maxX, geom.coordinates[0]);
+                maxY = Math.max(maxY, geom.coordinates[1]);
+                hasData = true;
+            }
+        } catch (e) {}
+    });
+    
+    if (!hasData) return null;
+    
+    return { minX, minY, maxX, maxY };
 }
 
 function showStatus(message, isError) {
