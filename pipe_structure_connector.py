@@ -64,12 +64,16 @@ class PipeStructureConnector:
                     self.tolerance_feet
                 )
                 
+                # Preserve existing connections if no new structure found
+                new_from_id = from_struct['structure_id'] if from_struct else pipe['from_structure_id']
+                new_to_id = to_struct['structure_id'] if to_struct else pipe['to_structure_id']
+                
                 # Update pipe connections
                 updated = self._update_pipe_connections(
                     conn, 
                     pipe['line_id'],
-                    from_struct['structure_id'] if from_struct else None,
-                    to_struct['structure_id'] if to_struct else None
+                    new_from_id,
+                    new_to_id
                 )
                 
                 if updated:
@@ -211,7 +215,10 @@ class PipeStructureConnector:
         from_structure_id: Optional[str],
         to_structure_id: Optional[str]
     ) -> bool:
-        """Update pipe from/to structure connections."""
+        """
+        Update pipe from/to structure connections.
+        Note: Caller should pass existing IDs when no new structure found.
+        """
         cur = conn.cursor()
         
         try:
