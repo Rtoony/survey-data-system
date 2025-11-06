@@ -298,14 +298,14 @@ class DXFImporter:
                     'entity_type': entity_type
                 }
                 
-                # Use SRID 0 for local/non-georeferenced coordinates (standard for CAD files)
+                # Use SRID 2226 for California State Plane Zone 2, US Survey Feet (NAD83)
                 cur.execute("""
                     INSERT INTO drawing_entities (
                         drawing_id, entity_type, layer_id, space_type,
                         geometry, dxf_handle, color_aci, lineweight, linetype, 
                         transparency, quality_score, tags, attributes
                     )
-                    VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s, %s, 0.5, '{}', %s)
+                    VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, 0.5, '{}', %s)
                 """, (
                     drawing_id, entity_type, layer_id, space,
                     geometry_wkt, dxf_handle, color_aci, lineweight, linetype,
@@ -429,7 +429,7 @@ class DXFImporter:
             h_just = 'LEFT'
             v_just = 'BASELINE'
         
-        # Create point geometry (SRID 0 for local coordinates)
+        # Create point geometry (SRID 2226 for California State Plane Zone 2)
         geometry_wkt = f'POINT Z ({insert_point.x} {insert_point.y} {insert_point.z})'
         
         # Attributes for AI optimization
@@ -446,7 +446,7 @@ class DXFImporter:
                 text_style, horizontal_justification, vertical_justification,
                 dxf_handle, quality_score, tags, attributes
             )
-            VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s, %s, %s, 0.5, '{}', %s)
+            VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, %s, 0.5, '{}', %s)
         """, (
             drawing_id, layer_id, space, text_content,
             geometry_wkt, height, rotation, style_name, h_just, v_just,
@@ -544,7 +544,7 @@ class DXFImporter:
                         boundary_geometry, hatch_scale, hatch_angle,
                         dxf_handle, quality_score, tags, attributes
                     )
-                    VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, 0.5, '{}', %s)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, 0.5, '{}', %s)
                 """, (
                     drawing_id, layer_id, space, pattern_name,
                     geometry_wkt, scale, angle,
@@ -594,7 +594,7 @@ class DXFImporter:
                     scale_x, scale_y, scale_z, rotation,
                     dxf_handle, quality_score, tags, attributes
                 )
-                VALUES (%s::uuid, %s::uuid, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s, %s, 0.5, '{}', %s)
+                VALUES (%s::uuid, %s::uuid, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, 0.5, '{}', %s)
             """, (
                 drawing_id, layer_id, block_name, geometry_wkt,
                 scale_x, scale_y, scale_z, rotation,
@@ -634,7 +634,7 @@ class DXFImporter:
                         drawing_id, layout_name, viewport_geometry,
                         view_center, scale_factor
                     )
-                    VALUES (%s, %s, ST_GeomFromText(%s, 0), ST_GeomFromText(%s, 0), %s)
+                    VALUES (%s, %s, ST_GeomFromText(%s, 2226), ST_GeomFromText(%s, 2226), %s)
                 """, (
                     drawing_id, layout.name, geometry_wkt, view_center_wkt, scale
                 ))
@@ -665,7 +665,7 @@ class DXFImporter:
                 drawing_id, entity_type, layer_id, space_type,
                 geometry, color_aci, lineweight, linetype, metadata
             )
-            VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
         """, (
             drawing_id, 'POINT', layer_id, space,
             geometry_wkt, 
@@ -708,7 +708,7 @@ class DXFImporter:
                 drawing_id, entity_type, layer_id, space_type,
                 geometry, color_aci, lineweight, linetype, metadata
             )
-            VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
         """, (
             drawing_id, '3DFACE', layer_id, space,
             geometry_wkt,
@@ -745,7 +745,7 @@ class DXFImporter:
                     drawing_id, entity_type, layer_id, space_type,
                     geometry, color_aci, lineweight, linetype, metadata
                 )
-                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
             """, (
                 drawing_id, '3DSOLID', layer_id, space,
                 geometry_wkt,
@@ -789,7 +789,7 @@ class DXFImporter:
                     drawing_id, entity_type, layer_id, space_type,
                     geometry, color_aci, lineweight, linetype, metadata
                 )
-                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
             """, (
                 drawing_id, 'MESH', layer_id, space,
                 geometry_wkt,
@@ -835,7 +835,7 @@ class DXFImporter:
                     drawing_id, entity_type, layer_id, space_type,
                     geometry, color_aci, lineweight, linetype, metadata
                 )
-                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 0), %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
             """, (
                 drawing_id, 'LEADER', layer_id, space,
                 geometry_wkt,
