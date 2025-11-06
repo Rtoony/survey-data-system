@@ -110,3 +110,37 @@ Preferred communication style: Simple, everyday language.
   - Detailed error messages in import stats['errors'] array
   - Console logging with ERROR/WARNING prefixes for debugging
 - **Status:** DXF import working, entities imported correctly, Map Viewer properly handles both local (SRID 0) and geographic (SRID 2226) data
+
+**November 6, 2025 - Gravity Pipe Network Editor Foundation (In Progress):**
+- **Database Infrastructure:** New pipe network tracking system created
+  - `dxf_entity_links`: Bidirectional DXF↔DB mapping with geometry hashes for change detection
+  - `pipe_networks`: Groups pipes/structures into logical networks by project+utility+mode
+  - `utility_network_memberships`: Links utility_lines and utility_structures to networks
+  - `utility_mode` enum: Added to utility_lines and utility_structures ('gravity', 'pressure', 'bmp')
+  - `utility_line_quality`: Validation results storage for network integrity checks
+- **Layer Classification Enhancement:** LayerClassifier now detects network mode
+  - Gravity mode: STORM/SEWER/SD/SS patterns (e.g., "12IN-STORM", "SD-MH-48")
+  - Pressure mode: WATER/GAS/ELECTRIC/FIRE/W/G/E/F patterns (e.g., "W-VALVE-6")
+  - BMP mode: BIORETENTION/SWALE/BASIN patterns
+  - Block name classification for structure prefixes (SD-MH, SS-MH, W-VALVE, etc.)
+- **Intelligent Object Creator:** Auto-creates and assigns networks
+  - Sets utility_mode on utility_lines and utility_structures from classification
+  - Creates dxf_entity_links with geometry hash SHA-256 for change tracking
+  - Auto-creates pipe_networks per (project_id, utility_system, network_mode)
+  - Auto-assigns pipes/structures to networks via utility_network_memberships
+- **Backend API:** 6 Flask endpoints for network editing
+  - GET /api/pipe-networks: List all networks with filters for project_id and mode
+  - GET /api/pipe-networks/<id>: Get network details
+  - GET /api/pipe-networks/<id>/pipes: Get all pipes with from/to structure info
+  - GET /api/pipe-networks/<id>/structures: Get all structures
+  - PUT /api/pipe-networks/<id>/pipes/<pipe_id>: Update pipe attributes (preserves geometry)
+  - PUT /api/pipe-networks/<id>/structures/<structure_id>: Update structure attributes
+- **Frontend UI:** Gravity Network Editor web interface
+  - Network selector dropdown filtered to gravity mode
+  - Editable tables for structures (rim/invert elevations, sizes, condition)
+  - Editable tables for pipes (diameters, materials, inverts, slopes)
+  - Static SVG diagram placeholder (bounded to network extents)
+  - Save button to persist changes via API
+  - Mission Control theme styling with status messages
+- **Navigation:** Added "Gravity Network Editor" link to sidebar under CAD Tools
+- **Status:** Core UI and API working. **CRITICAL GAP:** DXF re-import bidirectional sync (task 4) not yet implemented - user-edited attributes will be lost on re-import until importer checks dxf_entity_links, compares geometry hashes, and preserves data. Next: Complete task 4 to enable true persistence workflow.

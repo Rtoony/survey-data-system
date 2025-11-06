@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+
+{% block title %}Gravity Pipe Network Editor{% endblock %}
+
+{% block content %}
+<div class="content">
+    <div class="page-header">
+        <div class="page-header-content">
+            <i class="fas fa-water neon-blue"></i>
+            <div>
+                <h2 class="orbitron">Gravity Pipe Network Editor</h2>
+                <p>Edit gravity networks (Storm and Sanitary) with preserved geometry</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="network-editor-container">
+        <div class="editor-controls">
+            <label for="networkSelect">Select Network:</label>
+            <select id="networkSelect" onchange="loadNetwork()">
+                <option value="">Loading networks...</option>
+            </select>
+            <button class="btn-primary" onclick="saveChanges()" id="saveBtn" disabled>
+                <i class="fas fa-save"></i> Save Changes
+            </button>
+            <span id="statusMessage" class="status-message"></span>
+        </div>
+
+        <div class="network-details" id="networkDetails" style="display:none;">
+            <div class="details-card">
+                <h3 id="networkName">Network Name</h3>
+                <p id="networkInfo"></p>
+            </div>
+        </div>
+
+        <div class="editor-workspace" id="workspace" style="display:none;">
+            <div class="diagram-container">
+                <h3>Network Diagram</h3>
+                <div id="networkDiagram" class="network-diagram">
+                    <svg id="diagramSvg" width="100%" height="500"></svg>
+                </div>
+            </div>
+
+            <div class="tables-container">
+                <div class="table-section">
+                    <h3>Structures</h3>
+                    <div class="table-wrapper">
+                        <table id="structuresTable" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Structure #</th>
+                                    <th>Type</th>
+                                    <th>Rim Elev (ft)</th>
+                                    <th>Invert Elev (ft)</th>
+                                    <th>Depth (ft)</th>
+                                    <th>Size (in)</th>
+                                    <th>Condition</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="7">No structures found</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="table-section">
+                    <h3>Pipes</h3>
+                    <div class="table-wrapper">
+                        <table id="pipesTable" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Pipe #</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Diameter (mm)</th>
+                                    <th>Material</th>
+                                    <th>Invert Start</th>
+                                    <th>Invert End</th>
+                                    <th>Slope</th>
+                                    <th>Length</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="9">No pipes found</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.network-editor-container {
+    padding: 20px;
+}
+
+.editor-controls {
+    background: rgba(0, 20, 40, 0.6);
+    border: 1px solid var(--neon-blue);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.editor-controls label {
+    color: var(--neon-cyan);
+    font-weight: bold;
+}
+
+.editor-controls select {
+    flex: 1;
+    max-width: 400px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--neon-blue);
+    color: var(--text-primary);
+    border-radius: 4px;
+}
+
+.details-card {
+    background: rgba(0, 20, 40, 0.6);
+    border: 1px solid var(--neon-cyan);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.details-card h3 {
+    color: var(--neon-cyan);
+    margin: 0 0 10px 0;
+}
+
+.editor-workspace {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 20px;
+}
+
+.diagram-container {
+    background: rgba(0, 20, 40, 0.6);
+    border: 1px solid var(--neon-blue);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.network-diagram {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--neon-cyan);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.tables-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.table-section {
+    background: rgba(0, 20, 40, 0.6);
+    border: 1px solid var(--neon-blue);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.table-section h3 {
+    color: var(--neon-cyan);
+    margin: 0 0 15px 0;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th {
+    background: rgba(0, 255, 255, 0.1);
+    color: var(--neon-cyan);
+    padding: 10px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+}
+
+.data-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+    color: var(--text-primary);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 255, 255, 0.05);
+}
+
+.data-table input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--neon-blue);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    border-radius: 3px;
+}
+
+.data-table input:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--neon-cyan), var(--neon-blue));
+    color: #000;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.status-message {
+    color: var(--neon-green);
+    font-weight: bold;
+}
+
+.status-message.error {
+    color: #ff6b6b;
+}
+</style>
+
+<script>
+let currentNetwork = null;
+let structuresData = [];
+let pipesData = [];
+let changedData = { structures: {}, pipes: {} };
+
+async function loadNetworks() {
+    try {
+        const response = await fetch('/api/pipe-networks?mode=gravity');
+        const data = await response.json();
+        
+        const select = document.getElementById('networkSelect');
+        select.innerHTML = '<option value="">Select a network...</option>';
+        
+        if (data.networks && data.networks.length > 0) {
+            data.networks.forEach(network => {
+                const option = document.createElement('option');
+                option.value = network.network_id;
+                option.textContent = `${network.network_name} (${network.line_count} pipes, ${network.structure_count} structures)`;
+                select.appendChild(option);
+            });
+        } else {
+            select.innerHTML = '<option value="">No gravity networks found - import a DXF first</option>';
+        }
+    } catch (error) {
+        console.error('Error loading networks:', error);
+        showStatus('Error loading networks', true);
+    }
+}
+
+async function loadNetwork() {
+    const networkId = document.getElementById('networkSelect').value;
+    if (!networkId) {
+        document.getElementById('workspace').style.display = 'none';
+        document.getElementById('networkDetails').style.display = 'none';
+        return;
+    }
+    
+    try {
+        const [networkRes, pipesRes, structsRes] = await Promise.all([
+            fetch(`/api/pipe-networks/${networkId}`),
+            fetch(`/api/pipe-networks/${networkId}/pipes`),
+            fetch(`/api/pipe-networks/${networkId}/structures`)
+        ]);
+        
+        currentNetwork = (await networkRes.json()).network;
+        pipesData = (await pipesRes.json()).pipes || [];
+        structuresData = (await structsRes.json()).structures || [];
+        
+        changedData = { structures: {}, pipes: {} };
+        
+        displayNetworkInfo();
+        displayStructures();
+        displayPipes();
+        renderDiagram();
+        
+        document.getElementById('workspace').style.display = 'grid';
+        document.getElementById('networkDetails').style.display = 'block';
+        document.getElementById('saveBtn').disabled = false;
+    } catch (error) {
+        console.error('Error loading network:', error);
+        showStatus('Error loading network data', true);
+    }
+}
+
+function displayNetworkInfo() {
+    document.getElementById('networkName').textContent = currentNetwork.network_name;
+    document.getElementById('networkInfo').textContent = 
+        `Project: ${currentNetwork.project_name} | System: ${currentNetwork.utility_system} | Status: ${currentNetwork.network_status}`;
+}
+
+function displayStructures() {
+    const tbody = document.querySelector('#structuresTable tbody');
+    
+    if (structuresData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7">No structures found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = structuresData.map(struct => `
+        <tr>
+            <td><input type="text" value="${struct.structure_number || ''}" onchange="updateStructure('${struct.structure_id}', 'structure_number', this.value)"></td>
+            <td>${struct.structure_type || ''}</td>
+            <td><input type="number" step="0.01" value="${struct.rim_elevation || ''}" onchange="updateStructure('${struct.structure_id}', 'rim_elevation', this.value)"></td>
+            <td><input type="number" step="0.01" value="${struct.invert_elevation || ''}" onchange="updateStructure('${struct.structure_id}', 'invert_elevation', this.value)"></td>
+            <td>${struct.manhole_depth_ft || ''}</td>
+            <td><input type="number" value="${struct.size_mm ? Math.round(struct.size_mm / 25.4) : ''}" onchange="updateStructure('${struct.structure_id}', 'size_mm', this.value * 25.4)"></td>
+            <td><input type="text" value="${struct.condition || ''}" onchange="updateStructure('${struct.structure_id}', 'condition', this.value)"></td>
+        </tr>
+    `).join('');
+}
+
+function displayPipes() {
+    const tbody = document.querySelector('#pipesTable tbody');
+    
+    if (pipesData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9">No pipes found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = pipesData.map(pipe => `
+        <tr>
+            <td><input type="text" value="${pipe.line_number || ''}" onchange="updatePipe('${pipe.line_id}', 'line_number', this.value)"></td>
+            <td>${pipe.from_structure_number || 'N/A'}</td>
+            <td>${pipe.to_structure_number || 'N/A'}</td>
+            <td><input type="number" value="${pipe.diameter_mm || ''}" onchange="updatePipe('${pipe.line_id}', 'diameter_mm', this.value)"></td>
+            <td><input type="text" value="${pipe.material || ''}" onchange="updatePipe('${pipe.line_id}', 'material', this.value)"></td>
+            <td><input type="number" step="0.01" value="${pipe.invert_elevation_start || ''}" onchange="updatePipe('${pipe.line_id}', 'invert_elevation_start', this.value)"></td>
+            <td><input type="number" step="0.01" value="${pipe.invert_elevation_end || ''}" onchange="updatePipe('${pipe.line_id}', 'invert_elevation_end', this.value)"></td>
+            <td>${pipe.slope || ''}</td>
+            <td>${pipe.length ? pipe.length.toFixed(1) : ''}</td>
+        </tr>
+    `).join('');
+}
+
+function updateStructure(structureId, field, value) {
+    if (!changedData.structures[structureId]) {
+        changedData.structures[structureId] = {};
+    }
+    changedData.structures[structureId][field] = value;
+    showStatus('Changes pending - click Save to apply', false);
+}
+
+function updatePipe(pipeId, field, value) {
+    if (!changedData.pipes[pipeId]) {
+        changedData.pipes[pipeId] = {};
+    }
+    changedData.pipes[pipeId][field] = value;
+    showStatus('Changes pending - click Save to apply', false);
+}
+
+async function saveChanges() {
+    let savedCount = 0;
+    const networkId = currentNetwork.network_id;
+    
+    try {
+        for (const [structId, changes] of Object.entries(changedData.structures)) {
+            await fetch(`/api/pipe-networks/${networkId}/structures/${structId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(changes)
+            });
+            savedCount++;
+        }
+        
+        for (const [pipeId, changes] of Object.entries(changedData.pipes)) {
+            await fetch(`/api/pipe-networks/${networkId}/pipes/${pipeId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(changes)
+            });
+            savedCount++;
+        }
+        
+        changedData = { structures: {}, pipes: {} };
+        showStatus(`Saved ${savedCount} changes successfully`, false);
+        await loadNetwork();
+    } catch (error) {
+        console.error('Error saving changes:', error);
+        showStatus('Error saving changes', true);
+    }
+}
+
+function renderDiagram() {
+    const svg = document.getElementById('diagramSvg');
+    const width = svg.clientWidth;
+    const height = 500;
+    
+    svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#00ffff" font-size="16">Network diagram rendering will be added in the next phase</text>';
+}
+
+function showStatus(message, isError) {
+    const statusEl = document.getElementById('statusMessage');
+    statusEl.textContent = message;
+    statusEl.className = 'status-message' + (isError ? ' error' : '');
+    setTimeout(() => statusEl.textContent = '', 3000);
+}
+
+loadNetworks();
+</script>
+
+{% endblock %}

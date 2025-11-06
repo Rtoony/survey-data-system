@@ -1749,6 +1749,238 @@ def export_details_csv():
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================
+# PIPE NETWORK EDITOR API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/pipe-networks')
+def get_pipe_networks():
+    """Get list of all pipe networks, optionally filtered by project or mode"""
+    try:
+        project_id = request.args.get('project_id')
+        network_mode = request.args.get('mode')
+        
+        query = """
+            SELECT 
+                pn.network_id,
+                pn.project_id,
+                pn.network_name,
+                pn.utility_system,
+                pn.network_mode,
+                pn.network_status,
+                pn.description,
+                p.project_name,
+                COUNT(DISTINCT unm_lines.line_id) as line_count,
+                COUNT(DISTINCT unm_struct.structure_id) as structure_count
+            FROM pipe_networks pn
+            LEFT JOIN projects p ON pn.project_id = p.project_id
+            LEFT JOIN utility_network_memberships unm_lines ON pn.network_id = unm_lines.network_id AND unm_lines.line_id IS NOT NULL
+            LEFT JOIN utility_network_memberships unm_struct ON pn.network_id = unm_struct.network_id AND unm_struct.structure_id IS NOT NULL
+            WHERE 1=1
+        """
+        params = []
+        
+        if project_id:
+            query += " AND pn.project_id = %s"
+            params.append(project_id)
+        
+        if network_mode:
+            query += " AND pn.network_mode = %s"
+            params.append(network_mode)
+        
+        query += """
+            GROUP BY pn.network_id, pn.project_id, pn.network_name, pn.utility_system, 
+                     pn.network_mode, pn.network_status, pn.description, p.project_name
+            ORDER BY pn.created_at DESC
+        """
+        
+        networks = execute_query(query, tuple(params) if params else None)
+        return jsonify({'networks': networks})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pipe-networks/<network_id>')
+def get_network_details(network_id):
+    """Get detailed information about a specific pipe network"""
+    try:
+        query = """
+            SELECT 
+                pn.network_id,
+                pn.project_id,
+                pn.network_name,
+                pn.utility_system,
+                pn.network_mode,
+                pn.network_status,
+                pn.description,
+                pn.attributes,
+                p.project_name,
+                p.client_name
+            FROM pipe_networks pn
+            LEFT JOIN projects p ON pn.project_id = p.project_id
+            WHERE pn.network_id = %s
+        """
+        network = execute_query(query, (network_id,))
+        
+        if not network or len(network) == 0:
+            return jsonify({'error': 'Network not found'}), 404
+        
+        return jsonify({'network': network[0]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pipe-networks/<network_id>/pipes')
+def get_network_pipes(network_id):
+    """Get all pipes in a network with from/to structure information"""
+    try:
+        query = """
+            SELECT 
+                ul.line_id,
+                ul.line_number,
+                ul.utility_system,
+                ul.material,
+                ul.diameter_mm,
+                ul.invert_elevation_start,
+                ul.invert_elevation_end,
+                ul.slope,
+                ul.length,
+                ul.from_structure_id,
+                ul.to_structure_id,
+                from_struct.structure_number as from_structure_number,
+                from_struct.structure_type as from_structure_type,
+                to_struct.structure_number as to_structure_number,
+                to_struct.structure_type as to_structure_type,
+                ST_AsGeoJSON(ul.geometry) as geometry,
+                ul.attributes
+            FROM utility_network_memberships unm
+            JOIN utility_lines ul ON unm.line_id = ul.line_id
+            LEFT JOIN utility_structures from_struct ON ul.from_structure_id = from_struct.structure_id
+            LEFT JOIN utility_structures to_struct ON ul.to_structure_id = to_struct.structure_id
+            WHERE unm.network_id = %s
+            ORDER BY ul.line_number, ul.created_at
+        """
+        pipes = execute_query(query, (network_id,))
+        return jsonify({'pipes': pipes})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pipe-networks/<network_id>/structures')
+def get_network_structures(network_id):
+    """Get all structures in a network"""
+    try:
+        query = """
+            SELECT 
+                us.structure_id,
+                us.structure_number,
+                us.structure_type,
+                us.utility_system,
+                us.rim_elevation,
+                us.invert_elevation,
+                us.size_mm,
+                us.material,
+                us.manhole_depth_ft,
+                us.condition,
+                ST_AsGeoJSON(us.rim_geometry) as geometry,
+                us.attributes
+            FROM utility_network_memberships unm
+            JOIN utility_structures us ON unm.structure_id = us.structure_id
+            WHERE unm.network_id = %s
+            ORDER BY us.structure_number, us.created_at
+        """
+        structures = execute_query(query, (network_id,))
+        return jsonify({'structures': structures})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pipe-networks/<network_id>/pipes/<pipe_id>', methods=['PUT'])
+def update_network_pipe(network_id, pipe_id):
+    """Update pipe attributes (preserves geometry)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+        
+        allowed_fields = [
+            'line_number', 'material', 'diameter_mm', 
+            'invert_elevation_start', 'invert_elevation_end', 
+            'slope', 'from_structure_id', 'to_structure_id', 'notes'
+        ]
+        
+        updates = []
+        params = []
+        for field in allowed_fields:
+            if field in data:
+                updates.append(f"{field} = %s")
+                params.append(data[field])
+        
+        if not updates:
+            return jsonify({'error': 'No valid fields to update'}), 400
+        
+        params.append(pipe_id)
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                query = f"""
+                    UPDATE utility_lines 
+                    SET {', '.join(updates)}, updated_at = CURRENT_TIMESTAMP
+                    WHERE line_id = %s
+                    RETURNING line_id
+                """
+                cur.execute(query, tuple(params))
+                result = cur.fetchone()
+                conn.commit()
+                
+                if not result:
+                    return jsonify({'error': 'Pipe not found'}), 404
+                
+                return jsonify({'success': True, 'line_id': str(result[0])})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pipe-networks/<network_id>/structures/<structure_id>', methods=['PUT'])
+def update_network_structure(network_id, structure_id):
+    """Update structure attributes (preserves geometry)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+        
+        allowed_fields = [
+            'structure_number', 'structure_type', 'rim_elevation', 
+            'invert_elevation', 'size_mm', 'material', 
+            'manhole_depth_ft', 'condition', 'notes'
+        ]
+        
+        updates = []
+        params = []
+        for field in allowed_fields:
+            if field in data:
+                updates.append(f"{field} = %s")
+                params.append(data[field])
+        
+        if not updates:
+            return jsonify({'error': 'No valid fields to update'}), 400
+        
+        params.append(structure_id)
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                query = f"""
+                    UPDATE utility_structures 
+                    SET {', '.join(updates)}, updated_at = CURRENT_TIMESTAMP
+                    WHERE structure_id = %s
+                    RETURNING structure_id
+                """
+                cur.execute(query, tuple(params))
+                result = cur.fetchone()
+                conn.commit()
+                
+                if not result:
+                    return jsonify({'error': 'Structure not found'}), 404
+                
+                return jsonify({'success': True, 'structure_id': str(result[0])})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
 # SCHEMA RELATIONSHIPS ROUTES
 # ============================================================================
 
@@ -1861,6 +2093,15 @@ def get_schema_relationships():
 def sheet_notes_page():
     """Sheet Note Manager page"""
     return render_template('sheet_notes.html')
+
+# ============================================
+# GRAVITY PIPE NETWORK EDITOR
+# ============================================
+
+@app.route('/gravity-network-editor')
+def gravity_network_editor():
+    """Gravity Pipe Network Editor page"""
+    return render_template('gravity_network_editor.html')
 
 # ============================================
 # DXF IMPORT/EXPORT

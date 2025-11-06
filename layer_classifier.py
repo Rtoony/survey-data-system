@@ -14,6 +14,7 @@ class LayerClassification:
     object_type: str
     properties: Dict
     confidence: float
+    network_mode: Optional[str] = None
 
 
 class LayerClassifier:
@@ -132,10 +133,13 @@ class LayerClassifier:
                     properties['utility_type'], properties['utility_type']
                 )
                 
+                network_mode = self._determine_network_mode(properties['utility_type'])
+                
                 return LayerClassification(
                     object_type='utility_line',
                     properties=properties,
-                    confidence=0.9
+                    confidence=0.9,
+                    network_mode=network_mode
                 )
         return None
     
@@ -167,6 +171,7 @@ class LayerClassifier:
                     groups[0]
                 )
                 
+                network_mode = None
                 if len(groups) > 1 and groups[1]:
                     utility_map = {
                         'STORM': 'Storm',
@@ -175,11 +180,13 @@ class LayerClassifier:
                         'WATER': 'Water'
                     }
                     properties['utility_type'] = utility_map.get(groups[1].upper(), groups[1])
+                    network_mode = self._determine_network_mode(properties['utility_type'])
                 
                 return LayerClassification(
                     object_type='utility_structure',
                     properties=properties,
-                    confidence=0.85
+                    confidence=0.85,
+                    network_mode=network_mode
                 )
         return None
     
@@ -217,7 +224,8 @@ class LayerClassifier:
                 return LayerClassification(
                     object_type='bmp',
                     properties=properties,
-                    confidence=0.9
+                    confidence=0.9,
+                    network_mode='bmp'
                 )
         return None
     
@@ -359,4 +367,78 @@ class LayerClassifier:
                     properties=properties,
                     confidence=0.75
                 )
+        return None
+    
+    def _determine_network_mode(self, utility_type: str) -> Optional[str]:
+        """
+        Determine network mode based on utility type.
+        
+        Returns:
+            'gravity' for Storm and Sanitary systems
+            'pressure' for Water, Gas, Electric systems
+            None for unknown
+        """
+        gravity_types = ['Storm', 'Sanitary']
+        pressure_types = ['Water', 'Gas', 'Electric', 'Fire']
+        
+        if utility_type in gravity_types:
+            return 'gravity'
+        elif utility_type in pressure_types:
+            return 'pressure'
+        return None
+    
+    def classify_block_name(self, block_name: str) -> Optional[LayerClassification]:
+        """
+        Classify block names to identify structure types and network modes.
+        
+        Examples:
+            'SD-MH-48' -> Storm Drain Manhole (gravity)
+            'SS-MH-60' -> Sanitary Sewer Manhole (gravity)
+            'W-VALVE-6' -> Water Valve (pressure)
+            'SD-CB-TYPE-C' -> Storm Catch Basin (gravity)
+        """
+        if not block_name:
+            return None
+        
+        block_upper = block_name.upper().strip()
+        
+        structure_prefixes = {
+            'SD': ('Storm', 'gravity'),
+            'SS': ('Sanitary', 'gravity'),
+            'W': ('Water', 'pressure'),
+            'G': ('Gas', 'pressure'),
+            'E': ('Electric', 'pressure'),
+            'F': ('Fire', 'pressure'),
+        }
+        
+        for prefix, (utility_type, network_mode) in structure_prefixes.items():
+            if block_upper.startswith(f'{prefix}-'):
+                properties = {'utility_type': utility_type}
+                
+                if 'MH' in block_upper or 'MANHOLE' in block_upper:
+                    properties['structure_type'] = 'Manhole'
+                elif 'CB' in block_upper or 'CATCH' in block_upper:
+                    properties['structure_type'] = 'Catch Basin'
+                elif 'INLET' in block_upper:
+                    properties['structure_type'] = 'Inlet'
+                elif 'VALVE' in block_upper:
+                    properties['structure_type'] = 'Valve'
+                elif 'HYDRANT' in block_upper:
+                    properties['structure_type'] = 'Fire Hydrant'
+                elif 'CLEANOUT' in block_upper or 'CO' in block_upper:
+                    properties['structure_type'] = 'Cleanout'
+                else:
+                    properties['structure_type'] = 'Unknown'
+                
+                size_match = re.search(r'-(\d+)', block_upper)
+                if size_match:
+                    properties['size_mm'] = int(float(size_match.group(1)) * 25.4)
+                
+                return LayerClassification(
+                    object_type='utility_structure',
+                    properties=properties,
+                    confidence=0.95,
+                    network_mode=network_mode
+                )
+        
         return None

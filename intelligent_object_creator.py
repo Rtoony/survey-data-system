@@ -102,17 +102,19 @@ class IntelligentObjectCreator:
         
         utility_type = props.get('utility_type', 'Unknown')
         diameter = props.get('diameter_inches')
+        network_mode = classification.network_mode
         
         cur.execute("""
             INSERT INTO utility_lines (
-                project_id, utility_type, pipe_material, diameter_mm,
+                project_id, utility_system, utility_mode, material, diameter_mm,
                 geometry, attributes
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s::utility_mode_enum, %s, %s, %s, %s)
             RETURNING line_id
         """, (
             project_id,
             utility_type,
+            network_mode,
             'Unknown',
             int(diameter * 25.4) if diameter else None,
             entity_data.get('geometry_wkt'),
@@ -120,10 +122,17 @@ class IntelligentObjectCreator:
         ))
         
         result = cur.fetchone()
+        line_id = str(result[0]) if result else None
+        
+        if line_id and network_mode:
+            network_id = self._get_or_create_network(project_id, utility_type, network_mode, cur)
+            if network_id:
+                self._add_to_network(network_id, line_id=line_id, cur=cur)
+        
         cur.close()
         
-        if result:
-            return ('utility_line', str(result[0]), 'utility_lines')
+        if line_id:
+            return ('utility_line', line_id, 'utility_lines')
         return None
     
     def _create_utility_structure(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
@@ -139,27 +148,36 @@ class IntelligentObjectCreator:
         
         structure_type = props.get('structure_type', 'Unknown')
         utility_type = props.get('utility_type', 'Unknown')
+        network_mode = classification.network_mode
         
         cur.execute("""
             INSERT INTO utility_structures (
-                project_id, structure_type, utility_type,
-                geometry, attributes
+                project_id, structure_type, utility_system, utility_mode,
+                rim_geometry, attributes
             )
-            VALUES (%s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s::utility_mode_enum, %s, %s)
             RETURNING structure_id
         """, (
             project_id,
             structure_type,
             utility_type,
+            network_mode,
             entity_data.get('geometry_wkt'),
             json.dumps({'source': 'dxf_import', 'layer_name': entity_data.get('layer_name')})
         ))
         
         result = cur.fetchone()
+        structure_id = str(result[0]) if result else None
+        
+        if structure_id and network_mode:
+            network_id = self._get_or_create_network(project_id, utility_type, network_mode, cur)
+            if network_id:
+                self._add_to_network(network_id, structure_id=structure_id, cur=cur)
+        
         cur.close()
         
-        if result:
-            return ('utility_structure', str(result[0]), 'utility_structures')
+        if structure_id:
+            return ('utility_structure', structure_id, 'utility_structures')
         return None
     
     def _create_bmp(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
@@ -359,24 +377,66 @@ class IntelligentObjectCreator:
         
         geometry_hash = hashlib.sha256(geometry_wkt.encode()).hexdigest() if geometry_wkt else None
         
+        cur.execute("SELECT project_id FROM drawings WHERE drawing_id = %s", (drawing_id,))
+        result = cur.fetchone()
+        project_id = str(result[0]) if result else None
+        
         cur.execute("""
             INSERT INTO dxf_entity_links (
-                drawing_id, dxf_handle, entity_type, layer_name, geometry_hash,
-                object_type, object_id, object_table_name
+                drawing_id, project_id, dxf_handle, entity_type, layer_name, 
+                entity_geom_hash, object_table_name, object_id, sync_state
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'active')
             ON CONFLICT (drawing_id, dxf_handle) DO UPDATE SET
-                object_type = EXCLUDED.object_type,
-                object_id = EXCLUDED.object_id,
                 object_table_name = EXCLUDED.object_table_name,
-                geometry_hash = EXCLUDED.geometry_hash,
+                object_id = EXCLUDED.object_id,
+                entity_geom_hash = EXCLUDED.entity_geom_hash,
+                sync_state = 'active',
+                last_seen_at = CURRENT_TIMESTAMP,
                 updated_at = CURRENT_TIMESTAMP
         """, (
-            drawing_id, dxf_handle, entity_type, layer_name, geometry_hash,
-            object_type, object_id, table_name
+            drawing_id, project_id, dxf_handle, entity_type, layer_name,
+            geometry_hash, table_name, object_id
         ))
         
         cur.close()
+    
+    def _get_or_create_network(self, project_id: str, utility_system: str, network_mode: str, cur) -> Optional[str]:
+        """Get existing network or create a new one for this project/utility/mode combination."""
+        network_name = f"{utility_system} {network_mode.capitalize()} Network"
+        
+        cur.execute("""
+            SELECT network_id FROM pipe_networks
+            WHERE project_id = %s AND utility_system = %s AND network_mode = %s::utility_mode_enum
+        """, (project_id, utility_system, network_mode))
+        
+        result = cur.fetchone()
+        if result:
+            return str(result[0])
+        
+        cur.execute("""
+            INSERT INTO pipe_networks (
+                project_id, network_name, utility_system, network_mode, network_status
+            )
+            VALUES (%s, %s, %s, %s::utility_mode_enum, 'active')
+            RETURNING network_id
+        """, (project_id, network_name, utility_system, network_mode))
+        
+        result = cur.fetchone()
+        return str(result[0]) if result else None
+    
+    def _add_to_network(self, network_id: str, line_id: Optional[str] = None, structure_id: Optional[str] = None, cur=None):
+        """Add a pipe or structure to a network."""
+        if not cur:
+            return
+        
+        cur.execute("""
+            INSERT INTO utility_network_memberships (
+                network_id, line_id, structure_id
+            )
+            VALUES (%s, %s, %s)
+            ON CONFLICT DO NOTHING
+        """, (network_id, line_id, structure_id))
     
     def __del__(self):
         """Clean up connection if we created it."""
