@@ -148,8 +148,8 @@ class DXFLookupService:
             # Check if linetype exists in standards
             cur.execute("""
                 SELECT linetype_id
-                FROM linetype_standards
-                WHERE linetype_name = %s
+                FROM linetypes
+                WHERE linetype_name = %s AND is_active = true
                 LIMIT 1
             """, (linetype_name,))
             
