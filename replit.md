@@ -144,3 +144,22 @@ Preferred communication style: Simple, everyday language.
   - Mission Control theme styling with status messages
 - **Navigation:** Added "Gravity Network Editor" link to sidebar under CAD Tools
 - **Status:** Core UI and API working. **CRITICAL GAP:** DXF re-import bidirectional sync (task 4) not yet implemented - user-edited attributes will be lost on re-import until importer checks dxf_entity_links, compares geometry hashes, and preserves data. Next: Complete task 4 to enable true persistence workflow.
+
+**November 6, 2025 - Bug Fixes: DXF Import and Layer Classification:**
+- **Case-Sensitivity Fix in IntelligentObjectCreator:** Fixed geometry type matching bug
+  - Problem: DXF importer passed "LineString" (PostGIS format) but code checked for "LINESTRING"
+  - Result: No intelligent objects created from imported DXF entities
+  - Fix: Added `.upper()` normalization in _create_utility_line, _create_utility_structure, _create_bmp
+  - Impact: DXF imports now correctly create utility lines and structures
+- **Layer Naming Convention Support:** Added SD/SS/W/G/E/F prefix patterns
+  - User's convention: "SD-12IN-PIPE", "SS-MH-48", "W-6IN-WATER"
+  - Added pattern: `(SD|SS|W|G|E|F)[-_](\d+)(?:IN|INCH)?[-_]?(PIPE|LINE)`
+  - Prefix mapping: SD→Storm, SS→Sanitary, W→Water, G→Gas, E→Electric, F→Fire
+  - Updated _classify_utility_line to parse prefix patterns and extract diameter
+- **Retroactive Processing:** Created utility to convert existing imports
+  - Script: retroactive_network_creation.py
+  - Processes drawing_entities that weren't converted due to bugs
+  - Successfully created 16 utility_lines from "SD-12IN-PIPE" layer
+  - Auto-created "Storm Gravity Network" with all pipes assigned
+- **Result:** Gravity Network Editor now functional with user's first DXF import
+- **Future Work:** Extend patterns (N-, RW-, P-), add geometry normalization to other object types, create unit tests
