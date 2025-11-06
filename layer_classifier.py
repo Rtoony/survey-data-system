@@ -30,6 +30,7 @@ class LayerClassifier:
     
     def __init__(self):
         self.utility_patterns = [
+            (r'(SD|SS|W|G|E|F)[-_](\d+)(?:IN|INCH)?[-_]?(PIPE|LINE)', 'utility_line'),
             (r'(\d+)(?:IN|INCH)?[-_]?(STORM|SEWER|SANITARY|WATER|GAS|ELECTRIC)', 'utility_line'),
             (r'(STORM|SEWER|SANITARY|WATER|GAS|ELECTRIC)[-_]?(\d+)(?:IN|INCH)?', 'utility_line'),
             (r'(PIPE|LINE)[-_]?(STORM|SEWER|SANITARY|WATER)', 'utility_line'),
@@ -107,13 +108,27 @@ class LayerClassifier:
     
     def _classify_utility_line(self, layer_name: str) -> Optional[LayerClassification]:
         """Classify utility line layers and extract diameter and type."""
+        prefix_map = {
+            'sd': 'storm',
+            'ss': 'sanitary',
+            'w': 'water',
+            'g': 'gas',
+            'e': 'electric',
+            'f': 'fire'
+        }
+        
         for pattern, obj_type in self.utility_patterns:
             match = re.search(pattern, layer_name, re.IGNORECASE)
             if match:
                 groups = match.groups()
                 properties = {}
                 
-                if groups[0].isdigit():
+                first_group = groups[0].lower()
+                if first_group in prefix_map:
+                    properties['utility_type'] = prefix_map[first_group]
+                    if len(groups) > 1 and groups[1].isdigit():
+                        properties['diameter_inches'] = int(groups[1])
+                elif groups[0].isdigit():
                     properties['diameter_inches'] = int(groups[0])
                     properties['utility_type'] = groups[1].lower()
                 else:
@@ -127,7 +142,8 @@ class LayerClassifier:
                     'sanitary': 'Sanitary',
                     'water': 'Water',
                     'gas': 'Gas',
-                    'electric': 'Electric'
+                    'electric': 'Electric',
+                    'fire': 'Fire'
                 }
                 properties['utility_type'] = utility_type_map.get(
                     properties['utility_type'], properties['utility_type']

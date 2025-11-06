@@ -91,7 +91,8 @@ class IntelligentObjectCreator:
     
     def _create_utility_line(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
         """Create utility_lines record."""
-        if entity_data.get('geometry_type') not in ['LINESTRING', 'LINESTRING Z']:
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        if geometry_type not in ['LINESTRING', 'LINESTRING Z']:
             return None
         
         if not self.conn:
@@ -137,7 +138,8 @@ class IntelligentObjectCreator:
     
     def _create_utility_structure(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
         """Create utility_structures record."""
-        if entity_data.get('geometry_type') not in ['POINT', 'POINT Z']:
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        if geometry_type not in ['POINT', 'POINT Z']:
             return None
         
         if not self.conn:
@@ -194,7 +196,8 @@ class IntelligentObjectCreator:
         geometry_wkt = entity_data.get('geometry_wkt')
         area_sqft = None
         
-        if entity_data.get('geometry_type') in ['POLYGON', 'POLYGON Z']:
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        if geometry_type in ['POLYGON', 'POLYGON Z']:
             cur.execute("SELECT ST_Area(ST_GeomFromText(%s, 0))", (geometry_wkt,))
             area_result = cur.fetchone()
             if area_result:
