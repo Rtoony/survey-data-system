@@ -36,7 +36,7 @@ def get_or_create_storm_network(conn, project_id):
     
     cur.execute("""
         SELECT network_id FROM pipe_networks 
-        WHERE project_id = %s AND utility_system = 'Storm' AND utility_mode = 'gravity'
+        WHERE project_id = %s AND utility_system = 'Storm' AND network_mode = 'gravity'
         LIMIT 1
     """, (project_id,))
     
@@ -47,7 +47,7 @@ def get_or_create_storm_network(conn, project_id):
         return network_id
     
     cur.execute("""
-        INSERT INTO pipe_networks (project_id, network_name, utility_system, utility_mode)
+        INSERT INTO pipe_networks (project_id, network_name, utility_system, network_mode)
         VALUES (%s, 'Storm Gravity Network', 'Storm', 'gravity')
         RETURNING network_id
     """, (project_id,))
@@ -90,7 +90,7 @@ def create_structure_from_block(conn, block_insert, layer_name, project_id, clas
                 'source': 'block_insert_retroactive',
                 'layer_name': layer_name,
                 'block_name': block_insert['block_name'],
-                'block_insert_id': block_insert['block_insert_id']
+                'insert_id': str(block_insert['insert_id'])
             })
         ))
         
@@ -119,8 +119,8 @@ def assign_structure_to_network(conn, network_id, structure_id):
     
     try:
         cur.execute("""
-            INSERT INTO network_structures (network_id, structure_id)
-            VALUES (%s, %s)
+            INSERT INTO utility_network_memberships (network_id, structure_id, member_role)
+            VALUES (%s, %s, 'structure')
             ON CONFLICT DO NOTHING
         """, (network_id, structure_id))
         
@@ -155,7 +155,7 @@ def main():
     
     cur.execute("""
         SELECT 
-            bi.block_insert_id,
+            bi.insert_id,
             bi.block_name,
             l.layer_name,
             ST_AsText(bi.insertion_point) as insertion_point_wkt,
