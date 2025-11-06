@@ -4284,16 +4284,66 @@ def create_multi_format_export():
         
         print(f"Found {len(layers)} layers in database")
         
-        # Fetch all layer data
+        # PRIORITY 1: Fetch drawing entities from database (automatic, ALL layers)
+        print("Fetching drawing entities from database...")
         all_layers_data = {}
         feature_counts = {}
         
+        # Transform bbox to EPSG:2226 for PostGIS query
+        min_x_2226, min_y_2226 = transformer.transform(minx, miny)
+        max_x_2226, max_y_2226 = transformer.transform(maxx, maxy)
+        bbox_2226 = (min_x_2226, min_y_2226, max_x_2226, max_y_2226)
+        
+        # Use MapExportService with database connection
+        from map_export_service import MapExportService
+        with get_db() as conn:
+            export_service = MapExportService(db_conn=conn)
+            drawing_layers = export_service.fetch_drawing_entities_by_layer(bbox_2226)
+            
+            if drawing_layers:
+                print(f"Found {len(drawing_layers)} DXF-imported layers")
+                for layer_name, features in drawing_layers.items():
+                    # Features are already in EPSG:2226, need to transform to WGS84 for consistency
+                    features_wgs84 = []
+                    back_transformer = Transformer.from_crs("EPSG:2226", "EPSG:4326", always_xy=True)
+                    
+                    for feature in features:
+                        try:
+                            geom_2226 = shape(feature['geometry'])
+                            
+                            # Transform to WGS84
+                            if geom_2226.geom_type == 'LineString':
+                                coords_wgs84 = [back_transformer.transform(x, y) for x, y in geom_2226.coords]
+                                geom_wgs84 = geom_lib.LineString(coords_wgs84)
+                            elif geom_2226.geom_type == 'Polygon':
+                                exterior_wgs84 = [back_transformer.transform(x, y) for x, y in geom_2226.exterior.coords]
+                                geom_wgs84 = geom_lib.Polygon(exterior_wgs84)
+                            elif geom_2226.geom_type == 'Point':
+                                x, y = back_transformer.transform(geom_2226.x, geom_2226.y)
+                                geom_wgs84 = geom_lib.Point(x, y)
+                            else:
+                                geom_wgs84 = geom_2226  # Keep as-is for unsupported types
+                            
+                            features_wgs84.append({
+                                'type': 'Feature',
+                                'geometry': geom_wgs84.__geo_interface__,
+                                'properties': feature['properties']
+                            })
+                        except Exception as e:
+                            print(f"Error transforming drawing entity: {e}")
+                            continue
+                    
+                    all_layers_data[layer_name] = features_wgs84
+                    feature_counts[layer_name] = len(features_wgs84)
+                    print(f"  {layer_name}: {len(features_wgs84)} features")
+        
+        # PRIORITY 2: Fetch external WFS layers
         for layer_config in layers:
             layer_id = layer_config['id']
             layer_url = layer_config['url']
             layer_name = layer_config['name']
             
-            print(f"Fetching {layer_name}...")
+            print(f"Fetching external WFS layer {layer_name}...")
             
             try:
                 # Query FeatureServer with bounding box
@@ -4334,7 +4384,7 @@ def create_multi_format_export():
                 print(f"  ERROR fetching {layer_name}: {e}")
                 feature_counts[layer_id] = 0
         
-        # Fetch CAD entity layers if requested
+        # Legacy: Fetch CAD entity layers if explicitly requested (backwards compatibility)
         entity_layers = params.get('entity_layers', [])
         if entity_layers:
             print(f"Fetching {len(entity_layers)} CAD entity layer(s)...")

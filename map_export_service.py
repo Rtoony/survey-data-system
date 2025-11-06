@@ -20,13 +20,16 @@ from fiona.crs import from_epsg
 import ezdxf
 from owslib.wfs import WebFeatureService
 from PIL import Image, ImageDraw, ImageFont
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 
 class MapExportService:
     """Service for exporting map data in various formats"""
     
-    def __init__(self, export_dir: str = "/tmp/exports"):
+    def __init__(self, export_dir: str = "/tmp/exports", db_conn=None):
         self.export_dir = export_dir
+        self.db_conn = db_conn
         os.makedirs(export_dir, exist_ok=True)
         
         # Transformer from Web Mercator (EPSG:3857) to CA State Plane Zone 2 (EPSG:2226)
@@ -59,6 +62,81 @@ class MapExportService:
         maxx_ft, maxy_ft = transformer.transform(maxx, maxy)
         
         return (minx_ft, miny_ft, maxx_ft, maxy_ft)
+    
+    def fetch_drawing_entities_by_layer(self, bbox_2226: Tuple) -> Dict[str, List[Dict]]:
+        """
+        Fetch all drawing entities within bounding box, grouped by layer name
+        Returns: Dict with layer names as keys, lists of GeoJSON features as values
+        """
+        if not self.db_conn:
+            print("No database connection provided, skipping drawing entities")
+            return {}
+        
+        minx, miny, maxx, maxy = bbox_2226
+        
+        try:
+            with self.db_conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Query all drawing entities within bbox, grouped by layer
+                query = """
+                    SELECT 
+                        l.layer_name,
+                        e.entity_id,
+                        e.entity_type,
+                        e.color_aci,
+                        e.linetype,
+                        e.lineweight,
+                        ST_AsGeoJSON(e.geometry) as geometry_json,
+                        ST_SRID(e.geometry) as srid
+                    FROM drawing_entities e
+                    LEFT JOIN layers l ON e.layer_id = l.layer_id
+                    WHERE ST_Intersects(
+                        e.geometry,
+                        ST_MakeEnvelope(%s, %s, %s, %s, 2226)
+                    )
+                    AND e.entity_type NOT IN ('TEXT', 'MTEXT', 'HATCH', 'ATTDEF', 'ATTRIB')
+                    ORDER BY l.layer_name, e.entity_type
+                """
+                
+                cur.execute(query, (minx, miny, maxx, maxy))
+                entities = cur.fetchall()
+                
+                print(f"Found {len(entities)} drawing entities in bbox")
+                
+                # Group by layer name
+                layers_data = {}
+                for entity in entities:
+                    layer_name = entity['layer_name'] or 'Default'
+                    
+                    if layer_name not in layers_data:
+                        layers_data[layer_name] = []
+                    
+                    # Convert to GeoJSON feature
+                    geom_json = json.loads(entity['geometry_json'])
+                    
+                    feature = {
+                        'type': 'Feature',
+                        'geometry': geom_json,
+                        'properties': {
+                            'entity_id': str(entity['entity_id']),
+                            'entity_type': entity['entity_type'],
+                            'layer_name': layer_name,
+                            'color_aci': entity['color_aci'],
+                            'linetype': entity['linetype'],
+                            'lineweight': entity['lineweight'],
+                            'srid': entity['srid']
+                        }
+                    }
+                    
+                    layers_data[layer_name].append(feature)
+                
+                print(f"Grouped entities into {len(layers_data)} layers: {list(layers_data.keys())}")
+                return layers_data
+                
+        except Exception as e:
+            print(f"Error fetching drawing entities: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
     
     def fetch_wfs_data(self, layer_config: Dict, bbox_2226: Tuple) -> Dict:
         """Fetch data from WFS service"""
@@ -508,18 +586,25 @@ class MapExportService:
             # Storage for all layer data
             all_layers_data = {}
             
-            # Fetch and clip data for each requested layer
+            # PRIORITY 1: Fetch drawing entities from database (DXF-imported layers)
+            print("Fetching drawing entities from database...")
+            drawing_layers = self.fetch_drawing_entities_by_layer(bbox_2226)
+            if drawing_layers:
+                print(f"Found {len(drawing_layers)} drawing layers: {list(drawing_layers.keys())}")
+                all_layers_data.update(drawing_layers)
+            
+            # PRIORITY 2: Fetch external WFS layers if requested
             for layer_id in params.get('layers', []):
-                # In MVP, we'll use placeholder data
-                # In production, this would fetch from WFS
-                layer_config = {
-                    'name': layer_id.title(),
-                    'url': 'https://gis.sonomacounty.ca.gov/geoserver/wfs',
-                    'layer_name': layer_id
-                }
-                
-                # For MVP, create sample data
-                all_layers_data[layer_id] = self._create_sample_features(bbox_2226, layer_id)
+                if layer_id not in all_layers_data:  # Don't override drawing layers
+                    # External WFS layer - use placeholder for now
+                    layer_config = {
+                        'name': layer_id.title(),
+                        'url': 'https://gis.sonomacounty.ca.gov/geoserver/wfs',
+                        'layer_name': layer_id
+                    }
+                    
+                    # For MVP, create sample data for external layers
+                    all_layers_data[layer_id] = self._create_sample_features(bbox_2226, layer_id)
             
             # Export to requested formats
             exported_files = []
