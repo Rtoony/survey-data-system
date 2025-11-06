@@ -2,19 +2,7 @@
 
 ## Overview
 
-ACAD-GIS is an AI-first, database-centric CAD/GIS system designed for machine learning, embeddings, and GraphRAG. It replaces traditional file-based CAD workflows with a PostgreSQL/PostGIS database optimized for AI understanding and semantic reasoning.
-
-**Core Value Proposition:**
-- **Unified Entity Model:** Canonical identity for every CAD element.
-- **Centralized Embeddings:** Versioned vector embeddings for semantic search.
-- **Explicit Graph Edges:** Pre-computed spatial and engineering relationships for GraphRAG.
-- **ML Feature Engineering:** Built-in tables for spatial statistics, network metrics, and predictions.
-- **Hybrid Search:** Combines full-text, vector similarity, and quality scoring.
-
-**Key Applications:**
-- **Schema Explorer & Data Manager:** Administrative tool for schema visualization and data management.
-- **CAD Standards Portal:** User-friendly reference for AI-optimized CAD standards.
-- **Python ML Tools:** Intelligent CAD operations leveraging the AI-optimized database.
+ACAD-GIS is an AI-first, database-centric CAD/GIS system designed for machine learning, embeddings, and GraphRAG. It replaces traditional file-based CAD workflows with a PostgreSQL/PostGIS database optimized for AI understanding and semantic reasoning. Its core value lies in providing a unified entity model, centralized embeddings, explicit graph edges for GraphRAG, and built-in ML feature engineering capabilities, enabling hybrid search across CAD/GIS data. Key applications include a Schema Explorer, CAD Standards Portal, and Python ML Tools for intelligent CAD operations.
 
 ## User Preferences
 
@@ -27,14 +15,14 @@ Preferred communication style: Simple, everyday language.
 - **AI/ML Stack:** Vector embeddings (1536 dimensions), GraphRAG, full-text search.
 - **Web Framework:** Flask (Python) for server-rendered HTML and JSON APIs.
 - **Frontend:** Jinja2 templating, Mission Control-themed CSS, vanilla JavaScript.
-- **Spatial:** PostGIS with SRID 2226 (California State Plane Zone 2, US Survey Feet).
+- **Spatial:** PostGIS with SRID 2226 (California State Plane Zone 2, US Survey Feet) for GIS data and SRID 0 for CAD data.
 
 **AI-First Database Architecture:**
-- **Unified Entity Registry (`standards_entities`):** Provides canonical identity for all CAD/GIS elements.
-- **Centralized Embeddings (`entity_embeddings`):** Stores versioned vector embeddings from multiple models.
+- **Unified Entity Registry (`standards_entities`):** Canonical identity for all CAD/GIS elements.
+- **Centralized Embeddings (`entity_embeddings`):** Stores versioned vector embeddings.
 - **Graph Edges (`entity_relationships`):** Defines explicit spatial, engineering, and semantic relationships for GraphRAG.
-- **Quality Scoring:** `quality_score` column in every table for data quality.
-- **Full-Text Search:** `search_vector` tsvector columns with weighted search in all tables.
+- **Quality Scoring:** `quality_score` column for data quality assessment.
+- **Full-Text Search:** `search_vector` tsvector columns with weighted search.
 - **JSONB Attributes:** Flexible metadata storage in `attributes` columns.
 - **Vector Indexing:** IVFFlat indexes for fast similarity search.
 - **Spatial Indexing:** GIST indexes on PostGIS geometry columns.
@@ -48,116 +36,34 @@ Preferred communication style: Simple, everyday language.
 - **Materialized Views:** Pre-computed views for fast AI queries (e.g., `mv_survey_points_enriched`, `mv_entity_graph_summary`, `mv_spatial_clusters`).
 
 **Key Features & Design:**
-- **Schema Explorer:** Database health checks, schema visualization, project/drawing management.
-- **CAD Standards Portal:** Visual, read-only display of CAD standards.
-- **Data Manager:** CRUD operations for CAD standards data (Abbreviations, Layers, Blocks, Details) with searching and import/export.
-- **DXF Tools:** Full DXF import/export functionality with intelligent object creation and change detection using `ezdxf` and PostGIS GeometryZ. Includes bidirectional sync and a comprehensive API for intelligent import, export, and re-import with change detection.
-- **Map Viewer & Export:** Interactive Leaflet map with coordinate transformation, bounding box export to DXF/SHP/PNG/KML, measurement tools, address search, and WFS layer support. Features professional styling, area validation, and background processing for exports. Displays user's PostGIS database layers alongside external data.
-- **Sheet Note Manager:** Backend for managing construction drawing notes.
-- **Sheet Set Manager:** System for organizing construction document deliverables.
+- **Schema Explorer & Data Manager:** Tools for schema visualization, data management, and CRUD operations for CAD standards.
+- **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards.
+- **DXF Tools:** Full DXF import/export with intelligent object creation, change detection, and bidirectional sync using `ezdxf` and PostGIS GeometryZ. Supports local coordinate systems (SRID 0).
+- **Map Viewer & Export:** Interactive Leaflet map with coordinate transformation, bounding box export (DXF/SHP/PNG/KML), measurement tools, address search, and WFS layer support. Displays user PostGIS layers and external data with professional styling and background processing for exports.
+- **Sheet Note Manager & Sheet Set Manager:** Backend systems for managing construction drawing notes and organizing deliverables.
 - **Survey & Civil Engineering Schema:** Comprehensive database schema for civil/survey data.
-- **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance. Includes operational safety features like embedding cost control, import safety (idempotent natural keys, preview mode), health checks, and a web UI with confirmation prompts.
-- **Interactive AI Visualizations:** Knowledge Graph Visualization using Vis.js and a Quality Dashboard showing real-time metrics.
-- **Sidebar Navigation:** Collapsible vertical sidebar for improved navigation, with responsive design and state persistence.
+- **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance, including cost control and import safety.
+- **Interactive AI Visualizations:** Knowledge Graph Visualization (Vis.js) and a Quality Dashboard.
+- **Sidebar Navigation:** Collapsible vertical sidebar for improved navigation and responsive design.
 
 ## External Dependencies
 
 **Python Libraries:**
-- `Flask`, `Flask-Caching`, `psycopg2-binary`, `python-dotenv`, `flask-cors`, `ezdxf`, `openai`, `pyproj`, `shapely`, `fiona`, `owslib`, `pillow`, `rasterio`, `arcgis2geojson`
+- `Flask`, `Flask-Caching`, `psycopg2-binary`, `python-dotenv`, `flask-cors`, `ezdxf`, `openai`, `pyproj`, `shapely`, `fiona`, `owslib`, `pillow`, `rasterio`, `arcgis2geojson`.
 
 **Database:**
 - `PostgreSQL 12+`
 - `PostGIS Extension`
-- `Supabase` (recommended hosting)
+- `Supabase` (recommended hosting).
 
 **Frontend Resources (CDNs):**
 - `Font Awesome 6.4.0`
 - `Google Fonts` (Orbitron, Rajdhani)
 - `Vis.js`
-- `Leaflet.js 1.9.4`, `Leaflet.draw 1.0.4`, `Proj4js 2.9.0`, `Turf.js 6.x`
+- `Leaflet.js 1.9.4`, `Leaflet.draw 1.0.4`, `Proj4js 2.9.0`, `Turf.js 6.x`.
 
 **Environment Configuration:**
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
 
 **Related Systems:**
 - **ACAD-GIS FastAPI application:** Main API server sharing the same PostgreSQL/PostGIS database.
-
-## Recent Changes
-
-**November 6, 2025 - DXF Import Bug Fixes - COMPLETE:**
-- **Export Jobs Endpoint Fix:** Fixed `/api/dxf/export-jobs` SQL error that was preventing DXF Tools page from loading
-  - Corrected query to use actual export_jobs table schema (id, status, params, download_url, etc.)
-  - Extracts drawing_id, export_format, dxf_version, and metrics from params JSONB column
-  - Properly joins with drawings table to get drawing_name
-  - Maps columns to legacy response format expected by UI
-- **Linetype Table Fix:** Fixed references to non-existent `linetype_standards` table
-  - Updated table reference from `linetype_standards` to `linetypes` (actual table name)
-  - Corrected column names in query (pattern_definition instead of pattern/dxf_pattern)
-  - Added is_active filter for active linetypes only
-- **Impact:** DXF Tools page now loads without console errors, DXF imports should proceed successfully
-- **Production Ready:** Architect-reviewed and verified - proper JSONB extraction, safe UUID casting, correct table/column mappings
-
-**November 6, 2025 - CAD Entity Export Integration with Layer Separation - COMPLETE:**
-- **Export Visible Entities:** Users can now export CAD entities (LWPOLYLINEs, LINEs, CIRCLEs, etc.) that are visible on the map
-- **Bbox Filtering:** Only entities within the drawn export rectangle are included in the export
-- **Multi-Format Support:** CAD entities are exported in DXF, Shapefile, KML, and PNG formats alongside GIS layers
-- **Separate Layers per Entity Type:** Each entity type is exported as its own layer:
-  - **Shapefiles:** Separate `.shp` file per entity type (e.g., `entities_123_LWPOLYLINE.shp`, `entities_123_LINE.shp`, `entities_123_CIRCLE.shp`)
-  - **DXF:** Separate AutoCAD layer per entity type in the DXF file (e.g., layer "entities_123_LWPOLYLINE")
-  - **KML:** Separate folder per entity type in the KML file for easy toggling in Google Earth
-- **Drawing/Type Filtering:** Only checked entity types from visible drawings are exported (respects user's layer selection)
-- **Entity Properties:** Exported entities include color_aci, linetype, lineweight, and transparency attributes
-- **Performance Limits:** 5000 entity limit per layer to maintain export performance
-- **Feature Counts:** Export summary shows how many entities were exported per layer (e.g., "entities_bcf0a290_LWPOLYLINE: 27")
-- **Production Ready:** Architect-reviewed and verified - uses parameterized SQL, correct coordinate transformations, integrates seamlessly with existing export pipeline
-
-**November 6, 2025 - Map Viewer Entity Rendering & Project Area Boxes - COMPLETE:**
-- **3D Coordinate Fix:** Added `stripZCoordinates()` function to convert 3D GeoJSON coordinates to 2D before passing to Leaflet, fixing LWPOLYLINE rendering issues
-- **Project Area Toggle:** Added "Show Project Areas" checkbox in sidebar to display orange dashed rectangles for all project bounding boxes
-- **Visual Preview:** Project area boxes provide quick visual overview of project locations before loading detailed entities
-- **Coordinate Transformation:** Project boxes properly transform EPSG:2226 coordinates to WGS84 for display
-- **Production Ready:** Architect-reviewed and verified - handles all GeoJSON geometry types, efficient layer management
-
-**November 5, 2025 - Auto-Calculate Project Bounding Boxes - COMPLETE:**
-- **Dynamic Bbox Calculation:** Modified `/api/map-viewer/project-structure` to automatically calculate bounding boxes from entity geometry when drawing.bbox is null
-- **Edge Case Handling:** Added CASE statements to only calculate ST_Extent when entities exist, preventing null overwrites
-- **New Projects Visible:** All projects now appear in dropdown regardless of whether bbox is set in drawings table
-- **Newest First Ordering:** Changed ordering to `created_at DESC` so newest projects appear at top of list
-- **Production Ready:** Architect-reviewed and verified - handles all edge cases (drawings with/without bbox, with/without entities)
-
-**November 5, 2025 - Project Viewer Bug Fixes - COMPLETE:**
-- **SQL Column Fix:** Fixed `/api/map-viewer/project-entities` endpoint to query `e.attributes` instead of non-existent `e.metadata` column, eliminating SQL errors when loading entities
-- **Bbox Property Names:** Fixed `zoomToProject()` function to use correct API response format (`bbox.min_x/min_y/max_x/max_y` instead of `bbox.minx/miny/maxx/maxy`)
-- **Defensive Error Handling:** Added comprehensive validation in `zoomToProject()` to check for null/invalid bbox coordinates with user-friendly error messages, preventing NaN/proj4 crashes
-- **Property Name Fixes:** Corrected `selectedProject.project_name` reference in console logs (was incorrectly using `selectedProject.name`)
-- **Production Ready:** All fixes architect-reviewed and verified via curl tests showing successful entity loading with entity type filtering
-
-**November 5, 2025 - Test Data Generator for Spatial Testing - COMPLETE:**
-- **Test Data Script:** Created `create_test_project.py` utility that generates projects with valid Sonoma County coordinates
-- **3D Geometry Support:** Fixed geometry insertion to use GeometryZ format (LINESTRING Z with Z=0 coordinates)
-- **SRID Compatibility:** Uses SRID 0 for geometry insertion to match DXF importer patterns
-- **Realistic Test Data:** Generates projects at (6049000, 2001000) feet in EPSG:2226 near downtown Santa Rosa
-- **Sample Entities:** Creates buildings, street centerlines, and roundabouts for realistic CAD testing
-- **Automated Creation:** Simple `python create_test_project.py` command creates complete project with entities
-- **Entity Count Fix:** Drawing Manager now shows actual entity counts via LEFT JOIN with drawing_entities table instead of stale entity_count column
-
-**November 5, 2025 - DXF Project Display on Map Viewer - COMPLETE:**
-- **Project Bounding Boxes:** Imported DXF projects now display as dashed orange boxes on the map showing spatial extents
-- **Coordinate Transformation:** Fixed `/api/map-viewer/projects` to properly transform EPSG:2226 coordinates to WGS84 using pyproj Transformer
-- **Entity Display:** New `/api/map-viewer/project-entities/<drawing_id>` endpoint fetches CAD entities (lines, polylines, arcs, circles) from drawing_entities table
-- **Interactive Loading:** Click project boxes to load CAD entities, click again to toggle visibility
-- **CAD Styling:** Entities styled with AutoCAD Color Index (ACI) colors (1=red, 2=yellow, 3=green, 4=cyan, 5=blue, 6=magenta, 7=white) and respect lineweight/transparency properties
-- **Performance Limits:** 5000 entity limit per drawing to protect performance
-- **Database Integration:** Seamlessly integrates with existing DXF import/export workflow - import DXF files through other tools, view them on the map
-- **Production Ready:** All features architect-reviewed and verified for coordinate accuracy, SQL injection safety, and UX
-
-**November 5, 2025 - Database Layer Integration & UI Polish - COMPLETE:**
-- **Database Layer Display:** Map viewer now shows user's own PostGIS database layers alongside Sonoma County data with dedicated "Database Layers" section in sidebar
-- **Database Layer API:** Two new endpoints: `/api/map-viewer/database-layers` (enumerate available tables with feature counts) and `/api/map-viewer/database-layer-data/<layer_id>` (fetch GeoJSON with bbox filtering)
-- **Coordinate Transformation:** Backend transforms WGS84 map bounds to EPSG:2226 for PostGIS queries, returns features in WGS84 for display, maintains 1000 feature limit per query
-- **CAD Color Schemes:** Professional engineering colors for database layers (yellow survey points, cyan utilities, magenta structures, red parcels, green alignments)
-- **Layer Management:** On-demand loading with checkboxes, feature count display, property popups, spinner feedback, and proper cleanup
-- **Supported Tables:** survey_points, utility_lines, utility_structures, parcels, horizontal_alignments, surface_features, drawing_entities
-- **Zoom Controls:** Finer zoom sensitivity with zoomDelta: 0.25, wheelPxPerZoomLevel: 120, plus shift+drag box zoom enabled
-- **UI Polish:** Fixed checkbox alignment with flexbox layout for both Sonoma County and Database Layers sections
-- **Production Ready:** All features architect-reviewed and verified for coordinate handling, SQL injection safety, and performance
