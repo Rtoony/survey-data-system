@@ -1980,6 +1980,26 @@ def update_network_structure(network_id, structure_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/pipe-networks/<network_id>/auto-connect', methods=['POST'])
+def auto_connect_pipes(network_id):
+    """Automatically connect pipes to nearby structures using spatial snapping"""
+    try:
+        from pipe_structure_connector import PipeStructureConnector
+        
+        data = request.get_json() or {}
+        tolerance_feet = data.get('tolerance_feet', 5.0)
+        
+        connector = PipeStructureConnector(tolerance_feet=tolerance_feet)
+        results = connector.connect_network_pipes(network_id)
+        
+        if results.get('success'):
+            return jsonify(results), 200
+        else:
+            return jsonify(results), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # ============================================================================
 # SCHEMA RELATIONSHIPS ROUTES
 # ============================================================================
