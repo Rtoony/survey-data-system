@@ -1394,6 +1394,12 @@
                 }
             });
             
+            // Get active CAD entity layers
+            const activeEntityLayersList = Object.keys(activeEntityLayers).map(key => {
+                const [drawingId, entityType] = key.split('_');
+                return { drawingId, entityType };
+            });
+            
             const params = {
                 bbox: {
                     minx: bbox.getWest(),
@@ -1403,6 +1409,7 @@
                     crs: 'EPSG:4326'
                 },
                 layers: selectedLayers,
+                entity_layers: activeEntityLayersList,
                 formats: formats,
                 png_options: pngOptions
             };

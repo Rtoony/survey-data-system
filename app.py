@@ -4297,6 +4297,73 @@ def create_multi_format_export():
                 print(f"  ERROR fetching {layer_name}: {e}")
                 feature_counts[layer_id] = 0
         
+        # Fetch CAD entity layers if requested
+        entity_layers = params.get('entity_layers', [])
+        if entity_layers:
+            print(f"Fetching {len(entity_layers)} CAD entity layer(s)...")
+            
+            # Transform bbox to EPSG:2226 for PostGIS query
+            min_x_2226, min_y_2226 = transformer.transform(minx, miny)
+            max_x_2226, max_y_2226 = transformer.transform(maxx, maxy)
+            
+            for entity_layer in entity_layers:
+                drawing_id = entity_layer.get('drawingId')
+                entity_type = entity_layer.get('entityType')
+                layer_key = f"entities_{drawing_id}_{entity_type}"
+                
+                print(f"  Fetching {entity_type} from drawing {drawing_id}...")
+                
+                try:
+                    with get_db() as conn:
+                        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                            # Query drawing_entities within bbox
+                            cur.execute("""
+                                SELECT 
+                                    entity_id,
+                                    entity_type,
+                                    layer_name,
+                                    color_aci,
+                                    linetype,
+                                    lineweight,
+                                    ST_AsGeoJSON(ST_Transform(geometry, 4326)) as geometry_json,
+                                    attributes
+                                FROM drawing_entities
+                                WHERE drawing_id = %s 
+                                AND entity_type = %s
+                                AND geometry && ST_MakeEnvelope(%s, %s, %s, %s, 2226)
+                                AND geometry IS NOT NULL
+                                LIMIT 5000
+                            """, (drawing_id, entity_type, min_x_2226, min_y_2226, max_x_2226, max_y_2226))
+                            
+                            rows = cur.fetchall()
+                            
+                            # Convert to GeoJSON features
+                            features = []
+                            for row in rows:
+                                feature = {
+                                    'type': 'Feature',
+                                    'geometry': json.loads(row['geometry_json']),
+                                    'properties': {
+                                        'entity_id': row['entity_id'],
+                                        'entity_type': row['entity_type'],
+                                        'layer_name': row['layer_name'],
+                                        'color_aci': row['color_aci'],
+                                        'linetype': row['linetype'],
+                                        'lineweight': row['lineweight']
+                                    }
+                                }
+                                features.append(feature)
+                            
+                            feature_counts[layer_key] = len(features)
+                            all_layers_data[layer_key] = features
+                            print(f"    Found {len(features)} {entity_type} entities")
+                            
+                except Exception as e:
+                    print(f"    ERROR fetching {entity_type}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    feature_counts[layer_key] = 0
+        
         # Transform all features to EPSG:2226 first (needed for DXF, SHP, KML, PNG)
         from shapely import geometry as geom_lib
         all_layers_2226 = {}
