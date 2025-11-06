@@ -84,13 +84,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-**November 6, 2025 - CAD Entity Export Integration - COMPLETE:**
+**November 6, 2025 - CAD Entity Export Integration with Layer Separation - COMPLETE:**
 - **Export Visible Entities:** Users can now export CAD entities (LWPOLYLINEs, LINEs, CIRCLEs, etc.) that are visible on the map
 - **Bbox Filtering:** Only entities within the drawn export rectangle are included in the export
 - **Multi-Format Support:** CAD entities are exported in DXF, Shapefile, KML, and PNG formats alongside GIS layers
+- **Separate Layers per Entity Type:** Each entity type is exported as its own layer:
+  - **Shapefiles:** Separate `.shp` file per entity type (e.g., `entities_123_LWPOLYLINE.shp`, `entities_123_LINE.shp`, `entities_123_CIRCLE.shp`)
+  - **DXF:** Separate AutoCAD layer per entity type in the DXF file (e.g., layer "entities_123_LWPOLYLINE")
+  - **KML:** Separate folder per entity type in the KML file for easy toggling in Google Earth
 - **Drawing/Type Filtering:** Only checked entity types from visible drawings are exported (respects user's layer selection)
+- **Entity Properties:** Exported entities include color_aci, linetype, lineweight, and transparency attributes
 - **Performance Limits:** 5000 entity limit per layer to maintain export performance
-- **Feature Counts:** Export summary shows how many entities were exported per layer (e.g., "entities_[drawing_id]_LWPOLYLINE: 27")
+- **Feature Counts:** Export summary shows how many entities were exported per layer (e.g., "entities_bcf0a290_LWPOLYLINE: 27")
 - **Production Ready:** Architect-reviewed and verified - uses parameterized SQL, correct coordinate transformations, integrates seamlessly with existing export pipeline
 
 **November 6, 2025 - Map Viewer Entity Rendering & Project Area Boxes - COMPLETE:**
