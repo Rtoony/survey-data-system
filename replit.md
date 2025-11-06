@@ -84,6 +84,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 6, 2025 - Map Viewer Entity Rendering & Project Area Boxes - COMPLETE:**
+- **3D Coordinate Fix:** Added `stripZCoordinates()` function to convert 3D GeoJSON coordinates to 2D before passing to Leaflet, fixing LWPOLYLINE rendering issues
+- **Project Area Toggle:** Added "Show Project Areas" checkbox in sidebar to display orange dashed rectangles for all project bounding boxes
+- **Visual Preview:** Project area boxes provide quick visual overview of project locations before loading detailed entities
+- **Coordinate Transformation:** Project boxes properly transform EPSG:2226 coordinates to WGS84 for display
+- **Production Ready:** Architect-reviewed and verified - handles all GeoJSON geometry types, efficient layer management
+
 **November 5, 2025 - Auto-Calculate Project Bounding Boxes - COMPLETE:**
 - **Dynamic Bbox Calculation:** Modified `/api/map-viewer/project-structure` to automatically calculate bounding boxes from entity geometry when drawing.bbox is null
 - **Edge Case Handling:** Added CASE statements to only calculate ST_Extent when entities exist, preventing null overwrites
