@@ -8,7 +8,16 @@ from psycopg2.extras import RealDictCursor
 from typing import Dict, Optional, Tuple
 import hashlib
 import json
-from layer_classifier import LayerClassifier, LayerClassification
+import sys
+import os
+
+# Try to use new standards-based classifier, fall back to legacy
+try:
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    from standards.layer_classifier_v2 import LayerClassifierV2 as LayerClassifier, LayerClassification
+except ImportError:
+    # Fall back to legacy classifier
+    from layer_classifier import LayerClassifier, LayerClassification
 
 
 class IntelligentObjectCreator:

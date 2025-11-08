@@ -68,3 +68,35 @@ Preferred communication style: Simple, everyday language.
 
 **Related Systems:**
 - **ACAD-GIS FastAPI application:** Main API server sharing the same PostgreSQL/PostGIS database.
+
+## Recent Changes
+
+### 2025-11-08: Revolutionary CAD Standards System
+Implemented a database-optimized CAD naming system that makes the database the source of truth, with layer names serving as semantic labels rather than data storage.
+
+**New Standards Architecture:**
+- **8 new vocabulary tables:** `discipline_codes`, `category_codes`, `object_type_codes`, `attribute_codes`, `phase_codes`, `geometry_codes`, `standard_layer_patterns`, `import_mapping_patterns`
+- **Hierarchical layer format:** `DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY`
+  - Example: `CIV-UTIL-STORM-12IN-NEW-LN` = Civil utility storm pipe, 12", new construction, line
+- **47 object types** across 8 disciplines (CIV, SITE, SURV, LAND, ARCH, UTIL, ANNO, XREF)
+- **Comprehensive coverage:** Utilities, roads, grading, stormwater, ADA, ponds, tanks, erosion control
+
+**New Tools:**
+- `LayerNameBuilder`: Generates and validates standard layer names programmatically
+- `LayerClassifierV2`: Parses both standard and legacy layer formats, auto-converts to standard naming
+- `load_standards_data.py`: Populates vocabulary tables from structured definitions
+- Migration: `migrations/create_standards_schema.sql` for reproducible schema setup
+
+**Workflow:**
+1. **Import:** DXF files with any client layer format → regex patterns extract intent → database objects created
+2. **Process:** Data enriched in database using Python scripts and ML tools
+3. **Export:** Database objects → generate layer names (standard or client-specific) → DXF output
+
+**Benefits:**
+- AI-friendly: Clear hierarchy makes LLM processing straightforward
+- Human-readable: Engineers understand `CIV-UTIL-STORM-12IN-NEW-LN` at a glance
+- Flexible: Handles variations in client CAD standards via mapping patterns
+- Extensible: New codes added without breaking existing patterns
+- Quality-driven: Database validates and scores confidence on import
+
+**Integration:** `IntelligentObjectCreator` now uses `LayerClassifierV2` for standards-driven object creation during DXF import.
