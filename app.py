@@ -198,6 +198,11 @@ def standards_vocabulary():
     """CAD Standards Vocabulary browser page"""
     return render_template('standards/vocabulary.html')
 
+@app.route('/standards/reference')
+def standards_reference():
+    """CAD Standards Layer Reference - visual layer examples"""
+    return render_template('standards/reference.html')
+
 @app.route('/standards/sheets')
 def standards_sheets():
     """Sheet template standards page"""
@@ -5116,6 +5121,138 @@ def get_import_mappings():
         return jsonify({'import_mappings': mappings})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/layer-examples')
+def get_layer_examples():
+    """Generate comprehensive layer name examples for all object types"""
+    try:
+        from standards.export_layer_generator import ExportLayerGenerator
+        
+        generator = ExportLayerGenerator()
+        examples = []
+        
+        # Get all object types with their relationships
+        query = """
+            SELECT t.type_id, t.code as type_code, t.full_name as type_name, 
+                   t.description, t.database_table,
+                   c.code as category_code, c.full_name as category_name,
+                   d.code as discipline_code, d.full_name as discipline_name,
+                   d.discipline_id
+            FROM object_type_codes t
+            JOIN category_codes c ON t.category_id = c.category_id
+            JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+            WHERE t.is_active = TRUE
+            ORDER BY d.sort_order, c.sort_order, t.sort_order
+        """
+        
+        object_types = execute_query(query)
+        
+        # Get phases and geometries for variations
+        phases = execute_query("""
+            SELECT code, full_name, color_rgb FROM phase_codes 
+            WHERE is_active = TRUE ORDER BY sort_order
+        """)
+        
+        geometries = execute_query("""
+            SELECT code, full_name, dxf_entity_types FROM geometry_codes 
+            WHERE is_active = TRUE ORDER BY sort_order
+        """)
+        
+        # Generate examples for each object type
+        for obj_type in object_types:
+            db_table = obj_type.get('database_table', '')
+            type_code = obj_type.get('type_code', '')
+            
+            # Map object type to generator input format
+            object_type_key = db_table if db_table else type_code.lower()
+            
+            # Generate variations
+            for phase in phases[:3]:  # Show 3 phase examples
+                for geom in geometries[:4]:  # Show 4 geometry examples
+                    
+                    # Build sample properties based on object type
+                    properties = {
+                        'phase': phase['code'].lower(),
+                    }
+                    
+                    # Add object-specific properties
+                    if 'util' in type_code.lower() or 'pipe' in type_code.lower():
+                        properties.update({
+                            'utility_type': 'storm',
+                            'diameter': 12,
+                            'material': 'pvc'
+                        })
+                    elif 'road' in type_code.lower() or 'align' in type_code.lower():
+                        properties.update({
+                            'alignment_type': 'road',
+                            'name': 'MAIN'
+                        })
+                    elif 'bmp' in type_code.lower():
+                        properties.update({
+                            'bmp_type': 'bioretention',
+                            'design_volume_cf': 500
+                        })
+                    elif 'tree' in type_code.lower():
+                        properties.update({
+                            'tree_status': 'existing',
+                            'species': 'oak'
+                        })
+                    elif 'survey' in type_code.lower():
+                        properties.update({
+                            'point_type': 'monument'
+                        })
+                    elif 'surface' in type_code.lower() or 'grad' in type_code.lower():
+                        properties.update({
+                            'surface_type': 'existing_grade'
+                        })
+                    
+                    # Try to generate layer name
+                    try:
+                        layer_name = generator.generate_layer_name(
+                            object_type_key, 
+                            properties, 
+                            geom['code']
+                        )
+                        
+                        if layer_name:
+                            examples.append({
+                                'layer_name': layer_name,
+                                'object_type': obj_type['type_name'],
+                                'object_code': type_code,
+                                'discipline': obj_type['discipline_name'],
+                                'discipline_code': obj_type['discipline_code'],
+                                'category': obj_type['category_name'],
+                                'category_code': obj_type['category_code'],
+                                'phase': phase['full_name'],
+                                'phase_code': phase['code'],
+                                'phase_color': phase.get('color_rgb'),
+                                'geometry': geom['full_name'],
+                                'geometry_code': geom['code'],
+                                'dxf_types': geom.get('dxf_entity_types', ''),
+                                'properties': properties,
+                                'database_table': db_table
+                            })
+                            
+                            # Only generate one example per object type for first pass
+                            break
+                    except Exception as e:
+                        continue
+                
+                # Got one example, move to next object type
+                if examples and examples[-1]['object_code'] == type_code:
+                    break
+        
+        return jsonify({
+            'examples': examples,
+            'count': len(examples)
+        })
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
