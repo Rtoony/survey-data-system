@@ -12,6 +12,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from standards.layer_name_builder import LayerNameBuilder, LayerComponents
 
+# Try to import mapping manager (may not be available if database not set up)
+try:
+    from standards.import_mapping_manager import ImportMappingManager
+    MAPPING_AVAILABLE = True
+except:
+    MAPPING_AVAILABLE = False
+
 
 @dataclass
 class LayerClassification:
@@ -37,6 +44,14 @@ class LayerClassifierV2:
     def __init__(self):
         """Initialize classifier with layer name builder"""
         self.builder = LayerNameBuilder()
+        
+        # Import mapping manager (if available)
+        self.mapping_manager = None
+        if MAPPING_AVAILABLE:
+            try:
+                self.mapping_manager = ImportMappingManager()
+            except:
+                pass  # Database not ready yet
         
         # Legacy patterns for non-standard layer names
         self.legacy_patterns = self._build_legacy_patterns()
@@ -129,6 +144,11 @@ class LayerClassifierV2:
         """
         Classify a layer name and extract properties.
         
+        3-tier classification approach:
+        1. Try standard format (highest confidence ~95%)
+        2. Try database import mappings (medium-high ~80-90%)
+        3. Fall back to legacy hardcoded patterns (lower ~75-85%)
+        
         Args:
             layer_name: The layer name to classify
         
@@ -140,12 +160,18 @@ class LayerClassifierV2:
         
         layer_upper = layer_name.upper().strip()
         
-        # Try standard format first
+        # Tier 1: Try standard format first
         standard_result = self._classify_standard(layer_upper)
         if standard_result:
             return standard_result
         
-        # Fall back to legacy patterns
+        # Tier 2: Try database import mappings
+        if self.mapping_manager:
+            mapping_result = self._classify_with_mapping(layer_upper)
+            if mapping_result:
+                return mapping_result
+        
+        # Tier 3: Fall back to legacy patterns
         legacy_result = self._classify_legacy(layer_upper)
         if legacy_result:
             return legacy_result
@@ -215,6 +241,89 @@ class LayerClassifierV2:
             confidence=0.95,  # High confidence for standard format
             database_table=database_table,
             standard_layer_name=layer_name,
+            original_layer_name=layer_name
+        )
+    
+    def _classify_with_mapping(self, layer_name: str) -> Optional[LayerClassification]:
+        """
+        Classify using database import mapping patterns.
+        This handles client-specific CAD standards.
+        """
+        match = self.mapping_manager.find_match(layer_name)
+        
+        if not match:
+            return None
+        
+        # Build standard layer name from matched components
+        standard_name = self.builder.build(
+            discipline=match.discipline_code,
+            category=match.category_code,
+            object_type=match.type_code,
+            phase=match.phase_code,
+            geometry=match.geometry_code,
+            attributes=match.attributes
+        )
+        
+        if not standard_name:
+            return None
+        
+        # Build properties
+        properties = {
+            'discipline': match.discipline_code,
+            'category': match.category_code,
+            'type': match.type_code,
+            'phase': match.phase_code,
+            'geometry': match.geometry_code,
+        }
+        
+        # Add attributes
+        if match.attributes:
+            for i, attr in enumerate(match.attributes):
+                properties[f'attribute_{i+1}'] = attr
+        
+        # Map to object type
+        obj_type_map = {
+            'STORM': 'utility_line',
+            'SANIT': 'utility_line',
+            'WATER': 'utility_line',
+            'RECYC': 'utility_line',
+            'GAS': 'utility_line',
+            'ELEC': 'utility_line',
+            'TELE': 'utility_line',
+            'FIBER': 'utility_line',
+            'MH': 'utility_structure',
+            'INLET': 'utility_structure',
+            'CB': 'utility_structure',
+            'CLNOUT': 'utility_structure',
+            'VALVE': 'utility_structure',
+            'METER': 'utility_structure',
+            'HYDRA': 'utility_structure',
+            'PUMP': 'utility_structure',
+            'CNTR': 'contour',
+            'SPOT': 'spot_elevation',
+            'MONUMENT': 'survey_point',
+            'BENCH': 'survey_point',
+            'SHOT': 'survey_point',
+            'BIORT': 'bmp',
+            'SWALE': 'bmp',
+            'BASIN': 'bmp',
+            'RAMP': 'ada_feature',
+            'PATH': 'ada_feature',
+            'TREE': 'site_tree',
+        }
+        
+        object_type = obj_type_map.get(match.type_code, 'generic')
+        
+        # Add utility type for utility objects
+        if match.category_code == 'UTIL':
+            properties['utility_type'] = match.type_code.lower()
+        
+        return LayerClassification(
+            object_type=object_type,
+            properties=properties,
+            confidence=match.confidence,
+            database_table=None,  # Could enhance to look this up
+            standard_layer_name=standard_name,
             original_layer_name=layer_name
         )
     

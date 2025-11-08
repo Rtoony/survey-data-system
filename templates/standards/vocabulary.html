@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD Standards Vocabulary - ACAD-GIS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap">
+    <style>
+        :root {
+            --primary: #00ffff;
+            --secondary: #ff00ff;
+            --accent: #00ff88;
+            --background: #0a0e27;
+            --surface: #1a1f3a;
+            --text: #e0e6ed;
+            --muted: #8892b0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: var(--muted);
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--surface);
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: var(--surface);
+            border: 1px solid transparent;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .tab:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: #000;
+            font-weight: 700;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .card {
+            background: var(--surface);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card h2 {
+            color: var(--accent);
+            margin-bottom: 15px;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .code-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-left: 3px solid var(--primary);
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        
+        .code-item:hover {
+            border-left-color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .code-label {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary);
+            font-size: 1.2em;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .code-name {
+            color: var(--text);
+            font-size: 1em;
+            margin-bottom: 5px;
+        }
+        
+        .code-desc {
+            color: var(--muted);
+            font-size: 0.9em;
+        }
+        
+        .hierarchy-tree {
+            margin-top: 20px;
+        }
+        
+        .discipline-group {
+            margin-bottom: 30px;
+        }
+        
+        .discipline-header {
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.1) 0%, rgba(255, 0, 255, 0.1) 100%);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .discipline-header:hover {
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        
+        .discipline-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5em;
+            color: var(--primary);
+        }
+        
+        .category-item {
+            margin-left: 30px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 2px solid var(--secondary);
+            border-radius: 4px;
+        }
+        
+        .category-title {
+            font-weight: 600;
+            color: var(--secondary);
+            margin-bottom: 5px;
+        }
+        
+        .type-list {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        
+        .type-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(0, 255, 136, 0.1);
+            border-left: 2px solid var(--accent);
+            border-radius: 3px;
+            font-size: 0.95em;
+        }
+        
+        .layer-example {
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 3px solid var(--accent);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, var(--surface) 0%, rgba(0, 255, 255, 0.1) 100%);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+        
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5em;
+            color: var(--primary);
+            font-weight: 900;
+        }
+        
+        .stat-label {
+            color: var(--muted);
+            margin-top: 5px;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--primary);
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        
+        .back-link:hover {
+            color: var(--accent);
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/standards" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to CAD Standards Portal
+        </a>
+        
+        <h1><i class="fas fa-book"></i> CAD Standards Vocabulary</h1>
+        <p class="subtitle">Database-Driven Hierarchical Layer Naming System</p>
+        
+        <div class="stats-grid" id="statsGrid"></div>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="overview">Overview</div>
+            <div class="tab" data-tab="disciplines">Disciplines</div>
+            <div class="tab" data-tab="categories">Categories</div>
+            <div class="tab" data-tab="types">Object Types</div>
+            <div class="tab" data-tab="phases">Phases</div>
+            <div class="tab" data-tab="geometries">Geometries</div>
+            <div class="tab" data-tab="hierarchy">Full Hierarchy</div>
+        </div>
+        
+        <div class="tab-content active" id="overview">
+            <div class="card">
+                <h2><i class="fas fa-info-circle"></i> Layer Name Format</h2>
+                <div class="layer-example">
+                    DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY
+                    <br><br>
+                    Example: CIV-UTIL-STORM-12IN-NEW-LN
+                    <br>
+                    → Civil Utility Storm Drain, 12 inch, New Construction, Line
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><i class="fas fa-lightbulb"></i> Key Benefits</h2>
+                <ul style="list-style: none; padding-left: 20px;">
+                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>AI-Friendly:</strong> Clear hierarchy for LLM processing</li>
+                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Human-Readable:</strong> Engineers understand at a glance</li>
+                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Flexible:</strong> Handles client CAD variations via mapping</li>
+                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Extensible:</strong> Add new codes without breaking patterns</li>
+                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Database-Driven:</strong> Database is source of truth, not layer names</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="disciplines">
+            <div class="card">
+                <h2><i class="fas fa-layer-group"></i> Discipline Codes</h2>
+                <div class="grid" id="disciplinesGrid"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="categories">
+            <div class="card">
+                <h2><i class="fas fa-folder-tree"></i> Category Codes</h2>
+                <div class="grid" id="categoriesGrid"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="types">
+            <div class="card">
+                <h2><i class="fas fa-cubes"></i> Object Type Codes</h2>
+                <div class="grid" id="typesGrid"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="phases">
+            <div class="card">
+                <h2><i class="fas fa-clock"></i> Phase Codes</h2>
+                <div class="grid" id="phasesGrid"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="geometries">
+            <div class="card">
+                <h2><i class="fas fa-shapes"></i> Geometry Codes</h2>
+                <div class="grid" id="geometriesGrid"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="hierarchy">
+            <div class="card">
+                <h2><i class="fas fa-sitemap"></i> Complete Hierarchy</h2>
+                <div class="hierarchy-tree" id="hierarchyTree"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tabName).classList.add('active');
+            });
+        });
+        
+        // Load data
+        async function loadVocabulary() {
+            try {
+                const [disciplines, categories, types, phases, geometries] = await Promise.all([
+                    fetch('/api/vocabulary/disciplines').then(r => r.json()),
+                    fetch('/api/vocabulary/categories').then(r => r.json()),
+                    fetch('/api/vocabulary/object-types').then(r => r.json()),
+                    fetch('/api/vocabulary/phases').then(r => r.json()),
+                    fetch('/api/vocabulary/geometries').then(r => r.json())
+                ]);
+                
+                renderStats(disciplines, categories, types, phases, geometries);
+                renderDisciplines(disciplines.disciplines);
+                renderCategories(categories.categories);
+                renderTypes(types.object_types);
+                renderPhases(phases.phases);
+                renderGeometries(geometries.geometries);
+                renderHierarchy(disciplines.disciplines, categories.categories, types.object_types);
+                
+            } catch (error) {
+                console.error('Error loading vocabulary:', error);
+            }
+        }
+        
+        function renderStats(disciplines, categories, types, phases, geometries) {
+            const stats = [
+                { value: disciplines.disciplines.length, label: 'Disciplines' },
+                { value: categories.categories.length, label: 'Categories' },
+                { value: types.object_types.length, label: 'Object Types' },
+                { value: phases.phases.length, label: 'Phases' },
+                { value: geometries.geometries.length, label: 'Geometries' }
+            ];
+            
+            document.getElementById('statsGrid').innerHTML = stats.map(stat => `
+                <div class="stat-card">
+                    <div class="stat-value">${stat.value}</div>
+                    <div class="stat-label">${stat.label}</div>
+                </div>
+            `).join('');
+        }
+        
+        function renderDisciplines(disciplines) {
+            document.getElementById('disciplinesGrid').innerHTML = disciplines.map(d => `
+                <div class="code-item">
+                    <div class="code-label">${d.code}</div>
+                    <div class="code-name">${d.full_name}</div>
+                    ${d.description ? `<div class="code-desc">${d.description}</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function renderCategories(categories) {
+            document.getElementById('categoriesGrid').innerHTML = categories.map(c => `
+                <div class="code-item">
+                    <div class="code-label">${c.code}</div>
+                    <div class="code-name">${c.full_name}</div>
+                    <div class="code-desc">${c.discipline_code} → ${c.discipline_name}</div>
+                </div>
+            `).join('');
+        }
+        
+        function renderTypes(types) {
+            document.getElementById('typesGrid').innerHTML = types.map(t => `
+                <div class="code-item">
+                    <div class="code-label">${t.code}</div>
+                    <div class="code-name">${t.full_name}</div>
+                    <div class="code-desc">${t.discipline_code}-${t.category_code}</div>
+                    ${t.database_table ? `<div class="code-desc">Table: ${t.database_table}</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function renderPhases(phases) {
+            document.getElementById('phasesGrid').innerHTML = phases.map(p => `
+                <div class="code-item">
+                    <div class="code-label">${p.code}</div>
+                    <div class="code-name">${p.full_name}</div>
+                    ${p.description ? `<div class="code-desc">${p.description}</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function renderGeometries(geometries) {
+            document.getElementById('geometriesGrid').innerHTML = geometries.map(g => `
+                <div class="code-item">
+                    <div class="code-label">${g.code}</div>
+                    <div class="code-name">${g.full_name}</div>
+                    ${g.description ? `<div class="code-desc">${g.description}</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function renderHierarchy(disciplines, categories, types) {
+            const html = disciplines.map(d => {
+                const discCategories = categories.filter(c => c.discipline_code === d.code);
+                
+                return `
+                    <div class="discipline-group">
+                        <div class="discipline-header">
+                            <div class="discipline-title">${d.code} - ${d.full_name}</div>
+                        </div>
+                        ${discCategories.map(c => {
+                            const catTypes = types.filter(t => 
+                                t.discipline_code === d.code && t.category_code === c.code
+                            );
+                            
+                            return `
+                                <div class="category-item">
+                                    <div class="category-title">${c.code} - ${c.full_name}</div>
+                                    <div class="type-list">
+                                        ${catTypes.map(t => `
+                                            <div class="type-item">
+                                                <strong>${t.code}</strong> - ${t.full_name}
+                                                ${t.database_table ? `<br><small>→ ${t.database_table}</small>` : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('hierarchyTree').innerHTML = html;
+        }
+        
+        // Load on page load
+        loadVocabulary();
+    </script>
+</body>
+</html>

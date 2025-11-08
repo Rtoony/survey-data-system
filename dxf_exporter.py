@@ -1,6 +1,7 @@
 """
 DXF Exporter Module
 Reads entities from database and generates DXF files.
+Uses database-driven CAD standards for layer naming.
 """
 
 import ezdxf
@@ -11,14 +12,42 @@ from datetime import datetime
 import json
 from typing import Dict, List, Optional
 import os
+import sys
+
+# Import standards-based layer generator
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from standards.export_layer_generator import ExportLayerGenerator
+    STANDARDS_AVAILABLE = True
+except ImportError:
+    STANDARDS_AVAILABLE = False
+    print("Warning: ExportLayerGenerator not available, using legacy layer naming")
 
 
 class DXFExporter:
-    """Export database entities to DXF files."""
+    """Export database entities to DXF files using database-driven standards."""
     
-    def __init__(self, db_config: Dict):
-        """Initialize exporter with database configuration."""
+    def __init__(self, db_config: Dict, use_standards: bool = True):
+        """
+        Initialize exporter with database configuration.
+        
+        Args:
+            db_config: Database connection parameters
+            use_standards: Use database-driven layer naming (default: True)
+        """
         self.db_config = db_config
+        self.use_standards = use_standards and STANDARDS_AVAILABLE
+        
+        # Initialize layer generator if standards are enabled
+        if self.use_standards:
+            try:
+                self.layer_generator = ExportLayerGenerator()
+            except Exception as e:
+                print(f"Warning: Could not initialize ExportLayerGenerator: {e}")
+                self.use_standards = False
+                self.layer_generator = None
+        else:
+            self.layer_generator = None
     
     def export_dxf(self, drawing_id: str, output_path: str,
                    dxf_version: str = 'AC1027',
@@ -110,6 +139,44 @@ class DXFExporter:
             WHERE drawing_id = %s::uuid
         """, (drawing_id,))
         return cur.fetchone()
+    
+    def _generate_layer_name(self, object_type: str, properties: Dict, geometry_type: str = 'LINE') -> str:
+        """
+        Generate layer name using standards system or fall back to legacy.
+        
+        Args:
+            object_type: Database object type (e.g., 'utility_line')
+            properties: Object properties dict
+            geometry_type: DXF geometry type
+            
+        Returns:
+            Layer name string
+        """
+        if self.use_standards and self.layer_generator:
+            try:
+                layer_name = self.layer_generator.generate_layer_name(
+                    object_type,
+                    properties,
+                    geometry_type
+                )
+                if layer_name:
+                    return layer_name
+            except Exception as e:
+                print(f"Warning: Layer generation failed, using fallback: {e}")
+        
+        # Legacy fallback
+        return self._generate_legacy_layer_name(object_type, properties, geometry_type)
+    
+    def _generate_legacy_layer_name(self, object_type: str, properties: Dict, geometry_type: str) -> str:
+        """Legacy layer name generation (fallback)"""
+        # Simple fallback logic
+        utility_type = properties.get('utility_type', 'UTIL')
+        diameter = properties.get('diameter', properties.get('diameter_inches'))
+        phase = properties.get('phase', 'EXIST')
+        
+        if diameter:
+            return f"{diameter}IN-{utility_type.upper()}"
+        return utility_type.upper()
     
     def _setup_layers(self, drawing_id: str, doc: ezdxf.document.Drawing,
                       cur, stats: Dict, layer_filter: Optional[List[str]]):
@@ -611,7 +678,7 @@ class DXFExporter:
         return stats
     
     def _export_intelligent_utility_lines(self, conn, project_id: str, doc, msp) -> int:
-        """Export utility lines with layer names like '12IN-STORM'."""
+        """Export utility lines using database-driven CAD standards."""
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
         cur.execute("""
@@ -619,6 +686,8 @@ class DXFExporter:
                 utility_line_id,
                 utility_type,
                 diameter_mm,
+                material,
+                phase,
                 ST_AsText(line_geometry) as geometry_wkt
             FROM utility_lines
             WHERE project_id = %s AND line_geometry IS NOT NULL
@@ -630,12 +699,20 @@ class DXFExporter:
         count = 0
         for line in lines:
             try:
-                # Generate layer name: "12IN-STORM"
+                # Build properties dict for layer generation
                 diameter_mm = line.get('diameter_mm')
-                diameter_in = round(diameter_mm / 25.4) if diameter_mm else 0
-                utility_type = (line.get('utility_type') or 'UNKNOWN').upper().replace(' ', '-')
+                diameter_in = round(diameter_mm / 25.4) if diameter_mm else None
                 
-                layer_name = f"{diameter_in}IN-{utility_type}" if diameter_in else utility_type
+                properties = {
+                    'utility_type': line.get('utility_type', 'unknown'),
+                    'diameter': diameter_in,
+                    'diameter_inches': diameter_in,
+                    'material': line.get('material'),
+                    'phase': line.get('phase', 'existing')
+                }
+                
+                # Generate layer name using standards system
+                layer_name = self._generate_layer_name('utility_line', properties, 'LINE')
                 
                 # Ensure layer exists
                 if layer_name not in doc.layers:
@@ -674,15 +751,15 @@ class DXFExporter:
         count = 0
         for struct in structures:
             try:
-                # Generate layer name: "MH-STORM"
-                struct_type = (struct.get('structure_type') or 'STRUCT').upper().replace(' ', '-')
-                if struct_type == 'MANHOLE':
-                    struct_type = 'MH'
-                elif struct_type == 'CATCH-BASIN':
-                    struct_type = 'CB'
-                    
-                utility_type = (struct.get('utility_type') or 'UNKNOWN').upper().replace(' ', '-')
-                layer_name = f"{struct_type}-{utility_type}"
+                properties = {
+                    'structure_type': struct.get('structure_type', 'manhole'),
+                    'utility_type': struct.get('utility_type'),
+                    'diameter': struct.get('diameter'),
+                    'phase': struct.get('phase', 'existing')
+                }
+                
+                # Generate layer name using standards system
+                layer_name = self._generate_layer_name('utility_structure', properties, 'POINT')
                 
                 # Ensure layer exists
                 if layer_name not in doc.layers:
@@ -723,14 +800,14 @@ class DXFExporter:
         count = 0
         for bmp in bmps:
             try:
-                # Generate layer name: "BMP-BIORETENTION-500CF"
-                bmp_type = (bmp.get('bmp_type') or 'UNKNOWN').upper().replace(' ', '-')
-                volume = bmp.get('design_volume_cf')
+                # Generate layer name using standards system
+                properties = {
+                    'bmp_type': bmp.get('bmp_type', 'bioretention'),
+                    'design_volume_cf': bmp.get('design_volume_cf'),
+                    'phase': bmp.get('phase', 'new')
+                }
                 
-                if volume:
-                    layer_name = f"BMP-{bmp_type}-{int(volume)}CF"
-                else:
-                    layer_name = f"BMP-{bmp_type}"
+                layer_name = self._generate_layer_name('bmp', properties, 'POLYGON')
                 
                 # Ensure layer exists
                 if layer_name not in doc.layers:

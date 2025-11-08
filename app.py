@@ -193,6 +193,11 @@ def standards_materials():
     """Material standards page"""
     return render_template('standards/materials.html')
 
+@app.route('/standards/vocabulary')
+def standards_vocabulary():
+    """CAD Standards Vocabulary browser page"""
+    return render_template('standards/vocabulary.html')
+
 @app.route('/standards/sheets')
 def standards_sheets():
     """Sheet template standards page"""
@@ -4958,6 +4963,157 @@ def download_export(job_id, filename):
             download_name=filename
         )
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# CAD STANDARDS VOCABULARY API
+# ============================================
+
+@app.route('/api/vocabulary/disciplines')
+def get_disciplines():
+    """Get all discipline codes"""
+    try:
+        query = """
+            SELECT discipline_id, code, full_name, description, sort_order
+            FROM discipline_codes
+            WHERE is_active = TRUE
+            ORDER BY sort_order NULLS LAST, code
+        """
+        disciplines = execute_query(query)
+        return jsonify({'disciplines': disciplines})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/categories')
+def get_categories():
+    """Get all category codes with discipline info"""
+    try:
+        discipline_id = request.args.get('discipline_id')
+        
+        query = """
+            SELECT c.category_id, c.code, c.full_name, c.description, c.sort_order,
+                   d.code as discipline_code, d.full_name as discipline_name
+            FROM category_codes c
+            JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+            WHERE c.is_active = TRUE
+        """
+        
+        params = None
+        if discipline_id:
+            query += " AND c.discipline_id = %s"
+            params = (discipline_id,)
+        
+        query += " ORDER BY d.code, c.sort_order NULLS LAST, c.code"
+        
+        categories = execute_query(query, params)
+        return jsonify({'categories': categories})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/object-types')
+def get_object_types():
+    """Get all object type codes"""
+    try:
+        category_id = request.args.get('category_id')
+        
+        query = """
+            SELECT t.type_id, t.code, t.full_name, t.description, t.database_table,
+                   c.code as category_code, c.full_name as category_name,
+                   d.code as discipline_code
+            FROM object_type_codes t
+            JOIN category_codes c ON t.category_id = c.category_id
+            JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+            WHERE t.is_active = TRUE
+        """
+        
+        params = None
+        if category_id:
+            query += " AND t.category_id = %s"
+            params = (category_id,)
+        
+        query += " ORDER BY d.code, c.code, t.sort_order NULLS LAST, t.code"
+        
+        types = execute_query(query, params)
+        return jsonify({'object_types': types})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/phases')
+def get_phases():
+    """Get all phase codes"""
+    try:
+        query = """
+            SELECT phase_id, code, full_name, description, color_rgb, sort_order
+            FROM phase_codes
+            WHERE is_active = TRUE
+            ORDER BY sort_order NULLS LAST, code
+        """
+        phases = execute_query(query)
+        return jsonify({'phases': phases})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/geometries')
+def get_geometries():
+    """Get all geometry codes"""
+    try:
+        query = """
+            SELECT geometry_id, code, full_name, description, dxf_entity_types, sort_order
+            FROM geometry_codes
+            WHERE is_active = TRUE
+            ORDER BY sort_order NULLS LAST, code
+        """
+        geometries = execute_query(query)
+        return jsonify({'geometries': geometries})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/layer-patterns')
+def get_layer_patterns():
+    """Get standard layer patterns"""
+    try:
+        query = """
+            SELECT p.pattern_id, p.full_layer_name, p.description,
+                   p.database_table, p.example_attributes,
+                   d.code as discipline_code, d.full_name as discipline_name,
+                   c.code as category_code, c.full_name as category_name,
+                   t.code as type_code, t.full_name as type_name,
+                   ph.code as phase_code, ph.full_name as phase_name,
+                   g.code as geometry_code, g.full_name as geometry_name
+            FROM standard_layer_patterns p
+            JOIN discipline_codes d ON p.discipline_id = d.discipline_id
+            JOIN category_codes c ON p.category_id = c.category_id
+            JOIN object_type_codes t ON p.type_id = t.type_id
+            JOIN phase_codes ph ON p.phase_id = ph.phase_id
+            JOIN geometry_codes g ON p.geometry_id = g.geometry_id
+            WHERE p.is_active = TRUE
+            ORDER BY p.full_layer_name
+        """
+        patterns = execute_query(query)
+        return jsonify({'layer_patterns': patterns})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/import-mappings')
+def get_import_mappings():
+    """Get import mapping patterns"""
+    try:
+        query = """
+            SELECT m.mapping_id, m.client_name, m.source_pattern,
+                   m.regex_pattern, m.extraction_rules, m.confidence_score,
+                   d.code as discipline_code,
+                   c.code as category_code,
+                   t.code as type_code
+            FROM import_mapping_patterns m
+            LEFT JOIN discipline_codes d ON m.target_discipline_id = d.discipline_id
+            LEFT JOIN category_codes c ON m.target_category_id = c.category_id
+            LEFT JOIN object_type_codes t ON m.target_type_id = t.type_id
+            WHERE m.is_active = TRUE
+            ORDER BY m.confidence_score DESC, m.client_name, m.source_pattern
+        """
+        mappings = execute_query(query)
+        return jsonify({'import_mappings': mappings})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
