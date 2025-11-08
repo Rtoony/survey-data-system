@@ -838,6 +838,7 @@ class DXFExporter:
             SELECT 
                 surface_id,
                 surface_type,
+                phase,
                 ST_AsText(surface_geometry) as geometry_wkt,
                 ST_GeometryType(surface_geometry) as geometry_type
             FROM surface_models
@@ -850,14 +851,13 @@ class DXFExporter:
         count = 0
         for surface in surfaces:
             try:
-                # Generate layer name: "SURFACE-EG"
-                surf_type = (surface.get('surface_type') or 'UNKNOWN').upper().replace(' ', '-')
-                if 'EXISTING' in surf_type.upper():
-                    surf_type = 'EG'
-                elif 'PROPOSED' in surf_type.upper() or 'FINISHED' in surf_type.upper():
-                    surf_type = 'FG'
-                    
-                layer_name = f"SURFACE-{surf_type}"
+                # Generate layer name using standards system
+                properties = {
+                    'surface_type': surface.get('surface_type', 'existing_grade'),
+                    'phase': surface.get('phase', 'existing')
+                }
+                
+                layer_name = self._generate_layer_name('surface_model', properties, 'POLYGON')
                 
                 # Ensure layer exists
                 if layer_name not in doc.layers:
@@ -882,6 +882,8 @@ class DXFExporter:
             SELECT 
                 alignment_id,
                 alignment_type,
+                phase,
+                name,
                 ST_AsText(centerline_geometry) as geometry_wkt
             FROM horizontal_alignments
             WHERE project_id = %s AND centerline_geometry IS NOT NULL
@@ -893,9 +895,14 @@ class DXFExporter:
         count = 0
         for alignment in alignments:
             try:
-                # Generate layer name: "CENTERLINE-ROAD"
-                align_type = (alignment.get('alignment_type') or 'ROAD').upper().replace(' ', '-')
-                layer_name = f"CENTERLINE-{align_type}"
+                # Generate layer name using standards system
+                properties = {
+                    'alignment_type': alignment.get('alignment_type', 'road'),
+                    'phase': alignment.get('phase', 'proposed'),
+                    'name': alignment.get('name')
+                }
+                
+                layer_name = self._generate_layer_name('alignment', properties, 'LINE')
                 
                 # Ensure layer exists
                 if layer_name not in doc.layers:
@@ -920,6 +927,8 @@ class DXFExporter:
             SELECT 
                 point_id,
                 point_type,
+                phase,
+                description,
                 ST_X(point_geometry) as x,
                 ST_Y(point_geometry) as y,
                 ST_Z(point_geometry) as z
@@ -933,12 +942,13 @@ class DXFExporter:
         count = 0
         for point in points:
             try:
-                # Generate layer name: "CONTROL-POINT", "TOPO"
-                point_type = (point.get('point_type') or 'TOPO').upper().replace(' ', '-')
-                if point_type == 'CONTROL':
-                    layer_name = 'CONTROL-POINT'
-                else:
-                    layer_name = point_type
+                # Generate layer name using standards system
+                properties = {
+                    'point_type': point.get('point_type', 'topo'),
+                    'phase': point.get('phase', 'survey')
+                }
+                
+                layer_name = self._generate_layer_name('survey_point', properties, 'POINT')
                 
                 # Ensure layer exists
                 if layer_name not in doc.layers:
@@ -964,6 +974,8 @@ class DXFExporter:
             SELECT 
                 tree_id,
                 tree_status,
+                species,
+                phase,
                 ST_X(location) as x,
                 ST_Y(location) as y,
                 ST_Z(location) as z
@@ -977,16 +989,14 @@ class DXFExporter:
         count = 0
         for tree in trees:
             try:
-                # Generate layer name: "TREE-EXIST", "TREE-PROPOSED"
-                status = (tree.get('tree_status') or 'EXIST').upper()
-                if 'EXIST' in status:
-                    layer_name = 'TREE-EXIST'
-                elif 'PROPOSED' in status or 'NEW' in status:
-                    layer_name = 'TREE-PROPOSED'
-                elif 'REMOVE' in status:
-                    layer_name = 'TREE-REMOVE'
-                else:
-                    layer_name = f'TREE-{status}'
+                # Generate layer name using standards system
+                properties = {
+                    'tree_status': tree.get('tree_status', 'existing'),
+                    'species': tree.get('species'),
+                    'phase': tree.get('phase', 'existing')
+                }
+                
+                layer_name = self._generate_layer_name('site_tree', properties, 'POINT')
                 
                 # Ensure layer exists
                 if layer_name not in doc.layers:

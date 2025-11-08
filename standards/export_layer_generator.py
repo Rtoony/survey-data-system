@@ -37,6 +37,7 @@ class ExportLayerGenerator:
             # Grading/Topography
             'contour': self._generate_contour_layer,
             'spot_elevation': self._generate_spot_layer,
+            'surface_model': self._generate_surface_layer,
             
             # Survey
             'survey_point': self._generate_survey_point_layer,
@@ -200,6 +201,35 @@ class ExportLayerGenerator:
             phase=phase,
             geometry=geometry,
             attributes=attributes
+        )
+    
+    def _generate_surface_layer(self,
+                                 properties: Dict,
+                                 geometry_type: Optional[str]) -> Optional[str]:
+        """Generate layer name for surface models"""
+        surface_type = properties.get('surface_type', 'surface')
+        
+        # Map surface type to standard code
+        surface_map = {
+            'existing_grade': 'EG',
+            'existing': 'EG',
+            'proposed_grade': 'FG',
+            'finished_grade': 'FG',
+            'proposed': 'FG',
+            'top_of_curb': 'TOC',
+            'flow_line': 'FL',
+        }
+        
+        type_code = surface_map.get(surface_type.lower(), surface_type.upper()[:8])
+        phase = self._get_phase_code(properties)
+        
+        return self.builder.build(
+            discipline='CIV',
+            category='GRAD',
+            object_type=type_code,
+            phase=phase,
+            geometry='PG',
+            attributes=[]
         )
     
     def _generate_contour_layer(self,
