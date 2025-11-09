@@ -1124,26 +1124,67 @@ function toggleStandardsPanel() {
     }
 }
 
-function applyStandardsFilter() {
+async function applyStandardsFilter() {
     selectedStandards.disciplines = Array.from(document.querySelectorAll('#discipline-filters input:checked')).map(cb => cb.value);
     selectedStandards.categories = Array.from(document.querySelectorAll('#category-filters input:checked')).map(cb => cb.value);
     selectedStandards.phases = Array.from(document.querySelectorAll('#phase-filters input:checked')).map(cb => cb.value);
     
-    console.log('Applied standards filter:', selectedStandards);
+    console.log('Applying standards filter:', selectedStandards);
     
-    // TODO: Reload layers with filter applied
-    // For now, just show a message
     const filterCount = selectedStandards.disciplines.length + selectedStandards.categories.length + selectedStandards.phases.length;
-    if (filterCount > 0) {
-        alert(`Filter applied: ${filterCount} criteria selected. Layer filtering will be implemented next.`);
+    
+    if (filterCount === 0) {
+        alert('Please select at least one filter criteria');
+        return;
+    }
+    
+    try {
+        // Build query parameters
+        const params = new URLSearchParams();
+        selectedStandards.disciplines.forEach(d => params.append('disciplines', d));
+        selectedStandards.categories.forEach(c => params.append('categories', c));
+        selectedStandards.phases.forEach(p => params.append('phases', p));
+        
+        // Fetch filtered database layers
+        const response = await fetch(`/api/map-viewer/database-layers?${params.toString()}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error applying filter: ' + data.error);
+            return;
+        }
+        
+        // Update available layers
+        availableLayers = data.layers || [];
+        
+        // Display filtered layers
+        const layerHtml = availableLayers.map(layer => `
+            <div class="layer-item">
+                <label>
+                    <input type="checkbox" id="layer-${layer.id}" onchange="toggleLayer('${layer.id}')">
+                    ${layer.name}
+                </label>
+            </div>
+        `).join('');
+        
+        document.getElementById('layer-list').innerHTML = layerHtml || '<p style="color: #888;">No layers match your filter</p>';
+        
+        alert(`Filter applied: ${availableLayers.length} layers found matching ${filterCount} criteria`);
+        
+    } catch (error) {
+        console.error('Error applying filter:', error);
+        alert('Error applying filter: ' + error.message);
     }
 }
 
-function clearStandardsFilter() {
+async function clearStandardsFilter() {
     document.querySelectorAll('#discipline-filters input, #category-filters input, #phase-filters input').forEach(cb => cb.checked = false);
     selectedStandards = { disciplines: [], categories: [], phases: [] };
     updateCategoryFilters();
-    console.log('Standards filter cleared');
+    console.log('Standards filter cleared - reloading all layers');
+    
+    // Reload all layers without filters
+    await loadLayers();
 }
 
 // Initialize when page loads

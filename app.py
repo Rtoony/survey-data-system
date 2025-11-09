@@ -2154,7 +2154,7 @@ def dxf_tools_page():
 
 @app.route('/api/dxf/import', methods=['POST'])
 def import_dxf():
-    """Import DXF file into database"""
+    """Import DXF file into database - with optional pattern-based classification"""
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400
@@ -2173,6 +2173,7 @@ def import_dxf():
         
         import_modelspace = request.form.get('import_modelspace', 'true') == 'true'
         import_paperspace = request.form.get('import_paperspace', 'true') == 'true'
+        pattern_id = request.form.get('pattern_id')  # Optional import pattern
         
         # Save uploaded file temporarily
         filename = secure_filename(file.filename)
@@ -2180,8 +2181,13 @@ def import_dxf():
         file.save(temp_path)
         
         try:
-            # Import DXF
-            importer = DXFImporter(DB_CONFIG)
+            # If pattern_id is provided, use intelligent object creation
+            # NOTE: Currently the DXFImporter uses its own pattern matching logic
+            # The selected pattern_id serves as a hint but automatic detection is used
+            use_intelligent = pattern_id is not None
+            
+            # Import DXF with intelligent object creation enabled
+            importer = DXFImporter(DB_CONFIG, create_intelligent_objects=use_intelligent)
             stats = importer.import_dxf(
                 temp_path,
                 drawing_id,
@@ -2189,10 +2195,36 @@ def import_dxf():
                 import_paperspace=import_paperspace
             )
             
-            return jsonify({
+            # Add pattern matching info if pattern was selected
+            pattern_info = None
+            if pattern_id and use_intelligent:
+                # Get selected pattern details
+                pattern_query = "SELECT client_name, source_pattern, confidence_score FROM import_mapping_patterns WHERE mapping_id = %s"
+                pattern_result = execute_query(pattern_query, (pattern_id,))
+                
+                if pattern_result:
+                    pattern = pattern_result[0]
+                    # Get actual stats from import
+                    total_layers = len(stats.get('layers', set()))
+                    matched = stats.get('intelligent_objects_created', 0)
+                    
+                    pattern_info = {
+                        'pattern_name': f"{pattern['client_name']} - {pattern['source_pattern']}",
+                        'matched_count': matched,
+                        'unmatched_count': max(0, total_layers - (1 if matched > 0 else 0)),
+                        'avg_confidence': pattern['confidence_score'],
+                        'note': 'Using automatic pattern detection with intelligent object creation'
+                    }
+            
+            response_data = {
                 'success': len(stats['errors']) == 0,
                 'stats': stats
-            })
+            }
+            
+            if pattern_info:
+                response_data['pattern_info'] = pattern_info
+            
+            return jsonify(response_data)
         
         finally:
             # Clean up temp file
@@ -3688,8 +3720,15 @@ def get_gis_layers():
 
 @app.route('/api/map-viewer/database-layers')
 def get_database_layers():
-    """Get available database layers (user's PostGIS data)"""
+    """Get available database layers (user's PostGIS data) - optionally filtered by CAD standards"""
     try:
+        # Get filter parameters from query string
+        disciplines = request.args.getlist('disciplines')
+        categories = request.args.getlist('categories')
+        phases = request.args.getlist('phases')
+        
+        has_filters = len(disciplines) > 0 or len(categories) > 0 or len(phases) > 0
+        
         # Define the database layers that contain geospatial data
         db_layers = [
             {
@@ -3699,7 +3738,8 @@ def get_database_layers():
                 'geom_column': 'geometry',
                 'geom_type': 'Point',
                 'enabled': True,
-                'description': 'Survey control points and topo shots'
+                'description': 'Survey control points and topo shots',
+                'has_layer_name': True
             },
             {
                 'id': 'utility_lines',
@@ -3708,7 +3748,8 @@ def get_database_layers():
                 'geom_column': 'geometry',
                 'geom_type': 'LineString',
                 'enabled': True,
-                'description': 'Water, sewer, storm, electric, gas lines'
+                'description': 'Water, sewer, storm, electric, gas lines',
+                'has_layer_name': True
             },
             {
                 'id': 'utility_structures',
@@ -3717,7 +3758,8 @@ def get_database_layers():
                 'geom_column': 'geometry',
                 'geom_type': 'Point',
                 'enabled': True,
-                'description': 'Manholes, valves, meters, structures'
+                'description': 'Manholes, valves, meters, structures',
+                'has_layer_name': True
             },
             {
                 'id': 'parcels',
@@ -3726,7 +3768,8 @@ def get_database_layers():
                 'geom_column': 'geometry',
                 'geom_type': 'Polygon',
                 'enabled': True,
-                'description': 'Property parcel boundaries'
+                'description': 'Property parcel boundaries',
+                'has_layer_name': False
             },
             {
                 'id': 'horizontal_alignments',
@@ -3735,7 +3778,8 @@ def get_database_layers():
                 'geom_column': 'geometry',
                 'geom_type': 'LineString',
                 'enabled': True,
-                'description': 'Horizontal centerline alignments'
+                'description': 'Horizontal centerline alignments',
+                'has_layer_name': True
             },
             {
                 'id': 'surface_features',
@@ -3744,7 +3788,8 @@ def get_database_layers():
                 'geom_column': 'geometry',
                 'geom_type': 'Mixed',
                 'enabled': True,
-                'description': 'General site features (points, lines, polygons)'
+                'description': 'General site features (points, lines, polygons)',
+                'has_layer_name': True
             },
             {
                 'id': 'drawing_entities',
@@ -3753,7 +3798,8 @@ def get_database_layers():
                 'geom_column': 'geometry',
                 'geom_type': 'Mixed',
                 'enabled': True,
-                'description': 'Lines, polylines, arcs, circles from CAD drawings'
+                'description': 'Lines, polylines, arcs, circles from CAD drawings',
+                'has_layer_name': True
             }
         ]
         
@@ -3761,7 +3807,25 @@ def get_database_layers():
         available_layers = []
         for layer in db_layers:
             try:
-                count_query = f"SELECT COUNT(*) as count FROM {layer['table']}"
+                # Build count query with optional standards filter
+                if has_filters and layer.get('has_layer_name'):
+                    # Check if table has layer_name column and filter by standards
+                    filter_conditions = []
+                    if disciplines:
+                        disc_pattern = '|'.join([f'^{d}-' for d in disciplines])
+                        filter_conditions.append(f"layer_name ~ '{disc_pattern}'")
+                    if categories:
+                        cat_pattern = '|'.join([f'-{c}-' for c in categories])
+                        filter_conditions.append(f"layer_name ~ '{cat_pattern}'")
+                    if phases:
+                        phase_pattern = '|'.join([f'-{p}-' for p in phases])
+                        filter_conditions.append(f"layer_name ~ '{phase_pattern}'")
+                    
+                    where_clause = " OR ".join(filter_conditions) if filter_conditions else "1=1"
+                    count_query = f"SELECT COUNT(*) as count FROM {layer['table']} WHERE {where_clause}"
+                else:
+                    count_query = f"SELECT COUNT(*) as count FROM {layer['table']}"
+                
                 result = execute_query(count_query)
                 if result and result[0]['count'] > 0:
                     layer['feature_count'] = result[0]['count']

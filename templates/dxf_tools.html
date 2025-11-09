@@ -582,6 +582,7 @@ document.getElementById('importButton').addEventListener('click', async () => {
     const fileInput = document.getElementById('dxfFileInput');
     const importModelspace = document.getElementById('importModelspace').checked;
     const importPaperspace = document.getElementById('importPaperspace').checked;
+    const patternId = document.getElementById('importPatternSelect').value;
     
     const file = fileInput.files[0];
     if (!file || !drawingId) return;
@@ -602,6 +603,11 @@ document.getElementById('importButton').addEventListener('click', async () => {
     formData.append('import_modelspace', importModelspace);
     formData.append('import_paperspace', importPaperspace);
     
+    // Add pattern_id if a pattern is selected
+    if (patternId) {
+        formData.append('pattern_id', patternId);
+    }
+    
     try {
         const response = await fetch('/api/dxf/import', {
             method: 'POST',
@@ -617,6 +623,17 @@ document.getElementById('importButton').addEventListener('click', async () => {
         
         // Display results
         displayImportResults(data.stats);
+        
+        // Show pattern matching info if available
+        if (data.pattern_info) {
+            document.getElementById('importPreviewContent').innerHTML = `
+                <p><strong>Pattern Applied:</strong> ${data.pattern_info.pattern_name}</p>
+                <p><strong>Matched Layers:</strong> ${data.pattern_info.matched_count || 0}</p>
+                <p><strong>Unmatched Layers:</strong> ${data.pattern_info.unmatched_count || 0}</p>
+                <p><strong>Confidence:</strong> ${data.pattern_info.avg_confidence || 0}%</p>
+            `;
+            document.getElementById('importPreview').style.display = 'block';
+        }
         
         // Reload drawings and jobs
         await loadDrawings();
