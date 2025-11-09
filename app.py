@@ -154,6 +154,16 @@ def data_manager_details():
     """Details data manager page"""
     return render_template('data_manager/details.html')
 
+@app.route('/data-manager/categories')
+def data_manager_categories():
+    """Categories data manager page"""
+    return render_template('data_manager/categories.html')
+
+@app.route('/data-manager/disciplines')
+def data_manager_disciplines():
+    """Disciplines data manager page"""
+    return render_template('data_manager/disciplines.html')
+
 @app.route('/project-standards-assignment')
 def project_standards_assignment():
     """Project Standards Assignment page"""

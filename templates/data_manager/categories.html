@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+
+{% block title %}Categories Manager - Data Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-folder-tree"></i> Categories Manager</h1>
+            <p class="subtitle">Manage standard CAD element categories</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-folder-tree"></i> Standard Categories</h2>
+            <div class="button-group">
+                <button onclick="addNewCategory()" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New
+                </button>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search categories..." onkeyup="filterTable()">
+            </div>
+
+            <div id="loadingMessage" class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i> Loading categories...
+            </div>
+
+            <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+            <div id="tableContainer" style="display: none; overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th style="width: 100px;">Sort Order</th>
+                            <th style="width: 150px;">Applies To</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categoriesTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="categoryModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Category</h2>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="categoryForm" onsubmit="saveCategory(event)">
+            <input type="hidden" id="categoryId">
+            
+            <div class="form-group">
+                <label for="categoryCode">Category Code</label>
+                <input type="text" id="categoryCode" required placeholder="e.g., CIVIL">
+            </div>
+
+            <div class="form-group">
+                <label for="categoryName">Category Name</label>
+                <input type="text" id="categoryName" required placeholder="e.g., Civil Engineering">
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Description of this category"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="sortOrder">Sort Order</label>
+                <input type="number" id="sortOrder" value="0" placeholder="0">
+            </div>
+
+            <div class="form-group">
+                <label>Applies To (select at least one)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="layers"> Layers
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="blocks"> Blocks
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="details"> Details
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="hatches"> Hatches
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="materials"> Materials
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="notes"> Notes
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="linetypes"> Linetypes
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="abbreviations"> Abbreviations
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let allCategories = [];
+
+// Load categories on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadCategories();
+});
+
+async function loadCategories() {
+    try {
+        document.getElementById('loadingMessage').style.display = 'block';
+        document.getElementById('errorMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+
+        const response = await fetch('/api/categories');
+        if (!response.ok) throw new Error('Failed to load categories');
+        
+        const data = await response.json();
+        allCategories = data.categories;
+        renderTable(allCategories);
+        
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading categories:', error);
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('errorMessage').textContent = 'Error loading categories: ' + error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+    }
+}
+
+function renderTable(categories) {
+    const tbody = document.getElementById('categoriesTableBody');
+    tbody.innerHTML = '';
+    
+    if (categories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No categories found</td></tr>';
+        return;
+    }
+    
+    categories.forEach(category => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${category.category_code}</strong></td>
+            <td>${category.category_name}</td>
+            <td>${category.description || ''}</td>
+            <td>${category.sort_order}</td>
+            <td><span class="badge badge-info">Multiple</span></td>
+            <td>
+                <button onclick="editCategory('${category.category_id}')" class="btn-icon" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteCategory('${category.category_id}')" class="btn-icon btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function filterTable() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = allCategories.filter(cat => 
+        cat.category_code.toLowerCase().includes(searchTerm) ||
+        cat.category_name.toLowerCase().includes(searchTerm) ||
+        (cat.description && cat.description.toLowerCase().includes(searchTerm))
+    );
+    renderTable(filtered);
+}
+
+function addNewCategory() {
+    document.getElementById('modalTitle').textContent = 'Add New Category';
+    document.getElementById('categoryForm').reset();
+    document.getElementById('categoryId').value = '';
+    document.getElementById('categoryModal').style.display = 'block';
+}
+
+async function editCategory(categoryId) {
+    const category = allCategories.find(c => c.category_id === categoryId);
+    if (!category) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Category';
+    document.getElementById('categoryId').value = category.category_id;
+    document.getElementById('categoryCode').value = category.category_code;
+    document.getElementById('categoryName').value = category.category_name;
+    document.getElementById('description').value = category.description || '';
+    document.getElementById('sortOrder').value = category.sort_order;
+    
+    document.getElementById('categoryModal').style.display = 'block';
+}
+
+async function saveCategory(event) {
+    event.preventDefault();
+    
+    const categoryId = document.getElementById('categoryId').value;
+    const data = {
+        category_code: document.getElementById('categoryCode').value.toUpperCase(),
+        category_name: document.getElementById('categoryName').value,
+        description: document.getElementById('description').value,
+        sort_order: parseInt(document.getElementById('sortOrder').value) || 0,
+        standard_types: Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value)
+    };
+    
+    if (data.standard_types.length === 0) {
+        alert('Please select at least one standard type that this category applies to.');
+        return;
+    }
+    
+    try {
+        const url = categoryId ? `/api/categories/${categoryId}` : '/api/categories';
+        const method = categoryId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) throw new Error('Failed to save category');
+        
+        closeModal();
+        loadCategories();
+    } catch (error) {
+        console.error('Error saving category:', error);
+        alert('Error saving category: ' + error.message);
+    }
+}
+
+async function deleteCategory(categoryId) {
+    if (!confirm('Are you sure you want to delete this category?')) return;
+    
+    try {
+        const response = await fetch(`/api/categories/${categoryId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete category');
+        
+        loadCategories();
+    } catch (error) {
+        console.error('Error deleting category:', error);
+        alert('Error deleting category: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('categoryModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('categoryModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+
+<style>
+.search-box {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.search-box i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+}
+
+.search-box input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    background: rgba(255,255,255,0.08);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.data-table th {
+    background: rgba(0,255,255,0.1);
+    color: var(--accent-cyan);
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--accent-cyan);
+}
+
+.data-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-primary);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0,255,255,0.05);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.checkbox-label:hover {
+    background: rgba(0,255,255,0.1);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-info {
+    background: rgba(0,150,255,0.2);
+    color: #5bc0de;
+}
+</style>
+{% endblock %}
