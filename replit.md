@@ -19,6 +19,7 @@ Preferred communication style: Simple, everyday language.
 
 **AI-First Database Architecture:**
 - **Unified Entity Registry (`standards_entities`):** Canonical identity for all CAD/GIS elements.
+- **Entity Registry (`entity_registry`):** Validated registry of database tables that can store CAD objects, enforcing referential integrity between layer vocabulary and database schema. Each entry validates table existence in `information_schema.tables` before registration.
 - **Centralized Embeddings (`entity_embeddings`):** Stores versioned vector embeddings.
 - **Graph Edges (`entity_relationships`):** Defines explicit spatial, engineering, and semantic relationships for GraphRAG.
 - **Quality Scoring:** `quality_score` column for data quality assessment.
@@ -35,8 +36,12 @@ Preferred communication style: Simple, everyday language.
 - **Modular Standards Management:** Separation of "Standards Library" from "Project Operations" with clear navigation, project assignment, and compliance tracking.
 - **Database-Driven Vocabulary:** Implemented a comprehensive, database-backed controlled vocabulary system for CAD elements (disciplines, categories, object types, phases, geometries) with full CRUD and automatic propagation across the application.
 - **CAD Layer Naming Standards:** Defined and implemented a database-driven classifier (`[DISCIPLINE]-[CATEGORY]-[OBJECT_TYPE]-[PHASE]-[GEOMETRY]`) for CAD layer names, supporting extraction of attributes like diameter and network mode.
+- **Split Vocabulary Architecture:** Separated layer-specific vocabulary (/standards/layer-vocabulary) from general reference data management (/standards/reference-data) for better organization and focused workflows.
+- **Mission Control Design System:** Centralized design system in static/css/styles.css with reusable mc-* classes and --mc-* CSS variables. Cyan/neon color palette (#00ffff primary, #ff00ff secondary, #00ff88 accent) with Orbitron headings and Rajdhani body text. All 27+ templates use shared styles for visual consistency.
 
 **Key Features & Design:**
+- **Layer Vocabulary Page (/standards/layer-vocabulary):** Dedicated interface for database-driven layer naming classification with 7 tabs (Overview, Disciplines, Categories, Object Types, Phases, Geometries, Full Hierarchy). Object Type codes link to validated database tables via Entity Registry dropdown with server-side validation.
+- **Reference Data Hub (/standards/reference-data):** Centralized management of system configuration and reference tables. Entity Registry tab provides full CRUD interface for managing valid database entity tables with real-time table existence validation, category grouping, and modal editing. Future tabs: Clients, Vendors, Municipalities, Coordinate Systems, Survey Point Descriptions.
 - **Schema Explorer & Data Manager:** CRUD operations for CAD standards, including a complete vocabulary inline editing interface.
 - **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards, including a curated layer examples catalog.
 - **Standards Mapping Framework:** 11-table database schema with 5 name mapping managers (blocks, details, hatches, materials, notes) supporting bidirectional DXF↔Database translation, a visualization dashboard, and full-text search.
