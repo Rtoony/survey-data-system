@@ -2972,6 +2972,582 @@ def get_usage_recent_activity():
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================
+# STANDARDS MAPPING DASHBOARD & API ENDPOINTS
+# ============================================================================
+
+@app.route('/standards-mapping-dashboard')
+def standards_mapping_dashboard():
+    """Render the Standards Mapping Dashboard page"""
+    return render_template('standards_mapping_dashboard.html')
+
+@app.route('/api/standards-mapping/stats')
+def get_mapping_stats():
+    """Get counts for all mapping types"""
+    try:
+        stats = {}
+        
+        stats['block_mappings'] = execute_query("SELECT COUNT(*) as count FROM block_name_mappings")[0]['count']
+        stats['detail_mappings'] = execute_query("SELECT COUNT(*) as count FROM detail_name_mappings")[0]['count']
+        stats['hatch_mappings'] = execute_query("SELECT COUNT(*) as count FROM hatch_pattern_name_mappings")[0]['count']
+        stats['material_mappings'] = execute_query("SELECT COUNT(*) as count FROM material_name_mappings")[0]['count']
+        stats['note_mappings'] = execute_query("SELECT COUNT(*) as count FROM note_name_mappings")[0]['count']
+        
+        stats['keynote_block_relationships'] = execute_query("SELECT COUNT(*) as count FROM project_keynote_block_mappings")[0]['count']
+        stats['keynote_detail_relationships'] = execute_query("SELECT COUNT(*) as count FROM project_keynote_detail_mappings")[0]['count']
+        stats['hatch_material_relationships'] = execute_query("SELECT COUNT(*) as count FROM project_hatch_material_mappings")[0]['count']
+        stats['detail_material_relationships'] = execute_query("SELECT COUNT(*) as count FROM project_detail_material_mappings")[0]['count']
+        stats['block_spec_relationships'] = execute_query("SELECT COUNT(*) as count FROM project_block_specification_mappings")[0]['count']
+        stats['cross_references'] = execute_query("SELECT COUNT(*) as count FROM project_element_cross_references")[0]['count']
+        
+        stats['total_relationships'] = (
+            stats['keynote_block_relationships'] + 
+            stats['keynote_detail_relationships'] +
+            stats['hatch_material_relationships'] +
+            stats['detail_material_relationships'] +
+            stats['block_spec_relationships'] +
+            stats['cross_references']
+        )
+        
+        return jsonify({'stats': stats})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards-mapping/block-mappings')
+def get_block_name_mappings():
+    """Get all block name mappings"""
+    try:
+        query = """
+            SELECT mapping_id, canonical_name, dxf_alias, description,
+                   import_direction, export_direction, client_id,
+                   confidence_score, is_active
+            FROM block_name_mappings
+            WHERE is_active = TRUE
+            ORDER BY canonical_name
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards-mapping/detail-mappings')
+def get_detail_name_mappings():
+    """Get all detail name mappings"""
+    try:
+        query = """
+            SELECT mapping_id, canonical_name, dxf_alias, description,
+                   import_direction, export_direction, client_id,
+                   confidence_score, is_active
+            FROM detail_name_mappings
+            WHERE is_active = TRUE
+            ORDER BY canonical_name
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards-mapping/hatch-mappings')
+def get_hatch_name_mappings():
+    """Get all hatch pattern name mappings"""
+    try:
+        query = """
+            SELECT mapping_id, canonical_name, dxf_alias, description,
+                   import_direction, export_direction, client_id,
+                   confidence_score, is_active
+            FROM hatch_pattern_name_mappings
+            WHERE is_active = TRUE
+            ORDER BY canonical_name
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards-mapping/material-mappings')
+def get_material_name_mappings():
+    """Get all material name mappings"""
+    try:
+        query = """
+            SELECT mapping_id, canonical_name, dxf_alias, description,
+                   import_direction, export_direction, client_id,
+                   confidence_score, is_active
+            FROM material_name_mappings
+            WHERE is_active = TRUE
+            ORDER BY canonical_name
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards-mapping/note-mappings')
+def get_note_name_mappings():
+    """Get all note name mappings"""
+    try:
+        query = """
+            SELECT mapping_id, canonical_name, dxf_alias, description,
+                   import_direction, export_direction, client_id,
+                   confidence_score, is_active
+            FROM note_name_mappings
+            WHERE is_active = TRUE
+            ORDER BY canonical_name
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# BLOCK NAME MAPPINGS CRUD MANAGER
+# ============================================================================
+
+@app.route('/data-manager/block-mappings')
+def block_mappings_manager():
+    """Render the Block Name Mappings Manager page"""
+    return render_template('data_manager/block_mappings.html')
+
+@app.route('/api/data-manager/block-mappings', methods=['GET'])
+def get_block_mappings_crud():
+    """Get all block mappings for CRUD interface"""
+    try:
+        query = """
+            SELECT * FROM block_name_mappings
+            ORDER BY canonical_name
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/block-mappings', methods=['POST'])
+def create_block_mapping():
+    """Create a new block mapping"""
+    try:
+        data = request.get_json()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO block_name_mappings 
+                    (canonical_name, dxf_alias, description, import_direction, 
+                     export_direction, client_id, confidence_score)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('canonical_name'),
+                    data.get('dxf_alias'),
+                    data.get('description'),
+                    data.get('import_direction', True),
+                    data.get('export_direction', True),
+                    data.get('client_id'),
+                    data.get('confidence_score', 1.0)
+                ))
+                mapping_id = cur.fetchone()[0]
+                conn.commit()
+        return jsonify({'mapping_id': mapping_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/block-mappings/<mapping_id>', methods=['PUT'])
+def update_block_mapping(mapping_id):
+    """Update an existing block mapping"""
+    try:
+        data = request.get_json()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE block_name_mappings
+                    SET canonical_name = %s, dxf_alias = %s, description = %s,
+                        import_direction = %s, export_direction = %s, 
+                        client_id = %s, confidence_score = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('canonical_name'),
+                    data.get('dxf_alias'),
+                    data.get('description'),
+                    data.get('import_direction', True),
+                    data.get('export_direction', True),
+                    data.get('client_id'),
+                    data.get('confidence_score', 1.0),
+                    mapping_id
+                ))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/block-mappings/<mapping_id>', methods=['DELETE'])
+def delete_block_mapping(mapping_id):
+    """Delete a block mapping"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM block_name_mappings WHERE mapping_id = %s", (mapping_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# DETAIL NAME MAPPINGS CRUD MANAGER
+# ============================================================================
+
+@app.route('/data-manager/detail-mappings')
+def detail_mappings_manager():
+    """Render the Detail Name Mappings Manager page"""
+    return render_template('data_manager/detail_mappings.html')
+
+@app.route('/api/data-manager/detail-mappings', methods=['GET'])
+def get_detail_mappings_crud():
+    """Get all detail mappings for CRUD interface"""
+    try:
+        query = """
+            SELECT * FROM detail_name_mappings
+            ORDER BY canonical_name
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/detail-mappings', methods=['POST'])
+def create_detail_mapping():
+    """Create a new detail mapping"""
+    try:
+        data = request.get_json()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO detail_name_mappings 
+                    (canonical_name, dxf_alias, description, import_direction, 
+                     export_direction, client_id, confidence_score)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('canonical_name'),
+                    data.get('dxf_alias'),
+                    data.get('description'),
+                    data.get('import_direction', True),
+                    data.get('export_direction', True),
+                    data.get('client_id'),
+                    data.get('confidence_score', 1.0)
+                ))
+                mapping_id = cur.fetchone()[0]
+                conn.commit()
+        return jsonify({'mapping_id': mapping_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/detail-mappings/<mapping_id>', methods=['PUT'])
+def update_detail_mapping(mapping_id):
+    """Update an existing detail mapping"""
+    try:
+        data = request.get_json()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE detail_name_mappings
+                    SET canonical_name = %s, dxf_alias = %s, description = %s,
+                        import_direction = %s, export_direction = %s, 
+                        client_id = %s, confidence_score = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('canonical_name'),
+                    data.get('dxf_alias'),
+                    data.get('description'),
+                    data.get('import_direction', True),
+                    data.get('export_direction', True),
+                    data.get('client_id'),
+                    data.get('confidence_score', 1.0),
+                    mapping_id
+                ))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/detail-mappings/<mapping_id>', methods=['DELETE'])
+def delete_detail_mapping(mapping_id):
+    """Delete a detail mapping"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM detail_name_mappings WHERE mapping_id = %s", (mapping_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# HATCH PATTERN NAME MAPPINGS CRUD MANAGER
+# ============================================================================
+
+@app.route('/data-manager/hatch-mappings')
+def hatch_mappings_manager():
+    """Render the Hatch Pattern Name Mappings Manager page"""
+    return render_template('data_manager/hatch_mappings.html')
+
+@app.route('/api/data-manager/hatch-mappings', methods=['GET'])
+def get_hatch_mappings_crud():
+    """Get all hatch pattern mappings for CRUD interface"""
+    try:
+        query = """
+            SELECT * FROM hatch_pattern_name_mappings
+            ORDER BY canonical_name
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/hatch-mappings', methods=['POST'])
+def create_hatch_mapping():
+    """Create a new hatch pattern mapping"""
+    try:
+        data = request.get_json()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO hatch_pattern_name_mappings 
+                    (canonical_name, dxf_alias, description, import_direction, 
+                     export_direction, client_id, confidence_score)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('canonical_name'),
+                    data.get('dxf_alias'),
+                    data.get('description'),
+                    data.get('import_direction', True),
+                    data.get('export_direction', True),
+                    data.get('client_id'),
+                    data.get('confidence_score', 1.0)
+                ))
+                mapping_id = cur.fetchone()[0]
+                conn.commit()
+        return jsonify({'mapping_id': mapping_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/hatch-mappings/<mapping_id>', methods=['PUT'])
+def update_hatch_mapping(mapping_id):
+    """Update an existing hatch pattern mapping"""
+    try:
+        data = request.get_json()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE hatch_pattern_name_mappings
+                    SET canonical_name = %s, dxf_alias = %s, description = %s,
+                        import_direction = %s, export_direction = %s, 
+                        client_id = %s, confidence_score = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('canonical_name'),
+                    data.get('dxf_alias'),
+                    data.get('description'),
+                    data.get('import_direction', True),
+                    data.get('export_direction', True),
+                    data.get('client_id'),
+                    data.get('confidence_score', 1.0),
+                    mapping_id
+                ))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/hatch-mappings/<mapping_id>', methods=['DELETE'])
+def delete_hatch_mapping(mapping_id):
+    """Delete a hatch pattern mapping"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM hatch_pattern_name_mappings WHERE mapping_id = %s", (mapping_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# MATERIAL NAME MAPPINGS CRUD MANAGER
+# ============================================================================
+
+@app.route('/data-manager/material-mappings')
+def material_mappings_manager():
+    """Render the Material Name Mappings Manager page"""
+    return render_template('data_manager/material_mappings.html')
+
+@app.route('/api/data-manager/material-mappings', methods=['GET'])
+def get_material_mappings_crud():
+    """Get all material name mappings for CRUD interface"""
+    try:
+        query = """
+            SELECT * FROM material_name_mappings
+            ORDER BY canonical_name
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/material-mappings', methods=['POST'])
+def create_material_mapping():
+    """Create a new material name mapping"""
+    try:
+        data = request.get_json()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO material_name_mappings 
+                    (canonical_name, dxf_alias, description, import_direction, 
+                     export_direction, client_id, confidence_score)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('canonical_name'),
+                    data.get('dxf_alias'),
+                    data.get('description'),
+                    data.get('import_direction', True),
+                    data.get('export_direction', True),
+                    data.get('client_id'),
+                    data.get('confidence_score', 1.0)
+                ))
+                mapping_id = cur.fetchone()[0]
+                conn.commit()
+        return jsonify({'mapping_id': mapping_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/material-mappings/<mapping_id>', methods=['PUT'])
+def update_material_mapping(mapping_id):
+    """Update an existing material name mapping"""
+    try:
+        data = request.get_json()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE material_name_mappings
+                    SET canonical_name = %s, dxf_alias = %s, description = %s,
+                        import_direction = %s, export_direction = %s, 
+                        client_id = %s, confidence_score = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('canonical_name'),
+                    data.get('dxf_alias'),
+                    data.get('description'),
+                    data.get('import_direction', True),
+                    data.get('export_direction', True),
+                    data.get('client_id'),
+                    data.get('confidence_score', 1.0),
+                    mapping_id
+                ))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/material-mappings/<mapping_id>', methods=['DELETE'])
+def delete_material_mapping(mapping_id):
+    """Delete a material name mapping"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM material_name_mappings WHERE mapping_id = %s", (mapping_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# NOTE NAME MAPPINGS CRUD MANAGER
+# ============================================================================
+
+@app.route('/data-manager/note-mappings')
+def note_mappings_manager():
+    """Render the Note Name Mappings Manager page"""
+    return render_template('data_manager/note_mappings.html')
+
+@app.route('/api/data-manager/note-mappings', methods=['GET'])
+def get_note_mappings_crud():
+    """Get all note name mappings for CRUD interface"""
+    try:
+        query = """
+            SELECT * FROM note_name_mappings
+            ORDER BY canonical_name
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/note-mappings', methods=['POST'])
+def create_note_mapping():
+    """Create a new note name mapping"""
+    try:
+        data = request.get_json()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO note_name_mappings 
+                    (canonical_name, dxf_alias, description, import_direction, 
+                     export_direction, client_id, confidence_score)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('canonical_name'),
+                    data.get('dxf_alias'),
+                    data.get('description'),
+                    data.get('import_direction', True),
+                    data.get('export_direction', True),
+                    data.get('client_id'),
+                    data.get('confidence_score', 1.0)
+                ))
+                mapping_id = cur.fetchone()[0]
+                conn.commit()
+        return jsonify({'mapping_id': mapping_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/note-mappings/<mapping_id>', methods=['PUT'])
+def update_note_mapping(mapping_id):
+    """Update an existing note name mapping"""
+    try:
+        data = request.get_json()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE note_name_mappings
+                    SET canonical_name = %s, dxf_alias = %s, description = %s,
+                        import_direction = %s, export_direction = %s, 
+                        client_id = %s, confidence_score = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('canonical_name'),
+                    data.get('dxf_alias'),
+                    data.get('description'),
+                    data.get('import_direction', True),
+                    data.get('export_direction', True),
+                    data.get('client_id'),
+                    data.get('confidence_score', 1.0),
+                    mapping_id
+                ))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/note-mappings/<mapping_id>', methods=['DELETE'])
+def delete_note_mapping(mapping_id):
+    """Delete a note name mapping"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM note_name_mappings WHERE mapping_id = %s", (mapping_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
 # PIPE NETWORK EDITOR API ENDPOINTS
 # ============================================================================
 
