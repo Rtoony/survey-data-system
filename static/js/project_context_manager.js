@@ -45,7 +45,8 @@ async function loadProjectMappings() {
         loadKeynoteDetails(projectId),
         loadHatchMaterials(projectId),
         loadDetailMaterials(projectId),
-        loadBlockSpecs(projectId)
+        loadBlockSpecs(projectId),
+        loadCrossReferences(projectId)
     ]);
 }
 
@@ -55,6 +56,10 @@ function switchTab(tabName) {
     
     event.target.classList.add('active');
     document.getElementById(tabName + '-tab').classList.add('active');
+    
+    if (tabName === 'cross-references' && currentProject) {
+        loadCrossReferences(currentProject);
+    }
 }
 
 async function loadKeynoteBlocks(projectId) {
@@ -332,6 +337,69 @@ async function loadBlockSpecs(projectId) {
     }
 }
 
+async function loadCrossReferences(projectId) {
+    try {
+        const response = await fetch(`/api/project-context/cross-references?project_id=${projectId}`);
+        const data = await response.json();
+        
+        const container = document.getElementById('crossReferencesTable');
+        
+        if (!data.mappings || data.mappings.length === 0) {
+            container.innerHTML = '<p style="text-align: center; padding: 20px; color: var(--text-muted);">No cross-references defined yet.</p>';
+            return;
+        }
+        
+        let html = `
+            <table class="mapping-table">
+                <thead>
+                    <tr>
+                        <th>Source Type</th>
+                        <th>Source Element</th>
+                        <th>Relationship</th>
+                        <th>Target Type</th>
+                        <th>Target Element</th>
+                        <th>Strength</th>
+                        <th>Tags</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        data.mappings.forEach(mapping => {
+            const tags = mapping.tags && mapping.tags.length > 0 
+                ? mapping.tags.map(t => `<span class="tag-chip">${escapeHtml(t)}</span>`).join(' ')
+                : '';
+            
+            html += `
+                <tr>
+                    <td>${escapeHtml(mapping.source_element_type || '')}</td>
+                    <td>${escapeHtml(mapping.source_element_name || '')}</td>
+                    <td>${escapeHtml(mapping.relationship_type || '')}</td>
+                    <td>${escapeHtml(mapping.target_element_type || '')}</td>
+                    <td>${escapeHtml(mapping.target_element_name || '')}</td>
+                    <td>${escapeHtml(mapping.relationship_strength || 'normal')}</td>
+                    <td>${tags}</td>
+                    <td>
+                        <button onclick="editCrossRef('${mapping.xref_id}')" class="btn btn-sm btn-secondary" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteCrossRef('${mapping.xref_id}')" class="btn btn-sm btn-danger" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading cross-references:', error);
+        showNotification('Error loading cross-references', 'error');
+    }
+}
+
 async function showAddKeynoteBlockModal() {
     currentRelationshipType = 'keynote-blocks';
     currentEditingId = null;
@@ -591,6 +659,301 @@ async function showAddBlockSpecModal() {
     `;
     
     document.getElementById('relationshipModal').style.display = 'block';
+}
+
+async function showAddCrossRefModal() {
+    currentRelationshipType = 'cross-references';
+    currentEditingId = null;
+    
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    
+    modalTitle.textContent = 'Add Cross-Reference';
+    
+    modalBody.innerHTML = `
+        <form id="relationshipForm">
+            <div class="form-group">
+                <label for="sourceElementType">Source Element Type: <span style="color: red;">*</span></label>
+                <select id="sourceElementType" required onchange="updateSourceSearch()">
+                    <option value="">-- Select Type --</option>
+                    <option value="keynote">Keynote</option>
+                    <option value="block">Block</option>
+                    <option value="detail">Detail</option>
+                    <option value="hatch">Hatch Pattern</option>
+                    <option value="material">Material</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="sourceElementSearch">Source Element: <span style="color: red;">*</span></label>
+                <input type="text" id="sourceElementSearch" placeholder="Type to search..." autocomplete="off" oninput="searchSourceElements(this.value)">
+                <input type="hidden" id="sourceElementId" required>
+                <input type="hidden" id="sourceElementName">
+                <div id="sourceSearchResults" class="search-results"></div>
+            </div>
+            <div class="form-group">
+                <label for="targetElementType">Target Element Type: <span style="color: red;">*</span></label>
+                <select id="targetElementType" required onchange="updateTargetSearch()">
+                    <option value="">-- Select Type --</option>
+                    <option value="keynote">Keynote</option>
+                    <option value="block">Block</option>
+                    <option value="detail">Detail</option>
+                    <option value="hatch">Hatch Pattern</option>
+                    <option value="material">Material</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="targetElementSearch">Target Element: <span style="color: red;">*</span></label>
+                <input type="text" id="targetElementSearch" placeholder="Type to search..." autocomplete="off" oninput="searchTargetElements(this.value)">
+                <input type="hidden" id="targetElementId" required>
+                <input type="hidden" id="targetElementName">
+                <div id="targetSearchResults" class="search-results"></div>
+            </div>
+            <div class="form-group">
+                <label for="relationshipType">Relationship Type: <span style="color: red;">*</span></label>
+                <input type="text" id="relationshipType" required placeholder="e.g., references, uses, shows, specifies" list="relationshipTypes">
+                <datalist id="relationshipTypes">
+                    <option value="references">
+                    <option value="uses">
+                    <option value="shows">
+                    <option value="specifies">
+                    <option value="requires">
+                    <option value="depicts">
+                </datalist>
+            </div>
+            <div class="form-group">
+                <label for="relationshipStrength">Relationship Strength:</label>
+                <select id="relationshipStrength">
+                    <option value="normal">Normal</option>
+                    <option value="primary">Primary</option>
+                    <option value="secondary">Secondary</option>
+                    <option value="weak">Weak</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="contextDescription">Context Description:</label>
+                <textarea id="contextDescription" rows="3" placeholder="Describe the relationship context"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="tagsInput">Tags:</label>
+                <input type="text" id="tagsInput" placeholder="Enter tags separated by commas">
+                <div id="tagsDisplay" class="tags-display"></div>
+            </div>
+            <div class="form-group">
+                <label for="sheetReferences">Sheet References:</label>
+                <input type="text" id="sheetReferences" placeholder="Enter sheet numbers separated by commas">
+            </div>
+        </form>
+    `;
+    
+    document.getElementById('relationshipModal').style.display = 'block';
+}
+
+function updateSourceSearch() {
+    document.getElementById('sourceElementSearch').value = '';
+    document.getElementById('sourceElementId').value = '';
+    document.getElementById('sourceElementName').value = '';
+    document.getElementById('sourceSearchResults').innerHTML = '';
+}
+
+function updateTargetSearch() {
+    document.getElementById('targetElementSearch').value = '';
+    document.getElementById('targetElementId').value = '';
+    document.getElementById('targetElementName').value = '';
+    document.getElementById('targetSearchResults').innerHTML = '';
+}
+
+let sourceSearchTimeout;
+async function searchSourceElements(query) {
+    clearTimeout(sourceSearchTimeout);
+    
+    const elementType = document.getElementById('sourceElementType').value;
+    if (!elementType || query.length < 2) {
+        document.getElementById('sourceSearchResults').innerHTML = '';
+        return;
+    }
+    
+    sourceSearchTimeout = setTimeout(async () => {
+        try {
+            const response = await fetch(`/api/project-context/search-elements?type=${elementType}&query=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            
+            const resultsDiv = document.getElementById('sourceSearchResults');
+            if (data.results && data.results.length > 0) {
+                resultsDiv.innerHTML = data.results.map(item => `
+                    <div class="search-result-item" onclick="selectSourceElement('${item.id}', '${escapeHtml(item.name).replace(/'/g, "\\'")}')">
+                        ${escapeHtml(item.name)}
+                    </div>
+                `).join('');
+                resultsDiv.style.display = 'block';
+            } else {
+                resultsDiv.innerHTML = '<div class="search-result-item">No results found</div>';
+                resultsDiv.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error searching elements:', error);
+        }
+    }, 300);
+}
+
+let targetSearchTimeout;
+async function searchTargetElements(query) {
+    clearTimeout(targetSearchTimeout);
+    
+    const elementType = document.getElementById('targetElementType').value;
+    if (!elementType || query.length < 2) {
+        document.getElementById('targetSearchResults').innerHTML = '';
+        return;
+    }
+    
+    targetSearchTimeout = setTimeout(async () => {
+        try {
+            const response = await fetch(`/api/project-context/search-elements?type=${elementType}&query=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            
+            const resultsDiv = document.getElementById('targetSearchResults');
+            if (data.results && data.results.length > 0) {
+                resultsDiv.innerHTML = data.results.map(item => `
+                    <div class="search-result-item" onclick="selectTargetElement('${item.id}', '${escapeHtml(item.name).replace(/'/g, "\\'")}')">
+                        ${escapeHtml(item.name)}
+                    </div>
+                `).join('');
+                resultsDiv.style.display = 'block';
+            } else {
+                resultsDiv.innerHTML = '<div class="search-result-item">No results found</div>';
+                resultsDiv.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error searching elements:', error);
+        }
+    }, 300);
+}
+
+function selectSourceElement(id, name) {
+    document.getElementById('sourceElementId').value = id;
+    document.getElementById('sourceElementName').value = name;
+    document.getElementById('sourceElementSearch').value = name;
+    document.getElementById('sourceSearchResults').innerHTML = '';
+    document.getElementById('sourceSearchResults').style.display = 'none';
+}
+
+function selectTargetElement(id, name) {
+    document.getElementById('targetElementId').value = id;
+    document.getElementById('targetElementName').value = name;
+    document.getElementById('targetElementSearch').value = name;
+    document.getElementById('targetSearchResults').innerHTML = '';
+    document.getElementById('targetSearchResults').style.display = 'none';
+}
+
+async function editCrossRef(xrefId) {
+    currentRelationshipType = 'cross-references';
+    currentEditingId = xrefId;
+    
+    const response = await fetch(`/api/project-context/cross-references/${xrefId}`);
+    const xref = await response.json();
+    
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    
+    modalTitle.textContent = 'Edit Cross-Reference';
+    
+    const tagsStr = xref.tags && xref.tags.length > 0 ? xref.tags.join(', ') : '';
+    const sheetsStr = xref.sheet_references && xref.sheet_references.length > 0 ? xref.sheet_references.join(', ') : '';
+    
+    modalBody.innerHTML = `
+        <form id="relationshipForm">
+            <div class="form-group">
+                <label for="sourceElementType">Source Element Type: <span style="color: red;">*</span></label>
+                <select id="sourceElementType" required onchange="updateSourceSearch()">
+                    <option value="keynote" ${xref.source_element_type === 'keynote' ? 'selected' : ''}>Keynote</option>
+                    <option value="block" ${xref.source_element_type === 'block' ? 'selected' : ''}>Block</option>
+                    <option value="detail" ${xref.source_element_type === 'detail' ? 'selected' : ''}>Detail</option>
+                    <option value="hatch" ${xref.source_element_type === 'hatch' ? 'selected' : ''}>Hatch Pattern</option>
+                    <option value="material" ${xref.source_element_type === 'material' ? 'selected' : ''}>Material</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="sourceElementSearch">Source Element: <span style="color: red;">*</span></label>
+                <input type="text" id="sourceElementSearch" value="${escapeHtml(xref.source_element_name || '')}" autocomplete="off" oninput="searchSourceElements(this.value)">
+                <input type="hidden" id="sourceElementId" value="${xref.source_element_id}" required>
+                <input type="hidden" id="sourceElementName" value="${escapeHtml(xref.source_element_name || '')}">
+                <div id="sourceSearchResults" class="search-results"></div>
+            </div>
+            <div class="form-group">
+                <label for="targetElementType">Target Element Type: <span style="color: red;">*</span></label>
+                <select id="targetElementType" required onchange="updateTargetSearch()">
+                    <option value="keynote" ${xref.target_element_type === 'keynote' ? 'selected' : ''}>Keynote</option>
+                    <option value="block" ${xref.target_element_type === 'block' ? 'selected' : ''}>Block</option>
+                    <option value="detail" ${xref.target_element_type === 'detail' ? 'selected' : ''}>Detail</option>
+                    <option value="hatch" ${xref.target_element_type === 'hatch' ? 'selected' : ''}>Hatch Pattern</option>
+                    <option value="material" ${xref.target_element_type === 'material' ? 'selected' : ''}>Material</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="targetElementSearch">Target Element: <span style="color: red;">*</span></label>
+                <input type="text" id="targetElementSearch" value="${escapeHtml(xref.target_element_name || '')}" autocomplete="off" oninput="searchTargetElements(this.value)">
+                <input type="hidden" id="targetElementId" value="${xref.target_element_id}" required>
+                <input type="hidden" id="targetElementName" value="${escapeHtml(xref.target_element_name || '')}">
+                <div id="targetSearchResults" class="search-results"></div>
+            </div>
+            <div class="form-group">
+                <label for="relationshipType">Relationship Type: <span style="color: red;">*</span></label>
+                <input type="text" id="relationshipType" value="${escapeHtml(xref.relationship_type || '')}" required list="relationshipTypes">
+                <datalist id="relationshipTypes">
+                    <option value="references">
+                    <option value="uses">
+                    <option value="shows">
+                    <option value="specifies">
+                    <option value="requires">
+                    <option value="depicts">
+                </datalist>
+            </div>
+            <div class="form-group">
+                <label for="relationshipStrength">Relationship Strength:</label>
+                <select id="relationshipStrength">
+                    <option value="normal" ${xref.relationship_strength === 'normal' ? 'selected' : ''}>Normal</option>
+                    <option value="primary" ${xref.relationship_strength === 'primary' ? 'selected' : ''}>Primary</option>
+                    <option value="secondary" ${xref.relationship_strength === 'secondary' ? 'selected' : ''}>Secondary</option>
+                    <option value="weak" ${xref.relationship_strength === 'weak' ? 'selected' : ''}>Weak</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="contextDescription">Context Description:</label>
+                <textarea id="contextDescription" rows="3">${escapeHtml(xref.context_description || '')}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="tagsInput">Tags:</label>
+                <input type="text" id="tagsInput" value="${tagsStr}" placeholder="Enter tags separated by commas">
+            </div>
+            <div class="form-group">
+                <label for="sheetReferences">Sheet References:</label>
+                <input type="text" id="sheetReferences" value="${sheetsStr}" placeholder="Enter sheet numbers separated by commas">
+            </div>
+        </form>
+    `;
+    
+    document.getElementById('relationshipModal').style.display = 'block';
+}
+
+async function deleteCrossRef(xrefId) {
+    if (!confirm('Are you sure you want to delete this cross-reference?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/project-context/cross-references/${xrefId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to delete cross-reference');
+        }
+        
+        showNotification('Cross-reference deleted successfully', 'success');
+        await loadCrossReferences(currentProject);
+    } catch (error) {
+        console.error('Error deleting cross-reference:', error);
+        showNotification('Error deleting cross-reference', 'error');
+    }
 }
 
 async function editKeynoteBlock(mappingId) {
@@ -917,6 +1280,22 @@ async function saveRelationship() {
         data.model_number = document.getElementById('modelNumber').value;
         data.product_url = document.getElementById('productUrl').value;
         data.jurisdiction = document.getElementById('jurisdiction').value;
+    } else if (currentRelationshipType === 'cross-references') {
+        data.source_element_type = document.getElementById('sourceElementType').value;
+        data.source_element_id = document.getElementById('sourceElementId').value;
+        data.source_element_name = document.getElementById('sourceElementName').value;
+        data.target_element_type = document.getElementById('targetElementType').value;
+        data.target_element_id = document.getElementById('targetElementId').value;
+        data.target_element_name = document.getElementById('targetElementName').value;
+        data.relationship_type = document.getElementById('relationshipType').value;
+        data.relationship_strength = document.getElementById('relationshipStrength').value;
+        data.context_description = document.getElementById('contextDescription').value;
+        
+        const tagsInput = document.getElementById('tagsInput').value;
+        data.tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
+        
+        const sheetsInput = document.getElementById('sheetReferences').value;
+        data.sheet_references = sheetsInput ? sheetsInput.split(',').map(s => s.trim()).filter(s => s) : [];
     }
     
     try {

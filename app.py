@@ -4949,6 +4949,292 @@ def generate_pdf_export(data, title, description):
     )
 
 # ============================================================================
+# PROJECT ELEMENT CROSS-REFERENCES API ENDPOINTS
+# ============================================================================
+
+def validate_element_exists(element_type, element_id):
+    """Validate that an element ID exists in the appropriate table for its type"""
+    element_tables = {
+        'keynote': ('standard_notes', 'note_id'),
+        'block': ('block_definitions', 'block_id'),
+        'detail': ('detail_standards', 'detail_id'),
+        'hatch': ('hatch_patterns', 'hatch_id'),
+        'material': ('material_standards', 'material_id')
+    }
+    
+    if element_type not in element_tables:
+        return False, f"Invalid element type: {element_type}"
+    
+    table_name, id_column = element_tables[element_type]
+    
+    try:
+        query = f"SELECT 1 FROM {table_name} WHERE {id_column} = %s LIMIT 1"
+        result = execute_query(query, (element_id,))
+        if not result:
+            return False, f"{element_type} with ID {element_id} not found in {table_name}"
+        return True, None
+    except Exception as e:
+        return False, f"Validation error: {str(e)}"
+
+@app.route('/api/project-context/cross-references', methods=['GET'])
+def get_cross_references():
+    """Get cross-reference relationships for a project"""
+    try:
+        project_id = request.args.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        query = """
+            SELECT 
+                xref_id,
+                project_id,
+                source_element_type,
+                source_element_id,
+                source_element_name,
+                target_element_type,
+                target_element_id,
+                target_element_name,
+                relationship_type,
+                relationship_strength,
+                context_description,
+                sheet_references,
+                tags,
+                attributes,
+                is_active,
+                created_at,
+                updated_at
+            FROM project_element_cross_references
+            WHERE project_id = %s AND is_active = TRUE
+            ORDER BY created_at DESC
+        """
+        mappings = execute_query(query, (project_id,))
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/cross-references', methods=['POST'])
+def create_cross_reference():
+    """Create a new cross-reference relationship"""
+    try:
+        data = request.get_json()
+        
+        # Validate source element
+        source_valid, source_error = validate_element_exists(
+            data.get('source_element_type'),
+            data.get('source_element_id')
+        )
+        if not source_valid:
+            return jsonify({'error': source_error}), 400
+        
+        # Validate target element
+        target_valid, target_error = validate_element_exists(
+            data.get('target_element_type'),
+            data.get('target_element_id')
+        )
+        if not target_valid:
+            return jsonify({'error': target_error}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO project_element_cross_references 
+                    (project_id, source_element_type, source_element_id, source_element_name,
+                     target_element_type, target_element_id, target_element_name,
+                     relationship_type, relationship_strength, context_description,
+                     sheet_references, tags)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING xref_id
+                """, (
+                    data.get('project_id'),
+                    data.get('source_element_type'),
+                    data.get('source_element_id'),
+                    data.get('source_element_name'),
+                    data.get('target_element_type'),
+                    data.get('target_element_id'),
+                    data.get('target_element_name'),
+                    data.get('relationship_type'),
+                    data.get('relationship_strength', 'normal'),
+                    data.get('context_description'),
+                    data.get('sheet_references', []),
+                    data.get('tags', [])
+                ))
+                xref_id = cur.fetchone()[0]
+                conn.commit()
+        
+        return jsonify({'xref_id': str(xref_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/cross-references/<xref_id>', methods=['GET'])
+def get_cross_reference(xref_id):
+    """Get a single cross-reference relationship"""
+    try:
+        query = """
+            SELECT * FROM project_element_cross_references
+            WHERE xref_id = %s
+        """
+        result = execute_query(query, (xref_id,))
+        if not result:
+            return jsonify({'error': 'Cross-reference not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/cross-references/<xref_id>', methods=['PUT'])
+def update_cross_reference(xref_id):
+    """Update a cross-reference relationship"""
+    try:
+        data = request.get_json()
+        
+        # Validate source element
+        source_valid, source_error = validate_element_exists(
+            data.get('source_element_type'),
+            data.get('source_element_id')
+        )
+        if not source_valid:
+            return jsonify({'error': source_error}), 400
+        
+        # Validate target element
+        target_valid, target_error = validate_element_exists(
+            data.get('target_element_type'),
+            data.get('target_element_id')
+        )
+        if not target_valid:
+            return jsonify({'error': target_error}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE project_element_cross_references
+                    SET source_element_type = %s, source_element_id = %s, source_element_name = %s,
+                        target_element_type = %s, target_element_id = %s, target_element_name = %s,
+                        relationship_type = %s, relationship_strength = %s, context_description = %s,
+                        sheet_references = %s, tags = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE xref_id = %s
+                """, (
+                    data.get('source_element_type'),
+                    data.get('source_element_id'),
+                    data.get('source_element_name'),
+                    data.get('target_element_type'),
+                    data.get('target_element_id'),
+                    data.get('target_element_name'),
+                    data.get('relationship_type'),
+                    data.get('relationship_strength'),
+                    data.get('context_description'),
+                    data.get('sheet_references', []),
+                    data.get('tags', []),
+                    xref_id
+                ))
+                conn.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/cross-references/<xref_id>', methods=['DELETE'])
+def delete_cross_reference(xref_id):
+    """Delete a cross-reference relationship"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM project_element_cross_references WHERE xref_id = %s", (xref_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/search-elements', methods=['GET'])
+def search_elements():
+    """Search for elements by type and query string (for typeahead)"""
+    try:
+        element_type = request.args.get('type')
+        query_str = request.args.get('query', '')
+        
+        if not element_type:
+            return jsonify({'error': 'type is required'}), 400
+        
+        results = []
+        
+        if element_type == 'keynote':
+            query = """
+                SELECT note_id as id, 
+                       CONCAT(COALESCE(note_title, ''), ' - ', LEFT(note_text, 100)) as name,
+                       note_title,
+                       note_text
+                FROM standard_notes
+                WHERE (note_title ILIKE %s OR note_text ILIKE %s)
+                ORDER BY note_title, note_text
+                LIMIT 20
+            """
+            search_pattern = f'%{query_str}%'
+            results = execute_query(query, (search_pattern, search_pattern))
+            
+        elif element_type == 'block':
+            query = """
+                SELECT block_id as id,
+                       CONCAT(block_name, ' - ', COALESCE(description, '')) as name,
+                       block_name,
+                       description
+                FROM block_definitions
+                WHERE (block_name ILIKE %s OR description ILIKE %s)
+                  AND is_active = TRUE
+                ORDER BY block_name
+                LIMIT 20
+            """
+            search_pattern = f'%{query_str}%'
+            results = execute_query(query, (search_pattern, search_pattern))
+            
+        elif element_type == 'detail':
+            query = """
+                SELECT detail_id as id,
+                       CONCAT(COALESCE(detail_number, ''), ' - ', COALESCE(detail_title, '')) as name,
+                       detail_number,
+                       detail_title,
+                       description
+                FROM detail_standards
+                WHERE (detail_number ILIKE %s OR detail_title ILIKE %s OR description ILIKE %s)
+                ORDER BY detail_number, detail_title
+                LIMIT 20
+            """
+            search_pattern = f'%{query_str}%'
+            results = execute_query(query, (search_pattern, search_pattern, search_pattern))
+            
+        elif element_type == 'hatch':
+            query = """
+                SELECT hatch_id as id,
+                       CONCAT(pattern_name, ' - ', COALESCE(description, '')) as name,
+                       pattern_name,
+                       description
+                FROM hatch_patterns
+                WHERE (pattern_name ILIKE %s OR description ILIKE %s)
+                  AND (is_active IS NULL OR is_active = TRUE)
+                ORDER BY pattern_name
+                LIMIT 20
+            """
+            search_pattern = f'%{query_str}%'
+            results = execute_query(query, (search_pattern, search_pattern))
+            
+        elif element_type == 'material':
+            query = """
+                SELECT material_id as id,
+                       CONCAT(material_name, ' - ', COALESCE(description, '')) as name,
+                       material_name,
+                       description
+                FROM material_standards
+                WHERE (material_name ILIKE %s OR description ILIKE %s)
+                ORDER BY material_name
+                LIMIT 20
+            """
+            search_pattern = f'%{query_str}%'
+            results = execute_query(query, (search_pattern, search_pattern))
+        else:
+            return jsonify({'error': 'Invalid element type'}), 400
+        
+        return jsonify({'results': results})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
 # PIPE NETWORK EDITOR API ENDPOINTS
 # ============================================================================
 

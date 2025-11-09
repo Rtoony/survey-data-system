@@ -85,6 +85,45 @@
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">
+                    <i class="fas fa-map-signs"></i>
+                    <span class="sidebar-text">Standards Mapping</span>
+                </div>
+                <a href="/standards-mapping-dashboard" class="sidebar-link {% if request.path == '/standards-mapping-dashboard' %}active{% endif %}">
+                    <i class="fas fa-th-large"></i>
+                    <span class="sidebar-text">Mapping Dashboard</span>
+                </a>
+                <a href="/project-context-manager" class="sidebar-link {% if request.path == '/project-context-manager' %}active{% endif %}">
+                    <i class="fas fa-project-diagram"></i>
+                    <span class="sidebar-text">Project Context Manager</span>
+                </a>
+                <a href="/data-manager/block-mappings" class="sidebar-link {% if request.path == '/data-manager/block-mappings' %}active{% endif %}">
+                    <i class="fas fa-cube"></i>
+                    <span class="sidebar-text">Block Name Mappings</span>
+                </a>
+                <a href="/data-manager/detail-mappings" class="sidebar-link {% if request.path == '/data-manager/detail-mappings' %}active{% endif %}">
+                    <i class="fas fa-file-alt"></i>
+                    <span class="sidebar-text">Detail Name Mappings</span>
+                </a>
+                <a href="/data-manager/hatch-mappings" class="sidebar-link {% if request.path == '/data-manager/hatch-mappings' %}active{% endif %}">
+                    <i class="fas fa-fill-drip"></i>
+                    <span class="sidebar-text">Hatch Name Mappings</span>
+                </a>
+                <a href="/data-manager/material-mappings" class="sidebar-link {% if request.path == '/data-manager/material-mappings' %}active{% endif %}">
+                    <i class="fas fa-tools"></i>
+                    <span class="sidebar-text">Material Name Mappings</span>
+                </a>
+                <a href="/data-manager/note-mappings" class="sidebar-link {% if request.path == '/data-manager/note-mappings' %}active{% endif %}">
+                    <i class="fas fa-sticky-note"></i>
+                    <span class="sidebar-text">Note Name Mappings</span>
+                </a>
+                <a href="/standards-export" class="sidebar-link {% if request.path == '/standards-export' %}active{% endif %}">
+                    <i class="fas fa-file-export"></i>
+                    <span class="sidebar-text">Export Documentation</span>
+                </a>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">
                     <i class="fas fa-folder"></i>
                     <span class="sidebar-text">Project Operations</span>
                 </div>

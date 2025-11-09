@@ -37,6 +37,9 @@
                 <button class="tab-btn" onclick="switchTab('block-specs')">
                     <i class="fas fa-book"></i> Block→Spec
                 </button>
+                <button class="tab-btn" onclick="switchTab('cross-references')">
+                    <i class="fas fa-random"></i> Cross-References
+                </button>
             </div>
 
             <!-- Keynote→Block Tab -->
@@ -92,6 +95,17 @@
                     </button>
                 </div>
                 <div id="blockSpecsTable"></div>
+            </div>
+
+            <!-- Cross-References Tab -->
+            <div id="cross-references-tab" class="tab-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 class="orbitron">Generic Element Cross-References</h3>
+                    <button onclick="showAddCrossRefModal()" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add Cross-Reference
+                    </button>
+                </div>
+                <div id="crossReferencesTable"></div>
             </div>
         </div>
     </div>
@@ -259,6 +273,51 @@
     border-radius: 4px;
     color: var(--text-color);
     font-family: 'Rajdhani', sans-serif;
+}
+
+.search-results {
+    position: absolute;
+    z-index: 1000;
+    background: rgba(0, 20, 40, 0.95);
+    border: 1px solid var(--neon-cyan);
+    border-radius: 4px;
+    margin-top: 2px;
+    max-height: 200px;
+    overflow-y: auto;
+    width: calc(100% - 20px);
+    display: none;
+}
+
+.search-result-item {
+    padding: 10px;
+    cursor: pointer;
+    color: var(--text-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.search-result-item:hover {
+    background: rgba(0, 100, 150, 0.4);
+    color: var(--neon-cyan);
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.tag-chip {
+    display: inline-block;
+    background: rgba(0, 100, 150, 0.4);
+    color: var(--neon-cyan);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    margin: 2px;
+    border: 1px solid var(--neon-cyan);
+}
+
+.tags-display {
+    margin-top: 8px;
+    min-height: 30px;
 }
 </style>
 
