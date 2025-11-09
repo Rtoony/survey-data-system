@@ -22,6 +22,11 @@ import threading
 import json
 from datetime import datetime, date
 from decimal import Decimal
+import openpyxl
+from openpyxl.styles import Font, PatternFill
+import zipfile
+import tempfile
+from weasyprint import HTML, CSS
 
 # Load environment variables (works with both .env file and Replit secrets)
 load_dotenv()
@@ -3546,6 +3551,1402 @@ def delete_note_mapping(mapping_id):
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# PROJECT CONTEXT MAPPING MANAGER
+# ============================================================================
+
+@app.route('/project-context-manager')
+def project_context_manager():
+    """Project Context Mapping Manager page"""
+    return render_template('project_context_manager.html')
+
+@app.route('/api/project-context/keynote-blocks', methods=['GET'])
+def get_keynote_blocks():
+    """Get keynote-block relationships for a project"""
+    try:
+        project_id = request.args.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        query = """
+            SELECT 
+                kbm.mapping_id,
+                kbm.project_id,
+                kbm.note_id,
+                kbm.keynote_number,
+                kbm.block_id,
+                kbm.relationship_type,
+                kbm.usage_context,
+                sn.note_text,
+                sn.note_number,
+                bd.block_name,
+                bd.description as block_description
+            FROM project_keynote_block_mappings kbm
+            LEFT JOIN standard_notes sn ON kbm.note_id = sn.note_id
+            LEFT JOIN block_definitions bd ON kbm.block_id = bd.block_id
+            WHERE kbm.project_id = %s AND kbm.is_active = TRUE
+            ORDER BY kbm.keynote_number, bd.block_name
+        """
+        mappings = execute_query(query, (project_id,))
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/keynote-blocks', methods=['POST'])
+def create_keynote_block():
+    """Create a new keynote-block relationship"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO project_keynote_block_mappings 
+                    (project_id, note_id, keynote_number, block_id, relationship_type, usage_context)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('project_id'),
+                    data.get('note_id'),
+                    data.get('keynote_number'),
+                    data.get('block_id'),
+                    data.get('relationship_type', 'references'),
+                    data.get('usage_context')
+                ))
+                mapping_id = cur.fetchone()[0]
+                conn.commit()
+        
+        return jsonify({'mapping_id': str(mapping_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/keynote-blocks/<mapping_id>', methods=['GET'])
+def get_keynote_block(mapping_id):
+    """Get a single keynote-block relationship"""
+    try:
+        query = """
+            SELECT * FROM project_keynote_block_mappings
+            WHERE mapping_id = %s
+        """
+        result = execute_query(query, (mapping_id,))
+        if not result:
+            return jsonify({'error': 'Mapping not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/keynote-blocks/<mapping_id>', methods=['PUT'])
+def update_keynote_block(mapping_id):
+    """Update a keynote-block relationship"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE project_keynote_block_mappings
+                    SET note_id = %s, keynote_number = %s, block_id = %s,
+                        relationship_type = %s, usage_context = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('note_id'),
+                    data.get('keynote_number'),
+                    data.get('block_id'),
+                    data.get('relationship_type'),
+                    data.get('usage_context'),
+                    mapping_id
+                ))
+                conn.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/keynote-blocks/<mapping_id>', methods=['DELETE'])
+def delete_keynote_block(mapping_id):
+    """Delete a keynote-block relationship"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM project_keynote_block_mappings WHERE mapping_id = %s", (mapping_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/keynote-details', methods=['GET'])
+def get_keynote_details():
+    """Get keynote-detail relationships for a project"""
+    try:
+        project_id = request.args.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        query = """
+            SELECT 
+                kdm.mapping_id,
+                kdm.project_id,
+                kdm.note_id,
+                kdm.keynote_number,
+                kdm.detail_id,
+                kdm.detail_callout,
+                kdm.sheet_number,
+                kdm.usage_context,
+                sn.note_text,
+                sn.note_number,
+                ds.detail_name,
+                ds.detail_description
+            FROM project_keynote_detail_mappings kdm
+            LEFT JOIN standard_notes sn ON kdm.note_id = sn.note_id
+            LEFT JOIN detail_standards ds ON kdm.detail_id = ds.detail_id
+            WHERE kdm.project_id = %s AND kdm.is_active = TRUE
+            ORDER BY kdm.keynote_number, ds.detail_name
+        """
+        mappings = execute_query(query, (project_id,))
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/keynote-details', methods=['POST'])
+def create_keynote_detail():
+    """Create a new keynote-detail relationship"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO project_keynote_detail_mappings 
+                    (project_id, note_id, keynote_number, detail_id, detail_callout, sheet_number, usage_context)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('project_id'),
+                    data.get('note_id'),
+                    data.get('keynote_number'),
+                    data.get('detail_id'),
+                    data.get('detail_callout'),
+                    data.get('sheet_number'),
+                    data.get('usage_context')
+                ))
+                mapping_id = cur.fetchone()[0]
+                conn.commit()
+        
+        return jsonify({'mapping_id': str(mapping_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/keynote-details/<mapping_id>', methods=['GET'])
+def get_keynote_detail(mapping_id):
+    """Get a single keynote-detail relationship"""
+    try:
+        query = """
+            SELECT * FROM project_keynote_detail_mappings
+            WHERE mapping_id = %s
+        """
+        result = execute_query(query, (mapping_id,))
+        if not result:
+            return jsonify({'error': 'Mapping not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/keynote-details/<mapping_id>', methods=['PUT'])
+def update_keynote_detail(mapping_id):
+    """Update a keynote-detail relationship"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE project_keynote_detail_mappings
+                    SET note_id = %s, keynote_number = %s, detail_id = %s,
+                        detail_callout = %s, sheet_number = %s, usage_context = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('note_id'),
+                    data.get('keynote_number'),
+                    data.get('detail_id'),
+                    data.get('detail_callout'),
+                    data.get('sheet_number'),
+                    data.get('usage_context'),
+                    mapping_id
+                ))
+                conn.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/keynote-details/<mapping_id>', methods=['DELETE'])
+def delete_keynote_detail(mapping_id):
+    """Delete a keynote-detail relationship"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM project_keynote_detail_mappings WHERE mapping_id = %s", (mapping_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/hatch-materials', methods=['GET'])
+def get_hatch_materials():
+    """Get hatch-material relationships for a project"""
+    try:
+        project_id = request.args.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        query = """
+            SELECT 
+                hmm.mapping_id,
+                hmm.project_id,
+                hmm.hatch_id,
+                hmm.hatch_name,
+                hmm.material_id,
+                hmm.material_thickness,
+                hmm.material_notes,
+                hmm.is_legend_item,
+                hp.pattern_name as hatch_name,
+                hp.description as hatch_description,
+                ms.material_name,
+                ms.material_code
+            FROM project_hatch_material_mappings hmm
+            LEFT JOIN hatch_patterns hp ON hmm.hatch_id = hp.hatch_id
+            LEFT JOIN material_standards ms ON hmm.material_id = ms.material_id
+            WHERE hmm.project_id = %s AND hmm.is_active = TRUE
+            ORDER BY ms.material_name, hp.pattern_name
+        """
+        mappings = execute_query(query, (project_id,))
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/hatch-materials', methods=['POST'])
+def create_hatch_material():
+    """Create a new hatch-material relationship"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO project_hatch_material_mappings 
+                    (project_id, hatch_id, material_id, material_thickness, material_notes, is_legend_item)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('project_id'),
+                    data.get('hatch_id'),
+                    data.get('material_id'),
+                    data.get('material_thickness'),
+                    data.get('material_notes'),
+                    data.get('is_legend_item', True)
+                ))
+                mapping_id = cur.fetchone()[0]
+                conn.commit()
+        
+        return jsonify({'mapping_id': str(mapping_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/hatch-materials/<mapping_id>', methods=['GET'])
+def get_hatch_material(mapping_id):
+    """Get a single hatch-material relationship"""
+    try:
+        query = """
+            SELECT * FROM project_hatch_material_mappings
+            WHERE mapping_id = %s
+        """
+        result = execute_query(query, (mapping_id,))
+        if not result:
+            return jsonify({'error': 'Mapping not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/hatch-materials/<mapping_id>', methods=['PUT'])
+def update_hatch_material(mapping_id):
+    """Update a hatch-material relationship"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE project_hatch_material_mappings
+                    SET hatch_id = %s, material_id = %s, material_thickness = %s,
+                        material_notes = %s, is_legend_item = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('hatch_id'),
+                    data.get('material_id'),
+                    data.get('material_thickness'),
+                    data.get('material_notes'),
+                    data.get('is_legend_item'),
+                    mapping_id
+                ))
+                conn.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/hatch-materials/<mapping_id>', methods=['DELETE'])
+def delete_hatch_material(mapping_id):
+    """Delete a hatch-material relationship"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM project_hatch_material_mappings WHERE mapping_id = %s", (mapping_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/detail-materials', methods=['GET'])
+def get_detail_materials():
+    """Get detail-material relationships for a project"""
+    try:
+        project_id = request.args.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        query = """
+            SELECT 
+                dmm.mapping_id,
+                dmm.project_id,
+                dmm.detail_id,
+                dmm.material_id,
+                dmm.material_role,
+                dmm.material_layer_order,
+                dmm.material_thickness,
+                dmm.material_notes,
+                ds.detail_name,
+                ds.detail_description,
+                ms.material_name,
+                ms.material_code
+            FROM project_detail_material_mappings dmm
+            LEFT JOIN detail_standards ds ON dmm.detail_id = ds.detail_id
+            LEFT JOIN material_standards ms ON dmm.material_id = ms.material_id
+            WHERE dmm.project_id = %s AND dmm.is_active = TRUE
+            ORDER BY ds.detail_name, dmm.material_layer_order
+        """
+        mappings = execute_query(query, (project_id,))
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/detail-materials', methods=['POST'])
+def create_detail_material():
+    """Create a new detail-material relationship"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO project_detail_material_mappings 
+                    (project_id, detail_id, material_id, material_role, material_layer_order, 
+                     material_thickness, material_notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('project_id'),
+                    data.get('detail_id'),
+                    data.get('material_id'),
+                    data.get('material_role', 'primary'),
+                    data.get('material_layer_order'),
+                    data.get('material_thickness'),
+                    data.get('material_notes')
+                ))
+                mapping_id = cur.fetchone()[0]
+                conn.commit()
+        
+        return jsonify({'mapping_id': str(mapping_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/detail-materials/<mapping_id>', methods=['GET'])
+def get_detail_material(mapping_id):
+    """Get a single detail-material relationship"""
+    try:
+        query = """
+            SELECT * FROM project_detail_material_mappings
+            WHERE mapping_id = %s
+        """
+        result = execute_query(query, (mapping_id,))
+        if not result:
+            return jsonify({'error': 'Mapping not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/detail-materials/<mapping_id>', methods=['PUT'])
+def update_detail_material(mapping_id):
+    """Update a detail-material relationship"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE project_detail_material_mappings
+                    SET detail_id = %s, material_id = %s, material_role = %s,
+                        material_layer_order = %s, material_thickness = %s, material_notes = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('detail_id'),
+                    data.get('material_id'),
+                    data.get('material_role'),
+                    data.get('material_layer_order'),
+                    data.get('material_thickness'),
+                    data.get('material_notes'),
+                    mapping_id
+                ))
+                conn.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/detail-materials/<mapping_id>', methods=['DELETE'])
+def delete_detail_material(mapping_id):
+    """Delete a detail-material relationship"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM project_detail_material_mappings WHERE mapping_id = %s", (mapping_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/block-specs', methods=['GET'])
+def get_block_specs():
+    """Get block-specification relationships for a project"""
+    try:
+        project_id = request.args.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        query = """
+            SELECT 
+                bsm.mapping_id,
+                bsm.project_id,
+                bsm.block_id,
+                bsm.spec_section,
+                bsm.spec_description,
+                bsm.manufacturer,
+                bsm.model_number,
+                bsm.product_url,
+                bsm.jurisdiction,
+                bd.block_name,
+                bd.description as block_description
+            FROM project_block_specification_mappings bsm
+            LEFT JOIN block_definitions bd ON bsm.block_id = bd.block_id
+            WHERE bsm.project_id = %s AND bsm.is_active = TRUE
+            ORDER BY bd.block_name, bsm.spec_section
+        """
+        mappings = execute_query(query, (project_id,))
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/block-specs', methods=['POST'])
+def create_block_spec():
+    """Create a new block-specification relationship"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO project_block_specification_mappings 
+                    (project_id, block_id, spec_section, spec_description, manufacturer, 
+                     model_number, product_url, jurisdiction)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('project_id'),
+                    data.get('block_id'),
+                    data.get('spec_section'),
+                    data.get('spec_description'),
+                    data.get('manufacturer'),
+                    data.get('model_number'),
+                    data.get('product_url'),
+                    data.get('jurisdiction')
+                ))
+                mapping_id = cur.fetchone()[0]
+                conn.commit()
+        
+        return jsonify({'mapping_id': str(mapping_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/block-specs/<mapping_id>', methods=['GET'])
+def get_block_spec(mapping_id):
+    """Get a single block-specification relationship"""
+    try:
+        query = """
+            SELECT * FROM project_block_specification_mappings
+            WHERE mapping_id = %s
+        """
+        result = execute_query(query, (mapping_id,))
+        if not result:
+            return jsonify({'error': 'Mapping not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/block-specs/<mapping_id>', methods=['PUT'])
+def update_block_spec(mapping_id):
+    """Update a block-specification relationship"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE project_block_specification_mappings
+                    SET block_id = %s, spec_section = %s, spec_description = %s,
+                        manufacturer = %s, model_number = %s, product_url = %s, jurisdiction = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('block_id'),
+                    data.get('spec_section'),
+                    data.get('spec_description'),
+                    data.get('manufacturer'),
+                    data.get('model_number'),
+                    data.get('product_url'),
+                    data.get('jurisdiction'),
+                    mapping_id
+                ))
+                conn.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-context/block-specs/<mapping_id>', methods=['DELETE'])
+def delete_block_spec(mapping_id):
+    """Delete a block-specification relationship"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM project_block_specification_mappings WHERE mapping_id = %s", (mapping_id,))
+                conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# STANDARDS DOCUMENTATION EXPORT
+# ============================================================================
+
+@app.route('/standards-export')
+def standards_export_page():
+    """Standards Documentation Export page"""
+    return render_template('standards_export.html')
+
+@app.route('/api/standards-export/generate', methods=['POST'])
+def generate_standards_export():
+    """Generate standards documentation export in requested format"""
+    try:
+        config = request.get_json()
+        export_type = config.get('exportType')
+        title = config.get('title', 'CAD Standards Documentation')
+        description = config.get('description', '')
+        name_mappings = config.get('nameMappings', {})
+        relationships = config.get('relationships', {})
+        
+        # Collect data based on configuration
+        data = {}
+        
+        # Get name mappings
+        if name_mappings.get('blocks'):
+            query = """
+                SELECT 
+                    bnm.project_id,
+                    COALESCE(p.project_name, bnm.client_name, 'Global') as project_name,
+                    bnm.dxf_alias as imported_name,
+                    bnm.block_id,
+                    bd.block_name as standard_name,
+                    bd.description
+                FROM block_name_mappings bnm
+                LEFT JOIN projects p ON bnm.project_id = p.project_id
+                LEFT JOIN block_definitions bd ON bnm.block_id = bd.block_id
+                WHERE bnm.is_active = TRUE
+                ORDER BY project_name, bnm.dxf_alias
+            """
+            data['block_mappings'] = execute_query(query)
+        
+        if name_mappings.get('details'):
+            query = """
+                SELECT 
+                    dnm.project_id,
+                    COALESCE(p.project_name, dnm.client_name, 'Global') as project_name,
+                    dnm.dxf_alias as imported_name,
+                    dnm.detail_id,
+                    ds.detail_title as standard_name,
+                    ds.description
+                FROM detail_name_mappings dnm
+                LEFT JOIN projects p ON dnm.project_id = p.project_id
+                LEFT JOIN detail_standards ds ON dnm.detail_id = ds.detail_id
+                WHERE dnm.is_active = TRUE
+                ORDER BY project_name, dnm.dxf_alias
+            """
+            data['detail_mappings'] = execute_query(query)
+        
+        if name_mappings.get('hatches'):
+            query = """
+                SELECT 
+                    hnm.project_id,
+                    COALESCE(p.project_name, hnm.client_name, 'Global') as project_name,
+                    hnm.dxf_alias as imported_name,
+                    hnm.hatch_id,
+                    hp.pattern_name as standard_name,
+                    hp.description
+                FROM hatch_pattern_name_mappings hnm
+                LEFT JOIN projects p ON hnm.project_id = p.project_id
+                LEFT JOIN hatch_patterns hp ON hnm.hatch_id = hp.hatch_id
+                WHERE hnm.is_active = TRUE
+                ORDER BY project_name, hnm.dxf_alias
+            """
+            data['hatch_mappings'] = execute_query(query)
+        
+        if name_mappings.get('materials'):
+            query = """
+                SELECT 
+                    mnm.project_id,
+                    COALESCE(p.project_name, mnm.client_name, 'Global') as project_name,
+                    mnm.dxf_alias as imported_name,
+                    mnm.material_id,
+                    ms.material_name as standard_name,
+                    ms.description
+                FROM material_name_mappings mnm
+                LEFT JOIN projects p ON mnm.project_id = p.project_id
+                LEFT JOIN material_standards ms ON mnm.material_id = ms.material_id
+                WHERE mnm.is_active = TRUE
+                ORDER BY project_name, mnm.dxf_alias
+            """
+            data['material_mappings'] = execute_query(query)
+        
+        if name_mappings.get('notes'):
+            query = """
+                SELECT 
+                    nnm.project_id,
+                    COALESCE(p.project_name, nnm.client_name, 'Global') as project_name,
+                    nnm.dxf_alias as imported_name,
+                    nnm.note_id,
+                    sn.note_text as standard_name,
+                    sn.note_category as category
+                FROM note_name_mappings nnm
+                LEFT JOIN projects p ON nnm.project_id = p.project_id
+                LEFT JOIN standard_notes sn ON nnm.note_id = sn.note_id
+                WHERE nnm.is_active = TRUE
+                ORDER BY project_name, nnm.dxf_alias
+            """
+            data['note_mappings'] = execute_query(query)
+        
+        # Get relationships
+        if relationships.get('keynoteBlocks'):
+            query = """
+                SELECT 
+                    pkbm.project_id,
+                    p.project_name,
+                    pkbm.keynote_number as keynote,
+                    pkbm.block_id,
+                    bd.block_name,
+                    pkbm.usage_context as context_notes
+                FROM project_keynote_block_mappings pkbm
+                LEFT JOIN projects p ON pkbm.project_id = p.project_id
+                LEFT JOIN block_definitions bd ON pkbm.block_id = bd.block_id
+                WHERE pkbm.is_active = TRUE
+                ORDER BY p.project_name, pkbm.keynote_number
+            """
+            data['keynote_block_relationships'] = execute_query(query)
+        
+        if relationships.get('keynoteDetails'):
+            query = """
+                SELECT 
+                    pkdm.project_id,
+                    p.project_name,
+                    pkdm.keynote_number as keynote,
+                    pkdm.detail_id,
+                    ds.detail_title as detail_name,
+                    pkdm.usage_context as context_notes
+                FROM project_keynote_detail_mappings pkdm
+                LEFT JOIN projects p ON pkdm.project_id = p.project_id
+                LEFT JOIN detail_standards ds ON pkdm.detail_id = ds.detail_id
+                WHERE pkdm.is_active = TRUE
+                ORDER BY p.project_name, pkdm.keynote_number
+            """
+            data['keynote_detail_relationships'] = execute_query(query)
+        
+        if relationships.get('hatchMaterials'):
+            query = """
+                SELECT 
+                    phmm.project_id,
+                    p.project_name,
+                    phmm.hatch_id,
+                    hp.pattern_name,
+                    phmm.material_id,
+                    ms.material_name,
+                    phmm.material_notes as context_notes
+                FROM project_hatch_material_mappings phmm
+                LEFT JOIN projects p ON phmm.project_id = p.project_id
+                LEFT JOIN hatch_patterns hp ON phmm.hatch_id = hp.hatch_id
+                LEFT JOIN material_standards ms ON phmm.material_id = ms.material_id
+                WHERE phmm.is_active = TRUE
+                ORDER BY p.project_name, hp.pattern_name
+            """
+            data['hatch_material_relationships'] = execute_query(query)
+        
+        if relationships.get('detailMaterials'):
+            query = """
+                SELECT 
+                    pdmm.project_id,
+                    p.project_name,
+                    pdmm.detail_id,
+                    ds.detail_title as detail_name,
+                    pdmm.material_id,
+                    ms.material_name,
+                    pdmm.material_notes as context_notes
+                FROM project_detail_material_mappings pdmm
+                LEFT JOIN projects p ON pdmm.project_id = p.project_id
+                LEFT JOIN detail_standards ds ON pdmm.detail_id = ds.detail_id
+                LEFT JOIN material_standards ms ON pdmm.material_id = ms.material_id
+                WHERE pdmm.is_active = TRUE
+                ORDER BY p.project_name, ds.detail_title
+            """
+            data['detail_material_relationships'] = execute_query(query)
+        
+        if relationships.get('blockSpecs'):
+            query = """
+                SELECT 
+                    pbsm.project_id,
+                    p.project_name,
+                    pbsm.block_id,
+                    bd.block_name,
+                    pbsm.spec_section,
+                    pbsm.spec_description,
+                    pbsm.manufacturer,
+                    pbsm.model_number
+                FROM project_block_specification_mappings pbsm
+                LEFT JOIN projects p ON pbsm.project_id = p.project_id
+                LEFT JOIN block_definitions bd ON pbsm.block_id = bd.block_id
+                WHERE pbsm.is_active = TRUE
+                ORDER BY p.project_name, bd.block_name
+            """
+            data['block_spec_relationships'] = execute_query(query)
+        
+        # Generate export based on type
+        if export_type == 'excel':
+            return generate_excel_export(data, title, description)
+        elif export_type == 'csv':
+            return generate_csv_export(data, title, description)
+        elif export_type == 'html':
+            return generate_html_export(data, title, description)
+        elif export_type == 'pdf':
+            return generate_pdf_export(data, title, description)
+        else:
+            return jsonify({'error': 'Invalid export type'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def generate_excel_export(data, title, description):
+    """Generate Excel workbook export"""
+    wb = openpyxl.Workbook()
+    
+    # Remove default sheet
+    wb.remove(wb.active)
+    
+    # Create Overview sheet
+    ws_overview = wb.create_sheet("Overview")
+    ws_overview.append(['Title', title])
+    ws_overview.append(['Description', description])
+    ws_overview.append(['Generated', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+    ws_overview.append([])
+    ws_overview.append(['Statistics'])
+    
+    for key, items in data.items():
+        ws_overview.append([key.replace('_', ' ').title(), len(items)])
+    
+    # Style overview
+    for cell in ws_overview[1]:
+        cell.font = Font(bold=True)
+    for cell in ws_overview[5]:
+        cell.font = Font(bold=True)
+    
+    # Create sheets for each data type
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="00B4D8", end_color="00B4D8", fill_type="solid")
+    
+    if 'block_mappings' in data:
+        ws = wb.create_sheet("Block Mappings")
+        ws.append(['Project', 'Imported Name', 'Standard Name', 'Description'])
+        for row in ws[1]:
+            row.font = header_font
+            row.fill = header_fill
+        for item in data['block_mappings']:
+            ws.append([
+                item.get('project_name', ''),
+                item.get('imported_name', ''),
+                item.get('standard_name', ''),
+                item.get('description', '')
+            ])
+        for column in ws.columns:
+            max_length = 0
+            for cell in column:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[column[0].column_letter].width = min(max_length + 2, 50)
+    
+    if 'detail_mappings' in data:
+        ws = wb.create_sheet("Detail Mappings")
+        ws.append(['Project', 'Imported Name', 'Standard Name', 'Description'])
+        for row in ws[1]:
+            row.font = header_font
+            row.fill = header_fill
+        for item in data['detail_mappings']:
+            ws.append([
+                item.get('project_name', ''),
+                item.get('imported_name', ''),
+                item.get('standard_name', ''),
+                item.get('description', '')
+            ])
+        for column in ws.columns:
+            max_length = 0
+            for cell in column:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[column[0].column_letter].width = min(max_length + 2, 50)
+    
+    if 'hatch_mappings' in data:
+        ws = wb.create_sheet("Hatch Mappings")
+        ws.append(['Project', 'Imported Name', 'Standard Name', 'Description'])
+        for row in ws[1]:
+            row.font = header_font
+            row.fill = header_fill
+        for item in data['hatch_mappings']:
+            ws.append([
+                item.get('project_name', ''),
+                item.get('imported_name', ''),
+                item.get('standard_name', ''),
+                item.get('description', '')
+            ])
+        for column in ws.columns:
+            max_length = 0
+            for cell in column:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[column[0].column_letter].width = min(max_length + 2, 50)
+    
+    if 'material_mappings' in data:
+        ws = wb.create_sheet("Material Mappings")
+        ws.append(['Project', 'Imported Name', 'Standard Name', 'Description'])
+        for row in ws[1]:
+            row.font = header_font
+            row.fill = header_fill
+        for item in data['material_mappings']:
+            ws.append([
+                item.get('project_name', ''),
+                item.get('imported_name', ''),
+                item.get('standard_name', ''),
+                item.get('description', '')
+            ])
+        for column in ws.columns:
+            max_length = 0
+            for cell in column:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[column[0].column_letter].width = min(max_length + 2, 50)
+    
+    if 'note_mappings' in data:
+        ws = wb.create_sheet("Note Mappings")
+        ws.append(['Project', 'Imported Name', 'Standard Note', 'Category'])
+        for row in ws[1]:
+            row.font = header_font
+            row.fill = header_fill
+        for item in data['note_mappings']:
+            ws.append([
+                item.get('project_name', ''),
+                item.get('imported_name', ''),
+                item.get('standard_name', ''),
+                item.get('category', '')
+            ])
+        for column in ws.columns:
+            max_length = 0
+            for cell in column:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[column[0].column_letter].width = min(max_length + 2, 50)
+    
+    # Add relationship sheets
+    if 'keynote_block_relationships' in data:
+        ws = wb.create_sheet("Keynote-Block Relations")
+        ws.append(['Project', 'Keynote', 'Block Name', 'Notes'])
+        for row in ws[1]:
+            row.font = header_font
+            row.fill = header_fill
+        for item in data['keynote_block_relationships']:
+            ws.append([
+                item.get('project_name', ''),
+                item.get('keynote', ''),
+                item.get('block_name', ''),
+                item.get('context_notes', '')
+            ])
+    
+    if 'keynote_detail_relationships' in data:
+        ws = wb.create_sheet("Keynote-Detail Relations")
+        ws.append(['Project', 'Keynote', 'Detail Name', 'Notes'])
+        for row in ws[1]:
+            row.font = header_font
+            row.fill = header_fill
+        for item in data['keynote_detail_relationships']:
+            ws.append([
+                item.get('project_name', ''),
+                item.get('keynote', ''),
+                item.get('detail_name', ''),
+                item.get('context_notes', '')
+            ])
+    
+    if 'hatch_material_relationships' in data:
+        ws = wb.create_sheet("Hatch-Material Relations")
+        ws.append(['Project', 'Hatch Pattern', 'Material', 'Notes'])
+        for row in ws[1]:
+            row.font = header_font
+            row.fill = header_fill
+        for item in data['hatch_material_relationships']:
+            ws.append([
+                item.get('project_name', ''),
+                item.get('pattern_name', ''),
+                item.get('material_name', ''),
+                item.get('context_notes', '')
+            ])
+    
+    if 'detail_material_relationships' in data:
+        ws = wb.create_sheet("Detail-Material Relations")
+        ws.append(['Project', 'Detail Name', 'Material', 'Notes'])
+        for row in ws[1]:
+            row.font = header_font
+            row.fill = header_fill
+        for item in data['detail_material_relationships']:
+            ws.append([
+                item.get('project_name', ''),
+                item.get('detail_name', ''),
+                item.get('material_name', ''),
+                item.get('context_notes', '')
+            ])
+    
+    if 'block_spec_relationships' in data:
+        ws = wb.create_sheet("Block-Specification Relations")
+        ws.append(['Project', 'Block Name', 'Spec Section', 'Description', 'Manufacturer', 'Model'])
+        for row in ws[1]:
+            row.font = header_font
+            row.fill = header_fill
+        for item in data['block_spec_relationships']:
+            ws.append([
+                item.get('project_name', ''),
+                item.get('block_name', ''),
+                item.get('spec_section', ''),
+                item.get('spec_description', ''),
+                item.get('manufacturer', ''),
+                item.get('model_number', '')
+            ])
+    
+    # Save to bytes
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'CAD_Standards_{datetime.now().strftime("%Y%m%d")}.xlsx'
+    )
+
+def generate_csv_export(data, title, description):
+    """Generate CSV files in ZIP archive"""
+    # Create temp directory
+    with tempfile.TemporaryDirectory() as tmpdir:
+        files_created = []
+        
+        # Create CSV for each data type
+        if 'block_mappings' in data and data['block_mappings']:
+            filepath = os.path.join(tmpdir, 'block_mappings.csv')
+            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Project', 'Imported Name', 'Standard Name', 'Description'])
+                for item in data['block_mappings']:
+                    writer.writerow([
+                        item.get('project_name', ''),
+                        item.get('imported_name', ''),
+                        item.get('standard_name', ''),
+                        item.get('description', '')
+                    ])
+            files_created.append(filepath)
+        
+        if 'detail_mappings' in data and data['detail_mappings']:
+            filepath = os.path.join(tmpdir, 'detail_mappings.csv')
+            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Project', 'Imported Name', 'Standard Name', 'Description'])
+                for item in data['detail_mappings']:
+                    writer.writerow([
+                        item.get('project_name', ''),
+                        item.get('imported_name', ''),
+                        item.get('standard_name', ''),
+                        item.get('description', '')
+                    ])
+            files_created.append(filepath)
+        
+        if 'hatch_mappings' in data and data['hatch_mappings']:
+            filepath = os.path.join(tmpdir, 'hatch_mappings.csv')
+            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Project', 'Imported Name', 'Standard Name', 'Description'])
+                for item in data['hatch_mappings']:
+                    writer.writerow([
+                        item.get('project_name', ''),
+                        item.get('imported_name', ''),
+                        item.get('standard_name', ''),
+                        item.get('description', '')
+                    ])
+            files_created.append(filepath)
+        
+        if 'material_mappings' in data and data['material_mappings']:
+            filepath = os.path.join(tmpdir, 'material_mappings.csv')
+            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Project', 'Imported Name', 'Standard Name', 'Description'])
+                for item in data['material_mappings']:
+                    writer.writerow([
+                        item.get('project_name', ''),
+                        item.get('imported_name', ''),
+                        item.get('standard_name', ''),
+                        item.get('description', '')
+                    ])
+            files_created.append(filepath)
+        
+        if 'note_mappings' in data and data['note_mappings']:
+            filepath = os.path.join(tmpdir, 'note_mappings.csv')
+            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Project', 'Imported Name', 'Standard Note', 'Category'])
+                for item in data['note_mappings']:
+                    writer.writerow([
+                        item.get('project_name', ''),
+                        item.get('imported_name', ''),
+                        item.get('standard_name', ''),
+                        item.get('category', '')
+                    ])
+            files_created.append(filepath)
+        
+        # Add metadata file
+        metadata_path = os.path.join(tmpdir, 'README.txt')
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            f.write(f"{title}\n")
+            f.write("=" * len(title) + "\n\n")
+            f.write(f"{description}\n\n")
+            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        files_created.append(metadata_path)
+        
+        # Create ZIP file
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for filepath in files_created:
+                zip_file.write(filepath, os.path.basename(filepath))
+        
+        zip_buffer.seek(0)
+        
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'CAD_Standards_{datetime.now().strftime("%Y%m%d")}.zip'
+        )
+
+def generate_html_export(data, title, description):
+    """Generate standalone HTML export"""
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #001a33 0%, #003d66 100%);
+            color: #e0e0e0;
+            padding: 20px;
+        }}
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(0, 40, 80, 0.6);
+            border: 1px solid #00b4d8;
+            border-radius: 8px;
+            padding: 30px;
+        }}
+        h1 {{
+            color: #00b4d8;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }}
+        .subtitle {{
+            text-align: center;
+            color: #90e0ef;
+            margin-bottom: 30px;
+        }}
+        .section {{
+            margin: 30px 0;
+        }}
+        h2 {{
+            color: #00b4d8;
+            border-bottom: 2px solid #00b4d8;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: rgba(0, 20, 40, 0.6);
+        }}
+        th {{
+            background: #00b4d8;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }}
+        td {{
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(0, 180, 216, 0.2);
+        }}
+        tr:hover {{
+            background: rgba(0, 180, 216, 0.1);
+        }}
+        .empty {{
+            text-align: center;
+            padding: 20px;
+            color: #90e0ef;
+            font-style: italic;
+        }}
+        .metadata {{
+            background: rgba(0, 60, 100, 0.4);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{title}</h1>
+        <p class="subtitle">{description}</p>
+        
+        <div class="metadata">
+            <strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        </div>
+"""
+    
+    # Add each data section
+    if 'block_mappings' in data:
+        html_content += '<div class="section"><h2>Block Name Mappings</h2>'
+        if data['block_mappings']:
+            html_content += '<table><thead><tr><th>Project</th><th>Imported Name</th><th>Standard Name</th><th>Description</th></tr></thead><tbody>'
+            for item in data['block_mappings']:
+                html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('imported_name', '')}</td><td>{item.get('standard_name', '')}</td><td>{item.get('description', '')}</td></tr>"
+            html_content += '</tbody></table>'
+        else:
+            html_content += '<p class="empty">No block mappings found</p>'
+        html_content += '</div>'
+    
+    if 'detail_mappings' in data:
+        html_content += '<div class="section"><h2>Detail Name Mappings</h2>'
+        if data['detail_mappings']:
+            html_content += '<table><thead><tr><th>Project</th><th>Imported Name</th><th>Standard Name</th><th>Description</th></tr></thead><tbody>'
+            for item in data['detail_mappings']:
+                html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('imported_name', '')}</td><td>{item.get('standard_name', '')}</td><td>{item.get('description', '')}</td></tr>"
+            html_content += '</tbody></table>'
+        else:
+            html_content += '<p class="empty">No detail mappings found</p>'
+        html_content += '</div>'
+    
+    if 'hatch_mappings' in data:
+        html_content += '<div class="section"><h2>Hatch Pattern Mappings</h2>'
+        if data['hatch_mappings']:
+            html_content += '<table><thead><tr><th>Project</th><th>Imported Name</th><th>Standard Name</th><th>Description</th></tr></thead><tbody>'
+            for item in data['hatch_mappings']:
+                html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('imported_name', '')}</td><td>{item.get('standard_name', '')}</td><td>{item.get('description', '')}</td></tr>"
+            html_content += '</tbody></table>'
+        else:
+            html_content += '<p class="empty">No hatch mappings found</p>'
+        html_content += '</div>'
+    
+    if 'material_mappings' in data:
+        html_content += '<div class="section"><h2>Material Name Mappings</h2>'
+        if data['material_mappings']:
+            html_content += '<table><thead><tr><th>Project</th><th>Imported Name</th><th>Standard Name</th><th>Description</th></tr></thead><tbody>'
+            for item in data['material_mappings']:
+                html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('imported_name', '')}</td><td>{item.get('standard_name', '')}</td><td>{item.get('description', '')}</td></tr>"
+            html_content += '</tbody></table>'
+        else:
+            html_content += '<p class="empty">No material mappings found</p>'
+        html_content += '</div>'
+    
+    if 'note_mappings' in data:
+        html_content += '<div class="section"><h2>Note/Keynote Mappings</h2>'
+        if data['note_mappings']:
+            html_content += '<table><thead><tr><th>Project</th><th>Imported Name</th><th>Standard Note</th><th>Category</th></tr></thead><tbody>'
+            for item in data['note_mappings']:
+                html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('imported_name', '')}</td><td>{item.get('standard_name', '')}</td><td>{item.get('category', '')}</td></tr>"
+            html_content += '</tbody></table>'
+        else:
+            html_content += '<p class="empty">No note mappings found</p>'
+        html_content += '</div>'
+    
+    if 'keynote_block_relationships' in data:
+        html_content += '<div class="section"><h2>Keynote → Block Relationships</h2>'
+        if data['keynote_block_relationships']:
+            html_content += '<table><thead><tr><th>Project</th><th>Keynote</th><th>Block Name</th><th>Notes</th></tr></thead><tbody>'
+            for item in data['keynote_block_relationships']:
+                html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('keynote', '')}</td><td>{item.get('block_name', '')}</td><td>{item.get('context_notes', '')}</td></tr>"
+            html_content += '</tbody></table>'
+        else:
+            html_content += '<p class="empty">No keynote-block relationships found</p>'
+        html_content += '</div>'
+    
+    if 'keynote_detail_relationships' in data:
+        html_content += '<div class="section"><h2>Keynote → Detail Relationships</h2>'
+        if data['keynote_detail_relationships']:
+            html_content += '<table><thead><tr><th>Project</th><th>Keynote</th><th>Detail Name</th><th>Notes</th></tr></thead><tbody>'
+            for item in data['keynote_detail_relationships']:
+                html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('keynote', '')}</td><td>{item.get('detail_name', '')}</td><td>{item.get('context_notes', '')}</td></tr>"
+            html_content += '</tbody></table>'
+        else:
+            html_content += '<p class="empty">No keynote-detail relationships found</p>'
+        html_content += '</div>'
+    
+    if 'hatch_material_relationships' in data:
+        html_content += '<div class="section"><h2>Hatch → Material Relationships</h2>'
+        if data['hatch_material_relationships']:
+            html_content += '<table><thead><tr><th>Project</th><th>Hatch Pattern</th><th>Material</th><th>Notes</th></tr></thead><tbody>'
+            for item in data['hatch_material_relationships']:
+                html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('pattern_name', '')}</td><td>{item.get('material_name', '')}</td><td>{item.get('context_notes', '')}</td></tr>"
+            html_content += '</tbody></table>'
+        else:
+            html_content += '<p class="empty">No hatch-material relationships found</p>'
+        html_content += '</div>'
+    
+    if 'detail_material_relationships' in data:
+        html_content += '<div class="section"><h2>Detail → Material Relationships</h2>'
+        if data['detail_material_relationships']:
+            html_content += '<table><thead><tr><th>Project</th><th>Detail Name</th><th>Material</th><th>Notes</th></tr></thead><tbody>'
+            for item in data['detail_material_relationships']:
+                html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('detail_name', '')}</td><td>{item.get('material_name', '')}</td><td>{item.get('context_notes', '')}</td></tr>"
+            html_content += '</tbody></table>'
+        else:
+            html_content += '<p class="empty">No detail-material relationships found</p>'
+        html_content += '</div>'
+    
+    if 'block_spec_relationships' in data:
+        html_content += '<div class="section"><h2>Block → Specification Relationships</h2>'
+        if data['block_spec_relationships']:
+            html_content += '<table><thead><tr><th>Project</th><th>Block Name</th><th>Spec Section</th><th>Description</th><th>Manufacturer</th><th>Model</th></tr></thead><tbody>'
+            for item in data['block_spec_relationships']:
+                html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('block_name', '')}</td><td>{item.get('spec_section', '')}</td><td>{item.get('spec_description', '')}</td><td>{item.get('manufacturer', '')}</td><td>{item.get('model_number', '')}</td></tr>"
+            html_content += '</tbody></table>'
+        else:
+            html_content += '<p class="empty">No block-specification relationships found</p>'
+        html_content += '</div>'
+    
+    html_content += """
+    </div>
+</body>
+</html>
+"""
+    
+    # Return as file download
+    return send_file(
+        io.BytesIO(html_content.encode('utf-8')),
+        mimetype='text/html',
+        as_attachment=True,
+        download_name=f'CAD_Standards_{datetime.now().strftime("%Y%m%d")}.html'
+    )
+
+def generate_pdf_export(data, title, description):
+    """Generate PDF export from HTML"""
+    # Generate HTML content first
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{title}</title>
+</head>
+<body>
+    <h1>{title}</h1>
+    <p>{description}</p>
+    <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+"""
+    
+    # Add each data section
+    if 'block_mappings' in data and data['block_mappings']:
+        html_content += '<h2>Block Name Mappings</h2><table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse:collapse;"><thead><tr><th>Project</th><th>Imported Name</th><th>Standard Name</th><th>Description</th></tr></thead><tbody>'
+        for item in data['block_mappings']:
+            html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('imported_name', '')}</td><td>{item.get('standard_name', '')}</td><td>{item.get('description', '')}</td></tr>"
+        html_content += '</tbody></table>'
+    
+    if 'detail_mappings' in data and data['detail_mappings']:
+        html_content += '<h2>Detail Name Mappings</h2><table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse:collapse;"><thead><tr><th>Project</th><th>Imported Name</th><th>Standard Name</th><th>Description</th></tr></thead><tbody>'
+        for item in data['detail_mappings']:
+            html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('imported_name', '')}</td><td>{item.get('standard_name', '')}</td><td>{item.get('description', '')}</td></tr>"
+        html_content += '</tbody></table>'
+    
+    if 'hatch_mappings' in data and data['hatch_mappings']:
+        html_content += '<h2>Hatch Pattern Mappings</h2><table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse:collapse;"><thead><tr><th>Project</th><th>Imported Name</th><th>Standard Name</th><th>Description</th></tr></thead><tbody>'
+        for item in data['hatch_mappings']:
+            html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('imported_name', '')}</td><td>{item.get('standard_name', '')}</td><td>{item.get('description', '')}</td></tr>"
+        html_content += '</tbody></table>'
+    
+    if 'material_mappings' in data and data['material_mappings']:
+        html_content += '<h2>Material Name Mappings</h2><table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse:collapse;"><thead><tr><th>Project</th><th>Imported Name</th><th>Standard Name</th><th>Description</th></tr></thead><tbody>'
+        for item in data['material_mappings']:
+            html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('imported_name', '')}</td><td>{item.get('standard_name', '')}</td><td>{item.get('description', '')}</td></tr>"
+        html_content += '</tbody></table>'
+    
+    if 'note_mappings' in data and data['note_mappings']:
+        html_content += '<h2>Note/Keynote Mappings</h2><table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse:collapse;"><thead><tr><th>Project</th><th>Imported Name</th><th>Standard Note</th><th>Category</th></tr></thead><tbody>'
+        for item in data['note_mappings']:
+            html_content += f"<tr><td>{item.get('project_name', '')}</td><td>{item.get('imported_name', '')}</td><td>{item.get('standard_name', '')}</td><td>{item.get('category', '')}</td></tr>"
+        html_content += '</tbody></table>'
+    
+    html_content += '</body></html>'
+    
+    # Convert to PDF using WeasyPrint
+    pdf_bytes = HTML(string=html_content).write_pdf()
+    
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'CAD_Standards_{datetime.now().strftime("%Y%m%d")}.pdf'
+    )
 
 # ============================================================================
 # PIPE NETWORK EDITOR API ENDPOINTS

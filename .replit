@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "geos", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "proj", "tcl", "tk", "zlib"]
+packages = ["fontconfig", "freetype", "geos", "ghostscript", "glib", "harfbuzz", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "pango", "proj", "tcl", "tk", "zlib"]
 
 [workflows]
 runButton = "Project"
@@ -33,10 +33,6 @@ waitForPort = 5000
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 38923
-externalPort = 3001
 
 [[ports]]
 localPort = 45217
