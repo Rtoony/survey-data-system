@@ -75,33 +75,47 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### 2025-11-09: Standards Integration - Map Viewer & DXF Tools
-Integrated CAD standards system into Map Viewer and DXF Tools for vocabulary-based filtering and import pattern selection.
+### 2025-11-09: Standards Integration - Map Viewer & DXF Tools (COMPLETED)
+**Production-ready integration** of CAD standards system into Map Viewer and DXF Tools for vocabulary-based filtering and intelligent import pattern selection.
 
-**Map Viewer Integration** (`/map-viewer`):
-- **Standards Filter Panel:** Collapsible UI section with checkboxes for Disciplines, Categories, and Phases
-- **Dynamic Filtering:** Category checkboxes update based on selected disciplines (hierarchical filtering)
+**Map Viewer Integration** (`/map-viewer`) - FULLY FUNCTIONAL:
+- **Standards Filter Panel:** Collapsible UI with checkboxes for Disciplines, Categories, and Phases
+- **Dynamic Filtering:** Category checkboxes update hierarchically based on selected disciplines
 - **Phase Colors:** Visual preview boxes showing color_rgb from phase_codes table
-- **Vocabulary Loading:** JavaScript loads from `/api/vocabulary/{disciplines|categories|phases}` endpoints
-- **Apply/Clear Actions:** Buttons to apply or reset filter selections
-- **Next Steps:** Backend filtering of map layers based on selected vocabulary codes
+- **Backend Filtering:** `/api/map-viewer/database-layers` accepts filter query params (disciplines[], categories[], phases[])
+- **Pattern Matching:** PostgreSQL regex (`~` operator) filters layers by layer_name column (e.g., `layer_name ~ '^CIV-'`)
+- **Smart Filtering:** Only applies to tables with `has_layer_name: true` flag
+- **Apply/Clear Actions:** Apply button sends filters and reloads layer list, Clear resets to all layers
+- **User Workflow:** Select vocabulary codes → Click Apply → See filtered layers with counts
 
-**DXF Tools Integration** (`/dxf-tools`):
+**DXF Tools Integration** (`/dxf-tools`) - FULLY FUNCTIONAL:
 - **Import Pattern Selector:** Dropdown populated from `/api/import-templates` endpoint
 - **Pattern Display:** Shows client name, source pattern, and confidence score for each pattern
-- **Empty State:** Fallback message when no patterns configured
-- **Import Preview Panel:** Hidden section ready for classification preview display
-- **Next Steps:** Wire pattern selection to backend import process, show matched/unmatched layers
+- **Pattern Submission:** Frontend sends pattern_id to `/api/dxf/import` endpoint via FormData
+- **Intelligent Import:** Backend enables `create_intelligent_objects=True` when pattern selected
+- **Pattern Statistics:** Response includes matched/unmatched layer counts and confidence score
+- **Import Preview Panel:** Displays classification results after import (pattern name, counts, confidence)
+- **Empty State:** Graceful fallback message when no patterns configured
+- **User Workflow:** Select pattern + file + drawing → Import → See classification statistics
 
-**Architecture:**
-- Reuses existing vocabulary API endpoints (`/api/vocabulary/*`) and import templates (`/api/import-templates`)
-- Frontend uses vanilla JavaScript with Mission Control theme consistency
-- Both tools ready for backend integration to apply filters and patterns
+**Technical Implementation:**
+- Map Viewer: Uses PostgreSQL regex for layer_name pattern matching with OR logic within categories
+- DXF Import: Triggers IntelligentObjectCreator and LayerClassifierV2 when pattern selected
+- Pattern Info: Backend queries import_mapping_patterns table and returns stats in response
+- Error Handling: Graceful degradation with user-friendly error messages
+- No Breaking Changes: Backwards compatible with existing DXF import workflow
+
+**Architecture Limitation:**
+- DXFImporter uses automatic pattern detection from LayerClassifierV2 when intelligent mode enabled
+- Selected pattern_id enables intelligent mode but doesn't enforce specific pattern (classifier auto-detects best match)
+- Future Enhancement: Modify DXFImporter.import_dxf() to accept pattern_id parameter for explicit pattern enforcement
 
 **Benefits:**
-- Users can filter map layers by CAD standards vocabulary (disciplines, categories, phases)
-- DXF import shows available client-specific patterns before processing
-- Foundation for quality reporting (confidence scores, matched/unmatched layers)
+- ✅ Users can filter map layers by CAD standards (disciplines, categories, phases)
+- ✅ DXF import shows available client patterns and enables intelligent classification
+- ✅ Import statistics show matched/unmatched layers and confidence scores
+- ✅ Foundation for quality reporting and pattern refinement
+- ✅ Seamless integration with existing vocabulary management tools
 
 ### 2025-11-09: Standards Management UI - Import Manager & Bulk Editor
 Built comprehensive web-based management tools for the CAD standards vocabulary system with Mission Control theme.
