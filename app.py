@@ -6041,13 +6041,867 @@ def sheet_notes_page():
     return render_template('sheet_notes.html')
 
 # ============================================
-# GRAVITY PIPE NETWORK EDITOR
+# GRAVITY PIPE NETWORK MANAGER
 # ============================================
 
-@app.route('/gravity-network-editor')
-def gravity_network_editor():
-    """Gravity Pipe Network Editor page"""
-    return render_template('gravity_network_editor.html')
+@app.route('/gravity-network-manager')
+def gravity_network_manager():
+    """Gravity Pipe Network Manager page"""
+    return render_template('gravity_network_manager.html')
+
+# ============================================
+# PRESSURE PIPE NETWORK MANAGER
+# ============================================
+
+@app.route('/pressure-network-manager')
+def pressure_network_manager():
+    """Pressure Pipe Network Manager page"""
+    return render_template('pressure_network_manager.html')
+
+# ============================================
+# BMP MANAGER
+# ============================================
+
+@app.route('/bmp-manager')
+def bmp_manager():
+    """BMP Manager page"""
+    return render_template('bmp_manager.html')
+
+@app.route('/api/pressure-networks')
+def get_pressure_networks():
+    """Get list of pressure pipe networks (potable, reclaimed, fire)"""
+    try:
+        project_id = request.args.get('project_id')
+        
+        query = """
+            SELECT 
+                pn.network_id,
+                pn.project_id,
+                pn.network_name,
+                pn.utility_system,
+                pn.network_mode,
+                pn.network_status,
+                pn.description,
+                p.project_name,
+                COUNT(DISTINCT unm_lines.line_id) as line_count,
+                COUNT(DISTINCT unm_struct.structure_id) as structure_count
+            FROM pipe_networks pn
+            LEFT JOIN projects p ON pn.project_id = p.project_id
+            LEFT JOIN utility_network_memberships unm_lines ON pn.network_id = unm_lines.network_id AND unm_lines.line_id IS NOT NULL
+            LEFT JOIN utility_network_memberships unm_struct ON pn.network_id = unm_struct.network_id AND unm_struct.structure_id IS NOT NULL
+            WHERE pn.utility_system IN ('potable', 'Potable', 'reclaimed', 'Reclaimed', 'fire', 'Fire')
+        """
+        params = []
+        
+        if project_id:
+            query += " AND pn.project_id = %s"
+            params.append(project_id)
+        
+        query += """
+            GROUP BY pn.network_id, pn.project_id, pn.network_name, 
+                     pn.utility_system, pn.network_mode, pn.network_status, 
+                     pn.description, p.project_name
+            ORDER BY p.project_name, pn.network_name
+        """
+        
+        networks = execute_query(query, tuple(params) if params else None)
+        return jsonify({'networks': networks})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pressure-networks/<network_id>')
+def get_pressure_network_details(network_id):
+    """Get detailed information about a specific pressure network"""
+    try:
+        query = """
+            SELECT 
+                pn.network_id,
+                pn.project_id,
+                pn.network_name,
+                pn.utility_system,
+                pn.network_mode,
+                pn.network_status,
+                pn.description,
+                pn.attributes,
+                p.project_name,
+                p.client_name
+            FROM pipe_networks pn
+            LEFT JOIN projects p ON pn.project_id = p.project_id
+            WHERE pn.network_id = %s
+        """
+        network = execute_query(query, (network_id,))
+        
+        if not network or len(network) == 0:
+            return jsonify({'error': 'Network not found'}), 404
+        
+        return jsonify({'network': network[0]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pressure-networks/<network_id>/pipes')
+def get_pressure_network_pipes(network_id):
+    """Get all pipes in a pressure network with pressure-specific data"""
+    try:
+        query = """
+            SELECT 
+                ul.line_id,
+                ul.line_number,
+                ul.utility_system,
+                ul.material,
+                ul.diameter_mm,
+                ul.length,
+                ul.from_structure_id,
+                ul.to_structure_id,
+                from_struct.structure_number as from_structure_number,
+                from_struct.structure_type as from_structure_type,
+                to_struct.structure_number as to_structure_number,
+                to_struct.structure_type as to_structure_type,
+                ST_AsGeoJSON(ul.geometry) as geometry,
+                ul.attributes,
+                json_build_object(
+                    'pressure_rating_psi', ulpd.pressure_rating_psi,
+                    'pipe_class', ulpd.pipe_class,
+                    'operating_pressure_psi', ulpd.operating_pressure_psi,
+                    'flow_direction', ulpd.flow_direction
+                ) as pressure_data
+            FROM utility_network_memberships unm
+            JOIN utility_lines ul ON unm.line_id = ul.line_id
+            LEFT JOIN utility_structures from_struct ON ul.from_structure_id = from_struct.structure_id
+            LEFT JOIN utility_structures to_struct ON ul.to_structure_id = to_struct.structure_id
+            LEFT JOIN utility_line_pressure_data ulpd ON ul.line_id = ulpd.line_id
+            WHERE unm.network_id = %s
+            ORDER BY ul.line_number, ul.created_at
+        """
+        pipes = execute_query(query, (network_id,))
+        return jsonify({'pipes': pipes})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pressure-networks/<network_id>/structures')
+def get_pressure_network_structures(network_id):
+    """Get all structures in a pressure network with pressure-specific data"""
+    try:
+        query = """
+            SELECT 
+                us.structure_id,
+                us.structure_number,
+                us.structure_type,
+                us.utility_system,
+                us.rim_elevation,
+                us.condition,
+                ST_AsGeoJSON(us.rim_geometry) as geometry,
+                us.attributes,
+                json_build_object(
+                    'valve_type', uspd.valve_type,
+                    'valve_status', uspd.valve_status,
+                    'hydrant_flow_gpm', uspd.hydrant_flow_gpm,
+                    'operating_pressure_psi', uspd.operating_pressure_psi,
+                    'pressure_class', uspd.pressure_class
+                ) as pressure_data
+            FROM utility_network_memberships unm
+            JOIN utility_structures us ON unm.structure_id = us.structure_id
+            LEFT JOIN utility_structure_pressure_data uspd ON us.structure_id = uspd.structure_id
+            WHERE unm.network_id = %s
+            ORDER BY us.structure_number, us.created_at
+        """
+        structures = execute_query(query, (network_id,))
+        return jsonify({'structures': structures})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pressure-networks/<network_id>/pipes/<pipe_id>', methods=['PUT'])
+def update_pressure_network_pipe(network_id, pipe_id):
+    """Update pressure pipe attributes (preserves geometry)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                base_fields = ['line_number', 'material', 'diameter_mm', 'from_structure_id', 'to_structure_id', 'notes']
+                pressure_fields = ['pressure_rating_psi', 'pipe_class', 'operating_pressure_psi', 'flow_direction']
+                
+                base_updates = []
+                base_params = []
+                for field in base_fields:
+                    if field in data:
+                        base_updates.append(f"{field} = %s")
+                        base_params.append(data[field])
+                
+                if base_updates:
+                    base_params.append(pipe_id)
+                    base_query = f"""
+                        UPDATE utility_lines 
+                        SET {', '.join(base_updates)}, updated_at = CURRENT_TIMESTAMP
+                        WHERE line_id = %s
+                        RETURNING line_id
+                    """
+                    cur.execute(base_query, tuple(base_params))
+                    result = cur.fetchone()
+                    if not result:
+                        return jsonify({'error': 'Pipe not found'}), 404
+                
+                pressure_updates = []
+                pressure_params = []
+                for field in pressure_fields:
+                    if field in data:
+                        pressure_updates.append(f"{field} = %s")
+                        pressure_params.append(data[field])
+                
+                if pressure_updates:
+                    pressure_params.extend([pipe_id, pipe_id])
+                    pressure_query = f"""
+                        INSERT INTO utility_line_pressure_data (line_id, {', '.join([f.split('=')[0].strip() for f in pressure_updates])})
+                        VALUES (%s, {', '.join(['%s'] * len(pressure_updates))})
+                        ON CONFLICT (line_id) 
+                        DO UPDATE SET {', '.join(pressure_updates)}, updated_at = CURRENT_TIMESTAMP
+                    """
+                    all_pressure_params = [pipe_id] + [data[f] for f in pressure_fields if f in data]
+                    cur.execute(f"""
+                        INSERT INTO utility_line_pressure_data (line_id, {', '.join(pressure_fields)})
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (line_id) 
+                        DO UPDATE SET {', '.join(pressure_updates)}, updated_at = CURRENT_TIMESTAMP
+                    """, tuple(all_pressure_params))
+                
+                conn.commit()
+                return jsonify({'success': True, 'line_id': str(pipe_id)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pressure-networks/<network_id>/structures/<structure_id>', methods=['PUT'])
+def update_pressure_network_structure(network_id, structure_id):
+    """Update pressure structure attributes (preserves geometry)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                base_fields = ['structure_number', 'structure_type', 'condition', 'notes']
+                pressure_fields = ['valve_type', 'valve_status', 'hydrant_flow_gpm', 'operating_pressure_psi', 'pressure_class']
+                
+                base_updates = []
+                base_params = []
+                for field in base_fields:
+                    if field in data:
+                        base_updates.append(f"{field} = %s")
+                        base_params.append(data[field])
+                
+                if base_updates:
+                    base_params.append(structure_id)
+                    base_query = f"""
+                        UPDATE utility_structures 
+                        SET {', '.join(base_updates)}, updated_at = CURRENT_TIMESTAMP
+                        WHERE structure_id = %s
+                        RETURNING structure_id
+                    """
+                    cur.execute(base_query, tuple(base_params))
+                    result = cur.fetchone()
+                    if not result:
+                        return jsonify({'error': 'Structure not found'}), 404
+                
+                pressure_updates = []
+                pressure_params = []
+                for field in pressure_fields:
+                    if field in data:
+                        pressure_updates.append(f"{field} = %s")
+                        pressure_params.append(data[field])
+                
+                if pressure_updates:
+                    all_pressure_params = [structure_id] + [data[f] for f in pressure_fields if f in data]
+                    cur.execute(f"""
+                        INSERT INTO utility_structure_pressure_data (structure_id, {', '.join(pressure_fields)})
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (structure_id) 
+                        DO UPDATE SET {', '.join(pressure_updates)}, updated_at = CURRENT_TIMESTAMP
+                    """, tuple(all_pressure_params))
+                
+                conn.commit()
+                return jsonify({'success': True, 'structure_id': str(structure_id)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pressure-networks/<network_id>/viewer-entities')
+def get_pressure_network_viewer_entities(network_id):
+    """Get pressure network entities (pipes + structures) in Entity Viewer format with transformed geometries"""
+    try:
+        all_entities = []
+        
+        pipes_query = """
+            SELECT 
+                ul.line_id::text as entity_id,
+                ul.line_number as label,
+                LOWER(ul.utility_system) || '_pipe' as entity_type,
+                ul.utility_system,
+                ul.material,
+                ul.diameter_mm,
+                ul.length,
+                ul.from_structure_id::text,
+                ul.to_structure_id::text,
+                ulpd.pressure_rating_psi,
+                ulpd.pipe_class,
+                ulpd.operating_pressure_psi,
+                ulpd.flow_direction,
+                ST_AsGeoJSON(ST_Transform(ul.geometry, 4326))::json as geometry
+            FROM utility_network_memberships unm
+            JOIN utility_lines ul ON unm.line_id = ul.line_id
+            LEFT JOIN utility_line_pressure_data ulpd ON ul.line_id = ulpd.line_id
+            WHERE unm.network_id = %s AND ul.geometry IS NOT NULL
+            ORDER BY ul.line_number
+        """
+        pipes = execute_query(pipes_query, (network_id,))
+        
+        for pipe in pipes:
+            utility_system = (pipe['utility_system'] or 'unknown').lower()
+            if utility_system == 'potable':
+                color = '#0096ff'
+            elif utility_system == 'reclaimed':
+                color = '#9b59b6'
+            elif utility_system == 'fire':
+                color = '#e74c3c'
+            else:
+                color = '#0096ff'
+            
+            all_entities.append({
+                'entity_id': pipe['entity_id'],
+                'entity_type': pipe['entity_type'],
+                'label': pipe['label'] or 'Unnamed Pipe',
+                'layer_name': pipe['utility_system'] or 'Unknown',
+                'category': 'Pressure Systems',
+                'geometry_type': 'line',
+                'color': color,
+                'geometry': pipe['geometry'],
+                'properties': {
+                    'material': pipe['material'],
+                    'diameter_mm': pipe['diameter_mm'],
+                    'length': pipe['length'],
+                    'pressure_rating_psi': pipe['pressure_rating_psi'],
+                    'pipe_class': pipe['pipe_class'],
+                    'operating_pressure_psi': pipe['operating_pressure_psi'],
+                    'flow_direction': pipe['flow_direction'],
+                    'from_structure': pipe['from_structure_id'],
+                    'to_structure': pipe['to_structure_id']
+                }
+            })
+        
+        structures_query = """
+            SELECT 
+                us.structure_id::text as entity_id,
+                us.structure_number as label,
+                CASE 
+                    WHEN us.structure_type ILIKE '%valve%' THEN 'valve'
+                    WHEN us.structure_type ILIKE '%hydrant%' THEN 'hydrant'
+                    ELSE 'structure'
+                END as entity_type,
+                us.structure_type,
+                us.utility_system,
+                us.rim_elevation,
+                us.condition,
+                uspd.valve_type,
+                uspd.valve_status,
+                uspd.hydrant_flow_gpm,
+                uspd.operating_pressure_psi,
+                uspd.pressure_class,
+                ST_AsGeoJSON(ST_Transform(us.rim_geometry, 4326))::json as geometry
+            FROM utility_network_memberships unm
+            JOIN utility_structures us ON unm.structure_id = us.structure_id
+            LEFT JOIN utility_structure_pressure_data uspd ON us.structure_id = uspd.structure_id
+            WHERE unm.network_id = %s AND us.rim_geometry IS NOT NULL
+            ORDER BY us.structure_number
+        """
+        structures = execute_query(structures_query, (network_id,))
+        
+        for struct in structures:
+            entity_type = struct['entity_type']
+            if entity_type == 'valve':
+                color = '#f39c12'
+            elif entity_type == 'hydrant':
+                color = '#e74c3c'
+            else:
+                color = '#6a994e'
+            
+            all_entities.append({
+                'entity_id': struct['entity_id'],
+                'entity_type': entity_type,
+                'label': struct['label'] or 'Unnamed Structure',
+                'layer_name': struct['utility_system'] or 'Unknown',
+                'category': 'Pressure Systems',
+                'geometry_type': 'point',
+                'color': color,
+                'geometry': struct['geometry'],
+                'properties': {
+                    'type': struct['structure_type'],
+                    'rim_elevation': struct['rim_elevation'],
+                    'condition': struct['condition'],
+                    'valve_type': struct['valve_type'],
+                    'valve_status': struct['valve_status'],
+                    'hydrant_flow_gpm': struct['hydrant_flow_gpm'],
+                    'operating_pressure_psi': struct['operating_pressure_psi'],
+                    'pressure_class': struct['pressure_class']
+                }
+            })
+        
+        bbox = None
+        if all_entities:
+            bbox_query = """
+                SELECT ST_Extent(
+                    ST_Transform(
+                        ST_Union(
+                            ARRAY[
+                                (SELECT ST_Collect(ul.geometry) 
+                                 FROM utility_network_memberships unm
+                                 JOIN utility_lines ul ON unm.line_id = ul.line_id
+                                 WHERE unm.network_id = %s AND ul.geometry IS NOT NULL),
+                                (SELECT ST_Collect(us.rim_geometry) 
+                                 FROM utility_network_memberships unm
+                                 JOIN utility_structures us ON unm.structure_id = us.structure_id
+                                 WHERE unm.network_id = %s AND us.rim_geometry IS NOT NULL)
+                            ]
+                        ),
+                        4326
+                    )
+                ) as bbox
+            """
+            bbox_result = execute_query(bbox_query, (network_id, network_id))
+            
+            if bbox_result and bbox_result[0]['bbox']:
+                bbox_str = bbox_result[0]['bbox']
+                coords = bbox_str.replace('BOX(', '').replace(')', '').split(',')
+                min_coords = coords[0].strip().split()
+                max_coords = coords[1].strip().split()
+                bbox = {
+                    'minX': float(min_coords[0]),
+                    'minY': float(min_coords[1]),
+                    'maxX': float(max_coords[0]),
+                    'maxY': float(max_coords[1])
+                }
+        
+        type_counts = {}
+        layer_counts = {}
+        for entity in all_entities:
+            etype = entity.get('entity_type', 'Unknown')
+            type_counts[etype] = type_counts.get(etype, 0) + 1
+            
+            layer = entity.get('layer_name', 'Unknown')
+            layer_counts[layer] = layer_counts.get(layer, 0) + 1
+        
+        return jsonify({
+            'entities': all_entities,
+            'bbox': bbox,
+            'type_counts': type_counts,
+            'layer_counts': layer_counts,
+            'total_count': len(all_entities)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# BMP API ENDPOINTS
+# ============================================
+
+@app.route('/api/bmps')
+def get_bmps():
+    """Get list of all BMPs"""
+    try:
+        query = """
+            SELECT 
+                bmp_id,
+                bmp_name,
+                bmp_type,
+                bmp_status,
+                treatment_volume_cf,
+                storage_volume_cf,
+                infiltration_rate_in_hr,
+                bypass_elevation_ft,
+                maintenance_schedule,
+                drainage_area_acres,
+                design_storm,
+                created_at,
+                updated_at
+            FROM storm_bmps
+            ORDER BY bmp_name
+        """
+        bmps = execute_query(query)
+        return jsonify({'bmps': bmps})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/bmps/<bmp_id>')
+def get_bmp_details(bmp_id):
+    """Get detailed information about a specific BMP"""
+    try:
+        query = """
+            SELECT 
+                bmp_id,
+                bmp_name,
+                bmp_type,
+                bmp_status,
+                treatment_volume_cf,
+                storage_volume_cf,
+                infiltration_rate_in_hr,
+                bypass_elevation_ft,
+                overflow_structure_id,
+                maintenance_schedule,
+                drainage_area_acres,
+                design_storm,
+                attributes,
+                created_at,
+                updated_at
+            FROM storm_bmps
+            WHERE bmp_id = %s
+        """
+        bmp = execute_query(query, (bmp_id,))
+        
+        if not bmp or len(bmp) == 0:
+            return jsonify({'error': 'BMP not found'}), 404
+        
+        return jsonify({'bmp': bmp[0]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/bmps/<bmp_id>', methods=['PUT'])
+def update_bmp(bmp_id):
+    """Update BMP attributes"""
+    try:
+        data = request.get_json()
+        
+        allowed_fields = [
+            'bmp_name', 'bmp_type', 'bmp_status', 'treatment_volume_cf',
+            'storage_volume_cf', 'infiltration_rate_in_hr', 'bypass_elevation_ft',
+            'maintenance_schedule', 'drainage_area_acres', 'design_storm'
+        ]
+        
+        updates = []
+        params = []
+        
+        for field in allowed_fields:
+            if field in data:
+                updates.append(f"{field} = %s")
+                params.append(data[field])
+        
+        if not updates:
+            return jsonify({'error': 'No valid fields to update'}), 400
+        
+        params.append(bmp_id)
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                query = f"""
+                    UPDATE storm_bmps 
+                    SET {', '.join(updates)}, updated_at = CURRENT_TIMESTAMP
+                    WHERE bmp_id = %s
+                    RETURNING bmp_id
+                """
+                cur.execute(query, tuple(params))
+                result = cur.fetchone()
+                
+                if not result:
+                    return jsonify({'error': 'BMP not found'}), 404
+                
+                conn.commit()
+        
+        return jsonify({'success': True, 'bmp_id': str(result[0])})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/bmps', methods=['POST'])
+def create_bmp():
+    """Create a new BMP"""
+    try:
+        data = request.get_json()
+        
+        required_fields = ['bmp_name', 'bmp_type']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO storm_bmps (
+                        bmp_name, bmp_type, bmp_status, treatment_volume_cf,
+                        storage_volume_cf, infiltration_rate_in_hr, bypass_elevation_ft,
+                        maintenance_schedule, drainage_area_acres, design_storm, geometry
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                            ST_GeomFromText('MULTIPOLYGON EMPTY', 3857))
+                    RETURNING bmp_id
+                """, (
+                    data.get('bmp_name'),
+                    data.get('bmp_type'),
+                    data.get('bmp_status', 'active'),
+                    data.get('treatment_volume_cf'),
+                    data.get('storage_volume_cf'),
+                    data.get('infiltration_rate_in_hr'),
+                    data.get('bypass_elevation_ft'),
+                    data.get('maintenance_schedule'),
+                    data.get('drainage_area_acres'),
+                    data.get('design_storm')
+                ))
+                bmp_id = cur.fetchone()[0]
+                conn.commit()
+        
+        return jsonify({'bmp_id': str(bmp_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/bmps/<bmp_id>', methods=['DELETE'])
+def delete_bmp(bmp_id):
+    """Delete a BMP"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM storm_bmps WHERE bmp_id = %s RETURNING bmp_id", (bmp_id,))
+                result = cur.fetchone()
+                
+                if not result:
+                    return jsonify({'error': 'BMP not found'}), 404
+                
+                conn.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/bmps/<bmp_id>/connections')
+def get_bmp_connections(bmp_id):
+    """Get all inflow/outflow connections for a BMP"""
+    try:
+        query = """
+            SELECT 
+                bio.bmp_io_id,
+                bio.bmp_id,
+                bio.connection_type,
+                bio.connected_structure_id,
+                bio.connected_line_id,
+                bio.invert_elevation_ft,
+                bio.notes,
+                us.structure_number,
+                us.structure_type,
+                ul.line_number,
+                ul.material,
+                ul.diameter_mm
+            FROM bmp_inflow_outflow bio
+            LEFT JOIN utility_structures us ON bio.connected_structure_id = us.structure_id
+            LEFT JOIN utility_lines ul ON bio.connected_line_id = ul.line_id
+            WHERE bio.bmp_id = %s
+            ORDER BY bio.connection_type, bio.created_at
+        """
+        connections = execute_query(query, (bmp_id,))
+        return jsonify({'connections': connections})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/bmps/<bmp_id>/connections', methods=['POST'])
+def add_bmp_connection(bmp_id):
+    """Add a new connection to a BMP"""
+    try:
+        data = request.get_json()
+        
+        if 'connection_type' not in data:
+            return jsonify({'error': 'Missing required field: connection_type'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO bmp_inflow_outflow (
+                        bmp_id, connection_type, connected_structure_id,
+                        connected_line_id, invert_elevation_ft, notes
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING bmp_io_id
+                """, (
+                    bmp_id,
+                    data.get('connection_type'),
+                    data.get('connected_structure_id'),
+                    data.get('connected_line_id'),
+                    data.get('invert_elevation_ft'),
+                    data.get('notes')
+                ))
+                connection_id = cur.fetchone()[0]
+                conn.commit()
+        
+        return jsonify({'bmp_io_id': str(connection_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/bmps/<bmp_id>/connections/<connection_id>', methods=['DELETE'])
+def delete_bmp_connection(bmp_id, connection_id):
+    """Delete a BMP connection"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM bmp_inflow_outflow 
+                    WHERE bmp_io_id = %s AND bmp_id = %s
+                    RETURNING bmp_io_id
+                """, (connection_id, bmp_id))
+                result = cur.fetchone()
+                
+                if not result:
+                    return jsonify({'error': 'Connection not found'}), 404
+                
+                conn.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/bmps/<bmp_id>/viewer-entities')
+def get_bmp_viewer_entities(bmp_id):
+    """Get BMP geometry and connections in Entity Viewer format with EPSG:4326 transformation"""
+    try:
+        all_entities = []
+        
+        bmp_query = """
+            SELECT 
+                bmp_id::text as entity_id,
+                bmp_name as label,
+                'bmp_polygon' as entity_type,
+                bmp_type,
+                bmp_status,
+                treatment_volume_cf,
+                storage_volume_cf,
+                infiltration_rate_in_hr,
+                bypass_elevation_ft,
+                maintenance_schedule,
+                drainage_area_acres,
+                design_storm,
+                ST_AsGeoJSON(ST_Transform(geometry, 4326))::json as geometry
+            FROM storm_bmps
+            WHERE bmp_id = %s AND geometry IS NOT NULL
+        """
+        bmp = execute_query(bmp_query, (bmp_id,))
+        
+        if bmp and len(bmp) > 0:
+            bmp_data = bmp[0]
+            
+            bmp_type_colors = {
+                'bioswale': '#2ecc71',
+                'detention_basin': '#3498db',
+                'retention_basin': '#1abc9c',
+                'infiltration_trench': '#95a5a6',
+                'permeable_pavement': '#34495e',
+                'rain_garden': '#27ae60'
+            }
+            color = bmp_type_colors.get(bmp_data['bmp_type'], '#00ffff')
+            
+            all_entities.append({
+                'entity_id': bmp_data['entity_id'],
+                'entity_type': bmp_data['bmp_type'] or 'bmp_polygon',
+                'label': bmp_data['label'] or 'Unnamed BMP',
+                'layer_name': 'BMP',
+                'category': 'Stormwater',
+                'geometry_type': 'polygon',
+                'color': color,
+                'geometry': bmp_data['geometry'],
+                'properties': {
+                    'bmp_name': bmp_data['label'],
+                    'bmp_type': bmp_data['bmp_type'],
+                    'bmp_status': bmp_data['bmp_status'],
+                    'treatment_volume_cf': bmp_data['treatment_volume_cf'],
+                    'storage_volume_cf': bmp_data['storage_volume_cf'],
+                    'infiltration_rate_in_hr': bmp_data['infiltration_rate_in_hr'],
+                    'bypass_elevation_ft': bmp_data['bypass_elevation_ft'],
+                    'drainage_area_acres': bmp_data['drainage_area_acres'],
+                    'design_storm': bmp_data['design_storm']
+                }
+            })
+        
+        connections_query = """
+            SELECT 
+                bio.bmp_io_id::text,
+                bio.connection_type,
+                bio.connected_structure_id::text,
+                bio.connected_line_id::text,
+                us.structure_number,
+                us.structure_type,
+                ST_AsGeoJSON(ST_Transform(us.rim_geometry, 4326))::json as structure_geometry,
+                ul.line_number,
+                ul.material,
+                ul.diameter_mm,
+                ST_AsGeoJSON(ST_Transform(ul.geometry, 4326))::json as line_geometry
+            FROM bmp_inflow_outflow bio
+            LEFT JOIN utility_structures us ON bio.connected_structure_id = us.structure_id
+            LEFT JOIN utility_lines ul ON bio.connected_line_id = ul.line_id
+            WHERE bio.bmp_id = %s 
+              AND (us.rim_geometry IS NOT NULL OR ul.geometry IS NOT NULL)
+        """
+        connections = execute_query(connections_query, (bmp_id,))
+        
+        for conn in connections:
+            if conn['structure_geometry']:
+                all_entities.append({
+                    'entity_id': conn['connected_structure_id'],
+                    'entity_type': 'connected_structure',
+                    'label': conn['structure_number'] or 'Structure',
+                    'layer_name': 'Connected Structure',
+                    'category': 'Connection',
+                    'geometry_type': 'point',
+                    'color': '#ff9900',
+                    'geometry': conn['structure_geometry'],
+                    'properties': {
+                        'structure_number': conn['structure_number'],
+                        'structure_type': conn['structure_type'],
+                        'connection_type': conn['connection_type']
+                    }
+                })
+            
+            if conn['line_geometry']:
+                all_entities.append({
+                    'entity_id': conn['connected_line_id'],
+                    'entity_type': 'connected_line',
+                    'label': conn['line_number'] or 'Line',
+                    'layer_name': 'Connected Line',
+                    'category': 'Connection',
+                    'geometry_type': 'line',
+                    'color': '#9966ff',
+                    'geometry': conn['line_geometry'],
+                    'properties': {
+                        'line_number': conn['line_number'],
+                        'material': conn['material'],
+                        'diameter_mm': conn['diameter_mm'],
+                        'connection_type': conn['connection_type']
+                    }
+                })
+        
+        bbox = None
+        if all_entities:
+            bbox_query = """
+                SELECT ST_Extent(ST_Transform(geometry, 4326)) as bbox
+                FROM storm_bmps
+                WHERE bmp_id = %s AND geometry IS NOT NULL
+            """
+            bbox_result = execute_query(bbox_query, (bmp_id,))
+            
+            if bbox_result and bbox_result[0]['bbox']:
+                bbox_str = bbox_result[0]['bbox']
+                coords = bbox_str.replace('BOX(', '').replace(')', '').split(',')
+                min_coords = coords[0].strip().split()
+                max_coords = coords[1].strip().split()
+                bbox = {
+                    'minX': float(min_coords[0]),
+                    'minY': float(min_coords[1]),
+                    'maxX': float(max_coords[0]),
+                    'maxY': float(max_coords[1])
+                }
+        
+        type_counts = {}
+        for entity in all_entities:
+            etype = entity.get('entity_type', 'Unknown')
+            type_counts[etype] = type_counts.get(etype, 0) + 1
+        
+        return jsonify({
+            'entities': all_entities,
+            'bbox': bbox,
+            'type_counts': type_counts,
+            'total_count': len(all_entities)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ============================================
 # DXF IMPORT/EXPORT
