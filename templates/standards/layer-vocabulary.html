@@ -1,705 +1,685 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAD Layer Vocabulary - ACAD-GIS</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap">
-    <link rel="stylesheet" href="/static/css/styles.css">
-</head>
-<body>
-    <div class="container">
-        <a href="/standards" class="back-link">
-            <i class="fas fa-arrow-left"></i> Back to CAD Standards Portal
-        </a>
-        
-        <h1><i class="fas fa-layer-group"></i> CAD Layer Vocabulary</h1>
-        <p class="subtitle">Database-Driven Layer Naming Classification System</p>
-        
-        <div class="stats-grid" id="statsGrid"></div>
-        
-        <div class="tabs">
-            <div class="tab active" data-tab="overview">Overview</div>
-            <div class="tab" data-tab="disciplines">Disciplines</div>
-            <div class="tab" data-tab="categories">Categories</div>
-            <div class="tab" data-tab="types">Object Types</div>
-            <div class="tab" data-tab="phases">Phases</div>
-            <div class="tab" data-tab="geometries">Geometries</div>
-            <div class="tab" data-tab="hierarchy">Full Hierarchy</div>
+{% extends 'base.html' %}
+
+{% block title %}CAD Layer Vocabulary{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1><i class="fas fa-layer-group"></i> CAD Layer Vocabulary</h1>
+    <p class="subtitle">Database-Driven Layer Naming Classification System</p>
+    
+    <div class="stats-grid" id="statsGrid"></div>
+    
+    <div class="tabs">
+        <div class="tab active" data-tab="overview">Overview</div>
+        <div class="tab" data-tab="disciplines">Disciplines</div>
+        <div class="tab" data-tab="categories">Categories</div>
+        <div class="tab" data-tab="types">Object Types</div>
+        <div class="tab" data-tab="phases">Phases</div>
+        <div class="tab" data-tab="geometries">Geometries</div>
+        <div class="tab" data-tab="hierarchy">Full Hierarchy</div>
+    </div>
+    
+    <div class="tab-content active" id="overview">
+        <div class="card">
+            <h2><i class="fas fa-info-circle"></i> Layer Name Format</h2>
+            <div class="layer-example">
+                DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY
+                <br><br>
+                Example: CIV-UTIL-STORM-12IN-NEW-LN
+                <br>
+                → Civil Utility Storm Drain, 12 inch, New Construction, Line
+            </div>
         </div>
         
-        <div class="tab-content active" id="overview">
-            <div class="card">
-                <h2><i class="fas fa-info-circle"></i> Layer Name Format</h2>
-                <div class="layer-example">
-                    DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY
-                    <br><br>
-                    Example: CIV-UTIL-STORM-12IN-NEW-LN
-                    <br>
-                    → Civil Utility Storm Drain, 12 inch, New Construction, Line
-                </div>
+        <div class="card">
+            <h2><i class="fas fa-lightbulb"></i> Key Benefits</h2>
+            <ul style="list-style: none; padding-left: 20px;">
+                <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>AI-Friendly:</strong> Clear hierarchy for LLM processing</li>
+                <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Human-Readable:</strong> Engineers understand at a glance</li>
+                <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Flexible:</strong> Handles client CAD variations via mapping</li>
+                <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Extensible:</strong> Add new codes without breaking patterns</li>
+                <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Database-Driven:</strong> Database is source of truth, not layer names</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="disciplines">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-layer-group"></i> Discipline Codes</h2>
+                <button class="btn btn-add" onclick="openAddModal('disciplines')">
+                    <i class="fas fa-plus"></i> Add New Discipline
+                </button>
             </div>
+            <div class="grid" id="disciplinesGrid"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="categories">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-folder-tree"></i> Category Codes</h2>
+                <button class="btn btn-add" onclick="openAddModal('categories')">
+                    <i class="fas fa-plus"></i> Add New Category
+                </button>
+            </div>
+            <div class="grid" id="categoriesGrid"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="types">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-cubes"></i> Object Type Codes</h2>
+                <button class="btn btn-add" onclick="openAddModal('types')">
+                    <i class="fas fa-plus"></i> Add New Object Type
+                </button>
+            </div>
+            <div class="grid" id="typesGrid"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="phases">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-clock"></i> Phase Codes</h2>
+                <button class="btn btn-add" onclick="openAddModal('phases')">
+                    <i class="fas fa-plus"></i> Add New Phase
+                </button>
+            </div>
+            <div class="grid" id="phasesGrid"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="geometries">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-shapes"></i> Geometry Codes</h2>
+                <button class="btn btn-add" onclick="openAddModal('geometries')">
+                    <i class="fas fa-plus"></i> Add New Geometry
+                </button>
+            </div>
+            <div class="grid" id="geometriesGrid"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="hierarchy">
+        <div class="card">
+            <h2><i class="fas fa-sitemap"></i> Complete Hierarchy</h2>
+            <div class="hierarchy-tree" id="hierarchyTree"></div>
+        </div>
+    </div>
+</div>
+
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Edit Item</h3>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="editForm" onsubmit="handleSubmit(event)">
+            <div id="formFields"></div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="confirmModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirm Delete</h3>
+            <button class="close-btn" onclick="closeConfirmModal()">&times;</button>
+        </div>
+        <div class="confirm-dialog">
+            <p id="confirmMessage">Are you sure you want to delete this item?</p>
+            <div class="confirm-actions">
+                <button class="btn btn-cancel" onclick="closeConfirmModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentVocabulary = {
+        disciplines: [],
+        categories: [],
+        types: [],
+        phases: [],
+        geometries: []
+    };
+    
+    let currentEdit = {
+        type: null,
+        id: null,
+        data: null
+    };
+    
+    let deleteTarget = {
+        type: null,
+        id: null,
+        name: null
+    };
+    
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
             
-            <div class="card">
-                <h2><i class="fas fa-lightbulb"></i> Key Benefits</h2>
-                <ul style="list-style: none; padding-left: 20px;">
-                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>AI-Friendly:</strong> Clear hierarchy for LLM processing</li>
-                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Human-Readable:</strong> Engineers understand at a glance</li>
-                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Flexible:</strong> Handles client CAD variations via mapping</li>
-                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Extensible:</strong> Add new codes without breaking patterns</li>
-                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Database-Driven:</strong> Database is source of truth, not layer names</li>
-                </ul>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="disciplines">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fas fa-layer-group"></i> Discipline Codes</h2>
-                    <button class="btn btn-add" onclick="openAddModal('disciplines')">
-                        <i class="fas fa-plus"></i> Add New Discipline
-                    </button>
-                </div>
-                <div class="grid" id="disciplinesGrid"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="categories">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fas fa-folder-tree"></i> Category Codes</h2>
-                    <button class="btn btn-add" onclick="openAddModal('categories')">
-                        <i class="fas fa-plus"></i> Add New Category
-                    </button>
-                </div>
-                <div class="grid" id="categoriesGrid"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="types">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fas fa-cubes"></i> Object Type Codes</h2>
-                    <button class="btn btn-add" onclick="openAddModal('types')">
-                        <i class="fas fa-plus"></i> Add New Object Type
-                    </button>
-                </div>
-                <div class="grid" id="typesGrid"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="phases">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fas fa-clock"></i> Phase Codes</h2>
-                    <button class="btn btn-add" onclick="openAddModal('phases')">
-                        <i class="fas fa-plus"></i> Add New Phase
-                    </button>
-                </div>
-                <div class="grid" id="phasesGrid"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="geometries">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fas fa-shapes"></i> Geometry Codes</h2>
-                    <button class="btn btn-add" onclick="openAddModal('geometries')">
-                        <i class="fas fa-plus"></i> Add New Geometry
-                    </button>
-                </div>
-                <div class="grid" id="geometriesGrid"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="hierarchy">
-            <div class="card">
-                <h2><i class="fas fa-sitemap"></i> Complete Hierarchy</h2>
-                <div class="hierarchy-tree" id="hierarchyTree"></div>
-            </div>
-        </div>
-    </div>
-    
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modalTitle">Edit Item</h3>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
-            </div>
-            <form id="editForm" onsubmit="handleSubmit(event)">
-                <div id="formFields"></div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="btn btn-submit">Save</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <div id="confirmModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Confirm Delete</h3>
-                <button class="close-btn" onclick="closeConfirmModal()">&times;</button>
-            </div>
-            <div class="confirm-dialog">
-                <p id="confirmMessage">Are you sure you want to delete this item?</p>
-                <div class="confirm-actions">
-                    <button class="btn btn-cancel" onclick="closeConfirmModal()">Cancel</button>
-                    <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <script>
-        let currentVocabulary = {
-            disciplines: [],
-            categories: [],
-            types: [],
-            phases: [],
-            geometries: []
-        };
-        
-        let currentEdit = {
-            type: null,
-            id: null,
-            data: null
-        };
-        
-        let deleteTarget = {
-            type: null,
-            id: null,
-            name: null
-        };
-        
-        // Tab switching
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                const tabName = tab.dataset.tab;
-                
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                tab.classList.add('active');
-                document.getElementById(tabName).classList.add('active');
-            });
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            tab.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
         });
-        
-        // Load data
-        async function loadVocabulary() {
-            try {
-                const [disciplines, categories, types, phases, geometries] = await Promise.all([
-                    fetch('/api/vocabulary/disciplines').then(r => r.json()),
-                    fetch('/api/vocabulary/categories').then(r => r.json()),
-                    fetch('/api/vocabulary/object-types').then(r => r.json()),
-                    fetch('/api/vocabulary/phases').then(r => r.json()),
-                    fetch('/api/vocabulary/geometries').then(r => r.json())
-                ]);
-                
-                currentVocabulary.disciplines = disciplines.disciplines;
-                currentVocabulary.categories = categories.categories;
-                currentVocabulary.types = types.object_types;
-                currentVocabulary.phases = phases.phases;
-                currentVocabulary.geometries = geometries.geometries;
-                
-                renderStats(disciplines, categories, types, phases, geometries);
-                renderDisciplines(disciplines.disciplines);
-                renderCategories(categories.categories);
-                renderTypes(types.object_types);
-                renderPhases(phases.phases);
-                renderGeometries(geometries.geometries);
-                renderHierarchy(disciplines.disciplines, categories.categories, types.object_types);
-                
-            } catch (error) {
-                console.error('Error loading vocabulary:', error);
-                showToast('Failed to load vocabulary data', 'error');
-            }
-        }
-        
-        function renderStats(disciplines, categories, types, phases, geometries) {
-            const stats = [
-                { value: disciplines.disciplines.length, label: 'Disciplines' },
-                { value: categories.categories.length, label: 'Categories' },
-                { value: types.object_types.length, label: 'Object Types' },
-                { value: phases.phases.length, label: 'Phases' },
-                { value: geometries.geometries.length, label: 'Geometries' }
-            ];
+    });
+    
+    async function loadVocabulary() {
+        try {
+            const [disciplines, categories, types, phases, geometries] = await Promise.all([
+                fetch('/api/vocabulary/disciplines').then(r => r.json()),
+                fetch('/api/vocabulary/categories').then(r => r.json()),
+                fetch('/api/vocabulary/object-types').then(r => r.json()),
+                fetch('/api/vocabulary/phases').then(r => r.json()),
+                fetch('/api/vocabulary/geometries').then(r => r.json())
+            ]);
             
-            document.getElementById('statsGrid').innerHTML = stats.map(stat => `
-                <div class="stat-card">
-                    <div class="stat-value">${stat.value}</div>
-                    <div class="stat-label">${stat.label}</div>
+            currentVocabulary.disciplines = disciplines.disciplines;
+            currentVocabulary.categories = categories.categories;
+            currentVocabulary.types = types.object_types;
+            currentVocabulary.phases = phases.phases;
+            currentVocabulary.geometries = geometries.geometries;
+            
+            renderStats(disciplines, categories, types, phases, geometries);
+            renderDisciplines(disciplines.disciplines);
+            renderCategories(categories.categories);
+            renderTypes(types.object_types);
+            renderPhases(phases.phases);
+            renderGeometries(geometries.geometries);
+            renderHierarchy(disciplines.disciplines, categories.categories, types.object_types);
+            
+        } catch (error) {
+            console.error('Error loading vocabulary:', error);
+            showToast('Failed to load vocabulary data', 'error');
+        }
+    }
+    
+    function renderStats(disciplines, categories, types, phases, geometries) {
+        const stats = [
+            { value: disciplines.disciplines.length, label: 'Disciplines' },
+            { value: categories.categories.length, label: 'Categories' },
+            { value: types.object_types.length, label: 'Object Types' },
+            { value: phases.phases.length, label: 'Phases' },
+            { value: geometries.geometries.length, label: 'Geometries' }
+        ];
+        
+        document.getElementById('statsGrid').innerHTML = stats.map(stat => `
+            <div class="stat-card">
+                <div class="stat-value">${stat.value}</div>
+                <div class="stat-label">${stat.label}</div>
+            </div>
+        `).join('');
+    }
+    
+    function renderDisciplines(disciplines) {
+        document.getElementById('disciplinesGrid').innerHTML = disciplines.map(d => `
+            <div class="code-item">
+                <div class="code-label">${d.code}</div>
+                <div class="code-name">${d.full_name}</div>
+                ${d.description ? `<div class="code-desc">${d.description}</div>` : ''}
+                <div class="item-actions">
+                    <button class="icon-btn" onclick='openEditModal("disciplines", ${d.discipline_id}, ${JSON.stringify(d)})' title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="icon-btn delete" onclick='openDeleteModal("disciplines", ${d.discipline_id}, "${d.code}")' title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
-            `).join('');
-        }
-        
-        function renderDisciplines(disciplines) {
-            document.getElementById('disciplinesGrid').innerHTML = disciplines.map(d => `
-                <div class="code-item">
-                    <div class="code-label">${d.code}</div>
-                    <div class="code-name">${d.full_name}</div>
-                    ${d.description ? `<div class="code-desc">${d.description}</div>` : ''}
-                    <div class="item-actions">
-                        <button class="icon-btn" onclick='openEditModal("disciplines", ${d.discipline_id}, ${JSON.stringify(d)})' title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="icon-btn delete" onclick='openDeleteModal("disciplines", ${d.discipline_id}, "${d.code}")' title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
+            </div>
+        `).join('');
+    }
+    
+    function renderCategories(categories) {
+        document.getElementById('categoriesGrid').innerHTML = categories.map(c => `
+            <div class="code-item">
+                <div class="code-label">${c.code}</div>
+                <div class="code-name">${c.full_name}</div>
+                <div class="code-desc">${c.discipline_code} → ${c.discipline_name}</div>
+                <div class="item-actions">
+                    <button class="icon-btn" onclick='openEditModal("categories", ${c.category_id}, ${JSON.stringify(c)})' title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="icon-btn delete" onclick='openDeleteModal("categories", ${c.category_id}, "${c.code}")' title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
-            `).join('');
-        }
-        
-        function renderCategories(categories) {
-            document.getElementById('categoriesGrid').innerHTML = categories.map(c => `
-                <div class="code-item">
-                    <div class="code-label">${c.code}</div>
-                    <div class="code-name">${c.full_name}</div>
-                    <div class="code-desc">${c.discipline_code} → ${c.discipline_name}</div>
-                    <div class="item-actions">
-                        <button class="icon-btn" onclick='openEditModal("categories", ${c.category_id}, ${JSON.stringify(c)})' title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="icon-btn delete" onclick='openDeleteModal("categories", ${c.category_id}, "${c.code}")' title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
+            </div>
+        `).join('');
+    }
+    
+    function renderTypes(types) {
+        document.getElementById('typesGrid').innerHTML = types.map(t => `
+            <div class="code-item">
+                <div class="code-label">${t.code}</div>
+                <div class="code-name">${t.full_name}</div>
+                <div class="code-desc">${t.discipline_code}-${t.category_code}</div>
+                ${t.database_table ? `<div class="code-desc">Table: ${t.database_table}</div>` : ''}
+                <div class="item-actions">
+                    <button class="icon-btn" onclick='openEditModal("types", ${t.type_id}, ${JSON.stringify(t)})' title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="icon-btn delete" onclick='openDeleteModal("types", ${t.type_id}, "${t.code}")' title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
-            `).join('');
-        }
-        
-        function renderTypes(types) {
-            document.getElementById('typesGrid').innerHTML = types.map(t => `
-                <div class="code-item">
-                    <div class="code-label">${t.code}</div>
-                    <div class="code-name">${t.full_name}</div>
-                    <div class="code-desc">${t.discipline_code}-${t.category_code}</div>
-                    ${t.database_table ? `<div class="code-desc">Table: ${t.database_table}</div>` : ''}
-                    <div class="item-actions">
-                        <button class="icon-btn" onclick='openEditModal("types", ${t.type_id}, ${JSON.stringify(t)})' title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="icon-btn delete" onclick='openDeleteModal("types", ${t.type_id}, "${t.code}")' title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
+            </div>
+        `).join('');
+    }
+    
+    function renderPhases(phases) {
+        document.getElementById('phasesGrid').innerHTML = phases.map(p => `
+            <div class="code-item">
+                <div class="code-label">${p.code}</div>
+                <div class="code-name">${p.full_name}</div>
+                ${p.description ? `<div class="code-desc">${p.description}</div>` : ''}
+                <div class="item-actions">
+                    <button class="icon-btn" onclick='openEditModal("phases", ${p.phase_id}, ${JSON.stringify(p)})' title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="icon-btn delete" onclick='openDeleteModal("phases", ${p.phase_id}, "${p.code}")' title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
-            `).join('');
-        }
-        
-        function renderPhases(phases) {
-            document.getElementById('phasesGrid').innerHTML = phases.map(p => `
-                <div class="code-item">
-                    <div class="code-label">${p.code}</div>
-                    <div class="code-name">${p.full_name}</div>
-                    ${p.description ? `<div class="code-desc">${p.description}</div>` : ''}
-                    <div class="item-actions">
-                        <button class="icon-btn" onclick='openEditModal("phases", ${p.phase_id}, ${JSON.stringify(p)})' title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="icon-btn delete" onclick='openDeleteModal("phases", ${p.phase_id}, "${p.code}")' title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
+            </div>
+        `).join('');
+    }
+    
+    function renderGeometries(geometries) {
+        document.getElementById('geometriesGrid').innerHTML = geometries.map(g => `
+            <div class="code-item">
+                <div class="code-label">${g.code}</div>
+                <div class="code-name">${g.full_name}</div>
+                ${g.description ? `<div class="code-desc">${g.description}</div>` : ''}
+                <div class="item-actions">
+                    <button class="icon-btn" onclick='openEditModal("geometries", ${g.geometry_id}, ${JSON.stringify(g)})' title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="icon-btn delete" onclick='openDeleteModal("geometries", ${g.geometry_id}, "${g.code}")' title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
-            `).join('');
-        }
-        
-        function renderGeometries(geometries) {
-            document.getElementById('geometriesGrid').innerHTML = geometries.map(g => `
-                <div class="code-item">
-                    <div class="code-label">${g.code}</div>
-                    <div class="code-name">${g.full_name}</div>
-                    ${g.description ? `<div class="code-desc">${g.description}</div>` : ''}
-                    <div class="item-actions">
-                        <button class="icon-btn" onclick='openEditModal("geometries", ${g.geometry_id}, ${JSON.stringify(g)})' title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="icon-btn delete" onclick='openDeleteModal("geometries", ${g.geometry_id}, "${g.code}")' title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
+            </div>
+        `).join('');
+    }
+    
+    function renderHierarchy(disciplines, categories, types) {
+        const hierarchyHTML = disciplines.map(discipline => {
+            const disciplineCategories = categories.filter(c => c.discipline_id === discipline.discipline_id);
+            
+            return `
+                <div class="discipline-group">
+                    <div class="discipline-header">
+                        <div class="discipline-title">${discipline.code} - ${discipline.full_name}</div>
                     </div>
+                    ${disciplineCategories.map(category => {
+                        const categoryTypes = types.filter(t => t.category_id === category.category_id);
+                        
+                        return `
+                            <div class="category-item">
+                                <div class="category-title">${category.code} - ${category.full_name}</div>
+                                ${categoryTypes.length > 0 ? `
+                                    <div class="type-list">
+                                        ${categoryTypes.map(type => `
+                                            <div class="type-item">
+                                                <strong>${type.code}</strong> - ${type.full_name}
+                                                ${type.database_table ? `<br><small style="color: var(--muted);">Table: ${type.database_table}</small>` : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
-            `).join('');
-        }
-        
-        function renderHierarchy(disciplines, categories, types) {
-            const hierarchyHTML = disciplines.map(discipline => {
-                const disciplineCategories = categories.filter(c => c.discipline_id === discipline.discipline_id);
-                
-                return `
-                    <div class="discipline-group">
-                        <div class="discipline-header">
-                            <div class="discipline-title">${discipline.code} - ${discipline.full_name}</div>
-                        </div>
-                        ${disciplineCategories.map(category => {
-                            const categoryTypes = types.filter(t => t.category_id === category.category_id);
-                            
-                            return `
-                                <div class="category-item">
-                                    <div class="category-title">${category.code} - ${category.full_name}</div>
-                                    ${categoryTypes.length > 0 ? `
-                                        <div class="type-list">
-                                            ${categoryTypes.map(type => `
-                                                <div class="type-item">
-                                                    <strong>${type.code}</strong> - ${type.full_name}
-                                                    ${type.database_table ? `<br><small style="color: var(--muted);">Table: ${type.database_table}</small>` : ''}
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                `;
-            }).join('');
-            
-            document.getElementById('hierarchyTree').innerHTML = hierarchyHTML;
-        }
-        
-        // Modal functions
-        function openAddModal(type) {
-            currentEdit = { type, id: null, data: null };
-            document.getElementById('modalTitle').textContent = 'Add New ' + type.charAt(0).toUpperCase() + type.slice(1, -1);
-            buildForm(type);
-            document.getElementById('editModal').classList.add('active');
-        }
-        
-        function openEditModal(type, id, data) {
-            currentEdit = { type, id, data };
-            document.getElementById('modalTitle').textContent = 'Edit ' + type.charAt(0).toUpperCase() + type.slice(1, -1);
-            buildForm(type, data);
-            document.getElementById('editModal').classList.add('active');
-        }
-        
-        function closeModal() {
-            document.getElementById('editModal').classList.remove('active');
-            currentEdit = { type: null, id: null, data: null };
-        }
-        
-        function openDeleteModal(type, id, name) {
-            deleteTarget = { type, id, name };
-            document.getElementById('confirmMessage').textContent = `Are you sure you want to delete "${name}"?`;
-            document.getElementById('confirmModal').classList.add('active');
-        }
-        
-        function closeConfirmModal() {
-            document.getElementById('confirmModal').classList.remove('active');
-            deleteTarget = { type: null, id: null, name: null };
-        }
-        
-        // Form builder with dynamic entity registry loading for Object Types
-        async function buildForm(type, data = null) {
-            const formFields = document.getElementById('formFields');
-            let html = '';
-            
-            if (type === 'disciplines') {
-                html = `
-                    <div class="form-group">
-                        <label>Code <span style="color: #ff4444;">*</span></label>
-                        <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
-                    </div>
-                    <div class="form-group">
-                        <label>Full Name <span style="color: #ff4444;">*</span></label>
-                        <input type="text" name="full_name" value="${data?.full_name || ''}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea name="description">${data?.description || ''}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Sort Order</label>
-                        <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
-                    </div>
-                `;
-            } else if (type === 'categories') {
-                const disciplineOptions = currentVocabulary.disciplines.map(d => 
-                    `<option value="${d.discipline_id}" ${data?.discipline_id === d.discipline_id ? 'selected' : ''}>${d.code} - ${d.full_name}</option>`
-                ).join('');
-                html = `
-                    <div class="form-group">
-                        <label>Code <span style="color: #ff4444;">*</span></label>
-                        <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
-                    </div>
-                    <div class="form-group">
-                        <label>Full Name <span style="color: #ff4444;">*</span></label>
-                        <input type="text" name="full_name" value="${data?.full_name || ''}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Discipline <span style="color: #ff4444;">*</span></label>
-                        <select name="discipline_id" required>
-                            <option value="">Select Discipline</option>
-                            ${disciplineOptions}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea name="description">${data?.description || ''}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Sort Order</label>
-                        <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
-                    </div>
-                `;
-            } else if (type === 'types') {
-                const categoryOptions = currentVocabulary.categories.map(c => 
-                    `<option value="${c.category_id}" ${data?.category_id === c.category_id ? 'selected' : ''}>${c.discipline_code}-${c.code} - ${c.full_name}</option>`
-                ).join('');
-                
-                // Fetch entity registry dynamically
-                let entityOptions = '<option value="">Loading...</option>';
-                formFields.innerHTML = `
-                    <div class="form-group">
-                        <label>Code <span style="color: #ff4444;">*</span></label>
-                        <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
-                    </div>
-                    <div class="form-group">
-                        <label>Full Name <span style="color: #ff4444;">*</span></label>
-                        <input type="text" name="full_name" value="${data?.full_name || ''}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Category <span style="color: #ff4444;">*</span></label>
-                        <select name="category_id" required>
-                            <option value="">Select Category</option>
-                            ${categoryOptions}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Database Table</label>
-                        <select name="database_table" id="entityTableSelect">
-                            ${entityOptions}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea name="description">${data?.description || ''}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Sort Order</label>
-                        <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
-                    </div>
-                `;
-                
-                // Load entity registry asynchronously
-                try {
-                    const response = await fetch('/api/entity-registry');
-                    const entityData = await response.json();
-                    const entities = entityData.entities || [];
-                    entityOptions = '<option value="">Select Database Table (Optional)</option>' + 
-                        entities.map(e => 
-                            `<option value="${e.table_name}" ${data?.database_table === e.table_name ? 'selected' : ''}>${e.display_name} (${e.table_name})</option>`
-                        ).join('');
-                    document.getElementById('entityTableSelect').innerHTML = entityOptions;
-                } catch (error) {
-                    console.error('Error loading entity registry:', error);
-                    document.getElementById('entityTableSelect').innerHTML = '<option value="">Select Database Table (Optional)</option>';
-                }
-                return;
-            } else if (type === 'phases') {
-                html = `
-                    <div class="form-group">
-                        <label>Code <span style="color: #ff4444;">*</span></label>
-                        <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
-                    </div>
-                    <div class="form-group">
-                        <label>Full Name <span style="color: #ff4444;">*</span></label>
-                        <input type="text" name="full_name" value="${data?.full_name || ''}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea name="description">${data?.description || ''}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Color (RGB)</label>
-                        <input type="color" name="color_rgb" value="${data?.color_rgb || '#00ffff'}">
-                    </div>
-                    <div class="form-group">
-                        <label>Sort Order</label>
-                        <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
-                    </div>
-                `;
-            } else if (type === 'geometries') {
-                html = `
-                    <div class="form-group">
-                        <label>Code <span style="color: #ff4444;">*</span></label>
-                        <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
-                    </div>
-                    <div class="form-group">
-                        <label>Full Name <span style="color: #ff4444;">*</span></label>
-                        <input type="text" name="full_name" value="${data?.full_name || ''}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea name="description">${data?.description || ''}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>DXF Entity Types</label>
-                        <input type="text" name="dxf_entity_types" value="${data?.dxf_entity_types || ''}" placeholder="e.g., LINE,POLYLINE,ARC">
-                    </div>
-                    <div class="form-group">
-                        <label>Sort Order</label>
-                        <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
-                    </div>
-                `;
-            }
-            
-            formFields.innerHTML = html;
-        }
-        
-        // Handle form submission
-        async function handleSubmit(event) {
-            event.preventDefault();
-            const formData = new FormData(event.target);
-            const data = Object.fromEntries(formData.entries());
-            
-            Object.keys(data).forEach(key => {
-                if (data[key] === '') {
-                    data[key] = null;
-                }
-            });
-            
-            try {
-                if (currentEdit.id) {
-                    await updateVocabulary(currentEdit.type, currentEdit.id, data);
-                } else {
-                    await createVocabulary(currentEdit.type, data);
-                }
-            } catch (error) {
-                console.error('Error submitting form:', error);
-            }
-        }
-        
-        // API functions
-        async function createVocabulary(type, data) {
-            const endpoints = {
-                disciplines: '/api/vocabulary/disciplines',
-                categories: '/api/vocabulary/categories',
-                types: '/api/vocabulary/object-types',
-                phases: '/api/vocabulary/phases',
-                geometries: '/api/vocabulary/geometries'
-            };
-            
-            try {
-                const response = await fetch(endpoints[type], {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showToast(result.message || 'Item created successfully', 'success');
-                    closeModal();
-                    await loadVocabulary();
-                } else {
-                    showToast(result.error || 'Failed to create item', 'error');
-                }
-            } catch (error) {
-                showToast('Network error: Failed to create item', 'error');
-            }
-        }
-        
-        async function updateVocabulary(type, id, data) {
-            const endpoints = {
-                disciplines: `/api/vocabulary/disciplines/${id}`,
-                categories: `/api/vocabulary/categories/${id}`,
-                types: `/api/vocabulary/object-types/${id}`,
-                phases: `/api/vocabulary/phases/${id}`,
-                geometries: `/api/vocabulary/geometries/${id}`
-            };
-            
-            try {
-                const response = await fetch(endpoints[type], {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showToast(result.message || 'Item updated successfully', 'success');
-                    closeModal();
-                    await loadVocabulary();
-                } else {
-                    showToast(result.error || 'Failed to update item', 'error');
-                }
-            } catch (error) {
-                showToast('Network error: Failed to update item', 'error');
-            }
-        }
-        
-        async function confirmDelete() {
-            const { type, id } = deleteTarget;
-            const endpoints = {
-                disciplines: `/api/vocabulary/disciplines/${id}`,
-                categories: `/api/vocabulary/categories/${id}`,
-                types: `/api/vocabulary/object-types/${id}`,
-                phases: `/api/vocabulary/phases/${id}`,
-                geometries: `/api/vocabulary/geometries/${id}`
-            };
-            
-            try {
-                const response = await fetch(endpoints[type], {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showToast(result.message || 'Item deleted successfully', 'success');
-                    closeConfirmModal();
-                    await loadVocabulary();
-                } else {
-                    showToast(result.error || 'Failed to delete item', 'error');
-                }
-            } catch (error) {
-                showToast('Network error: Failed to delete item', 'error');
-            }
-        }
-        
-        // Toast notifications
-        function showToast(message, type = 'success') {
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerHTML = `
-                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-                <span>${message}</span>
             `;
-            document.body.appendChild(toast);
+        }).join('');
+        
+        document.getElementById('hierarchyTree').innerHTML = hierarchyHTML;
+    }
+    
+    function openAddModal(type) {
+        currentEdit = { type, id: null, data: null };
+        document.getElementById('modalTitle').textContent = 'Add New ' + type.charAt(0).toUpperCase() + type.slice(1, -1);
+        buildForm(type);
+        document.getElementById('editModal').classList.add('active');
+    }
+    
+    function openEditModal(type, id, data) {
+        currentEdit = { type, id, data };
+        document.getElementById('modalTitle').textContent = 'Edit ' + type.charAt(0).toUpperCase() + type.slice(1, -1);
+        buildForm(type, data);
+        document.getElementById('editModal').classList.add('active');
+    }
+    
+    function closeModal() {
+        document.getElementById('editModal').classList.remove('active');
+        currentEdit = { type: null, id: null, data: null };
+    }
+    
+    function openDeleteModal(type, id, name) {
+        deleteTarget = { type, id, name };
+        document.getElementById('confirmMessage').textContent = `Are you sure you want to delete "${name}"?`;
+        document.getElementById('confirmModal').classList.add('active');
+    }
+    
+    function closeConfirmModal() {
+        document.getElementById('confirmModal').classList.remove('active');
+        deleteTarget = { type: null, id: null, name: null };
+    }
+    
+    async function buildForm(type, data = null) {
+        const formFields = document.getElementById('formFields');
+        let html = '';
+        
+        if (type === 'disciplines') {
+            html = `
+                <div class="form-group">
+                    <label>Code <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
+                </div>
+                <div class="form-group">
+                    <label>Full Name <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="full_name" value="${data?.full_name || ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description">${data?.description || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Sort Order</label>
+                    <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
+                </div>
+            `;
+        } else if (type === 'categories') {
+            const disciplineOptions = currentVocabulary.disciplines.map(d => 
+                `<option value="${d.discipline_id}" ${data?.discipline_id === d.discipline_id ? 'selected' : ''}>${d.code} - ${d.full_name}</option>`
+            ).join('');
+            html = `
+                <div class="form-group">
+                    <label>Code <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
+                </div>
+                <div class="form-group">
+                    <label>Full Name <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="full_name" value="${data?.full_name || ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Discipline <span style="color: #ff4444;">*</span></label>
+                    <select name="discipline_id" required>
+                        <option value="">Select Discipline</option>
+                        ${disciplineOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description">${data?.description || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Sort Order</label>
+                    <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
+                </div>
+            `;
+        } else if (type === 'types') {
+            const categoryOptions = currentVocabulary.categories.map(c => 
+                `<option value="${c.category_id}" ${data?.category_id === c.category_id ? 'selected' : ''}>${c.discipline_code}-${c.code} - ${c.full_name}</option>`
+            ).join('');
             
-            setTimeout(() => {
-                toast.remove();
-            }, 4000);
+            let entityOptions = '<option value="">Loading...</option>';
+            formFields.innerHTML = `
+                <div class="form-group">
+                    <label>Code <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
+                </div>
+                <div class="form-group">
+                    <label>Full Name <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="full_name" value="${data?.full_name || ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Category <span style="color: #ff4444;">*</span></label>
+                    <select name="category_id" required>
+                        <option value="">Select Category</option>
+                        ${categoryOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Database Table</label>
+                    <select name="database_table" id="entityTableSelect">
+                        ${entityOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description">${data?.description || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Sort Order</label>
+                    <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/api/entity-registry');
+                const entityData = await response.json();
+                const entities = entityData.entities || [];
+                entityOptions = '<option value="">Select Database Table (Optional)</option>' + 
+                    entities.map(e => 
+                        `<option value="${e.table_name}" ${data?.database_table === e.table_name ? 'selected' : ''}>${e.display_name} (${e.table_name})</option>`
+                    ).join('');
+                document.getElementById('entityTableSelect').innerHTML = entityOptions;
+            } catch (error) {
+                console.error('Error loading entity registry:', error);
+                document.getElementById('entityTableSelect').innerHTML = '<option value="">Select Database Table (Optional)</option>';
+            }
+            return;
+        } else if (type === 'phases') {
+            html = `
+                <div class="form-group">
+                    <label>Code <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
+                </div>
+                <div class="form-group">
+                    <label>Full Name <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="full_name" value="${data?.full_name || ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description">${data?.description || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Color (RGB)</label>
+                    <input type="color" name="color_rgb" value="${data?.color_rgb || '#00ffff'}">
+                </div>
+                <div class="form-group">
+                    <label>Sort Order</label>
+                    <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
+                </div>
+            `;
+        } else if (type === 'geometries') {
+            html = `
+                <div class="form-group">
+                    <label>Code <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
+                </div>
+                <div class="form-group">
+                    <label>Full Name <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="full_name" value="${data?.full_name || ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description">${data?.description || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>DXF Entity Types</label>
+                    <input type="text" name="dxf_entity_types" value="${data?.dxf_entity_types || ''}" placeholder="e.g., LINE,POLYLINE,ARC">
+                </div>
+                <div class="form-group">
+                    <label>Sort Order</label>
+                    <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
+                </div>
+            `;
         }
         
-        // Keyboard and click event handlers
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
+        formFields.innerHTML = html;
+    }
+    
+    async function handleSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+        
+        Object.keys(data).forEach(key => {
+            if (data[key] === '') {
+                data[key] = null;
+            }
+        });
+        
+        try {
+            if (currentEdit.id) {
+                await updateVocabulary(currentEdit.type, currentEdit.id, data);
+            } else {
+                await createVocabulary(currentEdit.type, data);
+            }
+        } catch (error) {
+            console.error('Error submitting form:', error);
+        }
+    }
+    
+    async function createVocabulary(type, data) {
+        const endpoints = {
+            disciplines: '/api/vocabulary/disciplines',
+            categories: '/api/vocabulary/categories',
+            types: '/api/vocabulary/object-types',
+            phases: '/api/vocabulary/phases',
+            geometries: '/api/vocabulary/geometries'
+        };
+        
+        try {
+            const response = await fetch(endpoints[type], {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Item created successfully', 'success');
                 closeModal();
-                closeConfirmModal();
+                await loadVocabulary();
+            } else {
+                showToast(result.error || 'Failed to create item', 'error');
             }
-        });
+        } catch (error) {
+            showToast('Network error: Failed to create item', 'error');
+        }
+    }
+    
+    async function updateVocabulary(type, id, data) {
+        const endpoints = {
+            disciplines: `/api/vocabulary/disciplines/${id}`,
+            categories: `/api/vocabulary/categories/${id}`,
+            types: `/api/vocabulary/object-types/${id}`,
+            phases: `/api/vocabulary/phases/${id}`,
+            geometries: `/api/vocabulary/geometries/${id}`
+        };
         
-        document.getElementById('editModal').addEventListener('click', (e) => {
-            if (e.target.id === 'editModal') {
+        try {
+            const response = await fetch(endpoints[type], {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Item updated successfully', 'success');
                 closeModal();
+                await loadVocabulary();
+            } else {
+                showToast(result.error || 'Failed to update item', 'error');
             }
-        });
+        } catch (error) {
+            showToast('Network error: Failed to update item', 'error');
+        }
+    }
+    
+    async function confirmDelete() {
+        const { type, id } = deleteTarget;
+        const endpoints = {
+            disciplines: `/api/vocabulary/disciplines/${id}`,
+            categories: `/api/vocabulary/categories/${id}`,
+            types: `/api/vocabulary/object-types/${id}`,
+            phases: `/api/vocabulary/phases/${id}`,
+            geometries: `/api/vocabulary/geometries/${id}`
+        };
         
-        document.getElementById('confirmModal').addEventListener('click', (e) => {
-            if (e.target.id === 'confirmModal') {
+        try {
+            const response = await fetch(endpoints[type], {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Item deleted successfully', 'success');
                 closeConfirmModal();
+                await loadVocabulary();
+            } else {
+                showToast(result.error || 'Failed to delete item', 'error');
             }
-        });
+        } catch (error) {
+            showToast('Network error: Failed to delete item', 'error');
+        }
+    }
+    
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+            <span>${message}</span>
+        `;
+        document.body.appendChild(toast);
         
-        // Load on page load
-        loadVocabulary();
-    </script>
-</body>
-</html>
+        setTimeout(() => {
+            toast.remove();
+        }, 4000);
+    }
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+            closeConfirmModal();
+        }
+    });
+    
+    document.getElementById('editModal').addEventListener('click', (e) => {
+        if (e.target.id === 'editModal') {
+            closeModal();
+        }
+    });
+    
+    document.getElementById('confirmModal').addEventListener('click', (e) => {
+        if (e.target.id === 'confirmModal') {
+            closeConfirmModal();
+        }
+    });
+    
+    loadVocabulary();
+</script>
+{% endblock %}

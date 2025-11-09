@@ -1,575 +1,544 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAD Layer Standards Reference - ACAD-GIS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        .reference-container {
-            padding: 2rem;
-            max-width: 1800px;
-            margin: 0 auto;
-        }
+{% extends 'base.html' %}
 
-        .reference-header {
-            background: linear-gradient(135deg, rgba(0,255,255,0.1) 0%, rgba(0,255,0,0.1) 100%);
-            border: 2px solid var(--accent-cyan);
-            border-radius: 12px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 0 30px rgba(0,255,255,0.2);
-        }
+{% block title %}CAD Layer Standards Reference{% endblock %}
 
-        .reference-header h1 {
-            font-family: 'Orbitron', monospace;
-            color: var(--accent-cyan);
-            font-size: 2.5rem;
-            margin: 0 0 1rem 0;
-            text-shadow: 0 0 20px rgba(0,255,255,0.5);
-        }
+{% block content %}
+<style>
+    .reference-container {
+        padding: 2rem;
+        max-width: 1800px;
+        margin: 0 auto;
+    }
 
-        .reference-header p {
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-            margin: 0;
-        }
+    .reference-header {
+        background: linear-gradient(135deg, rgba(0,255,255,0.1) 0%, rgba(0,255,0,0.1) 100%);
+        border: 2px solid var(--accent-cyan);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 0 30px rgba(0,255,255,0.2);
+    }
 
-        .filter-controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-            background: rgba(255,255,255,0.02);
-            padding: 1.5rem;
-            border-radius: 8px;
-            border: 1px solid rgba(0,255,255,0.2);
-        }
+    .reference-header h1 {
+        font-family: 'Orbitron', monospace;
+        color: var(--accent-cyan);
+        font-size: 2.5rem;
+        margin: 0 0 1rem 0;
+        text-shadow: 0 0 20px rgba(0,255,255,0.5);
+    }
 
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
+    .reference-header p {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        margin: 0;
+    }
 
-        .filter-group label {
-            color: var(--accent-cyan);
-            font-size: 0.9rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+    .filter-controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+        background: rgba(255,255,255,0.02);
+        padding: 1.5rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0,255,255,0.2);
+    }
 
-        .filter-group select,
-        .filter-group input {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(0,255,255,0.3);
-            color: var(--text-primary);
-            padding: 0.75rem;
-            border-radius: 4px;
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 1rem;
-        }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
 
-        .filter-group select:focus,
-        .filter-group input:focus {
-            outline: none;
-            border-color: var(--accent-cyan);
-            box-shadow: 0 0 10px rgba(0,255,255,0.3);
-        }
+    .filter-group label {
+        color: var(--accent-cyan);
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
 
-        .stats-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem;
-            background: rgba(0,255,255,0.05);
-            border-radius: 6px;
-            margin-bottom: 2rem;
-            border: 1px solid rgba(0,255,255,0.2);
-        }
+    .filter-group select,
+    .filter-group input {
+        background: rgba(0,0,0,0.3);
+        border: 1px solid rgba(0,255,255,0.3);
+        color: var(--text-primary);
+        padding: 0.75rem;
+        border-radius: 4px;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1rem;
+    }
 
-        .stat-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+    .filter-group select:focus,
+    .filter-group input:focus {
+        outline: none;
+        border-color: var(--accent-cyan);
+        box-shadow: 0 0 10px rgba(0,255,255,0.3);
+    }
 
-        .stat-item i {
-            color: var(--accent-green);
-        }
+    .stats-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: rgba(0,255,255,0.05);
+        border-radius: 6px;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(0,255,255,0.2);
+    }
 
-        .stat-item span {
-            color: var(--text-secondary);
-        }
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
 
-        .stat-item strong {
-            color: var(--accent-cyan);
-            font-size: 1.2rem;
-        }
+    .stat-item i {
+        color: var(--accent-green);
+    }
 
-        .examples-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 1.5rem;
-        }
+    .stat-item span {
+        color: var(--text-secondary);
+    }
 
-        .example-card {
-            background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
-            border: 1px solid rgba(0,255,255,0.2);
-            border-radius: 8px;
-            padding: 1.5rem;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
+    .stat-item strong {
+        color: var(--accent-cyan);
+        font-size: 1.2rem;
+    }
 
-        .example-card:hover {
-            border-color: var(--accent-cyan);
-            box-shadow: 0 0 20px rgba(0,255,255,0.3);
-            transform: translateY(-2px);
-        }
+    .examples-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
 
-        .example-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
-        }
+    .example-card {
+        background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
+        border: 1px solid rgba(0,255,255,0.2);
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
 
-        .layer-name {
-            font-family: 'Courier New', monospace;
-            font-size: 1.3rem;
-            color: var(--accent-cyan);
-            font-weight: bold;
-            margin-bottom: 1rem;
-            padding: 0.75rem;
-            background: rgba(0,255,255,0.1);
-            border-left: 4px solid var(--accent-cyan);
-            border-radius: 4px;
-            word-break: break-all;
-            text-shadow: 0 0 10px rgba(0,255,255,0.5);
-        }
+    .example-card:hover {
+        border-color: var(--accent-cyan);
+        box-shadow: 0 0 20px rgba(0,255,255,0.3);
+        transform: translateY(-2px);
+    }
 
-        .geometry-icon {
-            width: 48px;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0,255,255,0.1);
-            border: 2px solid rgba(0,255,255,0.3);
-            border-radius: 50%;
-            margin-bottom: 1rem;
-        }
+    .example-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+    }
 
-        .geometry-icon i {
-            font-size: 1.5rem;
-            color: var(--accent-cyan);
-        }
+    .layer-name {
+        font-family: 'Courier New', monospace;
+        font-size: 1.3rem;
+        color: var(--accent-cyan);
+        font-weight: bold;
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        background: rgba(0,255,255,0.1);
+        border-left: 4px solid var(--accent-cyan);
+        border-radius: 4px;
+        word-break: break-all;
+        text-shadow: 0 0 10px rgba(0,255,255,0.5);
+    }
 
-        .example-details {
-            display: grid;
-            gap: 0.5rem;
-        }
+    .geometry-icon {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,255,255,0.1);
+        border: 2px solid rgba(0,255,255,0.3);
+        border-radius: 50%;
+        margin-bottom: 1rem;
+    }
 
-        .detail-row {
-            display: grid;
-            grid-template-columns: 120px 1fr;
-            gap: 0.5rem;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
+    .geometry-icon i {
+        font-size: 1.5rem;
+        color: var(--accent-cyan);
+    }
 
-        .detail-row:last-child {
-            border-bottom: none;
-        }
+    .example-details {
+        display: grid;
+        gap: 0.5rem;
+    }
 
-        .detail-label {
-            color: var(--text-secondary);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+    .detail-row {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 0.5rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
 
-        .detail-value {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
+    .detail-row:last-child {
+        border-bottom: none;
+    }
 
-        .discipline-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-        }
+    .detail-label {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
 
-        .discipline-CIV {
-            background: rgba(0, 255, 255, 0.2);
-            color: var(--accent-cyan);
-            border: 1px solid var(--accent-cyan);
-        }
+    .detail-value {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
 
-        .discipline-SITE {
-            background: rgba(0, 255, 0, 0.2);
-            color: var(--accent-green);
-            border: 1px solid var(--accent-green);
-        }
+    .discipline-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+    }
 
-        .discipline-SURV {
-            background: rgba(255, 165, 0, 0.2);
-            color: #ffa500;
-            border: 1px solid #ffa500;
-        }
+    .discipline-CIV {
+        background: rgba(0, 255, 255, 0.2);
+        color: var(--accent-cyan);
+        border: 1px solid var(--accent-cyan);
+    }
 
-        .discipline-LAND {
-            background: rgba(50, 205, 50, 0.2);
-            color: #32cd32;
-            border: 1px solid #32cd32;
-        }
+    .discipline-SITE {
+        background: rgba(0, 255, 0, 0.2);
+        color: var(--accent-green);
+        border: 1px solid var(--accent-green);
+    }
 
-        .phase-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-        }
+    .discipline-SURV {
+        background: rgba(255, 165, 0, 0.2);
+        color: #ffa500;
+        border: 1px solid #ffa500;
+    }
 
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--text-secondary);
-        }
+    .discipline-LAND {
+        background: rgba(50, 205, 50, 0.2);
+        color: #32cd32;
+        border: 1px solid #32cd32;
+    }
 
-        .empty-state i {
-            font-size: 4rem;
-            color: rgba(0,255,255,0.3);
-            margin-bottom: 1rem;
-        }
+    .phase-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
 
-        .loading-spinner {
-            text-align: center;
-            padding: 4rem 2rem;
-        }
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-secondary);
+    }
 
-        .loading-spinner i {
-            font-size: 3rem;
-            color: var(--accent-cyan);
-            animation: spin 1s linear infinite;
-        }
+    .empty-state i {
+        font-size: 4rem;
+        color: rgba(0,255,255,0.3);
+        margin-bottom: 1rem;
+    }
 
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
+    .loading-spinner {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
 
-        .quick-links {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
+    .loading-spinner i {
+        font-size: 3rem;
+        color: var(--accent-cyan);
+        animation: spin 1s linear infinite;
+    }
 
-        .quick-link {
-            padding: 0.5rem 1rem;
-            background: rgba(0,255,255,0.1);
-            border: 1px solid rgba(0,255,255,0.3);
-            border-radius: 4px;
-            color: var(--accent-cyan);
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
 
-        .quick-link:hover {
-            background: rgba(0,255,255,0.2);
-            border-color: var(--accent-cyan);
-            box-shadow: 0 0 10px rgba(0,255,255,0.3);
-        }
+    .quick-links {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
 
-        .dxf-types {
-            font-family: 'Courier New', monospace;
-            font-size: 0.8rem;
-            color: var(--accent-green);
-            opacity: 0.8;
-        }
-    </style>
-</head>
-<body>
-    <!-- Navigation (matches your existing site structure) -->
-    <nav class="main-nav">
-        <div class="nav-brand">
-            <a href="/">
-                <i class="fas fa-rocket"></i>
-                <span>ACAD-GIS</span>
+    .quick-link {
+        padding: 0.5rem 1rem;
+        background: rgba(0,255,255,0.1);
+        border: 1px solid rgba(0,255,255,0.3);
+        border-radius: 4px;
+        color: var(--accent-cyan);
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .quick-link:hover {
+        background: rgba(0,255,255,0.2);
+        border-color: var(--accent-cyan);
+        box-shadow: 0 0 10px rgba(0,255,255,0.3);
+    }
+
+    .dxf-types {
+        font-family: 'Courier New', monospace;
+        font-size: 0.8rem;
+        color: var(--accent-green);
+        opacity: 0.8;
+    }
+</style>
+
+<div class="reference-container">
+    <div class="reference-header">
+        <h1><i class="fas fa-layer-group"></i> CAD Layer Standards Reference</h1>
+        <p>Database-driven layer naming examples for all object types. Use these as reference when creating test data or reviewing export results.</p>
+        <div class="quick-links">
+            <a href="/standards/vocabulary" class="quick-link">
+                <i class="fas fa-book"></i> View Vocabulary
             </a>
-        </div>
-        <ul class="nav-links">
-            <li><a href="/"><i class="fas fa-home"></i> Home</a></li>
-            <li><a href="/schema"><i class="fas fa-database"></i> Schema</a></li>
-            <li><a href="/standards" class="active"><i class="fas fa-book"></i> Standards</a></li>
-            <li><a href="/map"><i class="fas fa-map"></i> Map</a></li>
-        </ul>
-    </nav>
-
-    <div class="reference-container">
-        <div class="reference-header">
-            <h1><i class="fas fa-layer-group"></i> CAD Layer Standards Reference</h1>
-            <p>Database-driven layer naming examples for all object types. Use these as reference when creating test data or reviewing export results.</p>
-            <div class="quick-links">
-                <a href="/standards/vocabulary" class="quick-link">
-                    <i class="fas fa-book"></i> View Vocabulary
-                </a>
-                <a href="/standards" class="quick-link">
-                    <i class="fas fa-arrow-left"></i> Back to Standards
-                </a>
-            </div>
-        </div>
-
-        <div class="filter-controls">
-            <div class="filter-group">
-                <label for="disciplineFilter"><i class="fas fa-filter"></i> Discipline</label>
-                <select id="disciplineFilter">
-                    <option value="">All Disciplines</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="categoryFilter"><i class="fas fa-folder"></i> Category</label>
-                <select id="categoryFilter">
-                    <option value="">All Categories</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="geometryFilter"><i class="fas fa-shapes"></i> Geometry</label>
-                <select id="geometryFilter">
-                    <option value="">All Geometries</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="searchInput"><i class="fas fa-search"></i> Search</label>
-                <input type="text" id="searchInput" placeholder="Search layer names...">
-            </div>
-        </div>
-
-        <div class="stats-bar">
-            <div class="stat-item">
-                <i class="fas fa-layer-group"></i>
-                <span>Total Examples:</span>
-                <strong id="totalCount">0</strong>
-            </div>
-            <div class="stat-item">
-                <i class="fas fa-eye"></i>
-                <span>Visible:</span>
-                <strong id="visibleCount">0</strong>
-            </div>
-            <div class="stat-item">
-                <i class="fas fa-info-circle"></i>
-                <span>Click any card for details</span>
-            </div>
-        </div>
-
-        <div id="loadingState" class="loading-spinner">
-            <i class="fas fa-spinner"></i>
-            <p>Loading layer standards...</p>
-        </div>
-
-        <div id="emptyState" class="empty-state" style="display: none;">
-            <i class="fas fa-inbox"></i>
-            <h3>No examples found</h3>
-            <p>Try adjusting your filters or search term</p>
-        </div>
-
-        <div id="examplesGrid" class="examples-grid" style="display: none;">
-            <!-- Examples will be loaded here dynamically -->
+            <a href="/standards" class="quick-link">
+                <i class="fas fa-arrow-left"></i> Back to Standards
+            </a>
         </div>
     </div>
 
-    <script>
-        let allExamples = [];
-        let filteredExamples = [];
+    <div class="filter-controls">
+        <div class="filter-group">
+            <label for="disciplineFilter"><i class="fas fa-filter"></i> Discipline</label>
+            <select id="disciplineFilter">
+                <option value="">All Disciplines</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="categoryFilter"><i class="fas fa-folder"></i> Category</label>
+            <select id="categoryFilter">
+                <option value="">All Categories</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="geometryFilter"><i class="fas fa-shapes"></i> Geometry</label>
+            <select id="geometryFilter">
+                <option value="">All Geometries</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="searchInput"><i class="fas fa-search"></i> Search</label>
+            <input type="text" id="searchInput" placeholder="Search layer names...">
+        </div>
+    </div>
 
-        // Geometry icon mapping
-        const geometryIcons = {
-            'LN': 'fas fa-minus',
-            'PT': 'fas fa-circle',
-            'PG': 'fas fa-draw-polygon',
-            'TXT': 'fas fa-font',
-            'BLK': 'fas fa-cube'
-        };
+    <div class="stats-bar">
+        <div class="stat-item">
+            <i class="fas fa-layer-group"></i>
+            <span>Total Examples:</span>
+            <strong id="totalCount">0</strong>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-eye"></i>
+            <span>Visible:</span>
+            <strong id="visibleCount">0</strong>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-info-circle"></i>
+            <span>Click any card for details</span>
+        </div>
+    </div>
 
-        // Load examples from API
-        async function loadExamples() {
-            try {
-                const response = await fetch('/api/vocabulary/layer-examples');
-                const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                
-                allExamples = data.examples;
-                filteredExamples = allExamples;
-                
-                populateFilters();
-                renderExamples();
-                updateStats();
-                
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('examplesGrid').style.display = 'grid';
-                
-            } catch (error) {
-                console.error('Error loading examples:', error);
-                document.getElementById('loadingState').innerHTML = `
-                    <i class="fas fa-exclamation-triangle" style="color: #ff3333;"></i>
-                    <p>Error loading examples: ${error.message}</p>
-                `;
+    <div id="loadingState" class="loading-spinner">
+        <i class="fas fa-spinner"></i>
+        <p>Loading layer standards...</p>
+    </div>
+
+    <div id="emptyState" class="empty-state" style="display: none;">
+        <i class="fas fa-inbox"></i>
+        <h3>No examples found</h3>
+        <p>Try adjusting your filters or search term</p>
+    </div>
+
+    <div id="examplesGrid" class="examples-grid" style="display: none;">
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allExamples = [];
+    let filteredExamples = [];
+
+    const geometryIcons = {
+        'LN': 'fas fa-minus',
+        'PT': 'fas fa-circle',
+        'PG': 'fas fa-draw-polygon',
+        'TXT': 'fas fa-font',
+        'BLK': 'fas fa-cube'
+    };
+
+    async function loadExamples() {
+        try {
+            const response = await fetch('/api/vocabulary/layer-examples');
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
             }
-        }
-
-        // Populate filter dropdowns
-        function populateFilters() {
-            const disciplines = [...new Set(allExamples.map(e => e.discipline_code))].sort();
-            const categories = [...new Set(allExamples.map(e => e.category_code))].sort();
-            const geometries = [...new Set(allExamples.map(e => e.geometry_code))].sort();
             
-            const disciplineSelect = document.getElementById('disciplineFilter');
-            disciplines.forEach(d => {
-                const option = document.createElement('option');
-                option.value = d;
-                option.textContent = d;
-                disciplineSelect.appendChild(option);
-            });
+            allExamples = data.examples;
+            filteredExamples = allExamples;
             
-            const categorySelect = document.getElementById('categoryFilter');
-            categories.forEach(c => {
-                const option = document.createElement('option');
-                option.value = c;
-                option.textContent = c;
-                categorySelect.appendChild(option);
-            });
-            
-            const geometrySelect = document.getElementById('geometryFilter');
-            geometries.forEach(g => {
-                const option = document.createElement('option');
-                option.value = g;
-                option.textContent = g;
-                geometrySelect.appendChild(option);
-            });
-        }
-
-        // Apply filters
-        function applyFilters() {
-            const discipline = document.getElementById('disciplineFilter').value;
-            const category = document.getElementById('categoryFilter').value;
-            const geometry = document.getElementById('geometryFilter').value;
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            
-            filteredExamples = allExamples.filter(example => {
-                const matchDiscipline = !discipline || example.discipline_code === discipline;
-                const matchCategory = !category || example.category_code === category;
-                const matchGeometry = !geometry || example.geometry_code === geometry;
-                const matchSearch = !search || 
-                    example.layer_name.toLowerCase().includes(search) ||
-                    example.object_type.toLowerCase().includes(search);
-                
-                return matchDiscipline && matchCategory && matchGeometry && matchSearch;
-            });
-            
+            populateFilters();
             renderExamples();
             updateStats();
+            
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('examplesGrid').style.display = 'grid';
+            
+        } catch (error) {
+            console.error('Error loading examples:', error);
+            document.getElementById('loadingState').innerHTML = `
+                <i class="fas fa-exclamation-triangle" style="color: #ff3333;"></i>
+                <p>Error loading examples: ${error.message}</p>
+            `;
         }
+    }
 
-        // Render examples
-        function renderExamples() {
-            const grid = document.getElementById('examplesGrid');
-            const emptyState = document.getElementById('emptyState');
+    function populateFilters() {
+        const disciplines = [...new Set(allExamples.map(e => e.discipline_code))].sort();
+        const categories = [...new Set(allExamples.map(e => e.category_code))].sort();
+        const geometries = [...new Set(allExamples.map(e => e.geometry_code))].sort();
+        
+        const disciplineSelect = document.getElementById('disciplineFilter');
+        disciplines.forEach(d => {
+            const option = document.createElement('option');
+            option.value = d;
+            option.textContent = d;
+            disciplineSelect.appendChild(option);
+        });
+        
+        const categorySelect = document.getElementById('categoryFilter');
+        categories.forEach(c => {
+            const option = document.createElement('option');
+            option.value = c;
+            option.textContent = c;
+            categorySelect.appendChild(option);
+        });
+        
+        const geometrySelect = document.getElementById('geometryFilter');
+        geometries.forEach(g => {
+            const option = document.createElement('option');
+            option.value = g;
+            option.textContent = g;
+            geometrySelect.appendChild(option);
+        });
+    }
+
+    function applyFilters() {
+        const discipline = document.getElementById('disciplineFilter').value;
+        const category = document.getElementById('categoryFilter').value;
+        const geometry = document.getElementById('geometryFilter').value;
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        
+        filteredExamples = allExamples.filter(example => {
+            const matchDiscipline = !discipline || example.discipline_code === discipline;
+            const matchCategory = !category || example.category_code === category;
+            const matchGeometry = !geometry || example.geometry_code === geometry;
+            const matchSearch = !search || 
+                example.layer_name.toLowerCase().includes(search) ||
+                example.object_type.toLowerCase().includes(search);
             
-            if (filteredExamples.length === 0) {
-                grid.style.display = 'none';
-                emptyState.style.display = 'block';
-                return;
-            }
-            
-            grid.style.display = 'grid';
-            emptyState.style.display = 'none';
-            
-            grid.innerHTML = filteredExamples.map(example => `
-                <div class="example-card">
-                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                        <div class="geometry-icon">
-                            <i class="${geometryIcons[example.geometry_code] || 'fas fa-question'}"></i>
-                        </div>
-                        <div style="flex: 1;">
-                            <span class="discipline-badge discipline-${example.discipline_code}">
-                                ${example.discipline_code}
-                            </span>
-                        </div>
+            return matchDiscipline && matchCategory && matchGeometry && matchSearch;
+        });
+        
+        renderExamples();
+        updateStats();
+    }
+
+    function renderExamples() {
+        const grid = document.getElementById('examplesGrid');
+        const emptyState = document.getElementById('emptyState');
+        
+        if (filteredExamples.length === 0) {
+            grid.style.display = 'none';
+            emptyState.style.display = 'block';
+            return;
+        }
+        
+        grid.style.display = 'grid';
+        emptyState.style.display = 'none';
+        
+        grid.innerHTML = filteredExamples.map(example => `
+            <div class="example-card">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                    <div class="geometry-icon">
+                        <i class="${geometryIcons[example.geometry_code] || 'fas fa-question'}"></i>
                     </div>
-                    
-                    <div class="layer-name">${example.layer_name}</div>
-                    
-                    <div class="example-details">
-                        <div class="detail-row">
-                            <span class="detail-label">Object Type</span>
-                            <span class="detail-value">${example.object_type}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Category</span>
-                            <span class="detail-value">${example.category}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Phase</span>
-                            <span class="detail-value">
-                                ${example.phase_color ? `<span class="phase-indicator" style="background: ${example.phase_color};"></span>` : ''}
-                                ${example.phase}
-                            </span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Geometry</span>
-                            <span class="detail-value">
-                                ${example.geometry} (${example.geometry_code})
-                            </span>
-                        </div>
-                        ${example.dxf_types ? `
-                        <div class="detail-row">
-                            <span class="detail-label">DXF Types</span>
-                            <span class="detail-value dxf-types">${example.dxf_types}</span>
-                        </div>
-                        ` : ''}
-                        ${example.database_table ? `
-                        <div class="detail-row">
-                            <span class="detail-label">DB Table</span>
-                            <span class="detail-value dxf-types">${example.database_table}</span>
-                        </div>
-                        ` : ''}
+                    <div style="flex: 1;">
+                        <span class="discipline-badge discipline-${example.discipline_code}">
+                            ${example.discipline_code}
+                        </span>
                     </div>
                 </div>
-            `).join('');
-        }
+                
+                <div class="layer-name">${example.layer_name}</div>
+                
+                <div class="example-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Object Type</span>
+                        <span class="detail-value">${example.object_type}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Category</span>
+                        <span class="detail-value">${example.category}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Phase</span>
+                        <span class="detail-value">
+                            ${example.phase_color ? `<span class="phase-indicator" style="background: ${example.phase_color};"></span>` : ''}
+                            ${example.phase}
+                        </span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Geometry</span>
+                        <span class="detail-value">
+                            ${example.geometry} (${example.geometry_code})
+                        </span>
+                    </div>
+                    ${example.dxf_types ? `
+                    <div class="detail-row">
+                        <span class="detail-label">DXF Types</span>
+                        <span class="detail-value dxf-types">${example.dxf_types}</span>
+                    </div>
+                    ` : ''}
+                    ${example.database_table ? `
+                    <div class="detail-row">
+                        <span class="detail-label">DB Table</span>
+                        <span class="detail-value dxf-types">${example.database_table}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
 
-        // Update statistics
-        function updateStats() {
-            document.getElementById('totalCount').textContent = allExamples.length;
-            document.getElementById('visibleCount').textContent = filteredExamples.length;
-        }
+    function updateStats() {
+        document.getElementById('totalCount').textContent = allExamples.length;
+        document.getElementById('visibleCount').textContent = filteredExamples.length;
+    }
 
-        // Event listeners
-        document.getElementById('disciplineFilter').addEventListener('change', applyFilters);
-        document.getElementById('categoryFilter').addEventListener('change', applyFilters);
-        document.getElementById('geometryFilter').addEventListener('change', applyFilters);
-        document.getElementById('searchInput').addEventListener('input', applyFilters);
+    document.getElementById('disciplineFilter').addEventListener('change', applyFilters);
+    document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+    document.getElementById('geometryFilter').addEventListener('change', applyFilters);
+    document.getElementById('searchInput').addEventListener('input', applyFilters);
 
-        // Load on page load
-        loadExamples();
-    </script>
-</body>
-</html>
+    loadExamples();
+</script>
+{% endblock %}
