@@ -1,13 +1,156 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAD Standards Vocabulary - ACAD-GIS</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap">
+{% extends 'base.html' %}
+
+{% block title %}CAD Standards Vocabulary{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <a href="/standards" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to CAD Standards Portal
+        </a>
+        
+        <h1><i class="fas fa-book"></i> CAD Standards Vocabulary</h1>
+        <p class="subtitle">Database-Driven Hierarchical Layer Naming System</p>
+        
+        <div class="stats-grid" id="statsGrid"></div>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="overview">Overview</div>
+            <div class="tab" data-tab="disciplines">Disciplines</div>
+            <div class="tab" data-tab="categories">Categories</div>
+            <div class="tab" data-tab="types">Object Types</div>
+            <div class="tab" data-tab="phases">Phases</div>
+            <div class="tab" data-tab="geometries">Geometries</div>
+            <div class="tab" data-tab="hierarchy">Full Hierarchy</div>
+        </div>
+        
+        <div class="tab-content active" id="overview">
+            <div class="card">
+                <h2><i class="fas fa-info-circle"></i> Layer Name Format</h2>
+                <div class="layer-example">
+                    DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY
+                    <br><br>
+                    Example: CIV-UTIL-STORM-12IN-NEW-LN
+                    <br>
+                    → Civil Utility Storm Drain, 12 inch, New Construction, Line
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><i class="fas fa-lightbulb"></i> Key Benefits</h2>
+                <ul style="list-style: none; padding-left: 20px;">
+                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>AI-Friendly:</strong> Clear hierarchy for LLM processing</li>
+                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Human-Readable:</strong> Engineers understand at a glance</li>
+                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Flexible:</strong> Handles client CAD variations via mapping</li>
+                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Extensible:</strong> Add new codes without breaking patterns</li>
+                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Database-Driven:</strong> Database is source of truth, not layer names</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="disciplines">
+            <div class="card">
+                <div class="section-header">
+                    <h2><i class="fas fa-layer-group"></i> Discipline Codes</h2>
+                    <button class="btn btn-add" onclick="openAddModal('disciplines')">
+                        <i class="fas fa-plus"></i> Add New Discipline
+                    </button>
+                </div>
+                <div class="grid" id="disciplinesGrid"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="categories">
+            <div class="card">
+                <div class="section-header">
+                    <h2><i class="fas fa-folder-tree"></i> Category Codes</h2>
+                    <button class="btn btn-add" onclick="openAddModal('categories')">
+                        <i class="fas fa-plus"></i> Add New Category
+                    </button>
+                </div>
+                <div class="grid" id="categoriesGrid"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="types">
+            <div class="card">
+                <div class="section-header">
+                    <h2><i class="fas fa-cubes"></i> Object Type Codes</h2>
+                    <button class="btn btn-add" onclick="openAddModal('types')">
+                        <i class="fas fa-plus"></i> Add New Object Type
+                    </button>
+                </div>
+                <div class="grid" id="typesGrid"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="phases">
+            <div class="card">
+                <div class="section-header">
+                    <h2><i class="fas fa-clock"></i> Phase Codes</h2>
+                    <button class="btn btn-add" onclick="openAddModal('phases')">
+                        <i class="fas fa-plus"></i> Add New Phase
+                    </button>
+                </div>
+                <div class="grid" id="phasesGrid"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="geometries">
+            <div class="card">
+                <div class="section-header">
+                    <h2><i class="fas fa-shapes"></i> Geometry Codes</h2>
+                    <button class="btn btn-add" onclick="openAddModal('geometries')">
+                        <i class="fas fa-plus"></i> Add New Geometry
+                    </button>
+                </div>
+                <div class="grid" id="geometriesGrid"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="hierarchy">
+            <div class="card">
+                <h2><i class="fas fa-sitemap"></i> Complete Hierarchy</h2>
+                <div class="hierarchy-tree" id="hierarchyTree"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Edit Item</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="editForm" onsubmit="handleSubmit(event)">
+                <div id="formFields"></div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Delete</h3>
+                <button class="close-btn" onclick="closeConfirmModal()">&times;</button>
+            </div>
+            <div class="confirm-dialog">
+                <p id="confirmMessage">Are you sure you want to delete this item?</p>
+                <div class="confirm-actions">
+                    <button class="btn btn-cancel" onclick="closeConfirmModal()">Cancel</button>
+                    <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
     <style>
-        :root {
+:root {
             --primary: #00ffff;
             --secondary: #ff00ff;
             --accent: #00ff88;
@@ -503,154 +646,8 @@
             box-shadow: 0 0 20px rgba(255, 68, 68, 0.6);
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <a href="/standards" class="back-link">
-            <i class="fas fa-arrow-left"></i> Back to CAD Standards Portal
-        </a>
-        
-        <h1><i class="fas fa-book"></i> CAD Standards Vocabulary</h1>
-        <p class="subtitle">Database-Driven Hierarchical Layer Naming System</p>
-        
-        <div class="stats-grid" id="statsGrid"></div>
-        
-        <div class="tabs">
-            <div class="tab active" data-tab="overview">Overview</div>
-            <div class="tab" data-tab="disciplines">Disciplines</div>
-            <div class="tab" data-tab="categories">Categories</div>
-            <div class="tab" data-tab="types">Object Types</div>
-            <div class="tab" data-tab="phases">Phases</div>
-            <div class="tab" data-tab="geometries">Geometries</div>
-            <div class="tab" data-tab="hierarchy">Full Hierarchy</div>
-        </div>
-        
-        <div class="tab-content active" id="overview">
-            <div class="card">
-                <h2><i class="fas fa-info-circle"></i> Layer Name Format</h2>
-                <div class="layer-example">
-                    DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY
-                    <br><br>
-                    Example: CIV-UTIL-STORM-12IN-NEW-LN
-                    <br>
-                    → Civil Utility Storm Drain, 12 inch, New Construction, Line
-                </div>
-            </div>
-            
-            <div class="card">
-                <h2><i class="fas fa-lightbulb"></i> Key Benefits</h2>
-                <ul style="list-style: none; padding-left: 20px;">
-                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>AI-Friendly:</strong> Clear hierarchy for LLM processing</li>
-                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Human-Readable:</strong> Engineers understand at a glance</li>
-                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Flexible:</strong> Handles client CAD variations via mapping</li>
-                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Extensible:</strong> Add new codes without breaking patterns</li>
-                    <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Database-Driven:</strong> Database is source of truth, not layer names</li>
-                </ul>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="disciplines">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fas fa-layer-group"></i> Discipline Codes</h2>
-                    <button class="btn btn-add" onclick="openAddModal('disciplines')">
-                        <i class="fas fa-plus"></i> Add New Discipline
-                    </button>
-                </div>
-                <div class="grid" id="disciplinesGrid"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="categories">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fas fa-folder-tree"></i> Category Codes</h2>
-                    <button class="btn btn-add" onclick="openAddModal('categories')">
-                        <i class="fas fa-plus"></i> Add New Category
-                    </button>
-                </div>
-                <div class="grid" id="categoriesGrid"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="types">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fas fa-cubes"></i> Object Type Codes</h2>
-                    <button class="btn btn-add" onclick="openAddModal('types')">
-                        <i class="fas fa-plus"></i> Add New Object Type
-                    </button>
-                </div>
-                <div class="grid" id="typesGrid"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="phases">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fas fa-clock"></i> Phase Codes</h2>
-                    <button class="btn btn-add" onclick="openAddModal('phases')">
-                        <i class="fas fa-plus"></i> Add New Phase
-                    </button>
-                </div>
-                <div class="grid" id="phasesGrid"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="geometries">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fas fa-shapes"></i> Geometry Codes</h2>
-                    <button class="btn btn-add" onclick="openAddModal('geometries')">
-                        <i class="fas fa-plus"></i> Add New Geometry
-                    </button>
-                </div>
-                <div class="grid" id="geometriesGrid"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="hierarchy">
-            <div class="card">
-                <h2><i class="fas fa-sitemap"></i> Complete Hierarchy</h2>
-                <div class="hierarchy-tree" id="hierarchyTree"></div>
-            </div>
-        </div>
-    </div>
-    
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modalTitle">Edit Item</h3>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
-            </div>
-            <form id="editForm" onsubmit="handleSubmit(event)">
-                <div id="formFields"></div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="btn btn-submit">Save</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <div id="confirmModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Confirm Delete</h3>
-                <button class="close-btn" onclick="closeConfirmModal()">&times;</button>
-            </div>
-            <div class="confirm-dialog">
-                <p id="confirmMessage">Are you sure you want to delete this item?</p>
-                <div class="confirm-actions">
-                    <button class="btn btn-cancel" onclick="closeConfirmModal()">Cancel</button>
-                    <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
     <script>
-        let currentVocabulary = {
+let currentVocabulary = {
             disciplines: [],
             categories: [],
             types: [],
@@ -1207,5 +1204,4 @@
         // Load on page load
         loadVocabulary();
     </script>
-</body>
-</html>
+{% endblock %}

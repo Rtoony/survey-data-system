@@ -1,15 +1,208 @@
-<!DOCTYPE html>
+{% extends 'base.html' %}
+
+{% block title %}Map Viewer{% endblock %}
+
+{% block content %}
 <!-- Version: {{ cache_bust }} -->
-<html>
-<head>
-    <title>Map Viewer</title>
+    <div class="container">
+        <div class="sidebar">
+            <h2 style="color: #00ffff; margin-bottom: 20px;">Map Viewer</h2>
+            
+            <div class="section">
+                <h3><i class="fas fa-map-marked-alt"></i> Project Location</h3>
+                <div class="project-info">
+                    <strong>State Plane Zone</strong>
+                    <div class="value">CA Zone 2 (EPSG:2226)</div>
+                    
+                    <strong>County</strong>
+                    <div class="value">Sonoma County</div>
+                    
+                    <strong>Units</strong>
+                    <div class="value">US Survey Feet</div>
+                    
+                    <div class="coming-soon">
+                        <i class="fas fa-lock"></i> Zone/County selection coming soon
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3><i class="fas fa-map"></i> Basemap</h3>
+                <label style="display: flex; align-items: center; margin-bottom: 10px; cursor: pointer;">
+                    <input type="checkbox" id="basemap-toggle" checked onchange="toggleBasemap()" 
+                           style="margin-right: 8px;">
+                    <span>Show Basemap</span>
+                </label>
+                <select id="basemap-select" onchange="changeBasemap(this.value)">
+                    <option value="osm">OpenStreetMap</option>
+                    <option value="topo">USGS Topo</option>
+                    <option value="imagery">ESRI Imagery</option>
+                </select>
+            </div>
+            
+            <div class="section">
+                <h3><i class="fas fa-folder-open"></i> Project Viewer</h3>
+                
+                <!-- Project Selector -->
+                <label style="color: #aaa; font-size: 11px; margin-bottom: 5px; display: block;">Select Project:</label>
+                <select id="project-select" onchange="selectProject(this.value)" style="margin-bottom: 10px; width: 100%;">
+                    <option value="">Loading projects...</option>
+                </select>
+                
+                <!-- Zoom to Project Button -->
+                <button id="btn-zoom-project" onclick="zoomToProject()" disabled style="margin-bottom: 10px; width: 100%;">
+                    <i class="fas fa-search-location"></i> Zoom to Project
+                </button>
+                
+                <!-- Project Areas Toggle -->
+                <div style="margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
+                        <input type="checkbox" id="show-project-areas" onchange="toggleProjectAreas(this.checked)" style="margin-right: 8px;">
+                        <span style="color: #aaa; font-size: 11px;">Show Project Areas</span>
+                    </label>
+                </div>
+                
+                <!-- Drawings Container -->
+                <div id="drawings-container" style="font-size: 11px; max-height: 300px; overflow-y: auto;">
+                    <div style="color: #888; text-align: center; padding: 10px;">
+                        Select a project to view drawings
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3><i class="fas fa-layer-group"></i> Sonoma County Layers</h3>
+                <div id="gis-layers-container" style="font-size: 11px; max-height: 150px; overflow-y: auto;">
+                    Loading layers...
+                </div>
+                <div id="gis-status" style="color: #888; font-size: 10px; margin-top: 5px;">
+                    Ready to load layers
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3><i class="fas fa-search"></i> Search</h3>
+                <input type="text" id="search-input" placeholder="Address in Sonoma County"
+                       onkeypress="if(event.key==='Enter') searchAddress()">
+                <button onclick="searchAddress()"><i class="fas fa-search"></i> Search</button>
+                <div id="search-status"></div>
+            </div>
+            
+            <div class="section">
+                <h3><i class="fas fa-ruler"></i> Measurements</h3>
+                <button id="btn-distance" onclick="measureDistance()">
+                    <i class="fas fa-ruler-horizontal"></i> Distance
+                </button>
+                <button id="btn-area" onclick="measureArea()">
+                    <i class="fas fa-draw-polygon"></i> Area
+                </button>
+                <button onclick="clearMeasurements()">
+                    <i class="fas fa-trash"></i> Clear
+                </button>
+            </div>
+            
+            <div class="section">
+                <h3><i class="fas fa-file-export"></i> Export</h3>
+                <button id="draw-rect-btn" onclick="startDrawingRectangle()">
+                    <i class="fas fa-vector-square"></i> Draw Rectangle
+                </button>
+                <button id="export-btn" onclick="openExportModal()" disabled>
+                    <i class="fas fa-download"></i> Create Export
+                </button>
+                <small style="color: #888;">Step 1: Draw, Step 2: Export</small>
+            </div>
+            
+            <div class="section">
+                <h3><i class="fas fa-crosshairs"></i> Coordinates</h3>
+                <div class="coord-display" id="coords">
+                    Move mouse over map...
+                </div>
+            </div>
+        </div>
+        
+        <div class="map-area">
+            <div id="map"></div>
+        </div>
+    </div>
+    
+    <!-- Export Format Selection Modal -->
+    <div id="export-modal" class="modal">
+        <div class="modal-content">
+            <h2><i class="fas fa-file-export"></i> Export Map Data</h2>
+            
+            <div class="format-section">
+                <h4>Select Export Formats</h4>
+                
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="format-png" checked>
+                        <span><i class="fas fa-image"></i> PNG Image</span>
+                    </label>
+                    <div class="format-description">Map image with optional north arrow and scale bar</div>
+                </div>
+                
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="format-shp" checked>
+                        <span><i class="fas fa-file-archive"></i> Shapefile (.shp)</span>
+                    </label>
+                    <div class="format-description">Standard GIS format compatible with ArcGIS, QGIS</div>
+                </div>
+                
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="format-dxf">
+                        <span><i class="fas fa-file-code"></i> DXF (.dxf)</span>
+                    </label>
+                    <div class="format-description">AutoCAD Drawing Exchange Format</div>
+                </div>
+                
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="format-kml">
+                        <span><i class="fas fa-globe"></i> KML (.kml)</span>
+                    </label>
+                    <div class="format-description">Google Earth / Google Maps format</div>
+                </div>
+            </div>
+            
+            <div class="format-section" id="png-options-section">
+                <h4>PNG Options</h4>
+                
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="png-north-arrow" checked>
+                        <span><i class="fas fa-compass"></i> North Arrow</span>
+                    </label>
+                </div>
+                
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="png-scale-bar" checked>
+                        <span><i class="fas fa-ruler-horizontal"></i> Scale Bar</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <button onclick="closeExportModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button onclick="startExport()" style="background: #00cc66;">
+                    <i class="fas fa-download"></i> Create Export
+                </button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: Arial, sans-serif;
@@ -282,207 +475,14 @@
             margin-left: 5px;
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <div class="sidebar">
-            <h2 style="color: #00ffff; margin-bottom: 20px;">Map Viewer</h2>
-            
-            <div class="section">
-                <h3><i class="fas fa-map-marked-alt"></i> Project Location</h3>
-                <div class="project-info">
-                    <strong>State Plane Zone</strong>
-                    <div class="value">CA Zone 2 (EPSG:2226)</div>
-                    
-                    <strong>County</strong>
-                    <div class="value">Sonoma County</div>
-                    
-                    <strong>Units</strong>
-                    <div class="value">US Survey Feet</div>
-                    
-                    <div class="coming-soon">
-                        <i class="fas fa-lock"></i> Zone/County selection coming soon
-                    </div>
-                </div>
-            </div>
-            
-            <div class="section">
-                <h3><i class="fas fa-map"></i> Basemap</h3>
-                <label style="display: flex; align-items: center; margin-bottom: 10px; cursor: pointer;">
-                    <input type="checkbox" id="basemap-toggle" checked onchange="toggleBasemap()" 
-                           style="margin-right: 8px;">
-                    <span>Show Basemap</span>
-                </label>
-                <select id="basemap-select" onchange="changeBasemap(this.value)">
-                    <option value="osm">OpenStreetMap</option>
-                    <option value="topo">USGS Topo</option>
-                    <option value="imagery">ESRI Imagery</option>
-                </select>
-            </div>
-            
-            <div class="section">
-                <h3><i class="fas fa-folder-open"></i> Project Viewer</h3>
-                
-                <!-- Project Selector -->
-                <label style="color: #aaa; font-size: 11px; margin-bottom: 5px; display: block;">Select Project:</label>
-                <select id="project-select" onchange="selectProject(this.value)" style="margin-bottom: 10px; width: 100%;">
-                    <option value="">Loading projects...</option>
-                </select>
-                
-                <!-- Zoom to Project Button -->
-                <button id="btn-zoom-project" onclick="zoomToProject()" disabled style="margin-bottom: 10px; width: 100%;">
-                    <i class="fas fa-search-location"></i> Zoom to Project
-                </button>
-                
-                <!-- Project Areas Toggle -->
-                <div style="margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;">
-                    <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
-                        <input type="checkbox" id="show-project-areas" onchange="toggleProjectAreas(this.checked)" style="margin-right: 8px;">
-                        <span style="color: #aaa; font-size: 11px;">Show Project Areas</span>
-                    </label>
-                </div>
-                
-                <!-- Drawings Container -->
-                <div id="drawings-container" style="font-size: 11px; max-height: 300px; overflow-y: auto;">
-                    <div style="color: #888; text-align: center; padding: 10px;">
-                        Select a project to view drawings
-                    </div>
-                </div>
-            </div>
-            
-            <div class="section">
-                <h3><i class="fas fa-layer-group"></i> Sonoma County Layers</h3>
-                <div id="gis-layers-container" style="font-size: 11px; max-height: 150px; overflow-y: auto;">
-                    Loading layers...
-                </div>
-                <div id="gis-status" style="color: #888; font-size: 10px; margin-top: 5px;">
-                    Ready to load layers
-                </div>
-            </div>
-            
-            <div class="section">
-                <h3><i class="fas fa-search"></i> Search</h3>
-                <input type="text" id="search-input" placeholder="Address in Sonoma County"
-                       onkeypress="if(event.key==='Enter') searchAddress()">
-                <button onclick="searchAddress()"><i class="fas fa-search"></i> Search</button>
-                <div id="search-status"></div>
-            </div>
-            
-            <div class="section">
-                <h3><i class="fas fa-ruler"></i> Measurements</h3>
-                <button id="btn-distance" onclick="measureDistance()">
-                    <i class="fas fa-ruler-horizontal"></i> Distance
-                </button>
-                <button id="btn-area" onclick="measureArea()">
-                    <i class="fas fa-draw-polygon"></i> Area
-                </button>
-                <button onclick="clearMeasurements()">
-                    <i class="fas fa-trash"></i> Clear
-                </button>
-            </div>
-            
-            <div class="section">
-                <h3><i class="fas fa-file-export"></i> Export</h3>
-                <button id="draw-rect-btn" onclick="startDrawingRectangle()">
-                    <i class="fas fa-vector-square"></i> Draw Rectangle
-                </button>
-                <button id="export-btn" onclick="openExportModal()" disabled>
-                    <i class="fas fa-download"></i> Create Export
-                </button>
-                <small style="color: #888;">Step 1: Draw, Step 2: Export</small>
-            </div>
-            
-            <div class="section">
-                <h3><i class="fas fa-crosshairs"></i> Coordinates</h3>
-                <div class="coord-display" id="coords">
-                    Move mouse over map...
-                </div>
-            </div>
-        </div>
-        
-        <div class="map-area">
-            <div id="map"></div>
-        </div>
-    </div>
-    
-    <!-- Export Format Selection Modal -->
-    <div id="export-modal" class="modal">
-        <div class="modal-content">
-            <h2><i class="fas fa-file-export"></i> Export Map Data</h2>
-            
-            <div class="format-section">
-                <h4>Select Export Formats</h4>
-                
-                <div class="checkbox-group">
-                    <label>
-                        <input type="checkbox" id="format-png" checked>
-                        <span><i class="fas fa-image"></i> PNG Image</span>
-                    </label>
-                    <div class="format-description">Map image with optional north arrow and scale bar</div>
-                </div>
-                
-                <div class="checkbox-group">
-                    <label>
-                        <input type="checkbox" id="format-shp" checked>
-                        <span><i class="fas fa-file-archive"></i> Shapefile (.shp)</span>
-                    </label>
-                    <div class="format-description">Standard GIS format compatible with ArcGIS, QGIS</div>
-                </div>
-                
-                <div class="checkbox-group">
-                    <label>
-                        <input type="checkbox" id="format-dxf">
-                        <span><i class="fas fa-file-code"></i> DXF (.dxf)</span>
-                    </label>
-                    <div class="format-description">AutoCAD Drawing Exchange Format</div>
-                </div>
-                
-                <div class="checkbox-group">
-                    <label>
-                        <input type="checkbox" id="format-kml">
-                        <span><i class="fas fa-globe"></i> KML (.kml)</span>
-                    </label>
-                    <div class="format-description">Google Earth / Google Maps format</div>
-                </div>
-            </div>
-            
-            <div class="format-section" id="png-options-section">
-                <h4>PNG Options</h4>
-                
-                <div class="checkbox-group">
-                    <label>
-                        <input type="checkbox" id="png-north-arrow" checked>
-                        <span><i class="fas fa-compass"></i> North Arrow</span>
-                    </label>
-                </div>
-                
-                <div class="checkbox-group">
-                    <label>
-                        <input type="checkbox" id="png-scale-bar" checked>
-                        <span><i class="fas fa-ruler-horizontal"></i> Scale Bar</span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="modal-buttons">
-                <button onclick="closeExportModal()">
-                    <i class="fas fa-times"></i> Cancel
-                </button>
-                <button onclick="startExport()" style="background: #00cc66;">
-                    <i class="fas fa-download"></i> Create Export
-                </button>
-            </div>
-        </div>
-    </div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-    
     <script>
-        let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
+let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
         
         // Project Viewer global variables
         let projectsData = [];
@@ -1482,5 +1482,4 @@
             check();
         }
     </script>
-</body>
-</html>
+{% endblock %}
