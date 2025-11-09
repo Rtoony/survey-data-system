@@ -441,6 +441,26 @@ def delete_project(project_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/projects/<project_id>/drawings')
+def get_project_drawings(project_id):
+    """Get all drawings for a specific project"""
+    try:
+        query = """
+            SELECT 
+                drawing_id,
+                drawing_name,
+                drawing_number,
+                drawing_type,
+                created_at
+            FROM drawings
+            WHERE project_id = %s
+            ORDER BY drawing_number, drawing_name
+        """
+        drawings = execute_query(query, (project_id,))
+        return jsonify({'drawings': drawings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/projects/<project_id>', methods=['PUT'])
 def update_project(project_id):
     """Update an existing project"""
@@ -10163,7 +10183,7 @@ ENTITY_VIEWER_REGISTRY = {
         'geometry_column': 'geometry',
         'srid': 2226,
         'id_column': 'line_id',
-        'label_column': 'line_name',
+        'label_column': 'line_number',
         'type': 'line',
         'category': 'Utilities',
         'color': '#f7b801'
@@ -10173,7 +10193,7 @@ ENTITY_VIEWER_REGISTRY = {
         'geometry_column': 'rim_geometry',
         'srid': 2226,
         'id_column': 'structure_id',
-        'label_column': 'structure_name',
+        'label_column': 'structure_number',
         'type': 'point',
         'category': 'Utilities',
         'color': '#6a994e'
@@ -10300,18 +10320,19 @@ def get_entity_viewer_layers():
         drawing_ids = request.args.getlist('drawing_id')
         
         query = """
-            SELECT DISTINCT layer_name
-            FROM layers
-            WHERE project_id = %s
+            SELECT DISTINCT l.layer_name
+            FROM layers l
+            JOIN drawings d ON l.drawing_id = d.drawing_id
+            WHERE d.project_id = %s
         """
         params = [project_id]
         
         if drawing_ids:
             placeholders = ','.join(['%s'] * len(drawing_ids))
-            query += f" AND drawing_id IN ({placeholders})"
+            query += f" AND l.drawing_id IN ({placeholders})"
             params.extend(drawing_ids)
         
-        query += " ORDER BY layer_name"
+        query += " ORDER BY l.layer_name"
         
         layers = execute_query(query, tuple(params))
         return jsonify({'layers': [l['layer_name'] for l in layers]})
