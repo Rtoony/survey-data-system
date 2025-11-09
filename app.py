@@ -8932,123 +8932,147 @@ def get_import_mappings():
 
 @app.route('/api/vocabulary/layer-examples')
 def get_layer_examples():
-    """Generate comprehensive layer name examples for all object types"""
+    """Generate curated layer name examples covering all geometry types"""
     try:
-        from standards.export_layer_generator import ExportLayerGenerator
+        # Curated catalog of examples ensuring all 8 geometry types are represented
+        # Format: (discipline, category, object_type, phase, geometry, description, db_table)
+        catalog = [
+            # === LN (Lines) - Pipes, Alignments, Contours, Boundaries ===
+            ('CIV', 'STOR', 'STORM', 'NEW', 'LN', 'New storm drain pipe', 'utility_lines'),
+            ('CIV', 'STOR', 'SANIT', 'EXIST', 'LN', 'Existing sanitary sewer', 'utility_lines'),
+            ('CIV', 'ROAD', 'WATER', 'PROP', 'LN', 'Proposed water main', 'utility_lines'),
+            ('CIV', 'ROAD', 'RECYC', 'NEW', 'LN', 'New recycled water pipe', 'utility_lines'),
+            ('CIV', 'ROAD', 'CNTR', 'EXIST', 'LN', 'Existing road centerline', 'alignments'),
+            ('CIV', 'GRAD', 'CNTR', 'EXIST', 'LN', 'Existing contour line', 'contours'),
+            ('SURV', 'BNDY', 'BNDY', 'EXIST', 'LN', 'Existing property boundary', 'boundaries'),
+            ('SURV', 'TOPO', 'BREAK', 'EXIST', 'LN', 'Breakline', 'breaklines'),
+            
+            # === PT (Points) - Structures, Monuments, Trees ===
+            ('CIV', 'STOR', 'MH', 'NEW', 'PT', 'New manhole', 'utility_structures'),
+            ('CIV', 'STOR', 'CB', 'EXIST', 'PT', 'Existing catch basin', 'utility_structures'),
+            ('CIV', 'STOR', 'INLET', 'PROP', 'PT', 'Proposed inlet', 'utility_structures'),
+            ('CIV', 'ROAD', 'HYDRA', 'NEW', 'PT', 'New fire hydrant', 'utility_structures'),
+            ('CIV', 'ROAD', 'VALVE', 'EXIST', 'PT', 'Existing water valve', 'utility_structures'),
+            ('SURV', 'CTRL', 'BENCH', 'EXIST', 'PT', 'Survey benchmark', 'survey_points'),
+            ('SURV', 'CTRL', 'MONUMENT', 'EXIST', 'PT', 'Survey monument', 'survey_points'),
+            ('SURV', 'TOPO', 'SHOT', 'EXIST', 'PT', 'Topographic shot', 'survey_points'),
+            ('LAND', 'TREE', 'OAK', 'EXIST', 'PT', 'Existing oak tree', 'site_trees'),
+            ('LAND', 'TREE', 'PINE', 'PROP', 'PT', 'Proposed pine tree', 'site_trees'),
+            
+            # === PG (Polygons) - Areas, Basins, Buildings ===
+            ('CIV', 'STOR', 'BASIN', 'NEW', 'PG', 'New detention basin', 'bmps'),
+            ('CIV', 'STOR', 'BIORT', 'PROP', 'PG', 'Proposed bioretention area', 'bmps'),
+            ('CIV', 'STOR', 'SWALE', 'NEW', 'PG', 'New bioswale', 'bmps'),
+            ('CIV', 'STOR', 'POND', 'EXIST', 'PG', 'Existing retention pond', 'ponds'),
+            ('CIV', 'GRAD', 'EG', 'EXIST', 'PG', 'Existing grade surface', 'surfaces'),
+            ('CIV', 'GRAD', 'FG', 'PROP', 'PG', 'Proposed finished grade', 'surfaces'),
+            ('CIV', 'ADA', 'RAMP', 'NEW', 'PG', 'New ADA ramp', 'ada_features'),
+            ('SURV', 'BLDG', 'FOOT', 'EXIST', 'PG', 'Building footprint', 'buildings'),
+            ('LAND', 'PLNT', 'SHRUB', 'PROP', 'PG', 'Proposed shrub bed', 'planting_areas'),
+            
+            # === TX (Text) - Labels, Callouts, Notes ===
+            ('ANNO', 'NOTE', 'GEN', 'NEW', 'TX', 'General note', 'drawing_entities'),
+            ('ANNO', 'LABL', 'SPOT', 'EXIST', 'TX', 'Spot elevation label', 'drawing_entities'),
+            ('ANNO', 'LABL', 'PIPE', 'NEW', 'TX', 'Pipe size label', 'drawing_entities'),
+            ('ANNO', 'CALL', 'DET', 'NEW', 'TX', 'Detail callout', 'drawing_entities'),
+            ('SURV', 'TOPO', 'ELEV', 'EXIST', 'TX', 'Elevation text', 'drawing_entities'),
+            
+            # === 3D (3D Objects) - Surfaces, Terrain Models ===
+            ('CIV', 'GRAD', 'DTM', 'EXIST', '3D', 'Digital terrain model', 'surfaces'),
+            ('CIV', 'GRAD', 'TIN', 'PROP', '3D', 'Proposed TIN surface', 'surfaces'),
+            ('SURV', 'TOPO', '3DSURF', 'EXIST', '3D', '3D survey surface', 'surfaces'),
+            
+            # === BK (Blocks) - Symbols, Fixtures ===
+            ('CIV', 'UTIL', 'SYM', 'NEW', 'BK', 'Utility symbol block', 'blocks'),
+            ('LAND', 'PLNT', 'SYM', 'PROP', 'BK', 'Plant symbol block', 'blocks'),
+            ('ANNO', 'SYM', 'NORTH', 'NEW', 'BK', 'North arrow symbol', 'blocks'),
+            ('ANNO', 'SYM', 'TITLE', 'NEW', 'BK', 'Title block', 'blocks'),
+            
+            # === HT (Hatches) - Fill Patterns ===
+            ('CIV', 'UTIL', 'FILL', 'NEW', 'HT', 'Utility trench hatch', 'drawing_entities'),
+            ('CIV', 'GRAD', 'FILL', 'PROP', 'HT', 'Grading fill pattern', 'drawing_entities'),
+            ('LAND', 'PLNT', 'FILL', 'PROP', 'HT', 'Planting area hatch', 'drawing_entities'),
+            
+            # === DIM (Dimensions) - Measurements ===
+            ('ANNO', 'DIM', 'LIN', 'NEW', 'DIM', 'Linear dimension', 'drawing_entities'),
+            ('ANNO', 'DIM', 'RAD', 'NEW', 'DIM', 'Radius dimension', 'drawing_entities'),
+            ('ANNO', 'DIM', 'ANGLE', 'NEW', 'DIM', 'Angular dimension', 'drawing_entities'),
+        ]
         
-        generator = ExportLayerGenerator()
-        examples = []
+        # Get metadata from database for enrichment
+        phases_query = """
+            SELECT code, full_name, color_rgb FROM phase_codes 
+            WHERE is_active = TRUE
+        """
+        phases_data = {p['code']: p for p in execute_query(phases_query)}
         
-        # Get all object types with their relationships
-        query = """
-            SELECT t.type_id, t.code as type_code, t.full_name as type_name, 
-                   t.description, t.database_table,
-                   c.code as category_code, c.full_name as category_name,
-                   d.code as discipline_code, d.full_name as discipline_name,
-                   d.discipline_id
+        geometries_query = """
+            SELECT code, full_name, dxf_entity_types FROM geometry_codes 
+            WHERE is_active = TRUE
+        """
+        geometries_data = {g['code']: g for g in execute_query(geometries_query)}
+        
+        disciplines_query = """
+            SELECT code, full_name FROM discipline_codes 
+            WHERE is_active = TRUE
+        """
+        disciplines_data = {d['code']: d for d in execute_query(disciplines_query)}
+        
+        categories_query = """
+            SELECT c.code, c.full_name, d.code as discipline_code
+            FROM category_codes c
+            JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+            WHERE c.is_active = TRUE
+        """
+        categories_data = {}
+        for c in execute_query(categories_query):
+            key = f"{c['discipline_code']}-{c['code']}"
+            categories_data[key] = c
+        
+        object_types_query = """
+            SELECT t.code, t.full_name, c.code as category_code, d.code as discipline_code
             FROM object_type_codes t
             JOIN category_codes c ON t.category_id = c.category_id
             JOIN discipline_codes d ON c.discipline_id = d.discipline_id
             WHERE t.is_active = TRUE
-            ORDER BY d.sort_order, c.sort_order, t.sort_order
         """
+        object_types_data = {}
+        for t in execute_query(object_types_query):
+            key = f"{t['discipline_code']}-{t['category_code']}-{t['code']}"
+            object_types_data[key] = t
         
-        object_types = execute_query(query)
-        
-        # Get phases and geometries for variations
-        phases = execute_query("""
-            SELECT code, full_name, color_rgb FROM phase_codes 
-            WHERE is_active = TRUE ORDER BY sort_order
-        """)
-        
-        geometries = execute_query("""
-            SELECT code, full_name, dxf_entity_types FROM geometry_codes 
-            WHERE is_active = TRUE ORDER BY sort_order
-        """)
-        
-        # Generate examples for each object type
-        for obj_type in object_types:
-            db_table = obj_type.get('database_table', '')
-            type_code = obj_type.get('type_code', '')
+        # Build enriched examples from catalog
+        examples = []
+        for disc, cat, obj, phase, geom, description, db_table in catalog:
+            # Build layer name using standard pattern
+            layer_name = f"{disc}-{cat}-{obj}-{phase}-{geom}"
             
-            # Map object type to generator input format
-            object_type_key = db_table if db_table else type_code.lower()
+            # Enrich with metadata
+            phase_info = phases_data.get(phase, {})
+            geom_info = geometries_data.get(geom, {})
+            disc_info = disciplines_data.get(disc, {})
+            cat_key = f"{disc}-{cat}"
+            cat_info = categories_data.get(cat_key, {})
+            obj_key = f"{disc}-{cat}-{obj}"
+            obj_info = object_types_data.get(obj_key, {})
             
-            # Generate variations
-            for phase in phases[:3]:  # Show 3 phase examples
-                for geom in geometries[:4]:  # Show 4 geometry examples
-                    
-                    # Build sample properties based on object type
-                    properties = {
-                        'phase': phase['code'].lower(),
-                    }
-                    
-                    # Add object-specific properties
-                    if 'util' in type_code.lower() or 'pipe' in type_code.lower():
-                        properties.update({
-                            'utility_type': 'storm',
-                            'diameter': 12,
-                            'material': 'pvc'
-                        })
-                    elif 'road' in type_code.lower() or 'align' in type_code.lower():
-                        properties.update({
-                            'alignment_type': 'road',
-                            'name': 'MAIN'
-                        })
-                    elif 'bmp' in type_code.lower():
-                        properties.update({
-                            'bmp_type': 'bioretention',
-                            'design_volume_cf': 500
-                        })
-                    elif 'tree' in type_code.lower():
-                        properties.update({
-                            'tree_status': 'existing',
-                            'species': 'oak'
-                        })
-                    elif 'survey' in type_code.lower():
-                        properties.update({
-                            'point_type': 'monument'
-                        })
-                    elif 'surface' in type_code.lower() or 'grad' in type_code.lower():
-                        properties.update({
-                            'surface_type': 'existing_grade'
-                        })
-                    
-                    # Try to generate layer name
-                    try:
-                        layer_name = generator.generate_layer_name(
-                            object_type_key, 
-                            properties, 
-                            geom['code']
-                        )
-                        
-                        if layer_name:
-                            examples.append({
-                                'layer_name': layer_name,
-                                'object_type': obj_type['type_name'],
-                                'object_code': type_code,
-                                'discipline': obj_type['discipline_name'],
-                                'discipline_code': obj_type['discipline_code'],
-                                'category': obj_type['category_name'],
-                                'category_code': obj_type['category_code'],
-                                'phase': phase['full_name'],
-                                'phase_code': phase['code'],
-                                'phase_color': phase.get('color_rgb'),
-                                'geometry': geom['full_name'],
-                                'geometry_code': geom['code'],
-                                'dxf_types': geom.get('dxf_entity_types', ''),
-                                'properties': properties,
-                                'database_table': db_table
-                            })
-                            
-                            # Only generate one example per object type for first pass
-                            break
-                    except Exception as e:
-                        continue
-                
-                # Got one example, move to next object type
-                if examples and examples[-1]['object_code'] == type_code:
-                    break
+            examples.append({
+                'layer_name': layer_name,
+                'description': description,
+                'object_type': obj_info.get('full_name', obj),
+                'object_code': obj,
+                'discipline': disc_info.get('full_name', disc),
+                'discipline_code': disc,
+                'category': cat_info.get('full_name', cat),
+                'category_code': cat,
+                'phase': phase_info.get('full_name', phase),
+                'phase_code': phase,
+                'phase_color': phase_info.get('color_rgb'),
+                'geometry': geom_info.get('full_name', geom),
+                'geometry_code': geom,
+                'dxf_types': geom_info.get('dxf_entity_types', ''),
+                'database_table': db_table
+            })
         
         return jsonify({
             'examples': examples,
