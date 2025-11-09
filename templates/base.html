@@ -99,6 +99,25 @@
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">
+                    <i class="fas fa-ruler-combined"></i>
+                    <span class="sidebar-text">Standards</span>
+                </div>
+                <a href="/standards" class="sidebar-link {% if request.path == '/standards' %}active{% endif %}">
+                    <i class="fas fa-book"></i>
+                    <span class="sidebar-text">CAD Standards</span>
+                </a>
+                <a href="/standards/reference" class="sidebar-link {% if request.path == '/standards/reference' %}active{% endif %}">
+                    <i class="fas fa-layer-group"></i>
+                    <span class="sidebar-text">Layer Reference</span>
+                </a>
+                <a href="/standards/vocabulary" class="sidebar-link {% if request.path == '/standards/vocabulary' %}active{% endif %}">
+                    <i class="fas fa-book-open"></i>
+                    <span class="sidebar-text">Vocabulary</span>
+                </a>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">
                     <i class="fas fa-folder"></i>
                     <span class="sidebar-text">Projects</span>
                 </div>
