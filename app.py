@@ -1215,8 +1215,8 @@ def get_layers():
     """Get all layers"""
     try:
         query = """
-            SELECT layer_standard_id, category, discipline, layer_name, color_rgb, 
-                   description, linetype, lineweight, plot_style
+            SELECT layer_id, category, discipline, layer_name, color_rgb, 
+                   description, linetype, lineweight
             FROM layer_standards
             ORDER BY category, layer_name
         """
@@ -1237,7 +1237,7 @@ def create_layer():
                     INSERT INTO layer_standards 
                     (category, discipline, layer_name, color_rgb, description)
                     VALUES (%s, %s, %s, %s, %s)
-                    RETURNING layer_standard_id
+                    RETURNING layer_id
                 """, (
                     data.get('category'),
                     data.get('discipline', 'CIVIL'),
@@ -1249,7 +1249,7 @@ def create_layer():
                 conn.commit()
         
         cache.clear()
-        return jsonify({'layer_standard_id': layer_id}), 201
+        return jsonify({'layer_id': layer_id}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1264,7 +1264,7 @@ def update_layer(layer_id):
                 cur.execute("""
                     UPDATE layer_standards
                     SET category = %s, layer_name = %s, color_rgb = %s, description = %s
-                    WHERE layer_standard_id = %s
+                    WHERE layer_id = %s
                 """, (
                     data.get('category'),
                     data.get('layer_name'),
@@ -1285,7 +1285,7 @@ def delete_layer(layer_id):
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM layer_standards WHERE layer_standard_id = %s", (layer_id,))
+                cur.execute("DELETE FROM layer_standards WHERE layer_id = %s", (layer_id,))
                 conn.commit()
         
         cache.clear()
@@ -1329,7 +1329,7 @@ def import_layers_csv():
                     
                     # Check if layer already exists
                     cur.execute("""
-                        SELECT layer_standard_id FROM layer_standards 
+                        SELECT layer_id FROM layer_standards 
                         WHERE LOWER(layer_name) = LOWER(%s)
                     """, (layer_name,))
                     
@@ -1340,7 +1340,7 @@ def import_layers_csv():
                         cur.execute("""
                             UPDATE layer_standards
                             SET category = %s, color_rgb = %s, description = %s
-                            WHERE layer_standard_id = %s
+                            WHERE layer_id = %s
                         """, (category, color_rgb, description, existing[0]))
                         updated_count += 1
                     else:
