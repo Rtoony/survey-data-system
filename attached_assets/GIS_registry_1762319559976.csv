@@ -1,4 +1,0 @@
-service_id,name,jurisdiction,category,rest_url,layer,behavior,cs_wkid,query_where,extent_mode,label_field,label_format,sym_preset,block_name,min_scale,max_scale,status,last_verified,notes
-sonoma_parcels_public,Parcels Public,SonomaCounty,Parcels,https://socogis.sonomacounty.ca.gov/map/rest/services/CRAPublic/ParcelsPublic/FeatureServer/0,0,dynamic,2226,,project_area,APN,APN {APN},BGD_Parcels,,0,0,active,9/8/2025,Primary parcels layer; authoritative countywide.
-sonoma_roads,Streets & Roads,SonomaCounty,Roads,https://socogis.sonomacounty.ca.gov/map/rest/services/TPWPublic/Streets_Roads/FeatureServer/0,0,dynamic,2226,,project_area,NAME,{NAME},BGD_Roads,,0,0,active,9/8/2025,Road centerlines; filter if needed.
-sonoma_buildings,Buildings,SonomaCounty,Structures,https://socogis.sonomacounty.ca.gov/map/rest/services/BASEPublic/Buildings/FeatureServer/0,0,dynamic,2226,,project_area,,,BGD_Buildings,,0,0,active,9/8/2025,Building footprint polygons.
