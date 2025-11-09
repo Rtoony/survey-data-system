@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+
+{% block title %}Projects Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-folder-open neon-cyan"></i> Projects Manager</h2>
+    <p class="subtitle">Manage engineering projects and client information</p>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="orbitron"><i class="fas fa-list"></i> Projects</h3>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="showAddModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Project
+            </button>
+            <button onclick="refreshProjects()" class="btn btn-secondary">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="searchInput" placeholder="Search projects by name, number, or client..." 
+               onkeyup="filterTable()" 
+               style="width: 100%; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+    </div>
+
+    <div id="loadingMessage" class="alert" style="text-align: center;">
+        <i class="fas fa-spinner fa-spin"></i> Loading projects...
+    </div>
+
+    <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+    <div id="tableContainer" style="display: none; overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Project Name</th>
+                    <th>Project Number</th>
+                    <th>Client</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="projectsTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <div id="emptyMessage" class="alert" style="display: none; text-align: center;">
+        <i class="fas fa-inbox"></i> No projects found. Create your first project.
+    </div>
+</div>
+
+<div id="projectModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 class="orbitron" id="modalTitle">Add Project</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="projectForm" onsubmit="saveProject(event)">
+            <input type="hidden" id="projectId">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="projectName">Project Name *</label>
+                    <input type="text" id="projectName" required placeholder="e.g., Main Street Reconstruction">
+                </div>
+                <div class="form-group">
+                    <label for="projectNumber">Project Number</label>
+                    <input type="text" id="projectNumber" placeholder="e.g., 2025-001">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="clientName">Client Name</label>
+                <input type="text" id="clientName" placeholder="Client or agency name">
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="4" placeholder="Project description and scope..."></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Project
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 20, 40, 0.4);
+}
+
+.data-table th {
+    background: rgba(0, 100, 150, 0.3);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+    font-weight: 600;
+}
+
+.data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(0,20,40,0.95) 0%, rgba(0,40,80,0.95) 100%);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--neon-cyan);
+    width: 90%;
+    max-width: 600px;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,200,255,0.3);
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close {
+    color: var(--neon-cyan);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    padding: 0 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--neon-cyan);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,20,40,0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+</style>
+
+<script>
+let allProjects = [];
+
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/projects');
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        allProjects = data.projects || data || [];
+        renderTable();
+        
+    } catch (error) {
+        showError('Failed to load projects: ' + error.message);
+    }
+}
+
+function renderTable() {
+    const tbody = document.getElementById('projectsTableBody');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    
+    let filtered = allProjects.filter(project => {
+        return !search || 
+            project.project_name.toLowerCase().includes(search) ||
+            (project.project_number && project.project_number.toLowerCase().includes(search)) ||
+            (project.client_name && project.client_name.toLowerCase().includes(search));
+    });
+    
+    if (filtered.length === 0) {
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyMessage').style.display = 'block';
+        return;
+    }
+    
+    tbody.innerHTML = filtered.map(p => `
+        <tr>
+            <td><strong>${p.project_name}</strong></td>
+            <td>${p.project_number || '-'}</td>
+            <td>${p.client_name || '-'}</td>
+            <td>${p.created_at ? new Date(p.created_at).toLocaleDateString() : '-'}</td>
+            <td>
+                <button onclick="editProject('${p.project_id}')" class="btn btn-sm btn-secondary" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteProject('${p.project_id}')" class="btn btn-sm btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    document.getElementById('loadingMessage').style.display = 'none';
+    document.getElementById('tableContainer').style.display = 'block';
+    document.getElementById('emptyMessage').style.display = 'none';
+}
+
+function filterTable() {
+    renderTable();
+}
+
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add Project';
+    document.getElementById('projectForm').reset();
+    document.getElementById('projectId').value = '';
+    document.getElementById('projectModal').style.display = 'block';
+}
+
+function editProject(projectId) {
+    const project = allProjects.find(p => p.project_id === projectId);
+    if (!project) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Project';
+    document.getElementById('projectId').value = project.project_id;
+    document.getElementById('projectName').value = project.project_name;
+    document.getElementById('projectNumber').value = project.project_number || '';
+    document.getElementById('clientName').value = project.client_name || '';
+    document.getElementById('description').value = project.description || '';
+    
+    document.getElementById('projectModal').style.display = 'block';
+}
+
+async function saveProject(event) {
+    event.preventDefault();
+    
+    const projectId = document.getElementById('projectId').value;
+    const projectData = {
+        project_name: document.getElementById('projectName').value,
+        project_number: document.getElementById('projectNumber').value || null,
+        client_name: document.getElementById('clientName').value || null,
+        description: document.getElementById('description').value || null
+    };
+    
+    try {
+        const url = projectId ? `/api/projects/${projectId}` : '/api/projects';
+        const method = projectId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(projectData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        closeModal();
+        await loadProjects();
+        
+    } catch (error) {
+        showError('Failed to save project: ' + error.message);
+    }
+}
+
+async function deleteProject(projectId) {
+    if (!confirm('Are you sure you want to delete this project? This will also delete all associated drawings.')) return;
+    
+    try {
+        const response = await fetch(`/api/projects/${projectId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        await loadProjects();
+        
+    } catch (error) {
+        showError('Failed to delete project: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('projectModal').style.display = 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    document.getElementById('loadingMessage').style.display = 'none';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+function refreshProjects() {
+    loadProjects();
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('projectModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadProjects);
+</script>
+{% endblock %}

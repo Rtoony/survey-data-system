@@ -1582,6 +1582,26 @@ def standard_notes_manager():
     """Render the Standard Notes Manager page"""
     return render_template('data_manager/standard_notes.html')
 
+@app.route('/data-manager/materials')
+def materials_manager():
+    """Render the Materials Manager page"""
+    return render_template('data_manager/materials.html')
+
+@app.route('/data-manager/projects')
+def projects_manager():
+    """Render the Projects Manager page"""
+    return render_template('data_manager/projects.html')
+
+@app.route('/data-manager/drawings')
+def drawings_manager():
+    """Render the Drawings Manager page"""
+    return render_template('data_manager/drawings.html')
+
+@app.route('/data-manager/sheet-sets')
+def sheet_sets_manager():
+    """Render the Sheet Sets Manager page"""
+    return render_template('data_manager/sheet_sets.html')
+
 @app.route('/usage-dashboard')
 def usage_dashboard():
     """Render the Usage Tracking Dashboard page"""
@@ -1860,6 +1880,208 @@ def delete_standard_note(note_id):
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM standard_notes WHERE note_id = %s", (note_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# MATERIALS MANAGER API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/data-manager/materials', methods=['GET'])
+def get_materials():
+    """Get all materials"""
+    try:
+        query = """
+            SELECT material_id, material_name, material_type, description, 
+                   specifications, manufacturer, product_code, cost_per_unit,
+                   unit_of_measure, environmental_rating, usage_frequency
+            FROM material_standards
+            ORDER BY material_type, material_name
+        """
+        materials = execute_query(query)
+        return jsonify({'materials': materials})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/materials', methods=['POST'])
+def create_material():
+    """Create a new material"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO material_standards 
+                    (material_name, material_type, description, specifications, manufacturer,
+                     product_code, cost_per_unit, unit_of_measure, environmental_rating)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING material_id
+                """, (
+                    data.get('material_name'),
+                    data.get('material_type'),
+                    data.get('description'),
+                    data.get('specifications'),
+                    data.get('manufacturer'),
+                    data.get('product_code'),
+                    data.get('cost_per_unit'),
+                    data.get('unit_of_measure'),
+                    data.get('environmental_rating')
+                ))
+                material_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'material_id': material_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/materials/<material_id>', methods=['PUT'])
+def update_material(material_id):
+    """Update an existing material"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE material_standards
+                    SET material_name = %s, material_type = %s, description = %s,
+                        specifications = %s, manufacturer = %s, product_code = %s,
+                        cost_per_unit = %s, unit_of_measure = %s, environmental_rating = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE material_id = %s
+                """, (
+                    data.get('material_name'),
+                    data.get('material_type'),
+                    data.get('description'),
+                    data.get('specifications'),
+                    data.get('manufacturer'),
+                    data.get('product_code'),
+                    data.get('cost_per_unit'),
+                    data.get('unit_of_measure'),
+                    data.get('environmental_rating'),
+                    material_id
+                ))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/materials/<material_id>', methods=['DELETE'])
+def delete_material(material_id):
+    """Delete a material"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM material_standards WHERE material_id = %s", (material_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# SHEET SETS MANAGER API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/data-manager/sheet-sets', methods=['GET'])
+def get_data_manager_sheet_sets():
+    """Get all sheet sets"""
+    try:
+        query = """
+            SELECT set_id, project_id, set_name, set_number, phase, discipline,
+                   issue_date, status, recipient, transmittal_notes, is_active,
+                   usage_frequency, created_at, updated_at
+            FROM sheet_sets
+            WHERE is_active = true
+            ORDER BY created_at DESC
+        """
+        sheet_sets = execute_query(query)
+        return jsonify({'sheet_sets': sheet_sets})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/sheet-sets', methods=['POST'])
+def create_data_manager_sheet_set():
+    """Create a new sheet set"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO sheet_sets 
+                    (project_id, set_name, set_number, phase, discipline,
+                     issue_date, status, recipient, transmittal_notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING set_id
+                """, (
+                    data.get('project_id'),
+                    data.get('set_name'),
+                    data.get('set_number'),
+                    data.get('phase'),
+                    data.get('discipline'),
+                    data.get('issue_date'),
+                    data.get('status', 'draft'),
+                    data.get('recipient'),
+                    data.get('transmittal_notes')
+                ))
+                set_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'set_id': set_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/sheet-sets/<set_id>', methods=['PUT'])
+def update_data_manager_sheet_set(set_id):
+    """Update an existing sheet set"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE sheet_sets
+                    SET project_id = %s, set_name = %s, set_number = %s, phase = %s,
+                        discipline = %s, issue_date = %s, status = %s, recipient = %s,
+                        transmittal_notes = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE set_id = %s
+                """, (
+                    data.get('project_id'),
+                    data.get('set_name'),
+                    data.get('set_number'),
+                    data.get('phase'),
+                    data.get('discipline'),
+                    data.get('issue_date'),
+                    data.get('status'),
+                    data.get('recipient'),
+                    data.get('transmittal_notes'),
+                    set_id
+                ))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/sheet-sets/<set_id>', methods=['DELETE'])
+def delete_data_manager_sheet_set(set_id):
+    """Delete a sheet set"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM sheet_sets WHERE set_id = %s", (set_id,))
                 conn.commit()
         
         cache.clear()

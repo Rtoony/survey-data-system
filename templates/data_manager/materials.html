@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+
+{% block title %}Materials Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-tools neon-cyan"></i> Materials Manager</h2>
+    <p class="subtitle">Manage construction material standards and specifications</p>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="orbitron"><i class="fas fa-list"></i> Material Standards</h3>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="showAddModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Material
+            </button>
+            <button onclick="refreshMaterials()" class="btn btn-secondary">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <input type="text" id="searchInput" placeholder="Search materials by name, type, or manufacturer..." 
+               onkeyup="filterTable()" 
+               style="flex: 1; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+        <select id="typeFilter" onchange="filterTable()" 
+                style="padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+            <option value="">All Types</option>
+        </select>
+    </div>
+
+    <div id="loadingMessage" class="alert" style="text-align: center;">
+        <i class="fas fa-spinner fa-spin"></i> Loading materials...
+    </div>
+
+    <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+    <div id="tableContainer" style="display: none; overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Material Name</th>
+                    <th>Type</th>
+                    <th>Manufacturer</th>
+                    <th>Cost/Unit</th>
+                    <th>Usage</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="materialsTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <div id="emptyMessage" class="alert" style="display: none; text-align: center;">
+        <i class="fas fa-inbox"></i> No materials found. Add your first material standard.
+    </div>
+</div>
+
+<div id="materialModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3 class="orbitron" id="modalTitle">Add Material</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="materialForm" onsubmit="saveMaterial(event)">
+            <input type="hidden" id="materialId">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="materialName">Material Name *</label>
+                    <input type="text" id="materialName" required placeholder="e.g., Concrete Mix 3000 PSI">
+                </div>
+                <div class="form-group">
+                    <label for="materialType">Type</label>
+                    <input type="text" id="materialType" placeholder="e.g., Concrete, Asphalt, Steel">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Material description..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="specifications">Specifications</label>
+                <textarea id="specifications" rows="4" placeholder="Technical specifications, standards, certifications..."></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="manufacturer">Manufacturer</label>
+                    <input type="text" id="manufacturer" placeholder="Company name">
+                </div>
+                <div class="form-group">
+                    <label for="productCode">Product Code</label>
+                    <input type="text" id="productCode" placeholder="SKU or code">
+                </div>
+                <div class="form-group">
+                    <label for="unitOfMeasure">Unit</label>
+                    <input type="text" id="unitOfMeasure" placeholder="e.g., CY, SF, LF">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="costPerUnit">Cost per Unit ($)</label>
+                    <input type="number" step="0.01" id="costPerUnit" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="environmentalRating">Environmental Rating</label>
+                    <input type="text" id="environmentalRating" placeholder="e.g., LEED, Green">
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Material
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 20, 40, 0.4);
+}
+
+.data-table th {
+    background: rgba(0, 100, 150, 0.3);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+    font-weight: 600;
+}
+
+.data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(0,20,40,0.95) 0%, rgba(0,40,80,0.95) 100%);
+    margin: 3% auto;
+    padding: 0;
+    border: 1px solid var(--neon-cyan);
+    width: 90%;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,200,255,0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close {
+    color: var(--neon-cyan);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    padding: 0 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--neon-cyan);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,20,40,0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+</style>
+
+<script>
+let allMaterials = [];
+
+async function loadMaterials() {
+    try {
+        const response = await fetch('/api/data-manager/materials');
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        allMaterials = data.materials || [];
+        renderTable();
+        populateFilters();
+        
+    } catch (error) {
+        showError('Failed to load materials: ' + error.message);
+    }
+}
+
+function populateFilters() {
+    const types = [...new Set(allMaterials.map(m => m.material_type).filter(Boolean))].sort();
+    
+    const typeFilter = document.getElementById('typeFilter');
+    typeFilter.innerHTML = '<option value="">All Types</option>';
+    types.forEach(type => {
+        typeFilter.innerHTML += `<option value="${type}">${type}</option>`;
+    });
+}
+
+function renderTable() {
+    const tbody = document.getElementById('materialsTableBody');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const typeFilter = document.getElementById('typeFilter').value;
+    
+    let filtered = allMaterials.filter(material => {
+        const matchesSearch = !search || 
+            material.material_name.toLowerCase().includes(search) ||
+            (material.material_type && material.material_type.toLowerCase().includes(search)) ||
+            (material.manufacturer && material.manufacturer.toLowerCase().includes(search));
+        
+        const matchesType = !typeFilter || material.material_type === typeFilter;
+        
+        return matchesSearch && matchesType;
+    });
+    
+    if (filtered.length === 0) {
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyMessage').style.display = 'block';
+        return;
+    }
+    
+    tbody.innerHTML = filtered.map(m => `
+        <tr>
+            <td><strong>${m.material_name}</strong></td>
+            <td>${m.material_type || '-'}</td>
+            <td>${m.manufacturer || '-'}</td>
+            <td>${m.cost_per_unit ? '$' + Number(m.cost_per_unit).toFixed(2) + '/' + (m.unit_of_measure || 'unit') : '-'}</td>
+            <td>${m.usage_frequency || 0}</td>
+            <td>
+                <button onclick="editMaterial('${m.material_id}')" class="btn btn-sm btn-secondary" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteMaterial('${m.material_id}')" class="btn btn-sm btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    document.getElementById('loadingMessage').style.display = 'none';
+    document.getElementById('tableContainer').style.display = 'block';
+    document.getElementById('emptyMessage').style.display = 'none';
+}
+
+function filterTable() {
+    renderTable();
+}
+
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add Material';
+    document.getElementById('materialForm').reset();
+    document.getElementById('materialId').value = '';
+    document.getElementById('materialModal').style.display = 'block';
+}
+
+function editMaterial(materialId) {
+    const material = allMaterials.find(m => m.material_id === materialId);
+    if (!material) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Material';
+    document.getElementById('materialId').value = material.material_id;
+    document.getElementById('materialName').value = material.material_name;
+    document.getElementById('materialType').value = material.material_type || '';
+    document.getElementById('description').value = material.description || '';
+    document.getElementById('specifications').value = material.specifications || '';
+    document.getElementById('manufacturer').value = material.manufacturer || '';
+    document.getElementById('productCode').value = material.product_code || '';
+    document.getElementById('costPerUnit').value = material.cost_per_unit || '';
+    document.getElementById('unitOfMeasure').value = material.unit_of_measure || '';
+    document.getElementById('environmentalRating').value = material.environmental_rating || '';
+    
+    document.getElementById('materialModal').style.display = 'block';
+}
+
+async function saveMaterial(event) {
+    event.preventDefault();
+    
+    const materialId = document.getElementById('materialId').value;
+    const materialData = {
+        material_name: document.getElementById('materialName').value,
+        material_type: document.getElementById('materialType').value || null,
+        description: document.getElementById('description').value || null,
+        specifications: document.getElementById('specifications').value || null,
+        manufacturer: document.getElementById('manufacturer').value || null,
+        product_code: document.getElementById('productCode').value || null,
+        cost_per_unit: document.getElementById('costPerUnit').value || null,
+        unit_of_measure: document.getElementById('unitOfMeasure').value || null,
+        environmental_rating: document.getElementById('environmentalRating').value || null
+    };
+    
+    try {
+        const url = materialId ? `/api/data-manager/materials/${materialId}` : '/api/data-manager/materials';
+        const method = materialId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(materialData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        closeModal();
+        await loadMaterials();
+        
+    } catch (error) {
+        showError('Failed to save material: ' + error.message);
+    }
+}
+
+async function deleteMaterial(materialId) {
+    if (!confirm('Are you sure you want to delete this material?')) return;
+    
+    try {
+        const response = await fetch(`/api/data-manager/materials/${materialId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        await loadMaterials();
+        
+    } catch (error) {
+        showError('Failed to delete material: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('materialModal').style.display = 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    document.getElementById('loadingMessage').style.display = 'none';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+function refreshMaterials() {
+    loadMaterials();
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('materialModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadMaterials);
+</script>
+{% endblock %}
