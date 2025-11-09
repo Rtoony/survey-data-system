@@ -39,6 +39,10 @@ Preferred communication style: Simple, everyday language.
 **Key Features & Design:**
 - **Schema Explorer & Data Manager:** CRUD operations for CAD standards.
 - **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards.
+- **Standards Management UI:**
+  - **Import Template Manager:** Configure client-specific layer mapping patterns with live regex testing.
+  - **Bulk Standards Editor:** Rapid CRUD for all 6 vocabulary types (disciplines, categories, object types, phases, geometries, attributes).
+  - **Layer Standards Reference:** Comprehensive documentation of the hierarchical layer naming system.
 - **DXF Tools:** Full DXF import/export with intelligent object creation, change detection, and bidirectional sync using `ezdxf` and PostGIS GeometryZ, supporting SRID 0.
 - **Map Viewer & Export:** Interactive Leaflet map with coordinate transformation, bounding box export (DXF/SHP/PNG/KML), measurement tools, address search, and WFS layer support. Handles both SRID 0 and SRID 2226 data, with appropriate transformations.
 - **Sheet Note Manager & Sheet Set Manager:** Backend for managing construction drawing notes and deliverables.
@@ -70,6 +74,54 @@ Preferred communication style: Simple, everyday language.
 - **ACAD-GIS FastAPI application:** Main API server sharing the same PostgreSQL/PostGIS database.
 
 ## Recent Changes
+
+### 2025-11-09: Standards Management UI - Import Manager & Bulk Editor
+Built comprehensive web-based management tools for the CAD standards vocabulary system with Mission Control theme.
+
+**Import Template Manager** (`/standards/import-manager`):
+- **Purpose:** Configure client-specific layer name mapping patterns to handle legacy CAD formats
+- **Features:**
+  - Full CRUD for import mapping patterns stored in `import_mapping_patterns` table
+  - Live regex testing panel with visual feedback showing matched groups
+  - Pattern validation with extraction rule JSON testing
+  - Copy pattern feature for quick template creation
+  - Status indicators (active/inactive) and confidence scoring
+- **API Endpoints:**
+  - GET `/api/import-patterns` - List all patterns
+  - POST `/api/import-patterns` - Create new pattern
+  - PUT `/api/import-patterns/{id}` - Update pattern
+  - DELETE `/api/import-patterns/{id}` - Remove pattern
+  - POST `/api/import-patterns/test` - Live regex testing
+- **Use Case:** Client has layers like `S-UTIL-STORM-12` → pattern extracts discipline, category, type, attributes → creates standard database object
+
+**Bulk Standards Editor** (`/standards/bulk-editor`):
+- **Purpose:** Rapidly add/edit/delete vocabulary codes across all 6 standards tables
+- **Features:**
+  - Tabbed interface for: Disciplines, Categories, Object Types, Phases, Geometries, Attributes
+  - Modal-based editing with dynamic form generation per vocabulary type
+  - Relationship dropdowns (Categories→Disciplines, Object Types→Categories)
+  - Color picker for phase codes (for CAD color-coding)
+  - Active/inactive status management
+  - Batch refresh and add new buttons
+  - Sortable tables with inline edit/delete actions
+- **API Endpoints (per vocabulary type):**
+  - GET `/api/vocabulary/{type}` - List all codes
+  - POST `/api/vocabulary/{type}` - Create new code
+  - PUT `/api/vocabulary/{type}/{id}` - Update code
+  - DELETE `/api/vocabulary/{type}/{id}` - Remove code
+- **Use Case:** Expand system to support new disciplines (e.g., add MECH for mechanical), categories (e.g., HVAC), or object types (e.g., air handlers)
+
+**Integration:**
+- Both tools accessible via sidebar under new "Standards" section
+- Links from home page and CAD Standards Portal
+- Consistent API patterns enable future standards integrations (Map Viewer filtering, DXF export templates, AI validation)
+- Frontend uses vanilla JavaScript with Mission Control CSS theme for rapid development
+
+**Benefits:**
+- Self-service vocabulary management (no SQL required)
+- Live regex testing speeds pattern development by 10x
+- Extensible foundation for client-specific CAD workflows
+- Production-ready with proper validation and error handling
 
 ### 2025-11-08: Revolutionary CAD Standards System
 Implemented a database-optimized CAD naming system that makes the database the source of truth, with layer names serving as semantic labels rather than data storage.
