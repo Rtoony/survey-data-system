@@ -1,0 +1,490 @@
+{% extends "base.html" %}
+
+{% block title %}Import Template Manager{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-file-import"></i>
+            Import Template Manager
+        </h2>
+        <button class="btn btn-primary" onclick="showAddModal()">
+            <i class="fas fa-plus"></i> Add Pattern
+        </button>
+    </div>
+    <div>
+        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-lg);">
+            Manage regex patterns for translating client CAD layer names to standard format.
+            Define patterns, test them against sample layer names, and configure extraction rules.
+        </p>
+
+        <!-- Patterns List -->
+        <div id="patternsList"></div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="patternModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3 id="modalTitle"><i class="fas fa-plus"></i> Add Import Pattern</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="patternForm">
+                <input type="hidden" id="mappingId">
+                
+                <div class="form-group">
+                    <label>Client Name</label>
+                    <input type="text" id="clientName" class="form-control" required 
+                           placeholder="e.g., Acme Engineering, City of SF">
+                </div>
+
+                <div class="form-group">
+                    <label>Source Pattern Description</label>
+                    <input type="text" id="sourcePattern" class="form-control" required 
+                           placeholder="e.g., SIZE-UTILITYTYPE or UTIL-SIZE-PHASE">
+                </div>
+
+                <div class="form-group">
+                    <label>Regex Pattern (with named groups)</label>
+                    <input type="text" id="regexPattern" class="form-control" required 
+                           placeholder="e.g., ^(?P<size>\d+)IN?-(?P<utility>\w+)$">
+                    <small style="color: var(--color-text-secondary);">
+                        Use named groups like (?P<size>...) to extract components
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label>Confidence Score (0-100)</label>
+                    <input type="number" id="confidenceScore" class="form-control" min="0" max="100" value="80">
+                </div>
+
+                <div class="grid grid-3">
+                    <div class="form-group">
+                        <label>Target Discipline</label>
+                        <input type="text" id="disciplineCode" class="form-control" placeholder="CIV">
+                    </div>
+                    <div class="form-group">
+                        <label>Target Category</label>
+                        <input type="text" id="categoryCode" class="form-control" placeholder="UTIL">
+                    </div>
+                    <div class="form-group">
+                        <label>Target Object Type</label>
+                        <input type="text" id="typeCode" class="form-control" placeholder="STORM">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Extraction Rules (JSON)</label>
+                    <textarea id="extractionRules" class="form-control" rows="6" placeholder='{
+  "discipline": "CIV",
+  "category": "UTIL",
+  "type": "group:utility",
+  "attributes": ["group:size"],
+  "phase": "NEW",
+  "geometry": "LN"
+}'></textarea>
+                    <small style="color: var(--color-text-secondary);">
+                        Use "group:name" to extract from regex groups, or static values like "CIV"
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="isActive" checked>
+                        Active
+                    </label>
+                </div>
+
+                <!-- Test Section -->
+                <div class="form-group" style="border-top: 1px solid var(--color-border); padding-top: var(--spacing-md);">
+                    <label>Test Layer Names (one per line)</label>
+                    <textarea id="testNames" class="form-control" rows="4" placeholder="12IN-STORM&#10;8-SD&#10;W-6-EXIST"></textarea>
+                    <button type="button" class="btn btn-secondary" onclick="testPattern()" style="margin-top: 0.5rem;">
+                        <i class="fas fa-vial"></i> Test Pattern
+                    </button>
+                </div>
+
+                <div id="testResults"></div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Pattern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    max-height: 90vh;
+    overflow-y: auto;
+    width: 90%;
+}
+
+.modal-header {
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-body {
+    padding: var(--spacing-lg);
+}
+
+.modal-footer {
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+}
+
+.modal-close:hover {
+    color: var(--color-accent-red);
+}
+
+.pattern-card {
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.pattern-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: var(--spacing-sm);
+}
+
+.pattern-title {
+    font-weight: 600;
+    color: var(--color-accent-cyan);
+}
+
+.pattern-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.test-result {
+    padding: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+
+.test-success {
+    background: rgba(0, 255, 0, 0.1);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    color: var(--color-accent-green);
+}
+
+.test-failure {
+    background: rgba(255, 0, 0, 0.1);
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    color: var(--color-accent-red);
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.badge-active {
+    background: rgba(0, 255, 0, 0.2);
+    color: var(--color-accent-green);
+}
+
+.badge-inactive {
+    background: rgba(128, 128, 128, 0.2);
+    color: var(--color-text-muted);
+}
+
+.badge-confidence {
+    background: rgba(0, 255, 255, 0.2);
+    color: var(--color-accent-cyan);
+}
+</style>
+
+<script>
+let patterns = [];
+
+async function loadPatterns() {
+    try {
+        const response = await fetch('/api/import-templates');
+        const data = await response.json();
+        patterns = data.patterns || [];
+        renderPatterns();
+    } catch (error) {
+        console.error('Error loading patterns:', error);
+        document.getElementById('patternsList').innerHTML = `
+            <div class="card" style="background: rgba(255, 0, 0, 0.1); border-color: var(--color-accent-red);">
+                <p style="color: var(--color-accent-red);"><i class="fas fa-exclamation-triangle"></i> Error loading patterns: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+function renderPatterns() {
+    const container = document.getElementById('patternsList');
+    
+    if (patterns.length === 0) {
+        container.innerHTML = `
+            <div class="card" style="text-align: center; padding: 2rem;">
+                <i class="fas fa-inbox" style="font-size: 3rem; color: var(--color-text-muted); margin-bottom: 1rem;"></i>
+                <p style="color: var(--color-text-secondary);">No import patterns defined yet. Click "Add Pattern" to create your first one.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = patterns.map(pattern => `
+        <div class="pattern-card">
+            <div class="pattern-header">
+                <div>
+                    <div class="pattern-title">${pattern.client_name} - ${pattern.source_pattern}</div>
+                    <div style="margin-top: 0.5rem;">
+                        <span class="badge ${pattern.is_active ? 'badge-active' : 'badge-inactive'}">
+                            ${pattern.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        <span class="badge badge-confidence">${pattern.confidence_score}% confidence</span>
+                        ${pattern.discipline_code ? `<span class="badge" style="background: rgba(0,255,255,0.1);">${pattern.discipline_code}</span>` : ''}
+                        ${pattern.category_code ? `<span class="badge" style="background: rgba(0,255,0,0.1);">${pattern.category_code}</span>` : ''}
+                        ${pattern.type_code ? `<span class="badge" style="background: rgba(255,255,0,0.1);">${pattern.type_code}</span>` : ''}
+                    </div>
+                </div>
+                <div class="pattern-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="editPattern(${pattern.mapping_id})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deletePattern(${pattern.mapping_id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+            <div style="margin-top: var(--spacing-sm); color: var(--color-text-secondary); font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                <strong>Regex:</strong> ${escapeHtml(pattern.regex_pattern)}
+            </div>
+            <div style="margin-top: var(--spacing-xs); color: var(--color-text-muted); font-size: 0.85rem;">
+                Created: ${new Date(pattern.created_at).toLocaleString()}
+            </div>
+        </div>
+    `).join('');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showAddModal() {
+    document.getElementById('modalTitle').innerHTML = '<i class="fas fa-plus"></i> Add Import Pattern';
+    document.getElementById('patternForm').reset();
+    document.getElementById('mappingId').value = '';
+    document.getElementById('isActive').checked = true;
+    document.getElementById('confidenceScore').value = 80;
+    document.getElementById('testResults').innerHTML = '';
+    document.getElementById('patternModal').style.display = 'flex';
+}
+
+async function editPattern(mappingId) {
+    try {
+        const response = await fetch(`/api/import-templates/${mappingId}`);
+        const data = await response.json();
+        const pattern = data.pattern;
+
+        document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Import Pattern';
+        document.getElementById('mappingId').value = pattern.mapping_id;
+        document.getElementById('clientName').value = pattern.client_name;
+        document.getElementById('sourcePattern').value = pattern.source_pattern;
+        document.getElementById('regexPattern').value = pattern.regex_pattern;
+        document.getElementById('confidenceScore').value = pattern.confidence_score;
+        document.getElementById('disciplineCode').value = pattern.discipline_code || '';
+        document.getElementById('categoryCode').value = pattern.category_code || '';
+        document.getElementById('typeCode').value = pattern.type_code || '';
+        document.getElementById('extractionRules').value = JSON.stringify(pattern.extraction_rules, null, 2);
+        document.getElementById('isActive').checked = pattern.is_active;
+        document.getElementById('testResults').innerHTML = '';
+        document.getElementById('patternModal').style.display = 'flex';
+    } catch (error) {
+        alert('Error loading pattern: ' + error.message);
+    }
+}
+
+async function deletePattern(mappingId) {
+    if (!confirm('Are you sure you want to delete this pattern?')) return;
+
+    try {
+        const response = await fetch(`/api/import-templates/${mappingId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            await loadPatterns();
+        } else {
+            const error = await response.json();
+            alert('Error deleting pattern: ' + error.error);
+        }
+    } catch (error) {
+        alert('Error deleting pattern: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('patternModal').style.display = 'none';
+}
+
+async function testPattern() {
+    const regexPattern = document.getElementById('regexPattern').value;
+    const testNamesText = document.getElementById('testNames').value;
+    const testNames = testNamesText.split('\n').map(s => s.trim()).filter(s => s);
+
+    if (!regexPattern || testNames.length === 0) {
+        alert('Please enter both a regex pattern and test layer names');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/import-templates/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                regex_pattern: regexPattern,
+                test_names: testNames
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data.error) {
+            document.getElementById('testResults').innerHTML = `
+                <div class="test-result test-failure">
+                    <strong>Error:</strong> ${data.error}
+                </div>
+            `;
+            return;
+        }
+
+        const resultsHtml = data.results.map(result => {
+            if (result.matched) {
+                const groupsHtml = Object.entries(result.groups).map(([key, value]) => 
+                    `<div style="margin-left: 1rem;"><strong>${key}:</strong> ${value}</div>`
+                ).join('');
+                
+                return `
+                    <div class="test-result test-success">
+                        <div><i class="fas fa-check-circle"></i> <strong>${result.layer_name}</strong> matched!</div>
+                        ${groupsHtml}
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="test-result test-failure">
+                        <i class="fas fa-times-circle"></i> <strong>${result.layer_name}</strong> did not match
+                    </div>
+                `;
+            }
+        }).join('');
+
+        document.getElementById('testResults').innerHTML = `
+            <div style="margin-top: var(--spacing-md);">
+                <h4 style="color: var(--color-accent-cyan); margin-bottom: var(--spacing-sm);">Test Results:</h4>
+                ${resultsHtml}
+            </div>
+        `;
+    } catch (error) {
+        alert('Error testing pattern: ' + error.message);
+    }
+}
+
+document.getElementById('patternForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const mappingId = document.getElementById('mappingId').value;
+    const extractionRulesText = document.getElementById('extractionRules').value;
+    
+    let extractionRules = {};
+    try {
+        extractionRules = extractionRulesText ? JSON.parse(extractionRulesText) : {};
+    } catch (error) {
+        alert('Invalid JSON in extraction rules: ' + error.message);
+        return;
+    }
+
+    const patternData = {
+        client_name: document.getElementById('clientName').value,
+        source_pattern: document.getElementById('sourcePattern').value,
+        regex_pattern: document.getElementById('regexPattern').value,
+        confidence_score: parseInt(document.getElementById('confidenceScore').value),
+        discipline_code: document.getElementById('disciplineCode').value || null,
+        category_code: document.getElementById('categoryCode').value || null,
+        type_code: document.getElementById('typeCode').value || null,
+        extraction_rules: extractionRules,
+        is_active: document.getElementById('isActive').checked
+    };
+
+    try {
+        const url = mappingId ? `/api/import-templates/${mappingId}` : '/api/import-templates';
+        const method = mappingId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patternData)
+        });
+
+        if (response.ok) {
+            closeModal();
+            await loadPatterns();
+        } else {
+            const error = await response.json();
+            alert('Error saving pattern: ' + error.error);
+        }
+    } catch (error) {
+        alert('Error saving pattern: ' + error.message);
+    }
+});
+
+// Load patterns on page load
+loadPatterns();
+</script>
+{% endblock %}

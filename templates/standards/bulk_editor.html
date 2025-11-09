@@ -1,0 +1,758 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Standards Editor{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-table"></i>
+            Bulk Standards Editor
+        </h2>
+        <div style="display: flex; gap: var(--spacing-sm);">
+            <button class="btn btn-primary" onclick="showAddModal()">
+                <i class="fas fa-plus"></i> Add New
+            </button>
+            <button class="btn btn-secondary" onclick="refreshCurrentTab()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+    <div>
+        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-lg);">
+            Manage all vocabulary codes for the CAD standards system. Configure disciplines, categories, object types, phases, and geometries.
+        </p>
+
+        <div class="tabs">
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="disciplines" onclick="switchTab('disciplines')">
+                    <i class="fas fa-layer-group"></i> Disciplines
+                </button>
+                <button class="tab-button" data-tab="categories" onclick="switchTab('categories')">
+                    <i class="fas fa-folder"></i> Categories
+                </button>
+                <button class="tab-button" data-tab="object-types" onclick="switchTab('object-types')">
+                    <i class="fas fa-cube"></i> Object Types
+                </button>
+                <button class="tab-button" data-tab="phases" onclick="switchTab('phases')">
+                    <i class="fas fa-hourglass-half"></i> Phases
+                </button>
+                <button class="tab-button" data-tab="geometries" onclick="switchTab('geometries')">
+                    <i class="fas fa-shapes"></i> Geometries
+                </button>
+                <button class="tab-button" data-tab="attributes" onclick="switchTab('attributes')">
+                    <i class="fas fa-tags"></i> Attributes
+                </button>
+            </div>
+
+            <div id="disciplines" class="tab-content active">
+                <div id="disciplinesTable"></div>
+            </div>
+
+            <div id="categories" class="tab-content">
+                <div id="categoriesTable"></div>
+            </div>
+
+            <div id="object-types" class="tab-content">
+                <div id="objectTypesTable"></div>
+            </div>
+
+            <div id="phases" class="tab-content">
+                <div id="phasesTable"></div>
+            </div>
+
+            <div id="geometries" class="tab-content">
+                <div id="geometriesTable"></div>
+            </div>
+
+            <div id="attributes" class="tab-content">
+                <div id="attributesTable"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="editorModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 id="modalTitle"><i class="fas fa-plus"></i> Add Item</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editorForm">
+                <input type="hidden" id="itemId">
+                <input type="hidden" id="currentTable">
+                
+                <div id="formFields"></div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.tabs {
+    margin-top: var(--spacing-lg);
+}
+
+.tab-buttons {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-lg);
+    border-bottom: 2px solid rgba(59, 130, 246, 0.2);
+    overflow-x: auto;
+}
+
+.tab-button {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--color-text-secondary);
+    padding: var(--spacing-md) var(--spacing-lg);
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all var(--transition-base);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    white-space: nowrap;
+}
+
+.tab-button:hover {
+    color: var(--color-accent-cyan);
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.tab-button.active {
+    color: var(--color-accent-cyan);
+    border-bottom-color: var(--color-accent-cyan);
+    background: rgba(59, 130, 246, 0.15);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--color-bg-secondary);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: var(--radius-lg);
+    max-height: 90vh;
+    overflow-y: auto;
+    width: 90%;
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.4);
+}
+
+.modal-header {
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-accent-cyan);
+    margin: 0;
+}
+
+.modal-body {
+    padding: var(--spacing-lg);
+}
+
+.modal-footer {
+    padding: var(--spacing-lg);
+    border-top: 1px solid rgba(59, 130, 246, 0.2);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    transition: color var(--transition-base);
+}
+
+.modal-close:hover {
+    color: var(--color-accent-red);
+}
+
+.form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: var(--spacing-md);
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    transition: all var(--transition-base);
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+}
+
+.form-control::placeholder {
+    color: var(--color-text-muted);
+}
+
+select.form-control {
+    cursor: pointer;
+}
+
+textarea.form-control {
+    resize: vertical;
+    min-height: 80px;
+}
+
+input[type="color"].form-control {
+    height: 50px;
+    cursor: pointer;
+}
+
+input[type="checkbox"] {
+    width: auto;
+    margin-right: var(--spacing-sm);
+}
+
+.table-container {
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table thead {
+    background: rgba(59, 130, 246, 0.15);
+    position: sticky;
+    top: 0;
+}
+
+.data-table th {
+    padding: var(--spacing-md);
+    text-align: left;
+    color: var(--color-accent-cyan);
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.data-table td {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+    color: var(--color-text-secondary);
+}
+
+.data-table tbody tr {
+    transition: background var(--transition-base);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-active {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--color-accent-green);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.badge-inactive {
+    background: rgba(100, 116, 139, 0.2);
+    color: var(--color-text-muted);
+    border: 1px solid rgba(100, 116, 139, 0.4);
+}
+
+.color-preview {
+    display: inline-block;
+    width: 30px;
+    height: 20px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    vertical-align: middle;
+    margin-right: var(--spacing-sm);
+}
+
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, rgba(100, 116, 139, 0.5), rgba(71, 85, 105, 0.6));
+    color: var(--color-text-primary);
+    border: 1px solid rgba(100, 116, 139, 0.4);
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, rgba(100, 116, 139, 0.7), rgba(71, 85, 105, 0.8));
+}
+
+.action-buttons {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--color-text-muted);
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-text-muted);
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+}
+
+@media (max-width: 768px) {
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+    
+    .tab-buttons {
+        flex-wrap: wrap;
+    }
+}
+</style>
+
+<script>
+let currentTab = 'disciplines';
+let allData = {
+    disciplines: [],
+    categories: [],
+    objectTypes: [],
+    phases: [],
+    geometries: [],
+    attributes: []
+};
+
+const tableConfig = {
+    disciplines: {
+        apiPath: 'disciplines',
+        idField: 'discipline_id',
+        displayName: 'Discipline',
+        icon: 'layer-group',
+        fields: [
+            { name: 'code', label: 'Code', type: 'text', required: true, maxLength: 10 },
+            { name: 'full_name', label: 'Full Name', type: 'text', required: true },
+            { name: 'description', label: 'Description', type: 'textarea', required: false },
+            { name: 'sort_order', label: 'Sort Order', type: 'number', required: true, default: 10 },
+            { name: 'is_active', label: 'Active', type: 'checkbox', required: false, default: true }
+        ],
+        columns: ['code', 'full_name', 'description', 'sort_order', 'is_active']
+    },
+    categories: {
+        apiPath: 'categories',
+        idField: 'category_id',
+        displayName: 'Category',
+        icon: 'folder',
+        fields: [
+            { name: 'discipline_id', label: 'Discipline', type: 'select', required: true, options: 'disciplines' },
+            { name: 'code', label: 'Code', type: 'text', required: true, maxLength: 10 },
+            { name: 'full_name', label: 'Full Name', type: 'text', required: true },
+            { name: 'description', label: 'Description', type: 'textarea', required: false },
+            { name: 'sort_order', label: 'Sort Order', type: 'number', required: true, default: 10 },
+            { name: 'is_active', label: 'Active', type: 'checkbox', required: false, default: true }
+        ],
+        columns: ['discipline', 'code', 'full_name', 'description', 'sort_order', 'is_active']
+    },
+    'object-types': {
+        apiPath: 'object-types',
+        idField: 'type_id',
+        displayName: 'Object Type',
+        icon: 'cube',
+        fields: [
+            { name: 'category_id', label: 'Category', type: 'select', required: true, options: 'categories' },
+            { name: 'code', label: 'Code', type: 'text', required: true, maxLength: 10 },
+            { name: 'full_name', label: 'Full Name', type: 'text', required: true },
+            { name: 'description', label: 'Description', type: 'textarea', required: false },
+            { name: 'database_table', label: 'Database Table', type: 'text', required: false },
+            { name: 'sort_order', label: 'Sort Order', type: 'number', required: true, default: 10 },
+            { name: 'is_active', label: 'Active', type: 'checkbox', required: false, default: true }
+        ],
+        columns: ['category', 'code', 'full_name', 'database_table', 'sort_order', 'is_active']
+    },
+    phases: {
+        apiPath: 'phases',
+        idField: 'phase_id',
+        displayName: 'Phase',
+        icon: 'hourglass-half',
+        fields: [
+            { name: 'code', label: 'Code', type: 'text', required: true, maxLength: 10 },
+            { name: 'full_name', label: 'Full Name', type: 'text', required: true },
+            { name: 'description', label: 'Description', type: 'textarea', required: false },
+            { name: 'color_rgb', label: 'Color', type: 'color', required: false },
+            { name: 'sort_order', label: 'Sort Order', type: 'number', required: true, default: 10 },
+            { name: 'is_active', label: 'Active', type: 'checkbox', required: false, default: true }
+        ],
+        columns: ['code', 'full_name', 'color_rgb', 'description', 'sort_order', 'is_active']
+    },
+    geometries: {
+        apiPath: 'geometries',
+        idField: 'geometry_id',
+        displayName: 'Geometry',
+        icon: 'shapes',
+        fields: [
+            { name: 'code', label: 'Code', type: 'text', required: true, maxLength: 10 },
+            { name: 'full_name', label: 'Full Name', type: 'text', required: true },
+            { name: 'description', label: 'Description', type: 'textarea', required: false },
+            { name: 'dxf_entity_types', label: 'DXF Entity Types', type: 'text', required: false, placeholder: 'e.g., LINE,POLYLINE,ARC' },
+            { name: 'sort_order', label: 'Sort Order', type: 'number', required: true, default: 10 },
+            { name: 'is_active', label: 'Active', type: 'checkbox', required: false, default: true }
+        ],
+        columns: ['code', 'full_name', 'dxf_entity_types', 'description', 'sort_order', 'is_active']
+    },
+    attributes: {
+        apiPath: 'attributes',
+        idField: 'attribute_id',
+        displayName: 'Attribute',
+        icon: 'tags',
+        fields: [
+            { name: 'code', label: 'Code', type: 'text', required: true, maxLength: 20 },
+            { name: 'full_name', label: 'Full Name', type: 'text', required: true },
+            { name: 'attribute_category', label: 'Category', type: 'text', required: false, placeholder: 'e.g., SIZE, MATERIAL, CONDITION' },
+            { name: 'description', label: 'Description', type: 'textarea', required: false },
+            { name: 'pattern', label: 'Pattern', type: 'text', required: false, placeholder: 'e.g., \d+IN, \d+X\d+' },
+            { name: 'is_active', label: 'Active', type: 'checkbox', required: false, default: true }
+        ],
+        columns: ['code', 'full_name', 'attribute_category', 'pattern', 'is_active']
+    }
+};
+
+async function loadAllData() {
+    try {
+        const responses = await Promise.all([
+            fetch('/api/vocabulary/disciplines'),
+            fetch('/api/vocabulary/categories'),
+            fetch('/api/vocabulary/object-types'),
+            fetch('/api/vocabulary/phases'),
+            fetch('/api/vocabulary/geometries'),
+            fetch('/api/vocabulary/attributes')
+        ]);
+
+        const data = await Promise.all(responses.map(r => r.json()));
+        
+        allData.disciplines = data[0].disciplines || [];
+        allData.categories = data[1].categories || [];
+        allData.objectTypes = data[2].object_types || [];
+        allData.phases = data[3].phases || [];
+        allData.geometries = data[4].geometries || [];
+        allData.attributes = data[5].attributes || [];
+
+        renderCurrentTab();
+    } catch (error) {
+        console.error('Error loading data:', error);
+        showError('Failed to load data: ' + error.message);
+    }
+}
+
+function switchTab(tab) {
+    currentTab = tab;
+    
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(tab).classList.add('active');
+    
+    renderCurrentTab();
+}
+
+function renderCurrentTab() {
+    const config = tableConfig[currentTab];
+    const containerId = currentTab === 'object-types' ? 'objectTypesTable' : currentTab + 'Table';
+    const container = document.getElementById(containerId);
+    
+    const dataKey = currentTab === 'object-types' ? 'objectTypes' : currentTab;
+    const items = allData[dataKey] || [];
+    
+    if (items.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-${config.icon}"></i>
+                <p>No ${config.displayName.toLowerCase()}s found. Click "Add New" to create one.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="table-container"><table class="data-table"><thead><tr>';
+    
+    config.columns.forEach(col => {
+        const label = col.charAt(0).toUpperCase() + col.slice(1).replace(/_/g, ' ');
+        html += `<th>${label}</th>`;
+    });
+    html += '<th style="text-align: center;">Actions</th></tr></thead><tbody>';
+    
+    items.forEach(item => {
+        html += '<tr>';
+        config.columns.forEach(col => {
+            let value = item[col];
+            
+            if (col === 'is_active') {
+                value = `<span class="badge ${value ? 'badge-active' : 'badge-inactive'}">
+                    ${value ? 'Active' : 'Inactive'}
+                </span>`;
+            } else if (col === 'discipline') {
+                const disc = allData.disciplines.find(d => d.discipline_id === item.discipline_id);
+                value = disc ? `${disc.code} - ${disc.full_name}` : '-';
+            } else if (col === 'category') {
+                const cat = allData.categories.find(c => c.category_id === item.category_id);
+                value = cat ? `${cat.code} - ${cat.full_name}` : '-';
+            } else if (col === 'color_rgb') {
+                value = value ? `<span class="color-preview" style="background-color: ${value};"></span>${value}` : '-';
+            } else if (value === null || value === undefined || value === '') {
+                value = '-';
+            }
+            
+            html += `<td>${value}</td>`;
+        });
+        
+        const itemId = item[config.idField];
+        html += `
+            <td style="text-align: center;">
+                <div class="action-buttons">
+                    <button class="btn btn-sm btn-secondary" onclick="editItem(${itemId})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteItem(${itemId})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </td>
+        </tr>`;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function showAddModal() {
+    const config = tableConfig[currentTab];
+    document.getElementById('modalTitle').innerHTML = `<i class="fas fa-plus"></i> Add ${config.displayName}`;
+    document.getElementById('itemId').value = '';
+    document.getElementById('currentTable').value = currentTab;
+    
+    renderFormFields(config.fields);
+    document.getElementById('editorModal').style.display = 'flex';
+}
+
+function editItem(id) {
+    const config = tableConfig[currentTab];
+    const dataKey = currentTab === 'object-types' ? 'objectTypes' : currentTab;
+    const item = allData[dataKey].find(i => i[config.idField] === id);
+    
+    if (!item) return;
+    
+    document.getElementById('modalTitle').innerHTML = `<i class="fas fa-edit"></i> Edit ${config.displayName}`;
+    document.getElementById('itemId').value = id;
+    document.getElementById('currentTable').value = currentTab;
+    
+    renderFormFields(config.fields, item);
+    document.getElementById('editorModal').style.display = 'flex';
+}
+
+function renderFormFields(fields, data = null) {
+    const container = document.getElementById('formFields');
+    let html = '';
+    
+    fields.forEach(field => {
+        const value = data ? data[field.name] : (field.default !== undefined ? field.default : '');
+        
+        html += '<div class="form-group">';
+        html += `<label for="field_${field.name}">${field.label}${field.required ? ' *' : ''}</label>`;
+        
+        if (field.type === 'select') {
+            html += `<select id="field_${field.name}" class="form-control" ${field.required ? 'required' : ''}>`;
+            html += '<option value="">-- Select --</option>';
+            
+            const options = allData[field.options] || [];
+            options.forEach(opt => {
+                const optId = field.options === 'disciplines' ? opt.discipline_id : opt.category_id;
+                const selected = value === optId ? 'selected' : '';
+                html += `<option value="${optId}" ${selected}>${opt.code} - ${opt.full_name}</option>`;
+            });
+            html += '</select>';
+        } else if (field.type === 'textarea') {
+            html += `<textarea id="field_${field.name}" class="form-control" ${field.required ? 'required' : ''}>${value || ''}</textarea>`;
+        } else if (field.type === 'checkbox') {
+            const checked = value ? 'checked' : '';
+            html += `<input type="checkbox" id="field_${field.name}" ${checked}>`;
+        } else if (field.type === 'color') {
+            html += `<input type="color" id="field_${field.name}" class="form-control" value="${value || '#ffffff'}">`;
+        } else if (field.type === 'number') {
+            html += `<input type="number" id="field_${field.name}" class="form-control" value="${value || ''}" ${field.required ? 'required' : ''}>`;
+        } else {
+            const placeholder = field.placeholder || '';
+            const maxLength = field.maxLength ? `maxlength="${field.maxLength}"` : '';
+            html += `<input type="text" id="field_${field.name}" class="form-control" value="${value || ''}" ${field.required ? 'required' : ''} placeholder="${placeholder}" ${maxLength}>`;
+        }
+        
+        html += '</div>';
+    });
+    
+    container.innerHTML = html;
+}
+
+function closeModal() {
+    document.getElementById('editorModal').style.display = 'none';
+}
+
+async function deleteItem(id) {
+    const config = tableConfig[currentTab];
+    
+    if (!confirm(`Are you sure you want to delete this ${config.displayName.toLowerCase()}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/vocabulary/${config.apiPath}/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            await loadAllData();
+        } else {
+            const error = await response.json();
+            showError(error.error || 'Failed to delete item');
+        }
+    } catch (error) {
+        showError('Error deleting item: ' + error.message);
+    }
+}
+
+async function refreshCurrentTab() {
+    await loadAllData();
+}
+
+function showError(message) {
+    alert(message);
+}
+
+document.getElementById('editorForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const config = tableConfig[currentTab];
+    const itemId = document.getElementById('itemId').value;
+    const isEdit = itemId !== '';
+    
+    const formData = {};
+    config.fields.forEach(field => {
+        const element = document.getElementById(`field_${field.name}`);
+        if (field.type === 'checkbox') {
+            formData[field.name] = element.checked;
+        } else if (field.type === 'number') {
+            formData[field.name] = element.value ? parseInt(element.value) : null;
+        } else {
+            formData[field.name] = element.value || null;
+        }
+    });
+    
+    try {
+        const url = isEdit 
+            ? `/api/vocabulary/${config.apiPath}/${itemId}`
+            : `/api/vocabulary/${config.apiPath}`;
+        
+        const response = await fetch(url, {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            closeModal();
+            await loadAllData();
+        } else {
+            const error = await response.json();
+            showError(error.error || 'Failed to save item');
+        }
+    } catch (error) {
+        showError('Error saving item: ' + error.message);
+    }
+});
+
+document.addEventListener('DOMContentLoaded', loadAllData);
+</script>
+
+{% endblock %}

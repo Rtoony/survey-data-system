@@ -243,6 +243,16 @@ def standards_scales():
     """Drawing scale standards page"""
     return render_template('standards/scales.html')
 
+@app.route('/standards/import-manager')
+def standards_import_manager():
+    """Import Template Manager page"""
+    return render_template('standards/import_manager.html')
+
+@app.route('/standards/bulk-editor')
+def standards_bulk_editor():
+    """Bulk Standards Editor page"""
+    return render_template('standards/bulk_editor.html')
+
 # ============================================
 # API ENDPOINTS
 # ============================================
@@ -5253,6 +5263,488 @@ def get_layer_examples():
             'error': str(e),
             'traceback': traceback.format_exc()
         }), 500
+
+# ============================================
+# IMPORT TEMPLATE MANAGER API ENDPOINTS
+# ============================================
+
+@app.route('/api/import-templates', methods=['GET'])
+def get_import_templates():
+    """Get all import mapping patterns with full details"""
+    try:
+        query = """
+            SELECT 
+                m.mapping_id, m.client_name, m.source_pattern,
+                m.regex_pattern, m.extraction_rules, m.confidence_score,
+                m.is_active, m.created_at, m.updated_at,
+                d.code as discipline_code, d.full_name as discipline_name,
+                c.code as category_code, c.full_name as category_name,
+                t.code as type_code, t.full_name as type_name
+            FROM import_mapping_patterns m
+            LEFT JOIN discipline_codes d ON m.target_discipline_id = d.discipline_id
+            LEFT JOIN category_codes c ON m.target_category_id = c.category_id
+            LEFT JOIN object_type_codes t ON m.target_type_id = t.type_id
+            ORDER BY m.confidence_score DESC, m.client_name, m.source_pattern
+        """
+        patterns = execute_query(query)
+        return jsonify({'patterns': patterns})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-templates/<int:mapping_id>', methods=['GET'])
+def get_import_template(mapping_id):
+    """Get a single import mapping pattern by ID"""
+    try:
+        query = """
+            SELECT 
+                m.mapping_id, m.client_name, m.source_pattern,
+                m.regex_pattern, m.extraction_rules, m.confidence_score,
+                m.is_active, m.created_at, m.updated_at,
+                m.target_discipline_id, m.target_category_id, m.target_type_id,
+                d.code as discipline_code, d.full_name as discipline_name,
+                c.code as category_code, c.full_name as category_name,
+                t.code as type_code, t.full_name as type_name
+            FROM import_mapping_patterns m
+            LEFT JOIN discipline_codes d ON m.target_discipline_id = d.discipline_id
+            LEFT JOIN category_codes c ON m.target_category_id = c.category_id
+            LEFT JOIN object_type_codes t ON m.target_type_id = t.type_id
+            WHERE m.mapping_id = %s
+        """
+        result = execute_query(query, (mapping_id,))
+        if result:
+            return jsonify({'pattern': result[0]})
+        else:
+            return jsonify({'error': 'Pattern not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-templates', methods=['POST'])
+def create_import_template():
+    """Create a new import mapping pattern"""
+    try:
+        data = request.get_json()
+        
+        # Get IDs for vocabulary codes if provided
+        discipline_id = None
+        category_id = None
+        type_id = None
+        
+        if data.get('discipline_code'):
+            result = execute_query(
+                "SELECT discipline_id FROM discipline_codes WHERE code = %s",
+                (data['discipline_code'],)
+            )
+            if result:
+                discipline_id = result[0]['discipline_id']
+        
+        if data.get('category_code') and discipline_id:
+            result = execute_query(
+                "SELECT category_id FROM category_codes WHERE code = %s AND discipline_id = %s",
+                (data['category_code'], discipline_id)
+            )
+            if result:
+                category_id = result[0]['category_id']
+        
+        if data.get('type_code') and category_id:
+            result = execute_query(
+                "SELECT type_id FROM object_type_codes WHERE code = %s AND category_id = %s",
+                (data['type_code'], category_id)
+            )
+            if result:
+                type_id = result[0]['type_id']
+        
+        query = """
+            INSERT INTO import_mapping_patterns
+            (client_name, source_pattern, regex_pattern, extraction_rules,
+             target_discipline_id, target_category_id, target_type_id, confidence_score)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING mapping_id
+        """
+        
+        params = (
+            data['client_name'],
+            data['source_pattern'],
+            data['regex_pattern'],
+            json.dumps(data.get('extraction_rules', {})),
+            discipline_id,
+            category_id,
+            type_id,
+            data.get('confidence_score', 80)
+        )
+        
+        result = execute_query(query, params)
+        if result:
+            return jsonify({'mapping_id': result[0]['mapping_id'], 'message': 'Pattern created successfully'}), 201
+        else:
+            return jsonify({'error': 'Failed to create pattern'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-templates/<int:mapping_id>', methods=['PUT'])
+def update_import_template(mapping_id):
+    """Update an existing import mapping pattern"""
+    try:
+        data = request.get_json()
+        
+        # Get IDs for vocabulary codes if provided
+        discipline_id = None
+        category_id = None
+        type_id = None
+        
+        if data.get('discipline_code'):
+            result = execute_query(
+                "SELECT discipline_id FROM discipline_codes WHERE code = %s",
+                (data['discipline_code'],)
+            )
+            if result:
+                discipline_id = result[0]['discipline_id']
+        
+        if data.get('category_code') and discipline_id:
+            result = execute_query(
+                "SELECT category_id FROM category_codes WHERE code = %s AND discipline_id = %s",
+                (data['category_code'], discipline_id)
+            )
+            if result:
+                category_id = result[0]['category_id']
+        
+        if data.get('type_code') and category_id:
+            result = execute_query(
+                "SELECT type_id FROM object_type_codes WHERE code = %s AND category_id = %s",
+                (data['type_code'], category_id)
+            )
+            if result:
+                type_id = result[0]['type_id']
+        
+        query = """
+            UPDATE import_mapping_patterns
+            SET client_name = %s,
+                source_pattern = %s,
+                regex_pattern = %s,
+                extraction_rules = %s,
+                target_discipline_id = %s,
+                target_category_id = %s,
+                target_type_id = %s,
+                confidence_score = %s,
+                is_active = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE mapping_id = %s
+        """
+        
+        params = (
+            data['client_name'],
+            data['source_pattern'],
+            data['regex_pattern'],
+            json.dumps(data.get('extraction_rules', {})),
+            discipline_id,
+            category_id,
+            type_id,
+            data.get('confidence_score', 80),
+            data.get('is_active', True),
+            mapping_id
+        )
+        
+        execute_query(query, params, fetch=False)
+        return jsonify({'message': 'Pattern updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-templates/<int:mapping_id>', methods=['DELETE'])
+def delete_import_template(mapping_id):
+    """Delete an import mapping pattern"""
+    try:
+        query = "DELETE FROM import_mapping_patterns WHERE mapping_id = %s"
+        execute_query(query, (mapping_id,), fetch=False)
+        return jsonify({'message': 'Pattern deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-templates/test', methods=['POST'])
+def test_import_template():
+    """Test a regex pattern against layer names"""
+    try:
+        data = request.get_json()
+        regex_pattern = data.get('regex_pattern')
+        test_names = data.get('test_names', [])
+        extraction_rules = data.get('extraction_rules', {})
+        
+        import re
+        results = []
+        
+        for layer_name in test_names:
+            try:
+                match = re.match(regex_pattern, layer_name, re.IGNORECASE)
+                if match:
+                    groups = match.groupdict()
+                    results.append({
+                        'layer_name': layer_name,
+                        'matched': True,
+                        'groups': groups,
+                        'full_match': match.group(0)
+                    })
+                else:
+                    results.append({
+                        'layer_name': layer_name,
+                        'matched': False
+                    })
+            except re.error as e:
+                return jsonify({'error': f'Invalid regex: {str(e)}'}), 400
+        
+        return jsonify({'results': results})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# BULK VOCABULARY EDITOR API ENDPOINTS
+# ============================================
+
+@app.route('/api/vocabulary/disciplines', methods=['POST'])
+def create_discipline():
+    """Create a new discipline code"""
+    try:
+        data = request.get_json()
+        query = """
+            INSERT INTO discipline_codes (code, full_name, description, sort_order)
+            VALUES (%s, %s, %s, %s)
+            RETURNING discipline_id
+        """
+        result = execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('sort_order', 100)))
+        return jsonify({'discipline_id': result[0]['discipline_id'], 'message': 'Discipline created'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/disciplines/<int:discipline_id>', methods=['PUT'])
+def update_discipline(discipline_id):
+    """Update a discipline code"""
+    try:
+        data = request.get_json()
+        query = """
+            UPDATE discipline_codes 
+            SET code = %s, full_name = %s, description = %s, sort_order = %s, is_active = %s
+            WHERE discipline_id = %s
+        """
+        execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('sort_order', 100), data.get('is_active', True), discipline_id), fetch=False)
+        return jsonify({'message': 'Discipline updated'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/disciplines/<int:discipline_id>', methods=['DELETE'])
+def delete_discipline(discipline_id):
+    """Delete a discipline code"""
+    try:
+        execute_query("DELETE FROM discipline_codes WHERE discipline_id = %s", (discipline_id,), fetch=False)
+        return jsonify({'message': 'Discipline deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/categories', methods=['POST'])
+def create_category():
+    """Create a new category code"""
+    try:
+        data = request.get_json()
+        query = """
+            INSERT INTO category_codes (discipline_id, code, full_name, description, sort_order)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING category_id
+        """
+        result = execute_query(query, (data['discipline_id'], data['code'], data['full_name'], data.get('description'), data.get('sort_order', 100)))
+        return jsonify({'category_id': result[0]['category_id'], 'message': 'Category created'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/categories/<int:category_id>', methods=['PUT'])
+def update_category(category_id):
+    """Update a category code"""
+    try:
+        data = request.get_json()
+        query = """
+            UPDATE category_codes 
+            SET code = %s, full_name = %s, description = %s, sort_order = %s, is_active = %s
+            WHERE category_id = %s
+        """
+        execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('sort_order', 100), data.get('is_active', True), category_id), fetch=False)
+        return jsonify({'message': 'Category updated'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/categories/<int:category_id>', methods={'DELETE'})
+def delete_category(category_id):
+    """Delete a category code"""
+    try:
+        execute_query("DELETE FROM category_codes WHERE category_id = %s", (category_id,), fetch=False)
+        return jsonify({'message': 'Category deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/object-types', methods=['POST'])
+def create_object_type():
+    """Create a new object type code"""
+    try:
+        data = request.get_json()
+        query = """
+            INSERT INTO object_type_codes (category_id, code, full_name, description, database_table, sort_order)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING type_id
+        """
+        result = execute_query(query, (data['category_id'], data['code'], data['full_name'], data.get('description'), data.get('database_table'), data.get('sort_order', 100)))
+        return jsonify({'type_id': result[0]['type_id'], 'message': 'Object type created'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/object-types/<int:type_id>', methods=['PUT'])
+def update_object_type(type_id):
+    """Update an object type code"""
+    try:
+        data = request.get_json()
+        query = """
+            UPDATE object_type_codes 
+            SET code = %s, full_name = %s, description = %s, database_table = %s, sort_order = %s, is_active = %s
+            WHERE type_id = %s
+        """
+        execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('database_table'), data.get('sort_order', 100), data.get('is_active', True), type_id), fetch=False)
+        return jsonify({'message': 'Object type updated'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/object-types/<int:type_id>', methods=['DELETE'])
+def delete_object_type(type_id):
+    """Delete an object type code"""
+    try:
+        execute_query("DELETE FROM object_type_codes WHERE type_id = %s", (type_id,), fetch=False)
+        return jsonify({'message': 'Object type deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/phases', methods=['POST'])
+def create_phase():
+    """Create a new phase code"""
+    try:
+        data = request.get_json()
+        query = """
+            INSERT INTO phase_codes (code, full_name, description, color_rgb, sort_order)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING phase_id
+        """
+        result = execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('color_rgb'), data.get('sort_order', 100)))
+        return jsonify({'phase_id': result[0]['phase_id'], 'message': 'Phase created'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/phases/<int:phase_id>', methods=['PUT'])
+def update_phase(phase_id):
+    """Update a phase code"""
+    try:
+        data = request.get_json()
+        query = """
+            UPDATE phase_codes 
+            SET code = %s, full_name = %s, description = %s, color_rgb = %s, sort_order = %s, is_active = %s
+            WHERE phase_id = %s
+        """
+        execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('color_rgb'), data.get('sort_order', 100), data.get('is_active', True), phase_id), fetch=False)
+        return jsonify({'message': 'Phase updated'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/phases/<int:phase_id>', methods=['DELETE'])
+def delete_phase(phase_id):
+    """Delete a phase code"""
+    try:
+        execute_query("DELETE FROM phase_codes WHERE phase_id = %s", (phase_id,), fetch=False)
+        return jsonify({'message': 'Phase deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/geometries', methods=['POST'])
+def create_geometry():
+    """Create a new geometry code"""
+    try:
+        data = request.get_json()
+        query = """
+            INSERT INTO geometry_codes (code, full_name, description, dxf_entity_types, sort_order)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING geometry_id
+        """
+        result = execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('dxf_entity_types'), data.get('sort_order', 100)))
+        return jsonify({'geometry_id': result[0]['geometry_id'], 'message': 'Geometry created'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/geometries/<int:geometry_id>', methods=['PUT'])
+def update_geometry(geometry_id):
+    """Update a geometry code"""
+    try:
+        data = request.get_json()
+        query = """
+            UPDATE geometry_codes 
+            SET code = %s, full_name = %s, description = %s, dxf_entity_types = %s, sort_order = %s, is_active = %s
+            WHERE geometry_id = %s
+        """
+        execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('dxf_entity_types'), data.get('sort_order', 100), data.get('is_active', True), geometry_id), fetch=False)
+        return jsonify({'message': 'Geometry updated'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/geometries/<int:geometry_id>', methods=['DELETE'])
+def delete_geometry(geometry_id):
+    """Delete a geometry code"""
+    try:
+        execute_query("DELETE FROM geometry_codes WHERE geometry_id = %s", (geometry_id,), fetch=False)
+        return jsonify({'message': 'Geometry deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/attributes')
+def get_attributes():
+    """Get all attribute codes"""
+    try:
+        query = """
+            SELECT attribute_id, code, full_name, attribute_category, description, pattern, is_active
+            FROM attribute_codes
+            WHERE is_active = TRUE
+            ORDER BY attribute_category, code
+        """
+        attributes = execute_query(query)
+        return jsonify({'attributes': attributes})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/attributes', methods=['POST'])
+def create_attribute():
+    """Create a new attribute code"""
+    try:
+        data = request.get_json()
+        query = """
+            INSERT INTO attribute_codes (code, full_name, attribute_category, description, pattern)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING attribute_id
+        """
+        result = execute_query(query, (data['code'], data['full_name'], data.get('attribute_category'), data.get('description'), data.get('pattern')))
+        return jsonify({'attribute_id': result[0]['attribute_id'], 'message': 'Attribute created'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/attributes/<int:attribute_id>', methods=['PUT'])
+def update_attribute(attribute_id):
+    """Update an attribute code"""
+    try:
+        data = request.get_json()
+        query = """
+            UPDATE attribute_codes 
+            SET code = %s, full_name = %s, attribute_category = %s, description = %s, pattern = %s, is_active = %s
+            WHERE attribute_id = %s
+        """
+        execute_query(query, (data['code'], data['full_name'], data.get('attribute_category'), data.get('description'), data.get('pattern'), data.get('is_active', True), attribute_id), fetch=False)
+        return jsonify({'message': 'Attribute updated'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/attributes/<int:attribute_id>', methods=['DELETE'])
+def delete_attribute(attribute_id):
+    """Delete an attribute code"""
+    try:
+        execute_query("DELETE FROM attribute_codes WHERE attribute_id = %s", (attribute_id,), fetch=False)
+        return jsonify({'message': 'Attribute deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
