@@ -2413,7 +2413,7 @@ def get_project_standards(project_id):
                     WHEN psa.standard_type = 'text_style' THEN ts.style_name
                     WHEN psa.standard_type = 'dimension_style' THEN ds.style_name
                     WHEN psa.standard_type = 'material' THEN ms.material_name
-                    WHEN psa.standard_type = 'detail' THEN d.detail_name
+                    WHEN psa.standard_type = 'detail' THEN d.detail_title
                     WHEN psa.standard_type = 'standard_note' THEN LEFT(sn.note_text, 50)
                 END as standard_name,
                 CASE 
@@ -2425,18 +2425,18 @@ def get_project_standards(project_id):
                     WHEN psa.standard_type = 'dimension_style' THEN ds.description
                     WHEN psa.standard_type = 'material' THEN ms.description
                     WHEN psa.standard_type = 'detail' THEN d.description
-                    WHEN psa.standard_type = 'standard_note' THEN sn.category
+                    WHEN psa.standard_type = 'standard_note' THEN sn.note_category
                 END as standard_description
             FROM project_standard_assignments psa
-            LEFT JOIN layers l ON psa.standard_type = 'layer' AND psa.standard_id = l.layer_id
-            LEFT JOIN blocks b ON psa.standard_type = 'block' AND psa.standard_id = b.block_id
-            LEFT JOIN hatch_patterns hp ON psa.standard_type = 'hatch' AND psa.standard_id = hp.hatch_id
-            LEFT JOIN linetypes lt ON psa.standard_type = 'linetype' AND psa.standard_id = lt.linetype_id
-            LEFT JOIN text_styles ts ON psa.standard_type = 'text_style' AND psa.standard_id = ts.style_id
-            LEFT JOIN dimension_styles ds ON psa.standard_type = 'dimension_style' AND psa.standard_id = ds.dimension_style_id
-            LEFT JOIN material_standards ms ON psa.standard_type = 'material' AND psa.standard_id = ms.material_id
-            LEFT JOIN details d ON psa.standard_type = 'detail' AND psa.standard_id = d.detail_id
-            LEFT JOIN standard_notes sn ON psa.standard_type = 'standard_note' AND psa.standard_id = sn.note_id
+            LEFT JOIN layer_standards l ON psa.standard_type = 'layer' AND psa.standard_id::uuid = l.layer_id
+            LEFT JOIN block_definitions b ON psa.standard_type = 'block' AND psa.standard_id::uuid = b.block_id
+            LEFT JOIN hatch_patterns hp ON psa.standard_type = 'hatch' AND psa.standard_id::uuid = hp.hatch_id
+            LEFT JOIN linetypes lt ON psa.standard_type = 'linetype' AND psa.standard_id::uuid = lt.linetype_id
+            LEFT JOIN text_styles ts ON psa.standard_type = 'text_style' AND psa.standard_id::uuid = ts.style_id
+            LEFT JOIN dimension_styles ds ON psa.standard_type = 'dimension_style' AND psa.standard_id::uuid = ds.dimension_style_id
+            LEFT JOIN material_standards ms ON psa.standard_type = 'material' AND psa.standard_id::uuid = ms.material_id
+            LEFT JOIN detail_standards d ON psa.standard_type = 'detail' AND psa.standard_id::uuid = d.detail_id
+            LEFT JOIN standard_notes sn ON psa.standard_type = 'standard_note' AND psa.standard_id::uuid = sn.note_id
             WHERE psa.project_id = %s
             ORDER BY psa.standard_type, standard_name
         """
