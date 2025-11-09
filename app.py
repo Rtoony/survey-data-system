@@ -517,6 +517,8 @@ def create_drawing():
         drawing_type = data.get('drawing_type')
         scale = data.get('scale')
         discipline = data.get('discipline')
+        drawing_tier = data.get('drawing_tier')
+        sheet_title = data.get('sheet_title')
 
         if not drawing_name:
             return jsonify({'error': 'drawing_name is required'}), 400
@@ -530,12 +532,12 @@ def create_drawing():
                     """
                     INSERT INTO drawings (
                         drawing_name, drawing_number, project_id, drawing_type, 
-                        scale, discipline, quality_score, tags, attributes
+                        scale, discipline, drawing_tier, sheet_title, quality_score, tags, attributes
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, 0.5, '{}', '{}')
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0.5, '{}', '{}')
                     RETURNING drawing_id, drawing_name, drawing_number, project_id, created_at
                     """,
-                    (drawing_name, drawing_number, project_id, drawing_type, scale, discipline)
+                    (drawing_name, drawing_number, project_id, drawing_type, scale, discipline, drawing_tier, sheet_title)
                 )
                 result = cur.fetchone()
                 conn.commit()
@@ -576,6 +578,7 @@ def update_drawing(drawing_id):
         drawing_type = data.get('drawing_type')
         scale = data.get('scale')
         discipline = data.get('discipline')
+        drawing_tier = data.get('drawing_tier')
         sheet_title = data.get('sheet_title')
 
         if not drawing_name:
@@ -592,12 +595,13 @@ def update_drawing(drawing_id):
                         drawing_type = %s, 
                         scale = %s, 
                         discipline = %s,
+                        drawing_tier = %s,
                         sheet_title = %s,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE drawing_id = %s
                     RETURNING drawing_id, drawing_name, drawing_number, project_id, updated_at
                     """,
-                    (drawing_name, drawing_number, project_id, drawing_type, scale, discipline, sheet_title, drawing_id)
+                    (drawing_name, drawing_number, project_id, drawing_type, scale, discipline, drawing_tier, sheet_title, drawing_id)
                 )
                 result = cur.fetchone()
                 if not result:
