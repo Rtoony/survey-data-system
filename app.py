@@ -1047,10 +1047,10 @@ def create_abbreviation():
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO abbreviation_standards (category, discipline, abbreviation, full_text, context_usage_notes)
+                    INSERT INTO abbreviation_standards (category, discipline, abbreviation, full_text, context_usage)
                     VALUES (%s, %s, %s, %s, %s)
                     RETURNING abbreviation_id
-                """, (data.get('discipline'), 'civil', data.get('abbreviation'), 
+                """, (data.get('category'), data.get('discipline', 'CIVIL'), data.get('abbreviation'), 
                       data.get('full_text'), data.get('description')))
                 abbreviation_id = cur.fetchone()[0]
                 conn.commit()
@@ -1070,9 +1070,9 @@ def update_abbreviation(abbreviation_id):
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE abbreviation_standards
-                    SET category = %s, abbreviation = %s, full_text = %s, context_usage_notes = %s
+                    SET category = %s, abbreviation = %s, full_text = %s, context_usage = %s
                     WHERE abbreviation_id = %s
-                """, (data.get('discipline'), data.get('abbreviation'), data.get('full_text'), 
+                """, (data.get('category'), data.get('abbreviation'), data.get('full_text'), 
                       data.get('description'), abbreviation_id))
                 conn.commit()
         
@@ -1140,16 +1140,16 @@ def import_abbreviations_csv():
                         # Update existing record
                         cur.execute("""
                             UPDATE abbreviation_standards
-                            SET full_text = %s, context_usage_notes = %s
+                            SET full_text = %s, context_usage = %s
                             WHERE abbreviation_id = %s
                         """, (full_text, context_notes, existing[0]))
                         updated_count += 1
                     else:
                         # Insert new record (discipline defaults to 'civil')
                         cur.execute("""
-                            INSERT INTO abbreviation_standards (category, discipline, abbreviation, full_text, context_usage_notes)
+                            INSERT INTO abbreviation_standards (category, discipline, abbreviation, full_text, context_usage)
                             VALUES (%s, %s, %s, %s, %s)
-                        """, (category, 'civil', abbreviation_text, full_text, context_notes))
+                        """, (category, 'CIVIL', abbreviation_text, full_text, context_notes))
                         imported_count += 1
                 
                 conn.commit()
@@ -1412,8 +1412,7 @@ def get_blocks():
     """Get all blocks"""
     try:
         query = """
-            SELECT block_id, block_name, block_type, category, 
-                   description, svg_content
+            SELECT block_id, block_name, block_type, category, description
             FROM block_definitions
             ORDER BY category, block_name
         """
@@ -1663,7 +1662,7 @@ def get_details():
     try:
         query = """
             SELECT detail_id, detail_number, detail_title, detail_category, 
-                   scale, description, usage_context, typical_application
+                   description, usage_context
             FROM detail_standards
             ORDER BY detail_category, detail_number
         """
@@ -1682,15 +1681,15 @@ def create_detail():
             with conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO detail_standards 
-                    (detail_number, detail_title, detail_category, scale, description)
+                    (detail_number, detail_title, detail_category, description, usage_context)
                     VALUES (%s, %s, %s, %s, %s)
                     RETURNING detail_id
                 """, (
                     data.get('detail_number'),
                     data.get('detail_title'),
                     data.get('detail_category'),
-                    data.get('scale'),
-                    data.get('description')
+                    data.get('description'),
+                    data.get('usage_context')
                 ))
                 detail_id = cur.fetchone()[0]
                 conn.commit()
@@ -1711,14 +1710,14 @@ def update_detail(detail_id):
                 cur.execute("""
                     UPDATE detail_standards
                     SET detail_number = %s, detail_title = %s, detail_category = %s, 
-                        scale = %s, description = %s
+                        description = %s, usage_context = %s
                     WHERE detail_id = %s
                 """, (
                     data.get('detail_number'),
                     data.get('detail_title'),
                     data.get('detail_category'),
-                    data.get('scale'),
                     data.get('description'),
+                    data.get('usage_context'),
                     detail_id
                 ))
                 conn.commit()
@@ -1788,16 +1787,16 @@ def import_details_csv():
                         # Update existing record
                         cur.execute("""
                             UPDATE detail_standards
-                            SET detail_title = %s, detail_category = %s, scale = %s, description = %s
+                            SET detail_title = %s, detail_category = %s, description = %s
                             WHERE detail_id = %s
-                        """, (detail_title, category, scale, description, existing[0]))
+                        """, (detail_title, category, description, existing[0]))
                         updated_count += 1
                     else:
                         # Insert new record
                         cur.execute("""
-                            INSERT INTO detail_standards (detail_number, detail_title, detail_category, scale, description)
-                            VALUES (%s, %s, %s, %s, %s)
-                        """, (detail_number, detail_title, category, scale, description))
+                            INSERT INTO detail_standards (detail_number, detail_title, detail_category, description)
+                            VALUES (%s, %s, %s, %s)
+                        """, (detail_number, detail_title, category, description))
                         imported_count += 1
                 
                 conn.commit()
@@ -1815,7 +1814,7 @@ def export_details_csv():
     """Export details to CSV file"""
     try:
         query = """
-            SELECT detail_number, detail_title, detail_category, scale, description
+            SELECT detail_number, detail_title, detail_category, description
             FROM detail_standards
             ORDER BY detail_category, detail_number
         """
@@ -1824,7 +1823,7 @@ def export_details_csv():
         # Create CSV in memory
         output = io.StringIO()
         if data:
-            fieldnames = ['Detail_Number', 'Detail_Title', 'Category', 'Scale', 'Description']
+            fieldnames = ['Detail_Number', 'Detail_Title', 'Category', 'Description']
             writer = csv.DictWriter(output, fieldnames=fieldnames)
             writer.writeheader()
             
@@ -1833,7 +1832,6 @@ def export_details_csv():
                     'Detail_Number': row.get('detail_number', ''),
                     'Detail_Title': row.get('detail_title', ''),
                     'Category': row.get('detail_category', ''),
-                    'Scale': row.get('scale', ''),
                     'Description': row.get('description', '')
                 })
         
