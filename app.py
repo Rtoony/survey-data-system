@@ -1036,6 +1036,266 @@ def get_drawing_scales():
 # DATA MANAGER API ENDPOINTS
 # ============================================
 
+# ============================================================================
+# CATEGORIES MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    """Get all categories, optionally filtered by standard_type"""
+    try:
+        standard_type = request.args.get('standard_type')
+        
+        if standard_type:
+            # Get categories filtered by standard type
+            query = """
+                SELECT DISTINCT sc.category_id, sc.category_code, sc.category_name, 
+                       sc.description, sc.sort_order, sc.is_active
+                FROM standard_categories sc
+                JOIN standard_category_applications sca ON sc.category_id = sca.category_id
+                WHERE sc.is_active = TRUE AND sca.standard_type = %s
+                ORDER BY sc.sort_order, sc.category_name
+            """
+            categories = execute_query(query, (standard_type,))
+        else:
+            # Get all categories
+            query = """
+                SELECT category_id, category_code, category_name, description, 
+                       sort_order, is_active, parent_category_id
+                FROM standard_categories
+                WHERE is_active = TRUE
+                ORDER BY sort_order, category_name
+            """
+            categories = execute_query(query)
+        
+        return jsonify({'categories': categories})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/categories', methods=['POST'])
+def create_category():
+    """Create a new category"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO standard_categories 
+                    (category_code, category_name, description, sort_order)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING category_id
+                """, (
+                    data.get('category_code').upper(),
+                    data.get('category_name'),
+                    data.get('description'),
+                    data.get('sort_order', 0)
+                ))
+                category_id = cur.fetchone()[0]
+                
+                # Add standard type applications if provided
+                if data.get('standard_types'):
+                    for std_type in data.get('standard_types'):
+                        cur.execute("""
+                            INSERT INTO standard_category_applications (category_id, standard_type)
+                            VALUES (%s, %s)
+                        """, (category_id, std_type))
+                
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'category_id': category_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/categories/<category_id>', methods=['PUT'])
+def update_category(category_id):
+    """Update an existing category"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE standard_categories
+                    SET category_code = %s, category_name = %s, description = %s, 
+                        sort_order = %s, is_active = %s
+                    WHERE category_id = %s
+                """, (
+                    data.get('category_code').upper(),
+                    data.get('category_name'),
+                    data.get('description'),
+                    data.get('sort_order', 0),
+                    data.get('is_active', True),
+                    category_id
+                ))
+                
+                # Update standard type applications if provided
+                if 'standard_types' in data:
+                    # Delete existing applications
+                    cur.execute("DELETE FROM standard_category_applications WHERE category_id = %s", (category_id,))
+                    # Add new applications
+                    for std_type in data.get('standard_types'):
+                        cur.execute("""
+                            INSERT INTO standard_category_applications (category_id, standard_type)
+                            VALUES (%s, %s)
+                        """, (category_id, std_type))
+                
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/categories/<category_id>', methods=['DELETE'])
+def delete_category(category_id):
+    """Delete a category (soft delete by setting is_active=false)"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE standard_categories 
+                    SET is_active = FALSE 
+                    WHERE category_id = %s
+                """, (category_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# DISCIPLINES MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/disciplines', methods=['GET'])
+def get_disciplines():
+    """Get all disciplines, optionally filtered by standard_type"""
+    try:
+        standard_type = request.args.get('standard_type')
+        
+        if standard_type:
+            # Get disciplines filtered by standard type
+            query = """
+                SELECT DISTINCT sd.discipline_id, sd.discipline_code, sd.discipline_name, 
+                       sd.description, sd.sort_order, sd.is_active
+                FROM standard_disciplines sd
+                JOIN standard_discipline_applications sda ON sd.discipline_id = sda.discipline_id
+                WHERE sd.is_active = TRUE AND sda.standard_type = %s
+                ORDER BY sd.sort_order, sd.discipline_name
+            """
+            disciplines = execute_query(query, (standard_type,))
+        else:
+            # Get all disciplines
+            query = """
+                SELECT discipline_id, discipline_code, discipline_name, description, 
+                       sort_order, is_active
+                FROM standard_disciplines
+                WHERE is_active = TRUE
+                ORDER BY sort_order, discipline_name
+            """
+            disciplines = execute_query(query)
+        
+        return jsonify({'disciplines': disciplines})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/disciplines', methods=['POST'])
+def create_discipline():
+    """Create a new discipline"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO standard_disciplines 
+                    (discipline_code, discipline_name, description, sort_order)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING discipline_id
+                """, (
+                    data.get('discipline_code').upper(),
+                    data.get('discipline_name'),
+                    data.get('description'),
+                    data.get('sort_order', 0)
+                ))
+                discipline_id = cur.fetchone()[0]
+                
+                # Add standard type applications if provided
+                if data.get('standard_types'):
+                    for std_type in data.get('standard_types'):
+                        cur.execute("""
+                            INSERT INTO standard_discipline_applications (discipline_id, standard_type)
+                            VALUES (%s, %s)
+                        """, (discipline_id, std_type))
+                
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'discipline_id': discipline_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/disciplines/<discipline_id>', methods=['PUT'])
+def update_discipline(discipline_id):
+    """Update an existing discipline"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE standard_disciplines
+                    SET discipline_code = %s, discipline_name = %s, description = %s, 
+                        sort_order = %s, is_active = %s
+                    WHERE discipline_id = %s
+                """, (
+                    data.get('discipline_code').upper(),
+                    data.get('discipline_name'),
+                    data.get('description'),
+                    data.get('sort_order', 0),
+                    data.get('is_active', True),
+                    discipline_id
+                ))
+                
+                # Update standard type applications if provided
+                if 'standard_types' in data:
+                    # Delete existing applications
+                    cur.execute("DELETE FROM standard_discipline_applications WHERE discipline_id = %s", (discipline_id,))
+                    # Add new applications
+                    for std_type in data.get('standard_types'):
+                        cur.execute("""
+                            INSERT INTO standard_discipline_applications (discipline_id, standard_type)
+                            VALUES (%s, %s)
+                        """, (discipline_id, std_type))
+                
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/disciplines/<discipline_id>', methods=['DELETE'])
+def delete_discipline(discipline_id):
+    """Delete a discipline (soft delete by setting is_active=false)"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE standard_disciplines 
+                    SET is_active = FALSE 
+                    WHERE discipline_id = %s
+                """, (discipline_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ABBREVIATIONS CRUD
 
 @app.route('/api/data-manager/abbreviations', methods=['POST'])
