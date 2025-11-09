@@ -9316,201 +9316,580 @@ def test_import_template():
         return jsonify({'error': str(e)}), 500
 
 # ============================================
-# BULK VOCABULARY EDITOR API ENDPOINTS
+# VOCABULARY CRUD API ENDPOINTS (PRODUCTION-READY)
 # ============================================
+
+def invalidate_classifier_cache():
+    """Reload LayerClassifierV3 cache after vocabulary changes"""
+    try:
+        from standards.layer_classifier_v3 import LayerClassifierV3
+        classifier = LayerClassifierV3()
+        classifier.reload_codes()
+    except Exception as e:
+        print(f"Warning: Failed to reload classifier cache: {e}")
+
+# ===== DISCIPLINES =====
 
 @app.route('/api/vocabulary/disciplines', methods=['POST'])
 def create_vocabulary_discipline():
-    """Create a new discipline code (legacy vocabulary table)"""
+    """Create a new discipline code with validation"""
     try:
         data = request.get_json()
+        
+        if not data.get('code') or not data.get('full_name'):
+            return jsonify({'error': 'Code and full_name are required'}), 400
+        
+        code = data['code'].upper().strip()
+        if len(code) > 20:
+            return jsonify({'error': 'Code must be 20 characters or less'}), 400
+        
+        check_query = "SELECT discipline_id FROM discipline_codes WHERE UPPER(code) = %s"
+        existing = execute_query(check_query, (code,))
+        if existing:
+            return jsonify({'error': f'Discipline code {code} already exists'}), 409
+        
         query = """
-            INSERT INTO discipline_codes (code, full_name, description, sort_order)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO discipline_codes (code, full_name, description, sort_order, is_active)
+            VALUES (%s, %s, %s, %s, %s)
             RETURNING discipline_id
         """
-        result = execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('sort_order', 100)))
-        return jsonify({'discipline_id': result[0]['discipline_id'], 'message': 'Discipline created'}), 201
+        result = execute_query(query, (
+            code,
+            data['full_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True)
+        ))
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({
+            'discipline_id': result[0]['discipline_id'],
+            'message': f'Discipline {code} created successfully'
+        }), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/disciplines/<int:discipline_id>', methods=['PUT'])
 def update_vocabulary_discipline(discipline_id):
-    """Update a discipline code (legacy vocabulary table)"""
+    """Update a discipline code with validation"""
     try:
         data = request.get_json()
+        
+        if not data.get('code') or not data.get('full_name'):
+            return jsonify({'error': 'Code and full_name are required'}), 400
+        
+        code = data['code'].upper().strip()
+        if len(code) > 20:
+            return jsonify({'error': 'Code must be 20 characters or less'}), 400
+        
+        check_query = """
+            SELECT discipline_id FROM discipline_codes 
+            WHERE UPPER(code) = %s AND discipline_id != %s
+        """
+        existing = execute_query(check_query, (code, discipline_id))
+        if existing:
+            return jsonify({'error': f'Discipline code {code} already exists'}), 409
+        
         query = """
             UPDATE discipline_codes 
             SET code = %s, full_name = %s, description = %s, sort_order = %s, is_active = %s
             WHERE discipline_id = %s
+            RETURNING discipline_id
         """
-        execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('sort_order', 100), data.get('is_active', True), discipline_id), fetch=False)
-        return jsonify({'message': 'Discipline updated'})
+        result = execute_query(query, (
+            code,
+            data['full_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True),
+            discipline_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Discipline not found'}), 404
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({'message': f'Discipline {code} updated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/disciplines/<int:discipline_id>', methods=['DELETE'])
 def delete_vocabulary_discipline(discipline_id):
-    """Delete a discipline code (legacy vocabulary table)"""
+    """Delete a discipline code with dependency checking"""
     try:
+        exists_query = "SELECT discipline_id FROM discipline_codes WHERE discipline_id = %s"
+        exists = execute_query(exists_query, (discipline_id,))
+        if not exists:
+            return jsonify({'error': 'Discipline not found'}), 404
+        
+        dep_query = """
+            SELECT COUNT(*) as count FROM category_codes WHERE discipline_id = %s
+        """
+        deps = execute_query(dep_query, (discipline_id,))
+        if deps[0]['count'] > 0:
+            return jsonify({'error': f'Cannot delete discipline: {deps[0]["count"]} categories depend on it'}), 409
+        
         execute_query("DELETE FROM discipline_codes WHERE discipline_id = %s", (discipline_id,), fetch=False)
-        return jsonify({'message': 'Discipline deleted'})
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({'message': 'Discipline deleted successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== CATEGORIES =====
+
 @app.route('/api/vocabulary/categories', methods=['POST'])
 def create_vocabulary_category():
-    """Create a new category code (legacy vocabulary table)"""
+    """Create a new category code with validation"""
     try:
         data = request.get_json()
+        
+        if not data.get('code') or not data.get('full_name') or not data.get('discipline_id'):
+            return jsonify({'error': 'Code, full_name, and discipline_id are required'}), 400
+        
+        code = data['code'].upper().strip()
+        if len(code) > 20:
+            return jsonify({'error': 'Code must be 20 characters or less'}), 400
+        
+        disc_query = "SELECT discipline_id FROM discipline_codes WHERE discipline_id = %s"
+        disc_exists = execute_query(disc_query, (data['discipline_id'],))
+        if not disc_exists:
+            return jsonify({'error': 'Invalid discipline_id'}), 400
+        
+        check_query = """
+            SELECT category_id FROM category_codes 
+            WHERE UPPER(code) = %s AND discipline_id = %s
+        """
+        existing = execute_query(check_query, (code, data['discipline_id']))
+        if existing:
+            return jsonify({'error': f'Category code {code} already exists for this discipline'}), 409
+        
         query = """
-            INSERT INTO category_codes (discipline_id, code, full_name, description, sort_order)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO category_codes (discipline_id, code, full_name, description, sort_order, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING category_id
         """
-        result = execute_query(query, (data['discipline_id'], data['code'], data['full_name'], data.get('description'), data.get('sort_order', 100)))
-        return jsonify({'category_id': result[0]['category_id'], 'message': 'Category created'}), 201
+        result = execute_query(query, (
+            data['discipline_id'],
+            code,
+            data['full_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True)
+        ))
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({
+            'category_id': result[0]['category_id'],
+            'message': f'Category {code} created successfully'
+        }), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/categories/<int:category_id>', methods=['PUT'])
 def update_vocabulary_category(category_id):
-    """Update a category code (legacy vocabulary table)"""
+    """Update a category code with validation"""
     try:
         data = request.get_json()
+        
+        if not data.get('code') or not data.get('full_name'):
+            return jsonify({'error': 'Code and full_name are required'}), 400
+        
+        code = data['code'].upper().strip()
+        if len(code) > 20:
+            return jsonify({'error': 'Code must be 20 characters or less'}), 400
+        
+        current_query = "SELECT discipline_id FROM category_codes WHERE category_id = %s"
+        current = execute_query(current_query, (category_id,))
+        if not current:
+            return jsonify({'error': 'Category not found'}), 404
+        
+        check_query = """
+            SELECT category_id FROM category_codes 
+            WHERE UPPER(code) = %s AND discipline_id = %s AND category_id != %s
+        """
+        existing = execute_query(check_query, (code, current[0]['discipline_id'], category_id))
+        if existing:
+            return jsonify({'error': f'Category code {code} already exists for this discipline'}), 409
+        
         query = """
             UPDATE category_codes 
             SET code = %s, full_name = %s, description = %s, sort_order = %s, is_active = %s
             WHERE category_id = %s
+            RETURNING category_id
         """
-        execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('sort_order', 100), data.get('is_active', True), category_id), fetch=False)
-        return jsonify({'message': 'Category updated'})
+        result = execute_query(query, (
+            code,
+            data['full_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True),
+            category_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Category not found'}), 404
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({'message': f'Category {code} updated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/vocabulary/categories/<int:category_id>', methods={'DELETE'})
+@app.route('/api/vocabulary/categories/<int:category_id>', methods=['DELETE'])
 def delete_vocabulary_category(category_id):
-    """Delete a category code (legacy vocabulary table)"""
+    """Delete a category code with dependency checking"""
     try:
+        exists_query = "SELECT category_id FROM category_codes WHERE category_id = %s"
+        exists = execute_query(exists_query, (category_id,))
+        if not exists:
+            return jsonify({'error': 'Category not found'}), 404
+        
+        dep_query = """
+            SELECT COUNT(*) as count FROM object_type_codes WHERE category_id = %s
+        """
+        deps = execute_query(dep_query, (category_id,))
+        if deps[0]['count'] > 0:
+            return jsonify({'error': f'Cannot delete category: {deps[0]["count"]} object types depend on it'}), 409
+        
         execute_query("DELETE FROM category_codes WHERE category_id = %s", (category_id,), fetch=False)
-        return jsonify({'message': 'Category deleted'})
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({'message': 'Category deleted successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ===== OBJECT TYPES =====
 
 @app.route('/api/vocabulary/object-types', methods=['POST'])
 def create_object_type():
-    """Create a new object type code"""
+    """Create a new object type code with validation"""
     try:
         data = request.get_json()
+        
+        if not data.get('code') or not data.get('full_name') or not data.get('category_id'):
+            return jsonify({'error': 'Code, full_name, and category_id are required'}), 400
+        
+        code = data['code'].upper().strip()
+        if len(code) > 20:
+            return jsonify({'error': 'Code must be 20 characters or less'}), 400
+        
+        cat_query = "SELECT category_id FROM category_codes WHERE category_id = %s"
+        cat_exists = execute_query(cat_query, (data['category_id'],))
+        if not cat_exists:
+            return jsonify({'error': 'Invalid category_id'}), 400
+        
+        check_query = """
+            SELECT type_id FROM object_type_codes 
+            WHERE UPPER(code) = %s AND category_id = %s
+        """
+        existing = execute_query(check_query, (code, data['category_id']))
+        if existing:
+            return jsonify({'error': f'Object type code {code} already exists for this category'}), 409
+        
         query = """
-            INSERT INTO object_type_codes (category_id, code, full_name, description, database_table, sort_order)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO object_type_codes (category_id, code, full_name, description, database_table, sort_order, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING type_id
         """
-        result = execute_query(query, (data['category_id'], data['code'], data['full_name'], data.get('description'), data.get('database_table'), data.get('sort_order', 100)))
-        return jsonify({'type_id': result[0]['type_id'], 'message': 'Object type created'}), 201
+        result = execute_query(query, (
+            data['category_id'],
+            code,
+            data['full_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('database_table', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True)
+        ))
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({
+            'type_id': result[0]['type_id'],
+            'message': f'Object type {code} created successfully'
+        }), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/object-types/<int:type_id>', methods=['PUT'])
 def update_object_type(type_id):
-    """Update an object type code"""
+    """Update an object type code with validation"""
     try:
         data = request.get_json()
+        
+        if not data.get('code') or not data.get('full_name'):
+            return jsonify({'error': 'Code and full_name are required'}), 400
+        
+        code = data['code'].upper().strip()
+        if len(code) > 20:
+            return jsonify({'error': 'Code must be 20 characters or less'}), 400
+        
+        current_query = "SELECT category_id FROM object_type_codes WHERE type_id = %s"
+        current = execute_query(current_query, (type_id,))
+        if not current:
+            return jsonify({'error': 'Object type not found'}), 404
+        
+        check_query = """
+            SELECT type_id FROM object_type_codes 
+            WHERE UPPER(code) = %s AND category_id = %s AND type_id != %s
+        """
+        existing = execute_query(check_query, (code, current[0]['category_id'], type_id))
+        if existing:
+            return jsonify({'error': f'Object type code {code} already exists for this category'}), 409
+        
         query = """
             UPDATE object_type_codes 
             SET code = %s, full_name = %s, description = %s, database_table = %s, sort_order = %s, is_active = %s
             WHERE type_id = %s
+            RETURNING type_id
         """
-        execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('database_table'), data.get('sort_order', 100), data.get('is_active', True), type_id), fetch=False)
-        return jsonify({'message': 'Object type updated'})
+        result = execute_query(query, (
+            code,
+            data['full_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('database_table', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True),
+            type_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Object type not found'}), 404
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({'message': f'Object type {code} updated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/object-types/<int:type_id>', methods=['DELETE'])
 def delete_object_type(type_id):
-    """Delete an object type code"""
+    """Delete an object type code (soft delete - mark inactive)"""
     try:
-        execute_query("DELETE FROM object_type_codes WHERE type_id = %s", (type_id,), fetch=False)
-        return jsonify({'message': 'Object type deleted'})
+        query = "UPDATE object_type_codes SET is_active = FALSE WHERE type_id = %s RETURNING type_id"
+        result = execute_query(query, (type_id,))
+        
+        if not result:
+            return jsonify({'error': 'Object type not found'}), 404
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({'message': 'Object type deactivated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== PHASES =====
+
 @app.route('/api/vocabulary/phases', methods=['POST'])
 def create_phase():
-    """Create a new phase code"""
+    """Create a new phase code with validation"""
     try:
         data = request.get_json()
+        
+        if not data.get('code') or not data.get('full_name'):
+            return jsonify({'error': 'Code and full_name are required'}), 400
+        
+        code = data['code'].upper().strip()
+        if len(code) > 20:
+            return jsonify({'error': 'Code must be 20 characters or less'}), 400
+        
+        check_query = "SELECT phase_id FROM phase_codes WHERE UPPER(code) = %s"
+        existing = execute_query(check_query, (code,))
+        if existing:
+            return jsonify({'error': f'Phase code {code} already exists'}), 409
+        
         query = """
-            INSERT INTO phase_codes (code, full_name, description, color_rgb, sort_order)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO phase_codes (code, full_name, description, color_rgb, sort_order, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING phase_id
         """
-        result = execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('color_rgb'), data.get('sort_order', 100)))
-        return jsonify({'phase_id': result[0]['phase_id'], 'message': 'Phase created'}), 201
+        result = execute_query(query, (
+            code,
+            data['full_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('color_rgb', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True)
+        ))
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({
+            'phase_id': result[0]['phase_id'],
+            'message': f'Phase {code} created successfully'
+        }), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/phases/<int:phase_id>', methods=['PUT'])
 def update_phase(phase_id):
-    """Update a phase code"""
+    """Update a phase code with validation"""
     try:
         data = request.get_json()
+        
+        if not data.get('code') or not data.get('full_name'):
+            return jsonify({'error': 'Code and full_name are required'}), 400
+        
+        code = data['code'].upper().strip()
+        if len(code) > 20:
+            return jsonify({'error': 'Code must be 20 characters or less'}), 400
+        
+        check_query = """
+            SELECT phase_id FROM phase_codes 
+            WHERE UPPER(code) = %s AND phase_id != %s
+        """
+        existing = execute_query(check_query, (code, phase_id))
+        if existing:
+            return jsonify({'error': f'Phase code {code} already exists'}), 409
+        
         query = """
             UPDATE phase_codes 
             SET code = %s, full_name = %s, description = %s, color_rgb = %s, sort_order = %s, is_active = %s
             WHERE phase_id = %s
+            RETURNING phase_id
         """
-        execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('color_rgb'), data.get('sort_order', 100), data.get('is_active', True), phase_id), fetch=False)
-        return jsonify({'message': 'Phase updated'})
+        result = execute_query(query, (
+            code,
+            data['full_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('color_rgb', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True),
+            phase_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Phase not found'}), 404
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({'message': f'Phase {code} updated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/phases/<int:phase_id>', methods=['DELETE'])
 def delete_phase(phase_id):
-    """Delete a phase code"""
+    """Delete a phase code (soft delete - mark inactive)"""
     try:
-        execute_query("DELETE FROM phase_codes WHERE phase_id = %s", (phase_id,), fetch=False)
-        return jsonify({'message': 'Phase deleted'})
+        query = "UPDATE phase_codes SET is_active = FALSE WHERE phase_id = %s RETURNING phase_id"
+        result = execute_query(query, (phase_id,))
+        
+        if not result:
+            return jsonify({'error': 'Phase not found'}), 404
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({'message': 'Phase deactivated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== GEOMETRIES =====
+
 @app.route('/api/vocabulary/geometries', methods=['POST'])
 def create_geometry():
-    """Create a new geometry code"""
+    """Create a new geometry code with validation"""
     try:
         data = request.get_json()
+        
+        if not data.get('code') or not data.get('full_name'):
+            return jsonify({'error': 'Code and full_name are required'}), 400
+        
+        code = data['code'].upper().strip()
+        if len(code) > 20:
+            return jsonify({'error': 'Code must be 20 characters or less'}), 400
+        
+        check_query = "SELECT geometry_id FROM geometry_codes WHERE UPPER(code) = %s"
+        existing = execute_query(check_query, (code,))
+        if existing:
+            return jsonify({'error': f'Geometry code {code} already exists'}), 409
+        
         query = """
-            INSERT INTO geometry_codes (code, full_name, description, dxf_entity_types, sort_order)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO geometry_codes (code, full_name, description, dxf_entity_types, sort_order, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING geometry_id
         """
-        result = execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('dxf_entity_types'), data.get('sort_order', 100)))
-        return jsonify({'geometry_id': result[0]['geometry_id'], 'message': 'Geometry created'}), 201
+        result = execute_query(query, (
+            code,
+            data['full_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('dxf_entity_types', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True)
+        ))
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({
+            'geometry_id': result[0]['geometry_id'],
+            'message': f'Geometry {code} created successfully'
+        }), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/geometries/<int:geometry_id>', methods=['PUT'])
 def update_geometry(geometry_id):
-    """Update a geometry code"""
+    """Update a geometry code with validation"""
     try:
         data = request.get_json()
+        
+        if not data.get('code') or not data.get('full_name'):
+            return jsonify({'error': 'Code and full_name are required'}), 400
+        
+        code = data['code'].upper().strip()
+        if len(code) > 20:
+            return jsonify({'error': 'Code must be 20 characters or less'}), 400
+        
+        check_query = """
+            SELECT geometry_id FROM geometry_codes 
+            WHERE UPPER(code) = %s AND geometry_id != %s
+        """
+        existing = execute_query(check_query, (code, geometry_id))
+        if existing:
+            return jsonify({'error': f'Geometry code {code} already exists'}), 409
+        
         query = """
             UPDATE geometry_codes 
             SET code = %s, full_name = %s, description = %s, dxf_entity_types = %s, sort_order = %s, is_active = %s
             WHERE geometry_id = %s
+            RETURNING geometry_id
         """
-        execute_query(query, (data['code'], data['full_name'], data.get('description'), data.get('dxf_entity_types'), data.get('sort_order', 100), data.get('is_active', True), geometry_id), fetch=False)
-        return jsonify({'message': 'Geometry updated'})
+        result = execute_query(query, (
+            code,
+            data['full_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('dxf_entity_types', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True),
+            geometry_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Geometry not found'}), 404
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({'message': f'Geometry {code} updated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/geometries/<int:geometry_id>', methods=['DELETE'])
 def delete_geometry(geometry_id):
-    """Delete a geometry code"""
+    """Delete a geometry code (soft delete - mark inactive)"""
     try:
-        execute_query("DELETE FROM geometry_codes WHERE geometry_id = %s", (geometry_id,), fetch=False)
-        return jsonify({'message': 'Geometry deleted'})
+        query = "UPDATE geometry_codes SET is_active = FALSE WHERE geometry_id = %s RETURNING geometry_id"
+        result = execute_query(query, (geometry_id,))
+        
+        if not result:
+            return jsonify({'error': 'Geometry not found'}), 404
+        
+        invalidate_classifier_cache()
+        
+        return jsonify({'message': 'Geometry deactivated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
