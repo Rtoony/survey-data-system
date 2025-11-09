@@ -1,95 +1,70 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hatch Pattern Standards - ACAD-GIS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="grid-background">
-    <header class="header">
-        <div class="header-content">
-            <div class="header-title">
-                <i class="fas fa-ruler-combined neon-cyan"></i>
-                <div>
-                    <h1 class="orbitron">ACAD-GIS CAD Standards Portal</h1>
-                    <div class="header-subtitle">Engineering Design Standards Reference</div>
-                </div>
-            </div>
-            <nav class="nav">
-                <a href="/standards"><i class="fas fa-home"></i> Standards</a>
-                <a href="/standards/layers"><i class="fas fa-layer-group"></i> Layers</a>
-                <a href="/standards/blocks"><i class="fas fa-cubes"></i> Blocks</a>
-                <a href="/standards/colors"><i class="fas fa-palette"></i> Colors</a>
-                <a href="/"><i class="fas fa-database"></i> Schema</a>
-            </nav>
-        </div>
-    </header>
+{% extends 'base.html' %}
 
-    <main class="main-content">
-        <div class="container">
-            <div class="panel">
-                <div class="panel-header">
-                    <div><i class="fas fa-fill-drip neon-cyan"></i><h2>Hatch Pattern Standards</h2></div>
-                    <div id="hatch-count" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
-                </div>
-                <div class="panel-body">
-                    <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
-                        Standard hatch patterns for representing materials and surfaces.
-                    </p>
-                    <div id="hatches-container">
-                        <div class="loading-spinner">
-                            <i class="fas fa-spinner fa-spin neon-cyan"></i>
-                            <p>Loading hatch pattern standards...</p>
-                        </div>
-                    </div>
+{% block title %}Hatch Pattern Standards{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="panel">
+        <div class="panel-header">
+            <div><i class="fas fa-fill-drip neon-cyan"></i><h2>Hatch Pattern Standards</h2></div>
+            <div id="hatch-count" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
+        </div>
+        <div class="panel-body">
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                Standard hatch patterns for representing materials and surfaces.
+            </p>
+            <div id="hatches-container">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin neon-cyan"></i>
+                    <p>Loading hatch pattern standards...</p>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+</div>
+{% endblock %}
 
-    <script>
-        async function loadHatches() {
-            try {
-                const response = await fetch('/api/standards/hatches');
-                const hatches = await response.json();
-                if (hatches.error) throw new Error(hatches.error);
+{% block scripts %}
+<script>
+    async function loadHatches() {
+        try {
+            const response = await fetch('/api/standards/hatches');
+            const hatches = await response.json();
+            if (hatches.error) throw new Error(hatches.error);
 
-                document.getElementById('hatch-count').textContent = `${hatches.length} hatch patterns`;
+            document.getElementById('hatch-count').textContent = `${hatches.length} hatch patterns`;
 
-                const container = document.getElementById('hatches-container');
-                container.innerHTML = `
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem;">
-                        ${hatches.map(hatch => `
-                            <div style="background: rgba(0, 28, 48, 0.6); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
-                                ${hatch.svg_preview ? `
-                                    <div style="background: white; border-radius: 4px; padding: 1rem; margin-bottom: 1rem; min-height: 100px; display: flex; align-items: center; justify-content: center;">
-                                        ${hatch.svg_preview}
-                                    </div>
-                                ` : ''}
-                                <div style="font-weight: bold; color: var(--cyan); font-size: 1.1rem; margin-bottom: 0.5rem;">${hatch.pattern_name}</div>
-                                ${hatch.pattern_type ? `<div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem;">Type: ${hatch.pattern_type}</div>` : ''}
-                                ${hatch.material_type ? `<div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem;">Material: ${hatch.material_type}</div>` : ''}
-                                ${hatch.description ? `<div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">${hatch.description}</div>` : ''}
-                                ${hatch.usage_context ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;"><strong>Usage:</strong> ${hatch.usage_context}</div>` : ''}
-                                <div style="margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
-                                    Angle: ${hatch.angle || '0'}° | Scale: ${hatch.scale || '1.0'}
+            const container = document.getElementById('hatches-container');
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem;">
+                    ${hatches.map(hatch => `
+                        <div style="background: rgba(0, 28, 48, 0.6); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                            ${hatch.svg_preview ? `
+                                <div style="background: white; border-radius: 4px; padding: 1rem; margin-bottom: 1rem; min-height: 100px; display: flex; align-items: center; justify-content: center;">
+                                    ${hatch.svg_preview}
                                 </div>
+                            ` : ''}
+                            <div style="font-weight: bold; color: var(--cyan); font-size: 1.1rem; margin-bottom: 0.5rem;">${hatch.pattern_name}</div>
+                            ${hatch.pattern_type ? `<div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem;">Type: ${hatch.pattern_type}</div>` : ''}
+                            ${hatch.material_type ? `<div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem;">Material: ${hatch.material_type}</div>` : ''}
+                            ${hatch.description ? `<div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">${hatch.description}</div>` : ''}
+                            ${hatch.usage_context ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;"><strong>Usage:</strong> ${hatch.usage_context}</div>` : ''}
+                            <div style="margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
+                                Angle: ${hatch.angle || '0'}° | Scale: ${hatch.scale || '1.0'}
                             </div>
-                        `).join('')}
-                    </div>
-                `;
-            } catch (error) {
-                document.getElementById('hatches-container').innerHTML = `
-                    <div class="error-message">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>Failed to load hatch pattern standards: ${error.message}</p>
-                    </div>
-                `;
-            }
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            document.getElementById('hatches-container').innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Failed to load hatch pattern standards: ${error.message}</p>
+                </div>
+            `;
         }
-        loadHatches();
-    </script>
-</body>
-</html>
+    }
+    loadHatches();
+</script>
+{% endblock %}

@@ -1,136 +1,110 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Standard Details - ACAD-GIS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="grid-background">
-    <header class="header">
-        <div class="header-content">
-            <div class="header-title">
-                <i class="fas fa-ruler-combined neon-cyan"></i>
-                <div>
-                    <h1 class="orbitron">ACAD-GIS CAD Standards Portal</h1>
-                    <div class="header-subtitle">Engineering Design Standards Reference</div>
-                </div>
-            </div>
-            <nav class="nav">
-                <a href="/standards"><i class="fas fa-home"></i> Standards</a>
-                <a href="/standards/layers"><i class="fas fa-layer-group"></i> Layers</a>
-                <a href="/standards/blocks"><i class="fas fa-cubes"></i> Blocks</a>
-                <a href="/standards/colors"><i class="fas fa-palette"></i> Colors</a>
-                <a href="/"><i class="fas fa-database"></i> Schema</a>
-            </nav>
-        </div>
-    </header>
+{% extends 'base.html' %}
 
-    <main class="main-content">
-        <div class="container">
-            <div class="panel">
-                <div class="panel-header">
-                    <div><i class="fas fa-drafting-compass neon-cyan"></i><h2>Standard Details</h2></div>
-                    <div id="detail-count" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
-                </div>
-                <div class="panel-body">
-                    <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
-                        Standard construction details with specifications, applicable layers, and code references.
-                    </p>
-                    <div id="details-container">
-                        <div class="loading-spinner">
-                            <i class="fas fa-spinner fa-spin neon-cyan"></i>
-                            <p>Loading standard details...</p>
-                        </div>
-                    </div>
+{% block title %}Standard Details{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="panel">
+        <div class="panel-header">
+            <div><i class="fas fa-drafting-compass neon-cyan"></i><h2>Standard Details</h2></div>
+            <div id="detail-count" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
+        </div>
+        <div class="panel-body">
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                Standard construction details with specifications, applicable layers, and code references.
+            </p>
+            <div id="details-container">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin neon-cyan"></i>
+                    <p>Loading standard details...</p>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+</div>
+{% endblock %}
 
-    <script>
-        async function loadDetails() {
-            try {
-                const response = await fetch('/api/standards/details');
-                const details = await response.json();
-                if (details.error) throw new Error(details.error);
+{% block scripts %}
+<script>
+    async function loadDetails() {
+        try {
+            const response = await fetch('/api/standards/details');
+            const details = await response.json();
+            if (details.error) throw new Error(details.error);
 
-                document.getElementById('detail-count').textContent = `${details.length} standard details`;
+            document.getElementById('detail-count').textContent = `${details.length} standard details`;
 
-                // Group by category
-                const grouped = {};
-                details.forEach(detail => {
-                    const category = detail.detail_category || 'General';
-                    if (!grouped[category]) grouped[category] = [];
-                    grouped[category].push(detail);
-                });
+            const grouped = {};
+            details.forEach(detail => {
+                const category = detail.detail_category || 'General';
+                if (!grouped[category]) grouped[category] = [];
+                grouped[category].push(detail);
+            });
 
-                const container = document.getElementById('details-container');
-                container.innerHTML = '';
+            const container = document.getElementById('details-container');
+            container.innerHTML = '';
 
-                Object.keys(grouped).sort().forEach(category => {
-                    const section = document.createElement('div');
-                    section.style.marginBottom = '2.5rem';
-                    
-                    const title = document.createElement('h3');
-                    title.className = 'orbitron';
-                    title.style.color = 'var(--cyan)';
-                    title.style.marginBottom = '1rem';
-                    title.innerHTML = `<i class="fas fa-folder"></i> ${category}`;
-                    section.appendChild(title);
+            Object.keys(grouped).sort().forEach(category => {
+                const section = document.createElement('div');
+                section.style.marginBottom = '2.5rem';
+                
+                const title = document.createElement('h3');
+                title.className = 'orbitron';
+                title.style.color = 'var(--cyan)';
+                title.style.marginBottom = '1rem';
+                title.innerHTML = `<i class="fas fa-folder"></i> ${category}`;
+                section.appendChild(title);
 
-                    const grid = document.createElement('div');
-                    grid.style.display = 'grid';
-                    grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(350px, 1fr))';
-                    grid.style.gap = '1rem';
+                const grid = document.createElement('div');
+                grid.style.display = 'grid';
+                grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(350px, 1fr))';
+                grid.style.gap = '1rem';
 
-                    grouped[category].forEach(detail => {
-                        const card = document.createElement('div');
-                        card.style.background = 'rgba(0, 28, 48, 0.6)';
-                        card.style.border = '1px solid var(--border)';
-                        card.style.borderRadius = '8px';
-                        card.style.padding = '1rem';
+                grouped[category].forEach(detail => {
+                    const card = document.createElement('div');
+                    card.style.background = 'rgba(0, 28, 48, 0.6)';
+                    card.style.border = '1px solid var(--border)';
+                    card.style.borderRadius = '8px';
+                    card.style.padding = '1rem';
 
-                        let svgPreview = '';
-                        if (detail.svg_content) {
-                            svgPreview = `
-                                <div style="background: white; border-radius: 4px; padding: 1rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; min-height: 150px;">
-                                    ${detail.svg_content}
-                                </div>
-                            `;
-                        }
-
-                        card.innerHTML = `
-                            ${svgPreview}
-                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-                                <div style="font-weight: bold; color: var(--cyan); font-size: 1.1rem;">${detail.detail_title}</div>
-                                <div style="background: rgba(0, 255, 255, 0.1); color: var(--cyan); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${detail.detail_number}</div>
+                    let svgPreview = '';
+                    if (detail.svg_content) {
+                        svgPreview = `
+                            <div style="background: white; border-radius: 4px; padding: 1rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; min-height: 150px;">
+                                ${detail.svg_content}
                             </div>
-                            ${detail.description ? `<div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.75rem;">${detail.description}</div>` : ''}
-                            ${detail.scale ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"><strong>Scale:</strong> ${detail.scale}</div>` : ''}
-                            ${detail.typical_application ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"><strong>Application:</strong> ${detail.typical_application}</div>` : ''}
-                            ${detail.applicable_layers ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"><strong>Layers:</strong> ${Array.isArray(detail.applicable_layers) ? detail.applicable_layers.join(', ') : detail.applicable_layers}</div>` : ''}
-                            ${detail.code_references ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);"><strong>Code References:</strong> ${Array.isArray(detail.code_references) ? detail.code_references.join(', ') : detail.code_references}</div>` : ''}
                         `;
+                    }
 
-                        grid.appendChild(card);
-                    });
+                    card.innerHTML = `
+                        ${svgPreview}
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                            <div style="font-weight: bold; color: var(--cyan); font-size: 1.1rem;">${detail.detail_title}</div>
+                            <div style="background: rgba(0, 255, 255, 0.1); color: var(--cyan); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${detail.detail_number}</div>
+                        </div>
+                        ${detail.description ? `<div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.75rem;">${detail.description}</div>` : ''}
+                        ${detail.scale ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"><strong>Scale:</strong> ${detail.scale}</div>` : ''}
+                        ${detail.typical_application ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"><strong>Application:</strong> ${detail.typical_application}</div>` : ''}
+                        ${detail.applicable_layers ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"><strong>Layers:</strong> ${Array.isArray(detail.applicable_layers) ? detail.applicable_layers.join(', ') : detail.applicable_layers}</div>` : ''}
+                        ${detail.code_references ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);"><strong>Code References:</strong> ${Array.isArray(detail.code_references) ? detail.code_references.join(', ') : detail.code_references}</div>` : ''}
+                    `;
 
-                    section.appendChild(grid);
-                    container.appendChild(section);
+                    grid.appendChild(card);
                 });
 
-            } catch (error) {
-                document.getElementById('details-container').innerHTML = `
-                    <div class="error-message">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>Failed to load standard details: ${error.message}</p>
-                    </div>
-                `;
-            }
+                section.appendChild(grid);
+                container.appendChild(section);
+            });
+
+        } catch (error) {
+            document.getElementById('details-container').innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Failed to load standard details: ${error.message}</p>
+                </div>
+            `;
         }
-        loadDetails();
-    </script>
-</body>
-</html>
+    }
+    loadDetails();
+</script>
+{% endblock %}

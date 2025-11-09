@@ -1,117 +1,82 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Color Standards - ACAD-GIS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="grid-background">
-    <header class="header">
-        <div class="header-content">
-            <div class="header-title">
-                <i class="fas fa-ruler-combined neon-cyan"></i>
-                <div>
-                    <h1 class="orbitron">ACAD-GIS CAD Standards Portal</h1>
-                    <div class="header-subtitle">Engineering Design Standards Reference</div>
-                </div>
+{% extends 'base.html' %}
+
+{% block title %}Color Standards{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <i class="fas fa-palette neon-cyan"></i>
+                <h2>Color Standards</h2>
             </div>
-            <nav class="nav">
-                <a href="/standards">
-                    <i class="fas fa-home"></i> Standards
-                </a>
-                <a href="/standards/layers">
-                    <i class="fas fa-layer-group"></i> Layers
-                </a>
-                <a href="/standards/blocks">
-                    <i class="fas fa-cubes"></i> Blocks
-                </a>
-                <a href="/standards/colors" class="active">
-                    <i class="fas fa-palette"></i> Colors
-                </a>
-                <a href="/">
-                    <i class="fas fa-database"></i> Schema
-                </a>
-            </nav>
+            <div id="color-count" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
         </div>
-    </header>
+        <div class="panel-body">
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                Standard CAD colors with AutoCAD color index (ACI), RGB values, and usage guidelines.
+            </p>
 
-    <main class="main-content">
-        <div class="container">
-            <div class="panel">
-                <div class="panel-header">
-                    <div>
-                        <i class="fas fa-palette neon-cyan"></i>
-                        <h2>Color Standards</h2>
-                    </div>
-                    <div id="color-count" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
-                </div>
-                <div class="panel-body">
-                    <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
-                        Standard CAD colors with AutoCAD color index (ACI), RGB values, and usage guidelines.
-                    </p>
-
-                    <div id="colors-container">
-                        <div class="loading-spinner">
-                            <i class="fas fa-spinner fa-spin neon-cyan"></i>
-                            <p>Loading color standards...</p>
-                        </div>
-                    </div>
+            <div id="colors-container">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin neon-cyan"></i>
+                    <p>Loading color standards...</p>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+</div>
+{% endblock %}
 
-    <script>
-        async function loadColors() {
-            try {
-                const response = await fetch('/api/standards/colors');
-                const colors = await response.json();
-                
-                if (colors.error) {
-                    throw new Error(colors.error);
-                }
-
-                document.getElementById('color-count').textContent = `${colors.length} standard colors`;
-
-                const container = document.getElementById('colors-container');
-                container.innerHTML = `
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
-                        ${colors.map(color => {
-                            const hexColor = color.hex_code || '#888888';
-                            return `
-                                <div style="background: rgba(0, 28, 48, 0.6); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; transition: all 0.3s ease;">
-                                    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
-                                        <div style="width: 80px; height: 80px; background: ${hexColor}; border: 2px solid var(--border); border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);"></div>
-                                        <div style="flex: 1;">
-                                            <div style="font-weight: bold; color: var(--cyan); font-size: 1.1rem; margin-bottom: 0.25rem;">${color.color_name || 'Unnamed'}</div>
-                                            <div style="color: var(--text-secondary); font-size: 0.9rem;">ACI ${color.color_index || '-'}</div>
-                                        </div>
-                                    </div>
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
-                                        <div><strong>RGB:</strong> ${color.color_rgb || '-'}</div>
-                                        <div><strong>HEX:</strong> ${hexColor}</div>
-                                    </div>
-                                    ${color.usage_category ? `<div style="margin-bottom: 0.5rem;"><span style="background: rgba(0, 255, 255, 0.1); color: var(--cyan); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${color.usage_category}</span></div>` : ''}
-                                    ${color.description ? `<div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">${color.description}</div>` : ''}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                `;
-
-            } catch (error) {
-                document.getElementById('colors-container').innerHTML = `
-                    <div class="error-message">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>Failed to load color standards: ${error.message}</p>
-                    </div>
-                `;
+{% block scripts %}
+<script>
+    async function loadColors() {
+        try {
+            const response = await fetch('/api/standards/colors');
+            const colors = await response.json();
+            
+            if (colors.error) {
+                throw new Error(colors.error);
             }
-        }
 
-        loadColors();
-    </script>
-</body>
-</html>
+            document.getElementById('color-count').textContent = `${colors.length} standard colors`;
+
+            const container = document.getElementById('colors-container');
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
+                    ${colors.map(color => {
+                        const hexColor = color.hex_code || '#888888';
+                        return `
+                            <div style="background: rgba(0, 28, 48, 0.6); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; transition: all 0.3s ease;">
+                                <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
+                                    <div style="width: 80px; height: 80px; background: ${hexColor}; border: 2px solid var(--border); border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);"></div>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: bold; color: var(--cyan); font-size: 1.1rem; margin-bottom: 0.25rem;">${color.color_name || 'Unnamed'}</div>
+                                        <div style="color: var(--text-secondary); font-size: 0.9rem;">ACI ${color.color_index || '-'}</div>
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                                    <div><strong>RGB:</strong> ${color.color_rgb || '-'}</div>
+                                    <div><strong>HEX:</strong> ${hexColor}</div>
+                                </div>
+                                ${color.usage_category ? `<div style="margin-bottom: 0.5rem;"><span style="background: rgba(0, 255, 255, 0.1); color: var(--cyan); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${color.usage_category}</span></div>` : ''}
+                                ${color.description ? `<div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">${color.description}</div>` : ''}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+
+        } catch (error) {
+            document.getElementById('colors-container').innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Failed to load color standards: ${error.message}</p>
+                </div>
+            `;
+        }
+    }
+
+    loadColors();
+</script>
+{% endblock %}
