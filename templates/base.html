@@ -10,9 +10,6 @@
 <body class="grid-background">
     <header class="header">
         <div class="header-content">
-            <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
-                <i class="fas fa-bars"></i>
-            </button>
             <div class="header-title">
                 <i class="fas fa-database neon-blue"></i>
                 <div>
@@ -23,236 +20,271 @@
         </div>
     </header>
 
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-content">
-            <div class="sidebar-section">
-                <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}">
-                    <i class="fas fa-home"></i>
-                    <span class="sidebar-text">Home</span>
-                </a>
-            </div>
+    <nav class="mc-navbar" id="navbar">
+        <button class="mc-navbar-mobile-toggle" id="mobileToggle" aria-label="Toggle navigation" aria-expanded="false">
+            <i class="fas fa-bars"></i>
+        </button>
+        
+        <div class="mc-navbar-menu" id="navbarMenu">
+            <a href="/" class="mc-nav-item {% if request.path == '/' %}active{% endif %}">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </a>
 
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-library', '/standards/layer-vocabulary', '/standards/reference-data', '/standards/reference'] %}active{% endif %}">
+                <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-ruler-combined"></i>
-                    <span class="sidebar-text">Standards Library</span>
+                    <span>Standards</span>
+                    <i class="fas fa-chevron-down mc-dropdown-icon"></i>
+                </button>
+                <div class="mc-dropdown">
+                    <a href="/standards-library" class="mc-dropdown-item {% if request.path == '/standards-library' %}active{% endif %}">
+                        <i class="fas fa-th-large"></i>
+                        CAD Standards Portal
+                    </a>
+                    <a href="/standards/layer-vocabulary" class="mc-dropdown-item {% if request.path == '/standards/layer-vocabulary' %}active{% endif %}">
+                        <i class="fas fa-layer-group"></i>
+                        Layer Vocabulary
+                    </a>
+                    <a href="/standards/reference-data" class="mc-dropdown-item {% if request.path == '/standards/reference-data' %}active{% endif %}">
+                        <i class="fas fa-database"></i>
+                        Reference Data Hub
+                    </a>
+                    <a href="/standards/reference" class="mc-dropdown-item {% if request.path == '/standards/reference' %}active{% endif %}">
+                        <i class="fas fa-book-open"></i>
+                        Layer Standards Reference
+                    </a>
                 </div>
-                <a href="/standards-library" class="sidebar-link {% if request.path == '/standards-library' %}active{% endif %}">
-                    <i class="fas fa-th-large"></i>
-                    <span class="sidebar-text">CAD Standards Portal</span>
-                </a>
-                <a href="/standards/layer-vocabulary" class="sidebar-link {% if request.path == '/standards/layer-vocabulary' %}active{% endif %}">
-                    <i class="fas fa-layer-group"></i>
-                    <span class="sidebar-text">Layer Vocabulary</span>
-                </a>
-                <a href="/standards/reference-data" class="sidebar-link {% if request.path == '/standards/reference-data' %}active{% endif %}">
-                    <i class="fas fa-database"></i>
-                    <span class="sidebar-text">Reference Data Hub</span>
-                </a>
-                <a href="/standards/reference" class="sidebar-link {% if request.path == '/standards/reference' %}active{% endif %}">
-                    <i class="fas fa-book-open"></i>
-                    <span class="sidebar-text">Layer Standards Reference</span>
-                </a>
-                <a href="/data-manager/layers" class="sidebar-link {% if request.path == '/data-manager/layers' %}active{% endif %}">
-                    <i class="fas fa-layer-group"></i>
-                    <span class="sidebar-text">Layers</span>
-                </a>
-                <a href="/data-manager/blocks" class="sidebar-link {% if request.path == '/data-manager/blocks' %}active{% endif %}">
-                    <i class="fas fa-cube"></i>
-                    <span class="sidebar-text">Blocks</span>
-                </a>
-                <a href="/data-manager/hatches" class="sidebar-link {% if request.path == '/data-manager/hatches' %}active{% endif %}">
-                    <i class="fas fa-grip-lines"></i>
-                    <span class="sidebar-text">Hatches</span>
-                </a>
-                <a href="/data-manager/linetypes" class="sidebar-link {% if request.path == '/data-manager/linetypes' %}active{% endif %}">
-                    <i class="fas fa-minus"></i>
-                    <span class="sidebar-text">Linetypes</span>
-                </a>
-                <a href="/data-manager/text-styles" class="sidebar-link {% if request.path == '/data-manager/text-styles' %}active{% endif %}">
-                    <i class="fas fa-font"></i>
-                    <span class="sidebar-text">Text Styles</span>
-                </a>
-                <a href="/data-manager/dimension-styles" class="sidebar-link {% if request.path == '/data-manager/dimension-styles' %}active{% endif %}">
-                    <i class="fas fa-ruler-combined"></i>
-                    <span class="sidebar-text">Dimension Styles</span>
-                </a>
-                <a href="/data-manager/materials" class="sidebar-link {% if request.path == '/data-manager/materials' %}active{% endif %}">
-                    <i class="fas fa-tools"></i>
-                    <span class="sidebar-text">Materials</span>
-                </a>
-                <a href="/data-manager/details" class="sidebar-link {% if request.path == '/data-manager/details' %}active{% endif %}">
-                    <i class="fas fa-file-alt"></i>
-                    <span class="sidebar-text">Details</span>
-                </a>
-                <a href="/data-manager/standard-notes" class="sidebar-link {% if request.path == '/data-manager/standard-notes' %}active{% endif %}">
-                    <i class="fas fa-sticky-note"></i>
-                    <span class="sidebar-text">Standard Notes</span>
-                </a>
-                <a href="/data-manager/abbreviations" class="sidebar-link {% if request.path == '/data-manager/abbreviations' %}active{% endif %}">
-                    <i class="fas fa-font"></i>
-                    <span class="sidebar-text">Abbreviations</span>
-                </a>
             </div>
 
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">
+            <div class="mc-nav-item mc-has-dropdown {% if (request.path == '/data-manager' or request.path.startswith('/data-manager/')) and request.path not in ['/data-manager/projects', '/data-manager/drawings', '/data-manager/sheet-sets', '/data-manager/block-mappings', '/data-manager/detail-mappings', '/data-manager/hatch-mappings', '/data-manager/material-mappings', '/data-manager/note-mappings'] %}active{% endif %}">
+                <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-edit"></i>
+                    <span>Data Manager</span>
+                    <i class="fas fa-chevron-down mc-dropdown-icon"></i>
+                </button>
+                <div class="mc-dropdown">
+                    <a href="/data-manager/layers" class="mc-dropdown-item {% if request.path == '/data-manager/layers' %}active{% endif %}">
+                        <i class="fas fa-layer-group"></i>
+                        Layers
+                    </a>
+                    <a href="/data-manager/blocks" class="mc-dropdown-item {% if request.path == '/data-manager/blocks' %}active{% endif %}">
+                        <i class="fas fa-cube"></i>
+                        Blocks
+                    </a>
+                    <a href="/data-manager/hatches" class="mc-dropdown-item {% if request.path == '/data-manager/hatches' %}active{% endif %}">
+                        <i class="fas fa-grip-lines"></i>
+                        Hatches
+                    </a>
+                    <a href="/data-manager/linetypes" class="mc-dropdown-item {% if request.path == '/data-manager/linetypes' %}active{% endif %}">
+                        <i class="fas fa-minus"></i>
+                        Linetypes
+                    </a>
+                    <a href="/data-manager/text-styles" class="mc-dropdown-item {% if request.path == '/data-manager/text-styles' %}active{% endif %}">
+                        <i class="fas fa-font"></i>
+                        Text Styles
+                    </a>
+                    <a href="/data-manager/dimension-styles" class="mc-dropdown-item {% if request.path == '/data-manager/dimension-styles' %}active{% endif %}">
+                        <i class="fas fa-ruler-combined"></i>
+                        Dimension Styles
+                    </a>
+                    <a href="/data-manager/materials" class="mc-dropdown-item {% if request.path == '/data-manager/materials' %}active{% endif %}">
+                        <i class="fas fa-tools"></i>
+                        Materials
+                    </a>
+                    <a href="/data-manager/details" class="mc-dropdown-item {% if request.path == '/data-manager/details' %}active{% endif %}">
+                        <i class="fas fa-file-alt"></i>
+                        Details
+                    </a>
+                    <a href="/data-manager/standard-notes" class="mc-dropdown-item {% if request.path == '/data-manager/standard-notes' %}active{% endif %}">
+                        <i class="fas fa-sticky-note"></i>
+                        Standard Notes
+                    </a>
+                    <a href="/data-manager/abbreviations" class="mc-dropdown-item {% if request.path == '/data-manager/abbreviations' %}active{% endif %}">
+                        <i class="fas fa-font"></i>
+                        Abbreviations
+                    </a>
+                </div>
+            </div>
+
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-mapping-dashboard', '/project-context-manager', '/data-manager/block-mappings', '/data-manager/detail-mappings', '/data-manager/hatch-mappings', '/data-manager/material-mappings', '/data-manager/note-mappings', '/standards-export'] %}active{% endif %}">
+                <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-map-signs"></i>
-                    <span class="sidebar-text">Standards Mapping</span>
+                    <span>Mapping</span>
+                    <i class="fas fa-chevron-down mc-dropdown-icon"></i>
+                </button>
+                <div class="mc-dropdown">
+                    <a href="/standards-mapping-dashboard" class="mc-dropdown-item {% if request.path == '/standards-mapping-dashboard' %}active{% endif %}">
+                        <i class="fas fa-th-large"></i>
+                        Mapping Dashboard
+                    </a>
+                    <a href="/project-context-manager" class="mc-dropdown-item {% if request.path == '/project-context-manager' %}active{% endif %}">
+                        <i class="fas fa-project-diagram"></i>
+                        Project Context Manager
+                    </a>
+                    <div class="mc-dropdown-divider"></div>
+                    <a href="/data-manager/block-mappings" class="mc-dropdown-item {% if request.path == '/data-manager/block-mappings' %}active{% endif %}">
+                        <i class="fas fa-cube"></i>
+                        Block Name Mappings
+                    </a>
+                    <a href="/data-manager/detail-mappings" class="mc-dropdown-item {% if request.path == '/data-manager/detail-mappings' %}active{% endif %}">
+                        <i class="fas fa-file-alt"></i>
+                        Detail Name Mappings
+                    </a>
+                    <a href="/data-manager/hatch-mappings" class="mc-dropdown-item {% if request.path == '/data-manager/hatch-mappings' %}active{% endif %}">
+                        <i class="fas fa-fill-drip"></i>
+                        Hatch Name Mappings
+                    </a>
+                    <a href="/data-manager/material-mappings" class="mc-dropdown-item {% if request.path == '/data-manager/material-mappings' %}active{% endif %}">
+                        <i class="fas fa-tools"></i>
+                        Material Name Mappings
+                    </a>
+                    <a href="/data-manager/note-mappings" class="mc-dropdown-item {% if request.path == '/data-manager/note-mappings' %}active{% endif %}">
+                        <i class="fas fa-sticky-note"></i>
+                        Note Name Mappings
+                    </a>
+                    <div class="mc-dropdown-divider"></div>
+                    <a href="/standards-export" class="mc-dropdown-item {% if request.path == '/standards-export' %}active{% endif %}">
+                        <i class="fas fa-file-export"></i>
+                        Export Documentation
+                    </a>
                 </div>
-                <a href="/standards-mapping-dashboard" class="sidebar-link {% if request.path == '/standards-mapping-dashboard' %}active{% endif %}">
-                    <i class="fas fa-th-large"></i>
-                    <span class="sidebar-text">Mapping Dashboard</span>
-                </a>
-                <a href="/project-context-manager" class="sidebar-link {% if request.path == '/project-context-manager' %}active{% endif %}">
-                    <i class="fas fa-project-diagram"></i>
-                    <span class="sidebar-text">Project Context Manager</span>
-                </a>
-                <a href="/data-manager/block-mappings" class="sidebar-link {% if request.path == '/data-manager/block-mappings' %}active{% endif %}">
-                    <i class="fas fa-cube"></i>
-                    <span class="sidebar-text">Block Name Mappings</span>
-                </a>
-                <a href="/data-manager/detail-mappings" class="sidebar-link {% if request.path == '/data-manager/detail-mappings' %}active{% endif %}">
-                    <i class="fas fa-file-alt"></i>
-                    <span class="sidebar-text">Detail Name Mappings</span>
-                </a>
-                <a href="/data-manager/hatch-mappings" class="sidebar-link {% if request.path == '/data-manager/hatch-mappings' %}active{% endif %}">
-                    <i class="fas fa-fill-drip"></i>
-                    <span class="sidebar-text">Hatch Name Mappings</span>
-                </a>
-                <a href="/data-manager/material-mappings" class="sidebar-link {% if request.path == '/data-manager/material-mappings' %}active{% endif %}">
-                    <i class="fas fa-tools"></i>
-                    <span class="sidebar-text">Material Name Mappings</span>
-                </a>
-                <a href="/data-manager/note-mappings" class="sidebar-link {% if request.path == '/data-manager/note-mappings' %}active{% endif %}">
-                    <i class="fas fa-sticky-note"></i>
-                    <span class="sidebar-text">Note Name Mappings</span>
-                </a>
-                <a href="/standards-export" class="sidebar-link {% if request.path == '/standards-export' %}active{% endif %}">
-                    <i class="fas fa-file-export"></i>
-                    <span class="sidebar-text">Export Documentation</span>
-                </a>
             </div>
 
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/project-operations', '/data-manager/projects', '/data-manager/drawings', '/data-manager/sheet-sets', '/project-standards-assignment', '/project-compliance'] %}active{% endif %}">
+                <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-folder"></i>
-                    <span class="sidebar-text">Project Operations</span>
+                    <span>Projects</span>
+                    <i class="fas fa-chevron-down mc-dropdown-icon"></i>
+                </button>
+                <div class="mc-dropdown">
+                    <a href="/project-operations" class="mc-dropdown-item {% if request.path == '/project-operations' %}active{% endif %}">
+                        <i class="fas fa-th-large"></i>
+                        Operations Home
+                    </a>
+                    <a href="/data-manager/projects" class="mc-dropdown-item {% if request.path == '/data-manager/projects' %}active{% endif %}">
+                        <i class="fas fa-briefcase"></i>
+                        Projects
+                    </a>
+                    <a href="/data-manager/drawings" class="mc-dropdown-item {% if request.path == '/data-manager/drawings' %}active{% endif %}">
+                        <i class="fas fa-file-image"></i>
+                        Drawings
+                    </a>
+                    <a href="/data-manager/sheet-sets" class="mc-dropdown-item {% if request.path == '/data-manager/sheet-sets' %}active{% endif %}">
+                        <i class="fas fa-folder-open"></i>
+                        Sheet Sets
+                    </a>
+                    <div class="mc-dropdown-divider"></div>
+                    <a href="/project-standards-assignment" class="mc-dropdown-item {% if request.path == '/project-standards-assignment' %}active{% endif %}">
+                        <i class="fas fa-link"></i>
+                        Assign Standards
+                    </a>
+                    <a href="/project-compliance" class="mc-dropdown-item {% if request.path == '/project-compliance' %}active{% endif %}">
+                        <i class="fas fa-check-circle"></i>
+                        Compliance Dashboard
+                    </a>
                 </div>
-                <a href="/project-operations" class="sidebar-link {% if request.path == '/project-operations' %}active{% endif %}">
-                    <i class="fas fa-th-large"></i>
-                    <span class="sidebar-text">Operations Home</span>
-                </a>
-                <a href="/data-manager/projects" class="sidebar-link {% if request.path == '/data-manager/projects' %}active{% endif %}">
-                    <i class="fas fa-briefcase"></i>
-                    <span class="sidebar-text">Projects</span>
-                </a>
-                <a href="/data-manager/drawings" class="sidebar-link {% if request.path == '/data-manager/drawings' %}active{% endif %}">
-                    <i class="fas fa-file-image"></i>
-                    <span class="sidebar-text">Drawings</span>
-                </a>
-                <a href="/data-manager/sheet-sets" class="sidebar-link {% if request.path == '/data-manager/sheet-sets' %}active{% endif %}">
-                    <i class="fas fa-folder-open"></i>
-                    <span class="sidebar-text">Sheet Sets</span>
-                </a>
-                <a href="/project-standards-assignment" class="sidebar-link {% if request.path == '/project-standards-assignment' %}active{% endif %}">
-                    <i class="fas fa-link"></i>
-                    <span class="sidebar-text">Assign Standards</span>
-                </a>
-                <a href="/project-compliance" class="sidebar-link {% if request.path == '/project-compliance' %}active{% endif %}">
-                    <i class="fas fa-check-circle"></i>
-                    <span class="sidebar-text">Compliance Dashboard</span>
-                </a>
             </div>
 
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">
-                    <i class="fas fa-chart-line"></i>
-                    <span class="sidebar-text">Usage & Analytics</span>
-                </div>
-                <a href="/usage-dashboard" class="sidebar-link {% if request.path == '/usage-dashboard' %}active{% endif %}">
-                    <i class="fas fa-chart-area"></i>
-                    <span class="sidebar-text">Usage Dashboard</span>
-                </a>
-                <a href="/quality-dashboard" class="sidebar-link {% if request.path == '/quality-dashboard' %}active{% endif %}">
-                    <i class="fas fa-star"></i>
-                    <span class="sidebar-text">Quality Dashboard</span>
-                </a>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/map-viewer', '/map-viewer-v2', '/gravity-network-editor', '/sheet-notes'] %}active{% endif %}">
+                <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-drafting-compass"></i>
-                    <span class="sidebar-text">CAD Tools</span>
+                    <span>Tools</span>
+                    <i class="fas fa-chevron-down mc-dropdown-icon"></i>
+                </button>
+                <div class="mc-dropdown">
+                    <a href="/dxf-tools" class="mc-dropdown-item {% if request.path == '/dxf-tools' %}active{% endif %}">
+                        <i class="fas fa-file-export"></i>
+                        DXF Tools
+                    </a>
+                    <a href="/map-viewer-v2" class="mc-dropdown-item {% if request.path in ['/map-viewer', '/map-viewer-v2'] %}active{% endif %}">
+                        <i class="fas fa-map-marked-alt"></i>
+                        Map Viewer
+                    </a>
+                    <a href="/gravity-network-editor" class="mc-dropdown-item {% if request.path == '/gravity-network-editor' %}active{% endif %}">
+                        <i class="fas fa-water"></i>
+                        Gravity Network Editor
+                    </a>
+                    <a href="/sheet-notes" class="mc-dropdown-item {% if request.path == '/sheet-notes' %}active{% endif %}">
+                        <i class="fas fa-sticky-note"></i>
+                        Sheet Notes
+                    </a>
                 </div>
-                <a href="/dxf-tools" class="sidebar-link {% if request.path == '/dxf-tools' %}active{% endif %}">
-                    <i class="fas fa-file-export"></i>
-                    <span class="sidebar-text">DXF Tools</span>
-                </a>
-                <a href="/map-viewer-v2" class="sidebar-link {% if request.path in ['/map-viewer', '/map-viewer-v2'] %}active{% endif %}">
-                    <i class="fas fa-map-marked-alt"></i>
-                    <span class="sidebar-text">Map Viewer</span>
-                </a>
-                <a href="/gravity-network-editor" class="sidebar-link {% if request.path == '/gravity-network-editor' %}active{% endif %}">
-                    <i class="fas fa-water"></i>
-                    <span class="sidebar-text">Gravity Network Editor</span>
-                </a>
-                <a href="/sheet-notes" class="sidebar-link {% if request.path == '/sheet-notes' %}active{% endif %}">
-                    <i class="fas fa-sticky-note"></i>
-                    <span class="sidebar-text">Sheet Notes</span>
-                </a>
-                <a href="/sheet-sets" class="sidebar-link {% if request.path == '/sheet-sets' %}active{% endif %}">
-                    <i class="fas fa-folder-open"></i>
-                    <span class="sidebar-text">Sheet Sets</span>
-                </a>
             </div>
 
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/usage-dashboard', '/quality-dashboard'] %}active{% endif %}">
+                <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analytics</span>
+                    <i class="fas fa-chevron-down mc-dropdown-icon"></i>
+                </button>
+                <div class="mc-dropdown">
+                    <a href="/usage-dashboard" class="mc-dropdown-item {% if request.path == '/usage-dashboard' %}active{% endif %}">
+                        <i class="fas fa-chart-area"></i>
+                        Usage Dashboard
+                    </a>
+                    <a href="/quality-dashboard" class="mc-dropdown-item {% if request.path == '/quality-dashboard' %}active{% endif %}">
+                        <i class="fas fa-star"></i>
+                        Quality Dashboard
+                    </a>
+                </div>
+            </div>
+
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/toolkit', '/graph'] %}active{% endif %}">
+                <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-robot"></i>
-                    <span class="sidebar-text">AI Tools</span>
+                    <span>AI</span>
+                    <i class="fas fa-chevron-down mc-dropdown-icon"></i>
+                </button>
+                <div class="mc-dropdown">
+                    <a href="/toolkit" class="mc-dropdown-item {% if request.path == '/toolkit' %}active{% endif %}">
+                        <i class="fas fa-tools"></i>
+                        AI Toolkit
+                    </a>
+                    <a href="/graph" class="mc-dropdown-item {% if request.path == '/graph' %}active{% endif %}">
+                        <i class="fas fa-network-wired"></i>
+                        Knowledge Graph
+                    </a>
                 </div>
-                <a href="/toolkit" class="sidebar-link {% if request.path == '/toolkit' %}active{% endif %}">
-                    <i class="fas fa-tools"></i>
-                    <span class="sidebar-text">AI Toolkit</span>
-                </a>
-                <a href="/graph" class="sidebar-link {% if request.path == '/graph' %}active{% endif %}">
-                    <i class="fas fa-network-wired"></i>
-                    <span class="sidebar-text">Knowledge Graph</span>
-                </a>
             </div>
 
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path.startswith('/schema') %}active{% endif %}">
+                <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-database"></i>
-                    <span class="sidebar-text">Database</span>
+                    <span>Database</span>
+                    <i class="fas fa-chevron-down mc-dropdown-icon"></i>
+                </button>
+                <div class="mc-dropdown">
+                    <a href="/schema" class="mc-dropdown-item {% if request.path == '/schema' %}active{% endif %}">
+                        <i class="fas fa-table"></i>
+                        Schema
+                    </a>
+                    <a href="/schema/relationships" class="mc-dropdown-item {% if request.path == '/schema/relationships' %}active{% endif %}">
+                        <i class="fas fa-project-diagram"></i>
+                        Relationships
+                    </a>
                 </div>
-                <a href="/schema" class="sidebar-link {% if request.path == '/schema' %}active{% endif %}">
-                    <i class="fas fa-table"></i>
-                    <span class="sidebar-text">Schema</span>
-                </a>
-                <a href="/schema/relationships" class="sidebar-link {% if request.path == '/schema/relationships' %}active{% endif %}">
-                    <i class="fas fa-project-diagram"></i>
-                    <span class="sidebar-text">Relationships</span>
-                </a>
             </div>
 
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/why-this-matters', '/architecture'] %}active{% endif %}">
+                <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-info-circle"></i>
-                    <span class="sidebar-text">Information</span>
+                    <span>About</span>
+                    <i class="fas fa-chevron-down mc-dropdown-icon"></i>
+                </button>
+                <div class="mc-dropdown">
+                    <a href="/why-this-matters" class="mc-dropdown-item {% if request.path == '/why-this-matters' %}active{% endif %}">
+                        <i class="fas fa-lightbulb"></i>
+                        Why This Matters
+                    </a>
+                    <a href="/architecture" class="mc-dropdown-item {% if request.path == '/architecture' %}active{% endif %}">
+                        <i class="fas fa-sitemap"></i>
+                        Architecture
+                    </a>
                 </div>
-                <a href="/why-this-matters" class="sidebar-link {% if request.path == '/why-this-matters' %}active{% endif %}">
-                    <i class="fas fa-lightbulb"></i>
-                    <span class="sidebar-text">Why This Matters</span>
-                </a>
-                <a href="/architecture" class="sidebar-link {% if request.path == '/architecture' %}active{% endif %}">
-                    <i class="fas fa-sitemap"></i>
-                    <span class="sidebar-text">Architecture</span>
-                </a>
             </div>
         </div>
-    </aside>
+    </nav>
 
     <main class="main-content" id="mainContent">
         <div class="container">
@@ -261,36 +293,90 @@
     </main>
 
     <script>
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('sidebar-collapsed');
-            
-            localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
-        }
-
-        function updateHeaderHeight() {
-            const header = document.querySelector('.header');
-            const headerHeight = header ? header.offsetHeight : 100;
-            document.documentElement.style.setProperty('--header-height', `${headerHeight}px`);
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
-            const isCollapsed = localStorage.getItem('sidebarCollapsed');
-            const isMobile = window.innerWidth <= 768;
+            const navbar = document.getElementById('navbar');
+            const mobileToggle = document.getElementById('mobileToggle');
+            const navbarMenu = document.getElementById('navbarMenu');
+            const dropdownItems = document.querySelectorAll('.mc-has-dropdown');
             
-            if (isCollapsed === 'true' || (isCollapsed === null && isMobile)) {
-                document.getElementById('sidebar').classList.add('collapsed');
-                document.getElementById('mainContent').classList.add('sidebar-collapsed');
-            }
+            mobileToggle.addEventListener('click', function() {
+                const isExpanded = navbarMenu.classList.toggle('mc-navbar-menu-open');
+                mobileToggle.setAttribute('aria-expanded', isExpanded);
+            });
             
-            updateHeaderHeight();
+            dropdownItems.forEach(function(dropdown) {
+                const button = dropdown.querySelector('.mc-nav-link');
+                const menu = dropdown.querySelector('.mc-dropdown');
+                
+                if (!button || !menu) return;
+                
+                button.setAttribute('aria-controls', 'dropdown-' + Array.from(dropdownItems).indexOf(dropdown));
+                menu.setAttribute('id', 'dropdown-' + Array.from(dropdownItems).indexOf(dropdown));
+                
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const isExpanded = dropdown.classList.toggle('mc-dropdown-open');
+                    button.setAttribute('aria-expanded', isExpanded);
+                    
+                    dropdownItems.forEach(function(other) {
+                        if (other !== dropdown && other.classList.contains('mc-dropdown-open')) {
+                            other.classList.remove('mc-dropdown-open');
+                            const otherButton = other.querySelector('.mc-nav-link');
+                            if (otherButton) otherButton.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+                });
+                
+                dropdown.addEventListener('mouseenter', function() {
+                    if (window.innerWidth > 768) {
+                        dropdown.classList.add('mc-dropdown-open');
+                        button.setAttribute('aria-expanded', 'true');
+                    }
+                });
+                
+                dropdown.addEventListener('mouseleave', function() {
+                    if (window.innerWidth > 768) {
+                        dropdown.classList.remove('mc-dropdown-open');
+                        button.setAttribute('aria-expanded', 'false');
+                    }
+                });
+                
+                button.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && dropdown.classList.contains('mc-dropdown-open')) {
+                        dropdown.classList.remove('mc-dropdown-open');
+                        button.setAttribute('aria-expanded', 'false');
+                        button.focus();
+                    }
+                });
+            });
             
-            let resizeTimeout;
-            window.addEventListener('resize', function() {
-                clearTimeout(resizeTimeout);
-                resizeTimeout = setTimeout(updateHeaderHeight, 100);
+            document.addEventListener('click', function(e) {
+                if (!navbar.contains(e.target)) {
+                    dropdownItems.forEach(function(dropdown) {
+                        if (dropdown.classList.contains('mc-dropdown-open')) {
+                            dropdown.classList.remove('mc-dropdown-open');
+                            const button = dropdown.querySelector('.mc-nav-link');
+                            if (button) button.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+                }
+            });
+            
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    dropdownItems.forEach(function(dropdown) {
+                        if (dropdown.classList.contains('mc-dropdown-open')) {
+                            dropdown.classList.remove('mc-dropdown-open');
+                            const button = dropdown.querySelector('.mc-nav-link');
+                            if (button) {
+                                button.setAttribute('aria-expanded', 'false');
+                                button.focus();
+                            }
+                        }
+                    });
+                }
             });
         });
 
