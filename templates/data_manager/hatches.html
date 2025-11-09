@@ -1,0 +1,399 @@
+{% extends "base.html" %}
+
+{% block title %}Hatch Patterns Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-fill-drip neon-cyan"></i> Hatch Patterns Manager</h2>
+    <p class="subtitle">Manage hatch pattern standards and definitions</p>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="orbitron"><i class="fas fa-list"></i> Hatch Patterns</h3>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="showAddModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Hatch Pattern
+            </button>
+            <button onclick="refreshHatches()" class="btn btn-secondary">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <input type="text" id="searchInput" placeholder="Search hatches by name, type, or usage..." 
+               onkeyup="filterTable()" 
+               style="flex: 1; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+        <select id="typeFilter" onchange="filterTable()" 
+                style="padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+            <option value="">All Types</option>
+        </select>
+    </div>
+
+    <div id="loadingMessage" class="alert" style="text-align: center;">
+        <i class="fas fa-spinner fa-spin"></i> Loading hatch patterns...
+    </div>
+
+    <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+    <div id="tableContainer" style="display: none; overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Pattern Name</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Usage Context</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="hatchesTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <div id="emptyMessage" class="alert" style="display: none; text-align: center;">
+        <i class="fas fa-inbox"></i> No hatch patterns found. Add your first hatch pattern.
+    </div>
+</div>
+
+<div id="hatchModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 class="orbitron" id="modalTitle">Add Hatch Pattern</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="hatchForm" onsubmit="saveHatch(event)">
+            <input type="hidden" id="hatchId">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="patternName">Pattern Name *</label>
+                    <input type="text" id="patternName" required placeholder="e.g., ANSI31, SOLID">
+                </div>
+                <div class="form-group">
+                    <label for="patternType">Pattern Type</label>
+                    <input type="text" id="patternType" placeholder="e.g., User, Predefined">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Pattern description..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="patternDefinition">Pattern Definition</label>
+                <textarea id="patternDefinition" rows="4" placeholder="Pattern angle, spacing, and line definitions..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="usageContext">Usage Context</label>
+                <input type="text" id="usageContext" placeholder="e.g., Earth, Concrete, Steel">
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Hatch Pattern
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 20, 40, 0.4);
+}
+
+.data-table th {
+    background: rgba(0, 100, 150, 0.3);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+    font-weight: 600;
+}
+
+.data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(0,20,40,0.95) 0%, rgba(0,40,80,0.95) 100%);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--neon-cyan);
+    width: 90%;
+    max-width: 700px;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,200,255,0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close {
+    color: var(--neon-cyan);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    padding: 0 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--neon-cyan);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,20,40,0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+</style>
+
+<script>
+let allHatches = [];
+
+async function loadHatches() {
+    try {
+        const response = await fetch('/api/data-manager/hatches');
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        allHatches = data.hatches || [];
+        renderTable();
+        populateFilters();
+        
+    } catch (error) {
+        showError('Failed to load hatch patterns: ' + error.message);
+    }
+}
+
+function populateFilters() {
+    const types = [...new Set(allHatches.map(h => h.pattern_type).filter(Boolean))].sort();
+    
+    const typeFilter = document.getElementById('typeFilter');
+    typeFilter.innerHTML = '<option value="">All Types</option>';
+    types.forEach(type => {
+        typeFilter.innerHTML += `<option value="${type}">${type}</option>`;
+    });
+}
+
+function renderTable() {
+    const tbody = document.getElementById('hatchesTableBody');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const typeFilter = document.getElementById('typeFilter').value;
+    
+    let filtered = allHatches.filter(hatch => {
+        const matchesSearch = !search || 
+            hatch.pattern_name.toLowerCase().includes(search) ||
+            (hatch.pattern_type && hatch.pattern_type.toLowerCase().includes(search)) ||
+            (hatch.usage_context && hatch.usage_context.toLowerCase().includes(search));
+        
+        const matchesType = !typeFilter || hatch.pattern_type === typeFilter;
+        
+        return matchesSearch && matchesType;
+    });
+    
+    if (filtered.length === 0) {
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyMessage').style.display = 'block';
+        return;
+    }
+    
+    tbody.innerHTML = filtered.map(h => `
+        <tr>
+            <td><strong>${h.pattern_name}</strong></td>
+            <td>${h.pattern_type || '-'}</td>
+            <td>${h.description || '-'}</td>
+            <td>${h.usage_context || '-'}</td>
+            <td>
+                <button onclick="editHatch('${h.hatch_id}')" class="btn btn-sm btn-secondary" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteHatch('${h.hatch_id}')" class="btn btn-sm btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    document.getElementById('loadingMessage').style.display = 'none';
+    document.getElementById('tableContainer').style.display = 'block';
+    document.getElementById('emptyMessage').style.display = 'none';
+}
+
+function filterTable() {
+    renderTable();
+}
+
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add Hatch Pattern';
+    document.getElementById('hatchForm').reset();
+    document.getElementById('hatchId').value = '';
+    document.getElementById('hatchModal').style.display = 'block';
+}
+
+function editHatch(hatchId) {
+    const hatch = allHatches.find(h => h.hatch_id === hatchId);
+    if (!hatch) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Hatch Pattern';
+    document.getElementById('hatchId').value = hatch.hatch_id;
+    document.getElementById('patternName').value = hatch.pattern_name;
+    document.getElementById('patternType').value = hatch.pattern_type || '';
+    document.getElementById('description').value = hatch.description || '';
+    document.getElementById('patternDefinition').value = hatch.pattern_definition || '';
+    document.getElementById('usageContext').value = hatch.usage_context || '';
+    
+    document.getElementById('hatchModal').style.display = 'block';
+}
+
+async function saveHatch(event) {
+    event.preventDefault();
+    
+    const hatchId = document.getElementById('hatchId').value;
+    const hatchData = {
+        pattern_name: document.getElementById('patternName').value,
+        pattern_type: document.getElementById('patternType').value || null,
+        description: document.getElementById('description').value || null,
+        pattern_definition: document.getElementById('patternDefinition').value || null,
+        usage_context: document.getElementById('usageContext').value || null
+    };
+    
+    try {
+        const url = hatchId ? `/api/data-manager/hatches/${hatchId}` : '/api/data-manager/hatches';
+        const method = hatchId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(hatchData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        closeModal();
+        await loadHatches();
+        
+    } catch (error) {
+        showError('Failed to save hatch pattern: ' + error.message);
+    }
+}
+
+async function deleteHatch(hatchId) {
+    if (!confirm('Are you sure you want to delete this hatch pattern?')) return;
+    
+    try {
+        const response = await fetch(`/api/data-manager/hatches/${hatchId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        await loadHatches();
+        
+    } catch (error) {
+        showError('Failed to delete hatch pattern: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('hatchModal').style.display = 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    document.getElementById('loadingMessage').style.display = 'none';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+function refreshHatches() {
+    loadHatches();
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('hatchModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadHatches);
+</script>
+{% endblock %}

@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+
+{% block title %}Linetypes Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-minus neon-cyan"></i> Linetypes Manager</h2>
+    <p class="subtitle">Manage linetype standards and definitions</p>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="orbitron"><i class="fas fa-list"></i> Linetypes</h3>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="showAddModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Linetype
+            </button>
+            <button onclick="refreshLinetypes()" class="btn btn-secondary">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="searchInput" placeholder="Search linetypes by name or usage..." 
+               onkeyup="filterTable()" 
+               style="width: 100%; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+    </div>
+
+    <div id="loadingMessage" class="alert" style="text-align: center;">
+        <i class="fas fa-spinner fa-spin"></i> Loading linetypes...
+    </div>
+
+    <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+    <div id="tableContainer" style="display: none; overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Linetype Name</th>
+                    <th>Description</th>
+                    <th>Usage Context</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="linetypesTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <div id="emptyMessage" class="alert" style="display: none; text-align: center;">
+        <i class="fas fa-inbox"></i> No linetypes found. Add your first linetype.
+    </div>
+</div>
+
+<div id="linetypeModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 class="orbitron" id="modalTitle">Add Linetype</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="linetypeForm" onsubmit="saveLinetype(event)">
+            <input type="hidden" id="linetypeId">
+            
+            <div class="form-group">
+                <label for="linetypeName">Linetype Name *</label>
+                <input type="text" id="linetypeName" required placeholder="e.g., CONTINUOUS, DASHED, CENTER">
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Linetype description..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="patternDefinition">Pattern Definition</label>
+                <textarea id="patternDefinition" rows="4" placeholder="Dash, dot, and space pattern definition..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="usageContext">Usage Context</label>
+                <input type="text" id="usageContext" placeholder="e.g., Centerlines, Property Lines, Hidden Lines">
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Linetype
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 20, 40, 0.4);
+}
+
+.data-table th {
+    background: rgba(0, 100, 150, 0.3);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+    font-weight: 600;
+}
+
+.data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(0,20,40,0.95) 0%, rgba(0,40,80,0.95) 100%);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--neon-cyan);
+    width: 90%;
+    max-width: 700px;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,200,255,0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close {
+    color: var(--neon-cyan);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    padding: 0 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--neon-cyan);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,20,40,0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+</style>
+
+<script>
+let allLinetypes = [];
+
+async function loadLinetypes() {
+    try {
+        const response = await fetch('/api/data-manager/linetypes');
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        allLinetypes = data.linetypes || [];
+        renderTable();
+        
+    } catch (error) {
+        showError('Failed to load linetypes: ' + error.message);
+    }
+}
+
+function renderTable() {
+    const tbody = document.getElementById('linetypesTableBody');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    
+    let filtered = allLinetypes.filter(linetype => {
+        return !search || 
+            linetype.linetype_name.toLowerCase().includes(search) ||
+            (linetype.usage_context && linetype.usage_context.toLowerCase().includes(search));
+    });
+    
+    if (filtered.length === 0) {
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyMessage').style.display = 'block';
+        return;
+    }
+    
+    tbody.innerHTML = filtered.map(l => `
+        <tr>
+            <td><strong>${l.linetype_name}</strong></td>
+            <td>${l.description || '-'}</td>
+            <td>${l.usage_context || '-'}</td>
+            <td>
+                <button onclick="editLinetype('${l.linetype_id}')" class="btn btn-sm btn-secondary" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteLinetype('${l.linetype_id}')" class="btn btn-sm btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    document.getElementById('loadingMessage').style.display = 'none';
+    document.getElementById('tableContainer').style.display = 'block';
+    document.getElementById('emptyMessage').style.display = 'none';
+}
+
+function filterTable() {
+    renderTable();
+}
+
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add Linetype';
+    document.getElementById('linetypeForm').reset();
+    document.getElementById('linetypeId').value = '';
+    document.getElementById('linetypeModal').style.display = 'block';
+}
+
+function editLinetype(linetypeId) {
+    const linetype = allLinetypes.find(l => l.linetype_id === linetypeId);
+    if (!linetype) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Linetype';
+    document.getElementById('linetypeId').value = linetype.linetype_id;
+    document.getElementById('linetypeName').value = linetype.linetype_name;
+    document.getElementById('description').value = linetype.description || '';
+    document.getElementById('patternDefinition').value = linetype.pattern_definition || '';
+    document.getElementById('usageContext').value = linetype.usage_context || '';
+    
+    document.getElementById('linetypeModal').style.display = 'block';
+}
+
+async function saveLinetype(event) {
+    event.preventDefault();
+    
+    const linetypeId = document.getElementById('linetypeId').value;
+    const linetypeData = {
+        linetype_name: document.getElementById('linetypeName').value,
+        description: document.getElementById('description').value || null,
+        pattern_definition: document.getElementById('patternDefinition').value || null,
+        usage_context: document.getElementById('usageContext').value || null
+    };
+    
+    try {
+        const url = linetypeId ? `/api/data-manager/linetypes/${linetypeId}` : '/api/data-manager/linetypes';
+        const method = linetypeId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(linetypeData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        closeModal();
+        await loadLinetypes();
+        
+    } catch (error) {
+        showError('Failed to save linetype: ' + error.message);
+    }
+}
+
+async function deleteLinetype(linetypeId) {
+    if (!confirm('Are you sure you want to delete this linetype?')) return;
+    
+    try {
+        const response = await fetch(`/api/data-manager/linetypes/${linetypeId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        await loadLinetypes();
+        
+    } catch (error) {
+        showError('Failed to delete linetype: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('linetypeModal').style.display = 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    document.getElementById('loadingMessage').style.display = 'none';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+function refreshLinetypes() {
+    loadLinetypes();
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('linetypeModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadLinetypes);
+</script>
+{% endblock %}

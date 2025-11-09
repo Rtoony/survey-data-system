@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}Dimension Styles Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-ruler-combined neon-cyan"></i> Dimension Styles Manager</h2>
+    <p class="subtitle">Manage dimension style standards and formatting</p>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="orbitron"><i class="fas fa-list"></i> Dimension Styles</h3>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="showAddModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Dimension Style
+            </button>
+            <button onclick="refreshDimensionStyles()" class="btn btn-secondary">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="searchInput" placeholder="Search dimension styles by name..." 
+               onkeyup="filterTable()" 
+               style="width: 100%; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+    </div>
+
+    <div id="loadingMessage" class="alert" style="text-align: center;">
+        <i class="fas fa-spinner fa-spin"></i> Loading dimension styles...
+    </div>
+
+    <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+    <div id="tableContainer" style="display: none; overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Style Name</th>
+                    <th>Text Height</th>
+                    <th>Arrow Size</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="dimensionStylesTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <div id="emptyMessage" class="alert" style="display: none; text-align: center;">
+        <i class="fas fa-inbox"></i> No dimension styles found. Add your first dimension style.
+    </div>
+</div>
+
+<div id="dimensionStyleModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3 class="orbitron" id="modalTitle">Add Dimension Style</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="dimensionStyleForm" onsubmit="saveDimensionStyle(event)">
+            <input type="hidden" id="styleId">
+            
+            <div class="form-group">
+                <label for="styleName">Style Name *</label>
+                <input type="text" id="styleName" required placeholder="e.g., Standard, Architectural, Metric">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="textHeight">Text Height</label>
+                    <input type="number" step="0.01" id="textHeight" placeholder="0.12">
+                </div>
+                <div class="form-group">
+                    <label for="arrowSize">Arrow Size</label>
+                    <input type="number" step="0.01" id="arrowSize" placeholder="0.09">
+                </div>
+                <div class="form-group">
+                    <label for="extensionLineOffset">Extension Line Offset</label>
+                    <input type="number" step="0.01" id="extensionLineOffset" placeholder="0.0625">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="dimensionLineColor">Dimension Line Color</label>
+                    <input type="text" id="dimensionLineColor" placeholder="e.g., ByLayer, 256">
+                </div>
+                <div class="form-group">
+                    <label for="textColor">Text Color</label>
+                    <input type="text" id="textColor" placeholder="e.g., ByLayer, 256">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Dimension style description..."></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Dimension Style
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 20, 40, 0.4);
+}
+
+.data-table th {
+    background: rgba(0, 100, 150, 0.3);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+    font-weight: 600;
+}
+
+.data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(0,20,40,0.95) 0%, rgba(0,40,80,0.95) 100%);
+    margin: 3% auto;
+    padding: 0;
+    border: 1px solid var(--neon-cyan);
+    width: 90%;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,200,255,0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close {
+    color: var(--neon-cyan);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    padding: 0 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--neon-cyan);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,20,40,0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+</style>
+
+<script>
+let allDimensionStyles = [];
+
+async function loadDimensionStyles() {
+    try {
+        const response = await fetch('/api/data-manager/dimension-styles');
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        allDimensionStyles = data.dimension_styles || [];
+        renderTable();
+        
+    } catch (error) {
+        showError('Failed to load dimension styles: ' + error.message);
+    }
+}
+
+function renderTable() {
+    const tbody = document.getElementById('dimensionStylesTableBody');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    
+    let filtered = allDimensionStyles.filter(style => {
+        return !search || style.style_name.toLowerCase().includes(search);
+    });
+    
+    if (filtered.length === 0) {
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyMessage').style.display = 'block';
+        return;
+    }
+    
+    tbody.innerHTML = filtered.map(s => `
+        <tr>
+            <td><strong>${s.style_name}</strong></td>
+            <td>${s.text_height ? Number(s.text_height).toFixed(2) : '-'}</td>
+            <td>${s.arrow_size ? Number(s.arrow_size).toFixed(2) : '-'}</td>
+            <td>${s.description || '-'}</td>
+            <td>
+                <button onclick="editDimensionStyle('${s.dimension_style_id}')" class="btn btn-sm btn-secondary" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteDimensionStyle('${s.dimension_style_id}')" class="btn btn-sm btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    document.getElementById('loadingMessage').style.display = 'none';
+    document.getElementById('tableContainer').style.display = 'block';
+    document.getElementById('emptyMessage').style.display = 'none';
+}
+
+function filterTable() {
+    renderTable();
+}
+
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add Dimension Style';
+    document.getElementById('dimensionStyleForm').reset();
+    document.getElementById('styleId').value = '';
+    document.getElementById('dimensionStyleModal').style.display = 'block';
+}
+
+function editDimensionStyle(dimensionStyleId) {
+    const style = allDimensionStyles.find(s => s.dimension_style_id === dimensionStyleId);
+    if (!style) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Dimension Style';
+    document.getElementById('styleId').value = style.dimension_style_id;
+    document.getElementById('styleName').value = style.style_name;
+    document.getElementById('textHeight').value = style.text_height || '';
+    document.getElementById('arrowSize').value = style.arrow_size || '';
+    document.getElementById('extensionLineOffset').value = style.extension_line_offset || '';
+    document.getElementById('dimensionLineColor').value = style.dimension_line_color || '';
+    document.getElementById('textColor').value = style.text_color || '';
+    document.getElementById('description').value = style.description || '';
+    
+    document.getElementById('dimensionStyleModal').style.display = 'block';
+}
+
+async function saveDimensionStyle(event) {
+    event.preventDefault();
+    
+    const styleId = document.getElementById('styleId').value;
+    const styleData = {
+        style_name: document.getElementById('styleName').value,
+        text_height: document.getElementById('textHeight').value || null,
+        arrow_size: document.getElementById('arrowSize').value || null,
+        extension_line_offset: document.getElementById('extensionLineOffset').value || null,
+        dimension_line_color: document.getElementById('dimensionLineColor').value || null,
+        text_color: document.getElementById('textColor').value || null,
+        description: document.getElementById('description').value || null
+    };
+    
+    try {
+        const url = styleId ? `/api/data-manager/dimension-styles/${styleId}` : '/api/data-manager/dimension-styles';
+        const method = styleId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(styleData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        closeModal();
+        await loadDimensionStyles();
+        
+    } catch (error) {
+        showError('Failed to save dimension style: ' + error.message);
+    }
+}
+
+async function deleteDimensionStyle(styleId) {
+    if (!confirm('Are you sure you want to delete this dimension style?')) return;
+    
+    try {
+        const response = await fetch(`/api/data-manager/dimension-styles/${styleId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        await loadDimensionStyles();
+        
+    } catch (error) {
+        showError('Failed to delete dimension style: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('dimensionStyleModal').style.display = 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    document.getElementById('loadingMessage').style.display = 'none';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+function refreshDimensionStyles() {
+    loadDimensionStyles();
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('dimensionStyleModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadDimensionStyles);
+</script>
+{% endblock %}

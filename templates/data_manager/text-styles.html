@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% block title %}Text Styles Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-font neon-cyan"></i> Text Styles Manager</h2>
+    <p class="subtitle">Manage text style standards and formatting</p>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="orbitron"><i class="fas fa-list"></i> Text Styles</h3>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="showAddModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Text Style
+            </button>
+            <button onclick="refreshTextStyles()" class="btn btn-secondary">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <input type="text" id="searchInput" placeholder="Search text styles by name or discipline..." 
+               onkeyup="filterTable()" 
+               style="flex: 1; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+        <select id="disciplineFilter" onchange="filterTable()" 
+                style="padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+            <option value="">All Disciplines</option>
+        </select>
+    </div>
+
+    <div id="loadingMessage" class="alert" style="text-align: center;">
+        <i class="fas fa-spinner fa-spin"></i> Loading text styles...
+    </div>
+
+    <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+    <div id="tableContainer" style="display: none; overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Style Name</th>
+                    <th>Font</th>
+                    <th>Height</th>
+                    <th>Discipline</th>
+                    <th>Usage Context</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="textStylesTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <div id="emptyMessage" class="alert" style="display: none; text-align: center;">
+        <i class="fas fa-inbox"></i> No text styles found. Add your first text style.
+    </div>
+</div>
+
+<div id="textStyleModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3 class="orbitron" id="modalTitle">Add Text Style</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="textStyleForm" onsubmit="saveTextStyle(event)">
+            <input type="hidden" id="styleId">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="styleName">Style Name *</label>
+                    <input type="text" id="styleName" required placeholder="e.g., Standard, Title, Notes">
+                </div>
+                <div class="form-group">
+                    <label for="fontName">Font Name</label>
+                    <input type="text" id="fontName" placeholder="e.g., Arial, Romans, txt.shx">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="height">Height</label>
+                    <input type="number" step="0.01" id="height" placeholder="0.12">
+                </div>
+                <div class="form-group">
+                    <label for="widthFactor">Width Factor</label>
+                    <input type="number" step="0.01" id="widthFactor" placeholder="1.0">
+                </div>
+                <div class="form-group">
+                    <label for="obliqueAngle">Oblique Angle</label>
+                    <input type="number" step="0.1" id="obliqueAngle" placeholder="0">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Text style description..."></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="usageContext">Usage Context</label>
+                    <input type="text" id="usageContext" placeholder="e.g., General notes, Title blocks">
+                </div>
+                <div class="form-group">
+                    <label for="discipline">Discipline</label>
+                    <input type="text" id="discipline" placeholder="e.g., Civil, Architectural">
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Text Style
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 20, 40, 0.4);
+}
+
+.data-table th {
+    background: rgba(0, 100, 150, 0.3);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+    font-weight: 600;
+}
+
+.data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(0,20,40,0.95) 0%, rgba(0,40,80,0.95) 100%);
+    margin: 3% auto;
+    padding: 0;
+    border: 1px solid var(--neon-cyan);
+    width: 90%;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,200,255,0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close {
+    color: var(--neon-cyan);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    padding: 0 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--neon-cyan);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,20,40,0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+</style>
+
+<script>
+let allTextStyles = [];
+
+async function loadTextStyles() {
+    try {
+        const response = await fetch('/api/data-manager/text-styles');
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        allTextStyles = data.text_styles || [];
+        renderTable();
+        populateFilters();
+        
+    } catch (error) {
+        showError('Failed to load text styles: ' + error.message);
+    }
+}
+
+function populateFilters() {
+    const disciplines = [...new Set(allTextStyles.map(s => s.discipline).filter(Boolean))].sort();
+    
+    const disciplineFilter = document.getElementById('disciplineFilter');
+    disciplineFilter.innerHTML = '<option value="">All Disciplines</option>';
+    disciplines.forEach(discipline => {
+        disciplineFilter.innerHTML += `<option value="${discipline}">${discipline}</option>`;
+    });
+}
+
+function renderTable() {
+    const tbody = document.getElementById('textStylesTableBody');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const disciplineFilter = document.getElementById('disciplineFilter').value;
+    
+    let filtered = allTextStyles.filter(style => {
+        const matchesSearch = !search || 
+            style.style_name.toLowerCase().includes(search) ||
+            (style.discipline && style.discipline.toLowerCase().includes(search));
+        
+        const matchesDiscipline = !disciplineFilter || style.discipline === disciplineFilter;
+        
+        return matchesSearch && matchesDiscipline;
+    });
+    
+    if (filtered.length === 0) {
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyMessage').style.display = 'block';
+        return;
+    }
+    
+    tbody.innerHTML = filtered.map(s => `
+        <tr>
+            <td><strong>${s.style_name}</strong></td>
+            <td>${s.font_name || '-'}</td>
+            <td>${s.height ? Number(s.height).toFixed(2) : '-'}</td>
+            <td>${s.discipline || '-'}</td>
+            <td>${s.usage_context || '-'}</td>
+            <td>
+                <button onclick="editTextStyle('${s.style_id}')" class="btn btn-sm btn-secondary" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteTextStyle('${s.style_id}')" class="btn btn-sm btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    document.getElementById('loadingMessage').style.display = 'none';
+    document.getElementById('tableContainer').style.display = 'block';
+    document.getElementById('emptyMessage').style.display = 'none';
+}
+
+function filterTable() {
+    renderTable();
+}
+
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add Text Style';
+    document.getElementById('textStyleForm').reset();
+    document.getElementById('styleId').value = '';
+    document.getElementById('textStyleModal').style.display = 'block';
+}
+
+function editTextStyle(styleId) {
+    const style = allTextStyles.find(s => s.style_id === styleId);
+    if (!style) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Text Style';
+    document.getElementById('styleId').value = style.style_id;
+    document.getElementById('styleName').value = style.style_name;
+    document.getElementById('fontName').value = style.font_name || '';
+    document.getElementById('height').value = style.height || '';
+    document.getElementById('widthFactor').value = style.width_factor || '';
+    document.getElementById('obliqueAngle').value = style.oblique_angle || '';
+    document.getElementById('description').value = style.description || '';
+    document.getElementById('usageContext').value = style.usage_context || '';
+    document.getElementById('discipline').value = style.discipline || '';
+    
+    document.getElementById('textStyleModal').style.display = 'block';
+}
+
+async function saveTextStyle(event) {
+    event.preventDefault();
+    
+    const styleId = document.getElementById('styleId').value;
+    const styleData = {
+        style_name: document.getElementById('styleName').value,
+        font_name: document.getElementById('fontName').value || null,
+        height: document.getElementById('height').value || null,
+        width_factor: document.getElementById('widthFactor').value || null,
+        oblique_angle: document.getElementById('obliqueAngle').value || null,
+        description: document.getElementById('description').value || null,
+        usage_context: document.getElementById('usageContext').value || null,
+        discipline: document.getElementById('discipline').value || null
+    };
+    
+    try {
+        const url = styleId ? `/api/data-manager/text-styles/${styleId}` : '/api/data-manager/text-styles';
+        const method = styleId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(styleData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        closeModal();
+        await loadTextStyles();
+        
+    } catch (error) {
+        showError('Failed to save text style: ' + error.message);
+    }
+}
+
+async function deleteTextStyle(styleId) {
+    if (!confirm('Are you sure you want to delete this text style?')) return;
+    
+    try {
+        const response = await fetch(`/api/data-manager/text-styles/${styleId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        await loadTextStyles();
+        
+    } catch (error) {
+        showError('Failed to delete text style: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('textStyleModal').style.display = 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    document.getElementById('loadingMessage').style.display = 'none';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+function refreshTextStyles() {
+    loadTextStyles();
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('textStyleModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadTextStyles);
+</script>
+{% endblock %}

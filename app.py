@@ -1602,6 +1602,26 @@ def sheet_sets_manager():
     """Render the Sheet Sets Manager page"""
     return render_template('data_manager/sheet_sets.html')
 
+@app.route('/data-manager/hatches')
+def hatches_manager():
+    """Render the Hatches Manager page"""
+    return render_template('data_manager/hatches.html')
+
+@app.route('/data-manager/linetypes')
+def linetypes_manager():
+    """Render the Linetypes Manager page"""
+    return render_template('data_manager/linetypes.html')
+
+@app.route('/data-manager/text-styles')
+def text_styles_manager():
+    """Render the Text Styles Manager page"""
+    return render_template('data_manager/text-styles.html')
+
+@app.route('/data-manager/dimension-styles')
+def dimension_styles_manager():
+    """Render the Dimension Styles Manager page"""
+    return render_template('data_manager/dimension-styles.html')
+
 @app.route('/usage-dashboard')
 def usage_dashboard():
     """Render the Usage Tracking Dashboard page"""
@@ -2082,6 +2102,377 @@ def delete_data_manager_sheet_set(set_id):
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM sheet_sets WHERE set_id = %s", (set_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# HATCH PATTERNS MANAGER API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/data-manager/hatches', methods=['GET'])
+def get_hatches():
+    """Get all hatch patterns"""
+    try:
+        query = """
+            SELECT hatch_id, pattern_name, pattern_type, pattern_definition,
+                   description, usage_context
+            FROM hatch_patterns
+            ORDER BY pattern_type, pattern_name
+        """
+        hatches = execute_query(query)
+        return jsonify({'hatches': hatches})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/hatches', methods=['POST'])
+def create_hatch():
+    """Create a new hatch pattern"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO hatch_patterns 
+                    (pattern_name, pattern_type, pattern_definition, description, usage_context)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING hatch_id
+                """, (
+                    data.get('pattern_name'),
+                    data.get('pattern_type'),
+                    data.get('pattern_definition'),
+                    data.get('description'),
+                    data.get('usage_context')
+                ))
+                hatch_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'hatch_id': hatch_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/hatches/<hatch_id>', methods=['PUT'])
+def update_hatch(hatch_id):
+    """Update an existing hatch pattern"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE hatch_patterns
+                    SET pattern_name = %s, pattern_type = %s, pattern_definition = %s,
+                        description = %s, usage_context = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE hatch_id = %s
+                """, (
+                    data.get('pattern_name'),
+                    data.get('pattern_type'),
+                    data.get('pattern_definition'),
+                    data.get('description'),
+                    data.get('usage_context'),
+                    hatch_id
+                ))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/hatches/<hatch_id>', methods=['DELETE'])
+def delete_hatch(hatch_id):
+    """Delete a hatch pattern"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM hatch_patterns WHERE hatch_id = %s", (hatch_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# LINETYPES MANAGER API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/data-manager/linetypes', methods=['GET'])
+def get_linetypes():
+    """Get all linetypes"""
+    try:
+        query = """
+            SELECT linetype_id, linetype_name, pattern_definition,
+                   description, usage_context
+            FROM linetypes
+            ORDER BY linetype_name
+        """
+        linetypes = execute_query(query)
+        return jsonify({'linetypes': linetypes})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/linetypes', methods=['POST'])
+def create_linetype():
+    """Create a new linetype"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO linetypes 
+                    (linetype_name, pattern_definition, description, usage_context)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING linetype_id
+                """, (
+                    data.get('linetype_name'),
+                    data.get('pattern_definition'),
+                    data.get('description'),
+                    data.get('usage_context')
+                ))
+                linetype_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'linetype_id': linetype_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/linetypes/<linetype_id>', methods=['PUT'])
+def update_linetype(linetype_id):
+    """Update an existing linetype"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE linetypes
+                    SET linetype_name = %s, pattern_definition = %s,
+                        description = %s, usage_context = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE linetype_id = %s
+                """, (
+                    data.get('linetype_name'),
+                    data.get('pattern_definition'),
+                    data.get('description'),
+                    data.get('usage_context'),
+                    linetype_id
+                ))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/linetypes/<linetype_id>', methods=['DELETE'])
+def delete_linetype(linetype_id):
+    """Delete a linetype"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM linetypes WHERE linetype_id = %s", (linetype_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# TEXT STYLES MANAGER API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/data-manager/text-styles', methods=['GET'])
+def get_text_styles():
+    """Get all text styles"""
+    try:
+        query = """
+            SELECT style_id, style_name, font_name, height, width_factor,
+                   oblique_angle, description, usage_context, discipline
+            FROM text_styles
+            ORDER BY discipline, style_name
+        """
+        text_styles = execute_query(query)
+        return jsonify({'text_styles': text_styles})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/text-styles', methods=['POST'])
+def create_text_style():
+    """Create a new text style"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO text_styles 
+                    (style_name, font_name, height, width_factor, oblique_angle,
+                     description, usage_context, discipline)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING style_id
+                """, (
+                    data.get('style_name'),
+                    data.get('font_name'),
+                    data.get('height'),
+                    data.get('width_factor'),
+                    data.get('oblique_angle'),
+                    data.get('description'),
+                    data.get('usage_context'),
+                    data.get('discipline')
+                ))
+                style_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'style_id': style_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/text-styles/<style_id>', methods=['PUT'])
+def update_text_style(style_id):
+    """Update an existing text style"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE text_styles
+                    SET style_name = %s, font_name = %s, height = %s,
+                        width_factor = %s, oblique_angle = %s, description = %s,
+                        usage_context = %s, discipline = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE style_id = %s
+                """, (
+                    data.get('style_name'),
+                    data.get('font_name'),
+                    data.get('height'),
+                    data.get('width_factor'),
+                    data.get('oblique_angle'),
+                    data.get('description'),
+                    data.get('usage_context'),
+                    data.get('discipline'),
+                    style_id
+                ))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/text-styles/<style_id>', methods=['DELETE'])
+def delete_text_style(style_id):
+    """Delete a text style"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM text_styles WHERE style_id = %s", (style_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# DIMENSION STYLES MANAGER API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/data-manager/dimension-styles', methods=['GET'])
+def get_dimension_styles():
+    """Get all dimension styles"""
+    try:
+        query = """
+            SELECT dimension_style_id, style_name, text_height, arrow_size,
+                   extension_line_offset, dimension_line_color, text_color, description
+            FROM dimension_styles
+            ORDER BY style_name
+        """
+        dimension_styles = execute_query(query)
+        return jsonify({'dimension_styles': dimension_styles})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/dimension-styles', methods=['POST'])
+def create_dimension_style():
+    """Create a new dimension style"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO dimension_styles 
+                    (style_name, text_height, arrow_size, extension_line_offset,
+                     dimension_line_color, text_color, description)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING dimension_style_id
+                """, (
+                    data.get('style_name'),
+                    data.get('text_height'),
+                    data.get('arrow_size'),
+                    data.get('extension_line_offset'),
+                    data.get('dimension_line_color'),
+                    data.get('text_color'),
+                    data.get('description')
+                ))
+                dimension_style_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'dimension_style_id': dimension_style_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/dimension-styles/<dimension_style_id>', methods=['PUT'])
+def update_dimension_style(dimension_style_id):
+    """Update an existing dimension style"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE dimension_styles
+                    SET style_name = %s, text_height = %s, arrow_size = %s,
+                        extension_line_offset = %s, dimension_line_color = %s,
+                        text_color = %s, description = %s
+                    WHERE dimension_style_id = %s
+                """, (
+                    data.get('style_name'),
+                    data.get('text_height'),
+                    data.get('arrow_size'),
+                    data.get('extension_line_offset'),
+                    data.get('dimension_line_color'),
+                    data.get('text_color'),
+                    data.get('description'),
+                    dimension_style_id
+                ))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/dimension-styles/<dimension_style_id>', methods=['DELETE'])
+def delete_dimension_style(dimension_style_id):
+    """Delete a dimension style"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM dimension_styles WHERE dimension_style_id = %s", (dimension_style_id,))
                 conn.commit()
         
         cache.clear()
