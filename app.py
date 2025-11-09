@@ -720,26 +720,22 @@ def get_layer_standards():
     try:
         query = """
             SELECT 
-                layer_standard_id,
+                layer_id,
                 layer_name,
                 discipline,
                 category,
-                type,
-                status,
                 color,
                 color_rgb,
+                aci_color,
                 linetype,
                 lineweight,
-                is_plottable,
-                is_locked,
-                plot_style,
-                transparency,
                 description,
-                usage_context,
-                display_order,
+                usage_notes,
                 tags,
-                standard_reference
+                is_active,
+                is_deprecated
             FROM layer_standards
+            WHERE is_active = true OR is_active IS NULL
             ORDER BY discipline, category, layer_name
         """
         layers = execute_query(query)
@@ -758,20 +754,15 @@ def get_block_standards():
                 block_name,
                 block_type,
                 category,
-                domain,
                 description,
-                space_type,
-                svg_content,
-                svg_viewbox,
-                semantic_type,
-                semantic_label,
-                usage_context,
+                has_attributes,
+                is_dynamic,
                 tags,
-                is_title_block,
-                is_detail,
-                title_block_size,
-                detail_category
+                dxf_file_path,
+                preview_image_path,
+                is_active
             FROM block_definitions
+            WHERE is_active = true OR is_active IS NULL
             ORDER BY category, block_name
         """
         blocks = execute_query(query)
@@ -787,14 +778,18 @@ def get_color_standards():
         query = """
             SELECT 
                 color_id,
-                color_index,
                 color_name,
-                color_rgb,
-                hex_code,
-                usage_category,
-                description
+                aci_number,
+                rgb_value,
+                hex_value,
+                cmyk_value,
+                usage_context,
+                description,
+                discipline,
+                is_active
             FROM color_standards
-            ORDER BY color_index
+            WHERE is_active = true OR is_active IS NULL
+            ORDER BY aci_number
         """
         colors = execute_query(query)
         return jsonify(colors)
@@ -836,11 +831,12 @@ def get_text_standards():
                 height,
                 width_factor,
                 oblique_angle,
-                is_backward,
-                is_upside_down,
-                is_vertical,
-                usage_context
+                description,
+                usage_context,
+                discipline,
+                is_active
             FROM text_styles
+            WHERE is_active = true OR is_active IS NULL
             ORDER BY style_name
         """
         text_styles = execute_query(query)
@@ -858,14 +854,14 @@ def get_hatch_standards():
                 hatch_id,
                 pattern_name,
                 pattern_type,
-                angle,
-                scale,
                 pattern_definition,
-                material_type,
                 description,
                 usage_context,
-                svg_preview
+                pat_file_path,
+                preview_image_path,
+                is_active
             FROM hatch_patterns
+            WHERE is_active = true OR is_active IS NULL
             ORDER BY pattern_name
         """
         hatches = execute_query(query)
@@ -3847,7 +3843,7 @@ def get_keynote_blocks():
                 kbm.relationship_type,
                 kbm.usage_context,
                 sn.note_text,
-                sn.note_number,
+                sn.note_title,
                 bd.block_name,
                 bd.description as block_description
             FROM project_keynote_block_mappings kbm
@@ -3962,14 +3958,14 @@ def get_keynote_details():
                 kdm.sheet_number,
                 kdm.usage_context,
                 sn.note_text,
-                sn.note_number,
-                ds.detail_name,
-                ds.detail_description
+                sn.note_title,
+                ds.detail_title as detail_name,
+                ds.description as detail_description
             FROM project_keynote_detail_mappings kdm
             LEFT JOIN standard_notes sn ON kdm.note_id = sn.note_id
             LEFT JOIN detail_standards ds ON kdm.detail_id = ds.detail_id
             WHERE kdm.project_id = %s AND kdm.is_active = TRUE
-            ORDER BY kdm.keynote_number, ds.detail_name
+            ORDER BY kdm.keynote_number, ds.detail_title
         """
         mappings = execute_query(query, (project_id,))
         return jsonify({'mappings': mappings})
@@ -4078,10 +4074,10 @@ def get_hatch_materials():
                 hmm.material_thickness,
                 hmm.material_notes,
                 hmm.is_legend_item,
-                hp.pattern_name as hatch_name,
+                hp.pattern_name as hatch_pattern_name,
                 hp.description as hatch_description,
                 ms.material_name,
-                ms.material_code
+                ms.description as material_description
             FROM project_hatch_material_mappings hmm
             LEFT JOIN hatch_patterns hp ON hmm.hatch_id = hp.hatch_id
             LEFT JOIN material_standards ms ON hmm.material_id = ms.material_id
@@ -4193,15 +4189,15 @@ def get_detail_materials():
                 dmm.material_layer_order,
                 dmm.material_thickness,
                 dmm.material_notes,
-                ds.detail_name,
-                ds.detail_description,
+                ds.detail_title as detail_name,
+                ds.description as detail_description,
                 ms.material_name,
-                ms.material_code
+                ms.description as material_description
             FROM project_detail_material_mappings dmm
             LEFT JOIN detail_standards ds ON dmm.detail_id = ds.detail_id
             LEFT JOIN material_standards ms ON dmm.material_id = ms.material_id
             WHERE dmm.project_id = %s AND dmm.is_active = TRUE
-            ORDER BY ds.detail_name, dmm.material_layer_order
+            ORDER BY ds.detail_title, dmm.material_layer_order
         """
         mappings = execute_query(query, (project_id,))
         return jsonify({'mappings': mappings})
