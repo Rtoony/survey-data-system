@@ -358,15 +358,14 @@
 }
 </style>
 
+<script src="/static/js/entity_viewer_core.js"></script>
 <script>
 let currentNetwork = null;
 let structuresData = [];
 let pipesData = [];
 let changedData = { structures: {}, pipes: {} };
 
-let viewerEntities = [];
-let selectedEntityId = null;
-let viewerBbox = null;
+let viewer = null;
 
 async function loadNetworks() {
     try {
@@ -444,7 +443,7 @@ function displayStructures() {
     }
     
     tbody.innerHTML = structuresData.map(struct => `
-        <tr class="table-row" data-entity-id="${struct.structure_id}" data-entity-type="structure" onclick="selectEntityFromTable(event, '${struct.structure_id}', 'structure')">
+        <tr class="table-row" data-entity-id="${struct.structure_id}" data-entity-type="structure" onclick="if(viewer) viewer.selectEntityFromTable(event, '${struct.structure_id}', 'structure')">
             <td><input type="text" value="${struct.structure_number || ''}" onchange="updateStructure('${struct.structure_id}', 'structure_number', this.value)"></td>
             <td>${struct.structure_type || ''}</td>
             <td><input type="number" step="0.01" value="${struct.rim_elevation || ''}" onchange="updateStructure('${struct.structure_id}', 'rim_elevation', this.value)"></td>
@@ -465,7 +464,7 @@ function displayPipes() {
     }
     
     tbody.innerHTML = pipesData.map(pipe => `
-        <tr class="table-row" data-entity-id="${pipe.line_id}" data-entity-type="pipe" onclick="selectEntityFromTable(event, '${pipe.line_id}', 'pipe')">
+        <tr class="table-row" data-entity-id="${pipe.line_id}" data-entity-type="pipe" onclick="if(viewer) viewer.selectEntityFromTable(event, '${pipe.line_id}', 'pipe')">
             <td><input type="text" value="${pipe.line_number || ''}" onchange="updatePipe('${pipe.line_id}', 'line_number', this.value)"></td>
             <td>${pipe.from_structure_number || 'N/A'}</td>
             <td>${pipe.to_structure_number || 'N/A'}</td>
@@ -546,42 +545,6 @@ async function saveChanges() {
     }
 }
 
-function findEntityById(entityId) {
-    return viewerEntities.find(entity => entity.entity_id === entityId);
-}
-
-function selectEntity(entityId, entityType) {
-    const svg = document.getElementById('networkCanvas');
-    
-    selectedEntityId = entityId;
-    
-    const allSvgEntities = svg.querySelectorAll('[data-entity-id]');
-    allSvgEntities.forEach(el => el.classList.remove('entity-selected'));
-    
-    const svgEntity = svg.querySelector(`[data-entity-id="${entityId}"]`);
-    if (svgEntity) {
-        svgEntity.classList.add('entity-selected');
-    }
-    
-    const allTableRows = document.querySelectorAll('.table-row');
-    allTableRows.forEach(row => row.classList.remove('table-row-selected'));
-    
-    const tableRow = document.querySelector(`.table-row[data-entity-id="${entityId}"]`);
-    if (tableRow) {
-        tableRow.classList.add('table-row-selected');
-        tableRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-    
-    const entity = findEntityById(entityId);
-    if (entity) {
-        updateEntityInfo(entity);
-    }
-}
-
-function selectEntityFromTable(event, entityId, entityType) {
-    selectEntity(entityId, entityType);
-    event.stopPropagation();
-}
 
 async function autoConnectPipes() {
     const networkId = currentNetwork?.network_id;
@@ -633,206 +596,46 @@ async function renderViewer() {
     const networkId = currentNetwork?.network_id;
     if (!networkId) return;
     
-    const loadingEl = document.getElementById('loadingMessage');
-    const svg = document.getElementById('networkCanvas');
-    
-    loadingEl.style.display = 'block';
-    
-    try {
-        const response = await fetch(`/api/pipe-networks/${networkId}/viewer-entities`);
-        const data = await response.json();
-        
-        viewerEntities = data.entities || [];
-        viewerBbox = data.bbox;
-        
-        if (!viewerBbox || viewerEntities.length === 0) {
-            svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#00ffff" font-size="16">No geometry data to display</text>';
-            loadingEl.style.display = 'none';
-            return;
-        }
-        
-        const width = 1000;
-        const height = 1000;
-        const padding = 50;
-        
-        const bboxWidth = viewerBbox.maxX - viewerBbox.minX;
-        const bboxHeight = viewerBbox.maxY - viewerBbox.minY;
-        
-        const scale = Math.min((width - padding * 2) / bboxWidth, (height - padding * 2) / bboxHeight);
-        
-        function projectPoint(lon, lat) {
-            const x = padding + (lon - viewerBbox.minX) * scale;
-            const y = height - padding - (lat - viewerBbox.minY) * scale;
-            return { x, y };
-        }
-        
-        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-        svg.innerHTML = '';
-        
-        viewerEntities.forEach((entity, idx) => {
-            const geom = entity.geometry;
-            const color = entity.color || '#00ffff';
-            const entityType = entity.entity_type;
-            const entityId = entity.entity_id;
-            
-            if (geom.type === 'Point') {
-                const pt = projectPoint(geom.coordinates[0], geom.coordinates[1]);
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', pt.x);
-                circle.setAttribute('cy', pt.y);
-                circle.setAttribute('r', 5);
-                circle.setAttribute('fill', color);
-                circle.setAttribute('stroke', color);
-                circle.setAttribute('stroke-width', '1');
-                circle.setAttribute('data-entity-id', entityId);
-                circle.setAttribute('data-entity-type', entityType);
-                circle.setAttribute('data-entity-idx', idx);
-                circle.style.cursor = 'pointer';
-                circle.style.opacity = '0.8';
-                
-                circle.addEventListener('mouseenter', function() {
-                    this.classList.add('entity-highlighted');
-                    updateEntityInfo(viewerEntities[idx]);
-                });
-                
-                circle.addEventListener('mouseleave', function() {
-                    this.classList.remove('entity-highlighted');
-                });
-                
-                circle.addEventListener('click', function() {
-                    selectEntity(entityId, entityType);
-                });
-                
-                svg.appendChild(circle);
-                
-            } else if (geom.type === 'LineString') {
-                const points = geom.coordinates.map(coord => projectPoint(coord[0], coord[1]));
-                const pathData = 'M ' + points.map(p => `${p.x},${p.y}`).join(' L ');
-                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                path.setAttribute('d', pathData);
-                path.setAttribute('stroke', color);
-                path.setAttribute('stroke-width', 2);
-                path.setAttribute('fill', 'none');
-                path.setAttribute('data-entity-id', entityId);
-                path.setAttribute('data-entity-type', entityType);
-                path.setAttribute('data-entity-idx', idx);
-                path.style.cursor = 'pointer';
-                path.style.opacity = '0.7';
-                
-                path.addEventListener('mouseenter', function() {
-                    this.classList.add('entity-highlighted');
-                    updateEntityInfo(viewerEntities[idx]);
-                });
-                
-                path.addEventListener('mouseleave', function() {
-                    this.classList.remove('entity-highlighted');
-                });
-                
-                path.addEventListener('click', function() {
-                    selectEntity(entityId, entityType);
-                });
-                
-                svg.appendChild(path);
+    viewer = new EntityViewerCore({
+        svgId: 'networkCanvas',
+        legendId: 'viewerLegend',
+        infoId: 'entityInfo',
+        loadingId: 'loadingMessage',
+        fetchEntitiesUrl: `/api/pipe-networks/${networkId}/viewer-entities`,
+        entityTypeColors: {
+            'storm_pipe': '#f7b801',
+            'sanitary_pipe': '#0096ff',
+            'structure': '#6a994e',
+            'pipe': '#00ffff'
+        },
+        infoPropertyMap: [
+            { key: 'line_number', label: 'Pipe #' },
+            { key: 'structure_number', label: 'Structure #' },
+            { key: 'from_structure_number', label: 'From' },
+            { key: 'to_structure_number', label: 'To' },
+            { key: 'diameter_mm', label: 'Diameter (mm)' },
+            { key: 'material', label: 'Material' },
+            { key: 'structure_type', label: 'Type' },
+            { key: 'rim_elevation', label: 'Rim Elev (ft)' },
+            { key: 'invert_elevation', label: 'Invert Elev (ft)' },
+            { key: 'manhole_depth_ft', label: 'Depth (ft)' },
+            { key: 'length', label: 'Length' },
+            { key: 'slope', label: 'Slope' }
+        ],
+        onEntitySelect: (entityId, entityType) => {
+            if (entityType === 'structure') {
+                selectStructure(entityId);
+            } else if (entityType.includes('pipe')) {
+                selectPipe(entityId);
             }
-        });
-        
-        updateLegend();
-        loadingEl.style.display = 'none';
-        
-    } catch (error) {
-        console.error('Error rendering viewer:', error);
-        svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#ff6b6b" font-size="16">Error loading viewer data</text>`;
-        loadingEl.style.display = 'none';
-    }
-}
-
-function updateLegend() {
-    const legendEl = document.getElementById('viewerLegend');
-    
-    const typeCounts = {};
-    viewerEntities.forEach(entity => {
-        const type = entity.entity_type || 'Unknown';
-        typeCounts[type] = (typeCounts[type] || 0) + 1;
+        },
+        enableZoomPan: true,
+        showGrid: true,
+        showNorthArrow: true,
+        showScaleBar: true
     });
     
-    let legendHTML = '';
-    
-    const typeColors = {
-        'storm_pipe': '#f7b801',
-        'sanitary_pipe': '#0096ff',
-        'structure': '#6a994e'
-    };
-    
-    Object.entries(typeCounts).forEach(([type, count]) => {
-        const color = typeColors[type] || '#00ffff';
-        const displayName = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        const isLine = type.includes('pipe');
-        
-        legendHTML += `
-            <div class="legend-item">
-                <div class="legend-color ${isLine ? '' : 'point'}" style="background: ${color};"></div>
-                <span class="legend-label">${displayName}</span>
-                <span class="legend-count">${count}</span>
-            </div>
-        `;
-    });
-    
-    if (legendHTML === '') {
-        legendHTML = '<p style="color: var(--mc-text); font-size: 0.85rem;">No entities to display</p>';
-    }
-    
-    legendEl.innerHTML = legendHTML;
-}
-
-function updateEntityInfo(entity) {
-    const infoEl = document.getElementById('entityInfo');
-    
-    if (!entity) {
-        infoEl.innerHTML = '<p style="color: var(--mc-text); font-size: 0.85rem;">Hover or click an entity</p>';
-        return;
-    }
-    
-    const displayName = (entity.entity_type || 'Unknown').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    
-    let infoHTML = `
-        <div style="margin-bottom: 0.5rem; color: ${entity.color}; font-weight: 600;">
-            ${displayName}
-        </div>
-    `;
-    
-    const props = entity.properties || {};
-    
-    const displayProps = [
-        { key: 'line_number', label: 'Pipe #' },
-        { key: 'structure_number', label: 'Structure #' },
-        { key: 'from_structure_number', label: 'From' },
-        { key: 'to_structure_number', label: 'To' },
-        { key: 'diameter_mm', label: 'Diameter (mm)' },
-        { key: 'material', label: 'Material' },
-        { key: 'structure_type', label: 'Type' },
-        { key: 'rim_elevation', label: 'Rim Elev (ft)' },
-        { key: 'invert_elevation', label: 'Invert Elev (ft)' },
-        { key: 'manhole_depth_ft', label: 'Depth (ft)' },
-        { key: 'length', label: 'Length' },
-        { key: 'slope', label: 'Slope' }
-    ];
-    
-    displayProps.forEach(({ key, label }) => {
-        if (props[key] !== undefined && props[key] !== null && props[key] !== '') {
-            let value = props[key];
-            if (typeof value === 'number') {
-                value = value.toFixed(2);
-            }
-            infoHTML += `
-                <div style="display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px solid rgba(0, 255, 255, 0.1); font-size: 0.85rem;">
-                    <span style="color: var(--mc-primary);">${label}:</span>
-                    <span style="color: var(--mc-text);">${value}</span>
-                </div>
-            `;
-        }
-    });
-    
-    infoEl.innerHTML = infoHTML;
+    await viewer.renderViewer();
 }
 
 function showStatus(message, isError) {
