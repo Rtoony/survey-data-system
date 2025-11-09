@@ -1041,7 +1041,7 @@ def get_drawing_scales():
 # ============================================================================
 
 @app.route('/api/categories', methods=['GET'])
-def get_categories():
+def get_standard_categories():
     """Get all categories, optionally filtered by standard_type"""
     try:
         standard_type = request.args.get('standard_type')
@@ -1171,7 +1171,7 @@ def delete_category(category_id):
 # ============================================================================
 
 @app.route('/api/disciplines', methods=['GET'])
-def get_disciplines():
+def get_standard_disciplines():
     """Get all disciplines, optionally filtered by standard_type"""
     try:
         standard_type = request.args.get('standard_type')
@@ -8774,8 +8774,8 @@ def download_export(job_id, filename):
 # ============================================
 
 @app.route('/api/vocabulary/disciplines')
-def get_disciplines():
-    """Get all discipline codes"""
+def get_vocabulary_disciplines():
+    """Get all discipline codes (legacy vocabulary table)"""
     try:
         query = """
             SELECT discipline_id, code, full_name, description, sort_order
@@ -8789,8 +8789,8 @@ def get_disciplines():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/categories')
-def get_categories():
-    """Get all category codes with discipline info"""
+def get_vocabulary_categories():
+    """Get all category codes with discipline info (legacy vocabulary table)"""
     try:
         discipline_id = request.args.get('discipline_id')
         
@@ -9286,8 +9286,8 @@ def test_import_template():
 # ============================================
 
 @app.route('/api/vocabulary/disciplines', methods=['POST'])
-def create_discipline():
-    """Create a new discipline code"""
+def create_vocabulary_discipline():
+    """Create a new discipline code (legacy vocabulary table)"""
     try:
         data = request.get_json()
         query = """
@@ -9301,8 +9301,8 @@ def create_discipline():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/disciplines/<int:discipline_id>', methods=['PUT'])
-def update_discipline(discipline_id):
-    """Update a discipline code"""
+def update_vocabulary_discipline(discipline_id):
+    """Update a discipline code (legacy vocabulary table)"""
     try:
         data = request.get_json()
         query = """
@@ -9316,8 +9316,8 @@ def update_discipline(discipline_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/disciplines/<int:discipline_id>', methods=['DELETE'])
-def delete_discipline(discipline_id):
-    """Delete a discipline code"""
+def delete_vocabulary_discipline(discipline_id):
+    """Delete a discipline code (legacy vocabulary table)"""
     try:
         execute_query("DELETE FROM discipline_codes WHERE discipline_id = %s", (discipline_id,), fetch=False)
         return jsonify({'message': 'Discipline deleted'})
@@ -9325,8 +9325,8 @@ def delete_discipline(discipline_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/categories', methods=['POST'])
-def create_category():
-    """Create a new category code"""
+def create_vocabulary_category():
+    """Create a new category code (legacy vocabulary table)"""
     try:
         data = request.get_json()
         query = """
@@ -9340,8 +9340,8 @@ def create_category():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/categories/<int:category_id>', methods=['PUT'])
-def update_category(category_id):
-    """Update a category code"""
+def update_vocabulary_category(category_id):
+    """Update a category code (legacy vocabulary table)"""
     try:
         data = request.get_json()
         query = """
@@ -9355,8 +9355,8 @@ def update_category(category_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/categories/<int:category_id>', methods={'DELETE'})
-def delete_category(category_id):
-    """Delete a category code"""
+def delete_vocabulary_category(category_id):
+    """Delete a category code (legacy vocabulary table)"""
     try:
         execute_query("DELETE FROM category_codes WHERE category_id = %s", (category_id,), fetch=False)
         return jsonify({'message': 'Category deleted'})
