@@ -6,6 +6,9 @@ ACAD-GIS is an AI-first, database-centric CAD/GIS system designed for machine le
 
 ## Recent Changes
 
+- **November 9, 2025**: PROJECT CONTEXT MAPPING MANAGER & EXPORT TOOLS - Built comprehensive Project Context Mapping Manager (`/project-context-manager`) with 5 tabbed interfaces for managing semantic relationships: Keynote→Block, Keynote→Detail, Hatch→Material, Detail→Material, and Block→Specification. Implemented full CRUD operations (20 API endpoints) with modal-based editing, project-scoped views, and relationship tracking. Created Standards Documentation Export Tool (`/standards-export`) supporting 4 export formats: Excel (.xlsx with multi-sheet workbooks), CSV (.zip archives), standalone HTML (Mission Control styling), and PDF (WeasyPrint generation). Both tools provide client handoff capabilities, training documentation, and quality control workflows. Added `openpyxl` and `weasyprint` packages.
+- **November 9, 2025**: NAME MAPPING MANAGERS - Built 5 complete CRUD managers for all name mapping types: Block Mappings (`/data-manager/block-mappings`), Detail Mappings (`/data-manager/detail-mappings`), Hatch Mappings (`/data-manager/hatch-mappings`), Material Mappings (`/data-manager/material-mappings`), and Note Mappings (`/data-manager/note-mappings`). Each manager supports bidirectional DXF↔Database translation, multi-client scoping, confidence scoring, modal editing, and search/filter capabilities with import/export direction badges.
+- **November 9, 2025**: STANDARDS MAPPING VISUALIZATION DASHBOARD - Created Standards Mapping Dashboard (`/standards-mapping-dashboard`) with tabbed interface showing Overview (statistics and counts), Name Mappings (all 5 types with direction badges), Relationships (6 project context mapping types), and full-text Search capabilities across all mappings. Provides read-only visualization with "Manage" links to CRUD interfaces.
 - **November 9, 2025**: CAD STANDARDS MAPPING FRAMEWORK - Created comprehensive database schema for CAD element name mappings and project-level context relationships. Built 11 new tables: 5 name mapping tables (block_name_mappings, detail_name_mappings, hatch_pattern_name_mappings, material_name_mappings, note_name_mappings) supporting bidirectional DXF↔Database translation with multi-client scoping, and 6 project context mapping tables (project_keynote_block_mappings, project_keynote_detail_mappings, project_hatch_material_mappings, project_detail_material_mappings, project_block_specification_mappings, project_element_cross_references) enabling semantic relationships between keynotes, blocks, details, hatches, and materials. All tables include AI-friendly search_vector columns with GIN indexes and automatic triggers for full-text search capability.
 - **November 9, 2025**: MAJOR ARCHITECTURAL RESTRUCTURING - Separated "Standards Library" from "Project Operations" with clear navigation hubs, new database tables (`project_standard_assignments`, `project_standard_overrides`), Project Standards Assignment UI (`/project-standards-assignment`) for assigning standard bundles to projects, and Project Compliance Dashboard (`/project-compliance`) for tracking compliance and deviations. This enables the core workflow: manage global standards → assign to projects → track compliance.
 - **November 9, 2025**: Completed 4 CAD Standards Managers - Hatch Patterns (`/data-manager/hatches`), Linetypes (`/data-manager/linetypes`), Text Styles (`/data-manager/text-styles`), and Dimension Styles (`/data-manager/dimension-styles`) providing full CRUD for all CAD drawing standards. Created `drawing_materials` junction table and built Drawing-Materials Relationship Manager (`/data-manager/drawing-materials`) for linking materials to specific drawings with quantity tracking.
@@ -47,6 +50,9 @@ Preferred communication style: Simple, everyday language.
 **Key Features & Design:**
 - **Schema Explorer & Data Manager:** CRUD operations for CAD standards.
 - **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards.
+- **Standards Mapping Framework:** 11-table database schema with 5 name mapping managers (blocks, details, hatches, materials, notes) supporting bidirectional DXF↔Database translation, visualization dashboard, and full-text search.
+- **Project Context Mapping Manager:** Manage 5 relationship types (Keynote→Block, Keynote→Detail, Hatch→Material, Detail→Material, Block→Specification) with project-scoped views, modal editing, and 20 CRUD API endpoints.
+- **Standards Documentation Export:** Generate client handoffs and training materials in 4 formats (Excel multi-sheet workbooks, CSV ZIP archives, standalone HTML, PDF documents) with content selection and custom titles/descriptions.
 - **Standards Management UI:** Tools for configuring client-specific layer mapping patterns and bulk editing vocabulary types.
 - **DXF Tools:** Full DXF import/export with intelligent object creation, change detection, and bidirectional sync.
 - **Map Viewer & Export:** Interactive Leaflet map with coordinate transformation, bounding box export, measurement tools, address search, and WFS layer support.
@@ -59,7 +65,7 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 **Python Libraries:**
-- `Flask`, `Flask-Caching`, `psycopg2-binary`, `python-dotenv`, `flask-cors`, `ezdxf`, `openai`, `pyproj`, `shapely`, `fiona`, `owslib`, `pillow`, `rasterio`, `arcgis2geojson`.
+- `Flask`, `Flask-Caching`, `psycopg2-binary`, `python-dotenv`, `flask-cors`, `ezdxf`, `openai`, `pyproj`, `shapely`, `fiona`, `owslib`, `pillow`, `rasterio`, `arcgis2geojson`, `openpyxl`, `weasyprint`.
 
 **Database:**
 - `PostgreSQL 12+`
