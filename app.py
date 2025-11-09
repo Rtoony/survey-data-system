@@ -1412,8 +1412,8 @@ def get_blocks():
     """Get all blocks"""
     try:
         query = """
-            SELECT block_id, block_name, block_type, category, domain, 
-                   description, svg_content, svg_viewbox
+            SELECT block_id, block_name, block_type, category, 
+                   description, svg_content
             FROM block_definitions
             ORDER BY category, block_name
         """
@@ -1432,13 +1432,13 @@ def create_block():
             with conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO block_definitions 
-                    (block_name, category, domain, description)
+                    (block_name, category, block_type, description)
                     VALUES (%s, %s, %s, %s)
                     RETURNING block_id
                 """, (
                     data.get('block_name'),
                     data.get('category'),
-                    data.get('domain'),
+                    data.get('block_type'),
                     data.get('description')
                 ))
                 block_id = cur.fetchone()[0]
@@ -1459,12 +1459,12 @@ def update_block(block_id):
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE block_definitions
-                    SET block_name = %s, category = %s, domain = %s, description = %s
+                    SET block_name = %s, category = %s, block_type = %s, description = %s
                     WHERE block_id = %s
                 """, (
                     data.get('block_name'),
                     data.get('category'),
-                    data.get('domain'),
+                    data.get('block_type'),
                     data.get('description'),
                     block_id
                 ))
@@ -1511,12 +1511,12 @@ def import_blocks_csv():
             with conn.cursor() as cur:
                 for row in csv_reader:
                     # Map CSV columns to database columns
-                    # CSV: Block_Name, Type_Prefix, Discipline, Element, Size_Variant, Category, Description
-                    # DB: block_name, category, domain, description
+                    # CSV: Block_Name, Category, Block_Type, Description
+                    # DB: block_name, category, block_type, description
                     
                     block_name = row.get('Block_Name', '').strip()
                     category = row.get('Category', '').strip()
-                    discipline = row.get('Discipline', '').strip()
+                    block_type = row.get('Block_Type', '').strip()
                     description = row.get('Description', '').strip()
                     
                     if not block_name:
@@ -1534,16 +1534,16 @@ def import_blocks_csv():
                         # Update existing record
                         cur.execute("""
                             UPDATE block_definitions
-                            SET category = %s, domain = %s, description = %s
+                            SET category = %s, block_type = %s, description = %s
                             WHERE block_id = %s
-                        """, (category, discipline, description, existing[0]))
+                        """, (category, block_type, description, existing[0]))
                         updated_count += 1
                     else:
                         # Insert new record
                         cur.execute("""
-                            INSERT INTO block_definitions (block_name, category, domain, description)
+                            INSERT INTO block_definitions (block_name, category, block_type, description)
                             VALUES (%s, %s, %s, %s)
-                        """, (block_name, category, discipline, description))
+                        """, (block_name, category, block_type, description))
                         imported_count += 1
                 
                 conn.commit()
@@ -1561,7 +1561,7 @@ def export_blocks_csv():
     """Export blocks to CSV file"""
     try:
         query = """
-            SELECT block_name, category, domain, description
+            SELECT block_name, category, block_type, description
             FROM block_definitions
             ORDER BY category, block_name
         """
@@ -1570,7 +1570,7 @@ def export_blocks_csv():
         # Create CSV in memory
         output = io.StringIO()
         if data:
-            fieldnames = ['Block_Name', 'Category', 'Domain', 'Description']
+            fieldnames = ['Block_Name', 'Category', 'Block_Type', 'Description']
             writer = csv.DictWriter(output, fieldnames=fieldnames)
             writer.writeheader()
             
@@ -1578,7 +1578,7 @@ def export_blocks_csv():
                 writer.writerow({
                     'Block_Name': row.get('block_name', ''),
                     'Category': row.get('category', ''),
-                    'Domain': row.get('domain', ''),
+                    'Block_Type': row.get('block_type', ''),
                     'Description': row.get('description', '')
                 })
         
