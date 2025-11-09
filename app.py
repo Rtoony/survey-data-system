@@ -1582,6 +1582,11 @@ def standard_notes_manager():
     """Render the Standard Notes Manager page"""
     return render_template('data_manager/standard_notes.html')
 
+@app.route('/usage-dashboard')
+def usage_dashboard():
+    """Render the Usage Tracking Dashboard page"""
+    return render_template('usage_dashboard.html')
+
 @app.route('/api/data-manager/details', methods=['GET'])
 def get_details():
     """Get all details"""
@@ -1859,6 +1864,141 @@ def delete_standard_note(note_id):
         
         cache.clear()
         return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# USAGE TRACKING DASHBOARD API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/usage/summary')
+def get_usage_summary():
+    """Get summary usage statistics"""
+    try:
+        query = """
+            WITH stats AS (
+                SELECT 
+                    (SELECT COUNT(*) FROM drawings) as total_drawings,
+                    (SELECT COUNT(DISTINCT layer_id) FROM drawing_layer_usage) as unique_layers,
+                    (SELECT SUM(block_count) FROM drawings) as total_block_instances,
+                    (SELECT ROUND(AVG(entity_count)) FROM drawings) as avg_entities_per_drawing
+            )
+            SELECT * FROM stats
+        """
+        result = execute_query(query)
+        return jsonify(result[0] if result else {})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage/top-drawings')
+def get_top_drawings():
+    """Get most accessed drawings"""
+    try:
+        query = """
+            SELECT 
+                drawing_id,
+                drawing_name,
+                drawing_number,
+                entity_count,
+                layer_count,
+                block_count,
+                last_opened_at,
+                last_modified_at
+            FROM drawings
+            WHERE last_opened_at IS NOT NULL
+            ORDER BY last_opened_at DESC
+            LIMIT 10
+        """
+        drawings = execute_query(query)
+        return jsonify({'drawings': drawings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage/top-layers')
+def get_top_layers():
+    """Get most used layers"""
+    try:
+        query = """
+            SELECT 
+                l.layer_name,
+                ls.category,
+                COUNT(DISTINCT dlu.drawing_id) as drawing_count,
+                SUM(dlu.entity_count) as total_entities
+            FROM drawing_layer_usage dlu
+            LEFT JOIN layers l ON dlu.layer_id = l.layer_id
+            LEFT JOIN layer_standards ls ON l.layer_standard_id = ls.layer_id
+            WHERE l.layer_name IS NOT NULL
+            GROUP BY l.layer_name, ls.category
+            ORDER BY total_entities DESC
+            LIMIT 10
+        """
+        layers = execute_query(query)
+        return jsonify({'layers': layers})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage/top-notes')
+def get_top_notes():
+    """Get most used standard notes"""
+    try:
+        query = """
+            SELECT 
+                note_id,
+                note_title,
+                note_category,
+                usage_frequency
+            FROM standard_notes
+            WHERE usage_frequency > 0
+            ORDER BY usage_frequency DESC
+            LIMIT 10
+        """
+        notes = execute_query(query)
+        return jsonify({'notes': notes})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage/top-blocks')
+def get_top_blocks():
+    """Get most used blocks"""
+    try:
+        query = """
+            SELECT 
+                block_name,
+                category,
+                usage_frequency
+            FROM block_definitions
+            WHERE usage_frequency > 0
+            ORDER BY usage_frequency DESC
+            LIMIT 10
+        """
+        blocks = execute_query(query)
+        return jsonify({'blocks': blocks})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage/recent-activity')
+def get_usage_recent_activity():
+    """Get recent drawing activity"""
+    try:
+        query = """
+            SELECT 
+                drawing_id,
+                drawing_name,
+                drawing_number,
+                discipline,
+                entity_count,
+                last_modified_at,
+                last_opened_at
+            FROM drawings
+            WHERE last_modified_at IS NOT NULL OR last_opened_at IS NOT NULL
+            ORDER BY GREATEST(
+                COALESCE(last_modified_at, '1970-01-01'::timestamp),
+                COALESCE(last_opened_at, '1970-01-01'::timestamp)
+            ) DESC
+            LIMIT 20
+        """
+        activity = execute_query(query)
+        return jsonify({'activity': activity})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

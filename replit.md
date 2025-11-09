@@ -6,6 +6,7 @@ ACAD-GIS is an AI-first, database-centric CAD/GIS system designed for machine le
 
 ## Recent Changes
 
+- **November 9, 2025**: Completed Drawing Usage Tracking Dashboard - comprehensive analytics dashboard at `/usage-dashboard` showing drawing/layer/block/note usage patterns, most accessed drawings, layer aggregation statistics, and recent activity timeline.
 - **November 9, 2025**: Completed Standard Notes Library CRUD manager - full create/read/update/delete interface at `/data-manager/standard-notes` for managing construction notes, following established data manager patterns with search, filtering, and modal-based editing.
 
 ## User Preferences

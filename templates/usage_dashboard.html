@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block title %}Usage Tracking Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-chart-line neon-cyan"></i> Usage Tracking Dashboard</h2>
+    <p class="subtitle">Monitor drawing and standards usage patterns across projects</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value" id="totalDrawings">-</div>
+        <div class="stat-label">Total Drawings</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="totalLayers">-</div>
+        <div class="stat-label">Unique Layers Used</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="totalBlocks">-</div>
+        <div class="stat-label">Block Instances</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="avgEntities">-</div>
+        <div class="stat-label">Avg Entities/Drawing</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+    <div class="panel">
+        <h3 class="orbitron"><i class="fas fa-file-alt"></i> Most Accessed Drawings</h3>
+        <div id="topDrawingsLoading" style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+        <div id="topDrawingsTable" style="display: none;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Drawing</th>
+                        <th>Entities</th>
+                        <th>Layers</th>
+                        <th>Last Opened</th>
+                    </tr>
+                </thead>
+                <tbody id="topDrawingsBody"></tbody>
+            </table>
+        </div>
+        <div id="topDrawingsEmpty" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
+            No drawing data available
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3 class="orbitron"><i class="fas fa-layer-group"></i> Most Used Layers</h3>
+        <div id="topLayersLoading" style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+        <div id="topLayersTable" style="display: none;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Layer Name</th>
+                        <th>Drawings</th>
+                        <th>Total Entities</th>
+                        <th>Category</th>
+                    </tr>
+                </thead>
+                <tbody id="topLayersBody"></tbody>
+            </table>
+        </div>
+        <div id="topLayersEmpty" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
+            No layer usage data available
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+    <div class="panel">
+        <h3 class="orbitron"><i class="fas fa-sticky-note"></i> Most Used Standard Notes</h3>
+        <div id="topNotesLoading" style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+        <div id="topNotesTable" style="display: none;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Note Title</th>
+                        <th>Category</th>
+                        <th>Usage Count</th>
+                    </tr>
+                </thead>
+                <tbody id="topNotesBody"></tbody>
+            </table>
+        </div>
+        <div id="topNotesEmpty" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
+            No notes data available
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3 class="orbitron"><i class="fas fa-cube"></i> Most Used Blocks</h3>
+        <div id="topBlocksLoading" style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+        <div id="topBlocksTable" style="display: none;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Block Name</th>
+                        <th>Category</th>
+                        <th>Usage Count</th>
+                    </tr>
+                </thead>
+                <tbody id="topBlocksBody"></tbody>
+            </table>
+        </div>
+        <div id="topBlocksEmpty" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
+            No blocks data available
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <h3 class="orbitron"><i class="fas fa-history"></i> Recent Drawing Activity</h3>
+    <div id="recentActivityLoading" style="text-align: center; padding: 40px;">
+        <i class="fas fa-spinner fa-spin"></i> Loading...
+    </div>
+    <div id="recentActivityTable" style="display: none;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Drawing Name</th>
+                    <th>Drawing Number</th>
+                    <th>Discipline</th>
+                    <th>Last Modified</th>
+                    <th>Last Opened</th>
+                    <th>Entities</th>
+                </tr>
+            </thead>
+            <tbody id="recentActivityBody"></tbody>
+        </table>
+    </div>
+    <div id="recentActivityEmpty" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
+        No activity data available
+    </div>
+</div>
+
+<style>
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 20, 40, 0.4);
+    margin-top: 15px;
+}
+
+.data-table th {
+    background: rgba(0, 100, 150, 0.3);
+    padding: 10px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.data-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9em;
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.usage-badge {
+    background: rgba(0, 200, 255, 0.2);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.timestamp {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+}
+</style>
+
+<script>
+async function loadDashboard() {
+    try {
+        await Promise.all([
+            loadSummaryStats(),
+            loadTopDrawings(),
+            loadTopLayers(),
+            loadTopNotes(),
+            loadTopBlocks(),
+            loadRecentActivity()
+        ]);
+    } catch (error) {
+        console.error('Error loading dashboard:', error);
+    }
+}
+
+async function loadSummaryStats() {
+    try {
+        const response = await fetch('/api/usage/summary');
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Summary stats error:', data.error);
+            return;
+        }
+        
+        document.getElementById('totalDrawings').textContent = data.total_drawings || 0;
+        document.getElementById('totalLayers').textContent = data.unique_layers || 0;
+        document.getElementById('totalBlocks').textContent = data.total_block_instances || 0;
+        document.getElementById('avgEntities').textContent = data.avg_entities_per_drawing || 0;
+    } catch (error) {
+        console.error('Failed to load summary stats:', error);
+    }
+}
+
+async function loadTopDrawings() {
+    try {
+        const response = await fetch('/api/usage/top-drawings');
+        const data = await response.json();
+        
+        document.getElementById('topDrawingsLoading').style.display = 'none';
+        
+        if (data.error || !data.drawings || data.drawings.length === 0) {
+            document.getElementById('topDrawingsEmpty').style.display = 'block';
+            return;
+        }
+        
+        const tbody = document.getElementById('topDrawingsBody');
+        tbody.innerHTML = data.drawings.map(d => `
+            <tr>
+                <td><strong>${d.drawing_name || 'Unnamed'}</strong><br>
+                    <small style="color: var(--text-secondary);">${d.drawing_number || '-'}</small>
+                </td>
+                <td>${d.entity_count || 0}</td>
+                <td>${d.layer_count || 0}</td>
+                <td class="timestamp">${d.last_opened_at ? new Date(d.last_opened_at).toLocaleDateString() : 'Never'}</td>
+            </tr>
+        `).join('');
+        
+        document.getElementById('topDrawingsTable').style.display = 'block';
+    } catch (error) {
+        document.getElementById('topDrawingsLoading').style.display = 'none';
+        document.getElementById('topDrawingsEmpty').style.display = 'block';
+        console.error('Failed to load top drawings:', error);
+    }
+}
+
+async function loadTopLayers() {
+    try {
+        const response = await fetch('/api/usage/top-layers');
+        const data = await response.json();
+        
+        document.getElementById('topLayersLoading').style.display = 'none';
+        
+        if (data.error || !data.layers || data.layers.length === 0) {
+            document.getElementById('topLayersEmpty').style.display = 'block';
+            return;
+        }
+        
+        const tbody = document.getElementById('topLayersBody');
+        tbody.innerHTML = data.layers.map(l => `
+            <tr>
+                <td><strong>${l.layer_name || 'Unknown'}</strong></td>
+                <td><span class="usage-badge">${l.drawing_count || 0}</span></td>
+                <td>${l.total_entities || 0}</td>
+                <td>${l.category || '-'}</td>
+            </tr>
+        `).join('');
+        
+        document.getElementById('topLayersTable').style.display = 'block';
+    } catch (error) {
+        document.getElementById('topLayersLoading').style.display = 'none';
+        document.getElementById('topLayersEmpty').style.display = 'block';
+        console.error('Failed to load top layers:', error);
+    }
+}
+
+async function loadTopNotes() {
+    try {
+        const response = await fetch('/api/usage/top-notes');
+        const data = await response.json();
+        
+        document.getElementById('topNotesLoading').style.display = 'none';
+        
+        if (data.error || !data.notes || data.notes.length === 0) {
+            document.getElementById('topNotesEmpty').style.display = 'block';
+            return;
+        }
+        
+        const tbody = document.getElementById('topNotesBody');
+        tbody.innerHTML = data.notes.map(n => `
+            <tr>
+                <td><strong>${n.note_title}</strong></td>
+                <td>${n.note_category || 'General'}</td>
+                <td><span class="usage-badge">${n.usage_frequency || 0}</span></td>
+            </tr>
+        `).join('');
+        
+        document.getElementById('topNotesTable').style.display = 'block';
+    } catch (error) {
+        document.getElementById('topNotesLoading').style.display = 'none';
+        document.getElementById('topNotesEmpty').style.display = 'block';
+        console.error('Failed to load top notes:', error);
+    }
+}
+
+async function loadTopBlocks() {
+    try {
+        const response = await fetch('/api/usage/top-blocks');
+        const data = await response.json();
+        
+        document.getElementById('topBlocksLoading').style.display = 'none';
+        
+        if (data.error || !data.blocks || data.blocks.length === 0) {
+            document.getElementById('topBlocksEmpty').style.display = 'block';
+            return;
+        }
+        
+        const tbody = document.getElementById('topBlocksBody');
+        tbody.innerHTML = data.blocks.map(b => `
+            <tr>
+                <td><strong>${b.block_name}</strong></td>
+                <td>${b.symbol_category || '-'}</td>
+                <td><span class="usage-badge">${b.usage_frequency || 0}</span></td>
+            </tr>
+        `).join('');
+        
+        document.getElementById('topBlocksTable').style.display = 'block';
+    } catch (error) {
+        document.getElementById('topBlocksLoading').style.display = 'none';
+        document.getElementById('topBlocksEmpty').style.display = 'block';
+        console.error('Failed to load top blocks:', error);
+    }
+}
+
+async function loadRecentActivity() {
+    try {
+        const response = await fetch('/api/usage/recent-activity');
+        const data = await response.json();
+        
+        document.getElementById('recentActivityLoading').style.display = 'none';
+        
+        if (data.error || !data.activity || data.activity.length === 0) {
+            document.getElementById('recentActivityEmpty').style.display = 'block';
+            return;
+        }
+        
+        const tbody = document.getElementById('recentActivityBody');
+        tbody.innerHTML = data.activity.map(a => `
+            <tr>
+                <td><strong>${a.drawing_name || 'Unnamed'}</strong></td>
+                <td>${a.drawing_number || '-'}</td>
+                <td>${a.discipline || '-'}</td>
+                <td class="timestamp">${a.last_modified_at ? new Date(a.last_modified_at).toLocaleString() : '-'}</td>
+                <td class="timestamp">${a.last_opened_at ? new Date(a.last_opened_at).toLocaleString() : 'Never'}</td>
+                <td>${a.entity_count || 0}</td>
+            </tr>
+        `).join('');
+        
+        document.getElementById('recentActivityTable').style.display = 'block';
+    } catch (error) {
+        document.getElementById('recentActivityLoading').style.display = 'none';
+        document.getElementById('recentActivityEmpty').style.display = 'block';
+        console.error('Failed to load recent activity:', error);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadDashboard);
+</script>
+{% endblock %}
