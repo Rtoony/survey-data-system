@@ -75,6 +75,34 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### 2025-11-09: Standards Integration - Map Viewer & DXF Tools
+Integrated CAD standards system into Map Viewer and DXF Tools for vocabulary-based filtering and import pattern selection.
+
+**Map Viewer Integration** (`/map-viewer`):
+- **Standards Filter Panel:** Collapsible UI section with checkboxes for Disciplines, Categories, and Phases
+- **Dynamic Filtering:** Category checkboxes update based on selected disciplines (hierarchical filtering)
+- **Phase Colors:** Visual preview boxes showing color_rgb from phase_codes table
+- **Vocabulary Loading:** JavaScript loads from `/api/vocabulary/{disciplines|categories|phases}` endpoints
+- **Apply/Clear Actions:** Buttons to apply or reset filter selections
+- **Next Steps:** Backend filtering of map layers based on selected vocabulary codes
+
+**DXF Tools Integration** (`/dxf-tools`):
+- **Import Pattern Selector:** Dropdown populated from `/api/import-templates` endpoint
+- **Pattern Display:** Shows client name, source pattern, and confidence score for each pattern
+- **Empty State:** Fallback message when no patterns configured
+- **Import Preview Panel:** Hidden section ready for classification preview display
+- **Next Steps:** Wire pattern selection to backend import process, show matched/unmatched layers
+
+**Architecture:**
+- Reuses existing vocabulary API endpoints (`/api/vocabulary/*`) and import templates (`/api/import-templates`)
+- Frontend uses vanilla JavaScript with Mission Control theme consistency
+- Both tools ready for backend integration to apply filters and patterns
+
+**Benefits:**
+- Users can filter map layers by CAD standards vocabulary (disciplines, categories, phases)
+- DXF import shows available client-specific patterns before processing
+- Foundation for quality reporting (confidence scores, matched/unmatched layers)
+
 ### 2025-11-09: Standards Management UI - Import Manager & Bulk Editor
 Built comprehensive web-based management tools for the CAD standards vocabulary system with Mission Control theme.
 

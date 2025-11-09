@@ -31,6 +31,14 @@
                 <small>Select a DXF file to import</small>
             </div>
 
+            <div class="form-group">
+                <label for="importPatternSelect">Import Pattern (Optional)</label>
+                <select id="importPatternSelect" class="form-control">
+                    <option value="">Use Standard Format</option>
+                </select>
+                <small>Choose a pattern to handle legacy layer naming conventions</small>
+            </div>
+
             <div class="checkbox-group">
                 <label>
                     <input type="checkbox" id="importModelspace" checked>
@@ -40,6 +48,11 @@
                     <input type="checkbox" id="importPaperspace" checked>
                     <span>Import Paper Space Layouts</span>
                 </label>
+            </div>
+            
+            <div id="importPreview" class="results-section" style="display: none; margin-top: 15px;">
+                <h3>Import Preview</h3>
+                <div id="importPreviewContent" style="font-size: 0.9rem;"></div>
             </div>
 
             <button id="importButton" class="btn btn-primary" disabled>
@@ -424,6 +437,47 @@ tbody tr:hover {
 let drawings = [];
 let jobs = [];
 
+// Load import patterns
+let importPatterns = [];
+
+async function loadImportPatterns() {
+    try {
+        const response = await fetch('/api/import-templates');
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Error loading import patterns:', data.error);
+            return;
+        }
+        
+        importPatterns = data.patterns || [];
+        populateImportPatternSelect();
+    } catch (error) {
+        console.error('Failed to load import patterns:', error);
+    }
+}
+
+function populateImportPatternSelect() {
+    const select = document.getElementById('importPatternSelect');
+    
+    const activePatterns = importPatterns.filter(p => p.is_active);
+    
+    if (activePatterns.length === 0) {
+        select.innerHTML = '<option value="">Use Standard Format (no patterns configured)</option>';
+        return;
+    }
+    
+    const options = activePatterns
+        .sort((a, b) => (b.confidence_score || 0) - (a.confidence_score || 0))
+        .map(p => {
+            const confidence = p.confidence_score ? ` (${Math.round(p.confidence_score)}% confidence)` : '';
+            const clientInfo = p.client_name ? ` [${p.client_name}]` : '';
+            return `<option value="${p.mapping_id}">${p.source_pattern}${clientInfo}${confidence}</option>`;
+        }).join('');
+    
+    select.innerHTML = '<option value="">Use Standard Format</option>' + options;
+}
+
 // Load drawings on page load
 async function loadDrawings() {
     try {
@@ -692,6 +746,7 @@ document.getElementById('exportButton').addEventListener('click', async () => {
 document.addEventListener('DOMContentLoaded', () => {
     loadDrawings();
     loadExportJobs();
+    loadImportPatterns();
 });
 </script>
 {% endblock %}

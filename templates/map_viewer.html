@@ -329,6 +329,38 @@
             </small>
         </div>
         
+        <!-- Standards Filter -->
+        <div class="sidebar-section">
+            <h3><i class="fas fa-filter"></i> CAD Standards Filter</h3>
+            <div style="margin-bottom: 10px;">
+                <button class="btn-map" onclick="toggleStandardsPanel()" id="standards-toggle-btn">
+                    <i class="fas fa-chevron-down"></i> Show Filters
+                </button>
+            </div>
+            <div id="standards-filter-panel" style="display: none;">
+                <div style="margin-bottom: 12px;">
+                    <strong style="color: var(--accent-color); font-size: 11px;">DISCIPLINES</strong>
+                    <div id="discipline-filters" style="max-height: 120px; overflow-y: auto; margin-top: 5px;"></div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <strong style="color: var(--accent-color); font-size: 11px;">CATEGORIES</strong>
+                    <div id="category-filters" style="max-height: 120px; overflow-y: auto; margin-top: 5px;"></div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <strong style="color: var(--accent-color); font-size: 11px;">PHASES</strong>
+                    <div id="phase-filters" style="max-height: 80px; overflow-y: auto; margin-top: 5px;"></div>
+                </div>
+                <div style="display: flex; gap: 6px; margin-top: 10px;">
+                    <button class="btn-map" onclick="applyStandardsFilter()" style="flex: 1; font-size: 11px;">
+                        <i class="fas fa-check"></i> Apply
+                    </button>
+                    <button class="btn-map" onclick="clearStandardsFilter()" style="flex: 1; font-size: 11px; background: #666;">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+        
         <!-- GIS Layers -->
         <div class="sidebar-section">
             <h3><i class="fas fa-layer-group"></i> GIS Layers</h3>
@@ -983,11 +1015,146 @@ async function pollExportStatus(jobId) {
     checkStatus();
 }
 
+// Standards Filter Functions
+let standardsVocabulary = {
+    disciplines: [],
+    categories: [],
+    phases: []
+};
+let selectedStandards = {
+    disciplines: [],
+    categories: [],
+    phases: []
+};
+
+async function loadStandardsVocabulary() {
+    try {
+        const [disciplinesRes, categoriesRes, phasesRes] = await Promise.all([
+            fetch('/api/vocabulary/disciplines'),
+            fetch('/api/vocabulary/categories'),
+            fetch('/api/vocabulary/phases')
+        ]);
+        
+        const [disciplinesData, categoriesData, phasesData] = await Promise.all([
+            disciplinesRes.json(),
+            categoriesRes.json(),
+            phasesRes.json()
+        ]);
+        
+        standardsVocabulary.disciplines = disciplinesData.disciplines || [];
+        standardsVocabulary.categories = categoriesData.categories || [];
+        standardsVocabulary.phases = phasesData.phases || [];
+        
+        populateStandardsFilters();
+    } catch (error) {
+        console.error('Error loading standards vocabulary:', error);
+    }
+}
+
+function populateStandardsFilters() {
+    const disciplineDiv = document.getElementById('discipline-filters');
+    const categoryDiv = document.getElementById('category-filters');
+    const phaseDiv = document.getElementById('phase-filters');
+    
+    disciplineDiv.innerHTML = standardsVocabulary.disciplines
+        .filter(d => d.is_active)
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(d => `
+            <label style="display: block; margin: 4px 0; font-size: 11px; cursor: pointer;">
+                <input type="checkbox" value="${d.code}" onchange="updateCategoryFilters()">
+                <span>${d.code} - ${d.full_name}</span>
+            </label>
+        `).join('');
+    
+    categoryDiv.innerHTML = '<p style="color: #888; font-size: 10px;">Select disciplines first</p>';
+    
+    phaseDiv.innerHTML = standardsVocabulary.phases
+        .filter(p => p.is_active)
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(p => {
+            const colorBox = p.color_rgb ? `<span style="display: inline-block; width: 12px; height: 12px; background: ${p.color_rgb}; border: 1px solid #555; margin-right: 4px; vertical-align: middle;"></span>` : '';
+            return `
+                <label style="display: block; margin: 4px 0; font-size: 11px; cursor: pointer;">
+                    <input type="checkbox" value="${p.code}">
+                    ${colorBox}<span>${p.code} - ${p.full_name}</span>
+                </label>
+            `;
+        }).join('');
+}
+
+function updateCategoryFilters() {
+    const selectedDisciplines = Array.from(document.querySelectorAll('#discipline-filters input:checked')).map(cb => cb.value);
+    const categoryDiv = document.getElementById('category-filters');
+    
+    if (selectedDisciplines.length === 0) {
+        categoryDiv.innerHTML = '<p style="color: #888; font-size: 10px;">Select disciplines first</p>';
+        return;
+    }
+    
+    const relevantCategories = standardsVocabulary.categories.filter(c => {
+        const discipline = standardsVocabulary.disciplines.find(d => d.discipline_id === c.discipline_id);
+        return discipline && selectedDisciplines.includes(discipline.code) && c.is_active;
+    });
+    
+    if (relevantCategories.length === 0) {
+        categoryDiv.innerHTML = '<p style="color: #888; font-size: 10px;">No categories for selected disciplines</p>';
+        return;
+    }
+    
+    categoryDiv.innerHTML = relevantCategories
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(c => `
+            <label style="display: block; margin: 4px 0; font-size: 11px; cursor: pointer;">
+                <input type="checkbox" value="${c.code}">
+                <span>${c.code} - ${c.full_name}</span>
+            </label>
+        `).join('');
+}
+
+function toggleStandardsPanel() {
+    const panel = document.getElementById('standards-filter-panel');
+    const btn = document.getElementById('standards-toggle-btn');
+    
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        btn.innerHTML = '<i class="fas fa-chevron-up"></i> Hide Filters';
+    } else {
+        panel.style.display = 'none';
+        btn.innerHTML = '<i class="fas fa-chevron-down"></i> Show Filters';
+    }
+}
+
+function applyStandardsFilter() {
+    selectedStandards.disciplines = Array.from(document.querySelectorAll('#discipline-filters input:checked')).map(cb => cb.value);
+    selectedStandards.categories = Array.from(document.querySelectorAll('#category-filters input:checked')).map(cb => cb.value);
+    selectedStandards.phases = Array.from(document.querySelectorAll('#phase-filters input:checked')).map(cb => cb.value);
+    
+    console.log('Applied standards filter:', selectedStandards);
+    
+    // TODO: Reload layers with filter applied
+    // For now, just show a message
+    const filterCount = selectedStandards.disciplines.length + selectedStandards.categories.length + selectedStandards.phases.length;
+    if (filterCount > 0) {
+        alert(`Filter applied: ${filterCount} criteria selected. Layer filtering will be implemented next.`);
+    }
+}
+
+function clearStandardsFilter() {
+    document.querySelectorAll('#discipline-filters input, #category-filters input, #phase-filters input').forEach(cb => cb.checked = false);
+    selectedStandards = { disciplines: [], categories: [], phases: [] };
+    updateCategoryFilters();
+    console.log('Standards filter cleared');
+}
+
 // Initialize when page loads
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initMap);
+    document.addEventListener('DOMContentLoaded', () => {
+        initMap();
+        loadStandardsVocabulary();
+    });
 } else {
     initMap();
+    loadStandardsVocabulary();
 }
 </script>
 {% endblock %}
