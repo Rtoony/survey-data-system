@@ -34,43 +34,98 @@
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">
-                    <i class="fas fa-database"></i>
-                    <span class="sidebar-text">Database</span>
+                    <i class="fas fa-ruler-combined"></i>
+                    <span class="sidebar-text">Standards Library</span>
                 </div>
-                <a href="/schema" class="sidebar-link {% if request.path == '/schema' %}active{% endif %}">
-                    <i class="fas fa-table"></i>
-                    <span class="sidebar-text">Schema</span>
+                <a href="/standards-library" class="sidebar-link {% if request.path == '/standards-library' %}active{% endif %}">
+                    <i class="fas fa-book"></i>
+                    <span class="sidebar-text">Library Home</span>
                 </a>
-                <a href="/schema/relationships" class="sidebar-link {% if request.path == '/schema/relationships' %}active{% endif %}">
-                    <i class="fas fa-project-diagram"></i>
-                    <span class="sidebar-text">Relationships</span>
+                <a href="/data-manager/layers" class="sidebar-link {% if request.path == '/data-manager/layers' %}active{% endif %}">
+                    <i class="fas fa-layer-group"></i>
+                    <span class="sidebar-text">Layers</span>
                 </a>
-                <a href="/data-manager" class="sidebar-link {% if request.path.startswith('/data-manager') %}active{% endif %}">
-                    <i class="fas fa-edit"></i>
-                    <span class="sidebar-text">Data Manager</span>
+                <a href="/data-manager/blocks" class="sidebar-link {% if request.path == '/data-manager/blocks' %}active{% endif %}">
+                    <i class="fas fa-cube"></i>
+                    <span class="sidebar-text">Blocks</span>
+                </a>
+                <a href="/data-manager/hatches" class="sidebar-link {% if request.path == '/data-manager/hatches' %}active{% endif %}">
+                    <i class="fas fa-grip-lines"></i>
+                    <span class="sidebar-text">Hatches</span>
+                </a>
+                <a href="/data-manager/linetypes" class="sidebar-link {% if request.path == '/data-manager/linetypes' %}active{% endif %}">
+                    <i class="fas fa-minus"></i>
+                    <span class="sidebar-text">Linetypes</span>
+                </a>
+                <a href="/data-manager/text-styles" class="sidebar-link {% if request.path == '/data-manager/text-styles' %}active{% endif %}">
+                    <i class="fas fa-font"></i>
+                    <span class="sidebar-text">Text Styles</span>
+                </a>
+                <a href="/data-manager/dimension-styles" class="sidebar-link {% if request.path == '/data-manager/dimension-styles' %}active{% endif %}">
+                    <i class="fas fa-ruler-combined"></i>
+                    <span class="sidebar-text">Dimension Styles</span>
+                </a>
+                <a href="/data-manager/materials" class="sidebar-link {% if request.path == '/data-manager/materials' %}active{% endif %}">
+                    <i class="fas fa-tools"></i>
+                    <span class="sidebar-text">Materials</span>
+                </a>
+                <a href="/data-manager/details" class="sidebar-link {% if request.path == '/data-manager/details' %}active{% endif %}">
+                    <i class="fas fa-file-alt"></i>
+                    <span class="sidebar-text">Details</span>
+                </a>
+                <a href="/data-manager/standard-notes" class="sidebar-link {% if request.path == '/data-manager/standard-notes' %}active{% endif %}">
+                    <i class="fas fa-sticky-note"></i>
+                    <span class="sidebar-text">Standard Notes</span>
+                </a>
+                <a href="/data-manager/abbreviations" class="sidebar-link {% if request.path == '/data-manager/abbreviations' %}active{% endif %}">
+                    <i class="fas fa-font"></i>
+                    <span class="sidebar-text">Abbreviations</span>
                 </a>
             </div>
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">
-                    <i class="fas fa-robot"></i>
-                    <span class="sidebar-text">AI Tools</span>
+                    <i class="fas fa-folder"></i>
+                    <span class="sidebar-text">Project Operations</span>
                 </div>
-                <a href="/toolkit" class="sidebar-link {% if request.path == '/toolkit' %}active{% endif %}">
-                    <i class="fas fa-tools"></i>
-                    <span class="sidebar-text">AI Toolkit</span>
+                <a href="/project-operations" class="sidebar-link {% if request.path == '/project-operations' %}active{% endif %}">
+                    <i class="fas fa-th-large"></i>
+                    <span class="sidebar-text">Operations Home</span>
                 </a>
-                <a href="/graph" class="sidebar-link {% if request.path == '/graph' %}active{% endif %}">
-                    <i class="fas fa-network-wired"></i>
-                    <span class="sidebar-text">Knowledge Graph</span>
+                <a href="/data-manager/projects" class="sidebar-link {% if request.path == '/data-manager/projects' %}active{% endif %}">
+                    <i class="fas fa-briefcase"></i>
+                    <span class="sidebar-text">Projects</span>
                 </a>
-                <a href="/quality-dashboard" class="sidebar-link {% if request.path == '/quality-dashboard' %}active{% endif %}">
+                <a href="/data-manager/drawings" class="sidebar-link {% if request.path == '/data-manager/drawings' %}active{% endif %}">
+                    <i class="fas fa-file-image"></i>
+                    <span class="sidebar-text">Drawings</span>
+                </a>
+                <a href="/data-manager/sheet-sets" class="sidebar-link {% if request.path == '/data-manager/sheet-sets' %}active{% endif %}">
+                    <i class="fas fa-folder-open"></i>
+                    <span class="sidebar-text">Sheet Sets</span>
+                </a>
+                <a href="/project-standards-assignment" class="sidebar-link {% if request.path == '/project-standards-assignment' %}active{% endif %}">
+                    <i class="fas fa-link"></i>
+                    <span class="sidebar-text">Assign Standards</span>
+                </a>
+                <a href="/project-compliance" class="sidebar-link {% if request.path == '/project-compliance' %}active{% endif %}">
+                    <i class="fas fa-check-circle"></i>
+                    <span class="sidebar-text">Compliance Dashboard</span>
+                </a>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">
                     <i class="fas fa-chart-line"></i>
-                    <span class="sidebar-text">Quality Dashboard</span>
-                </a>
+                    <span class="sidebar-text">Usage & Analytics</span>
+                </div>
                 <a href="/usage-dashboard" class="sidebar-link {% if request.path == '/usage-dashboard' %}active{% endif %}">
                     <i class="fas fa-chart-area"></i>
                     <span class="sidebar-text">Usage Dashboard</span>
+                </a>
+                <a href="/quality-dashboard" class="sidebar-link {% if request.path == '/quality-dashboard' %}active{% endif %}">
+                    <i class="fas fa-star"></i>
+                    <span class="sidebar-text">Quality Dashboard</span>
                 </a>
             </div>
 
@@ -103,43 +158,31 @@
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">
-                    <i class="fas fa-ruler-combined"></i>
-                    <span class="sidebar-text">Standards</span>
+                    <i class="fas fa-robot"></i>
+                    <span class="sidebar-text">AI Tools</span>
                 </div>
-                <a href="/standards" class="sidebar-link {% if request.path == '/standards' %}active{% endif %}">
-                    <i class="fas fa-book"></i>
-                    <span class="sidebar-text">CAD Standards</span>
+                <a href="/toolkit" class="sidebar-link {% if request.path == '/toolkit' %}active{% endif %}">
+                    <i class="fas fa-tools"></i>
+                    <span class="sidebar-text">AI Toolkit</span>
                 </a>
-                <a href="/standards/reference" class="sidebar-link {% if request.path == '/standards/reference' %}active{% endif %}">
-                    <i class="fas fa-layer-group"></i>
-                    <span class="sidebar-text">Layer Reference</span>
-                </a>
-                <a href="/standards/vocabulary" class="sidebar-link {% if request.path == '/standards/vocabulary' %}active{% endif %}">
-                    <i class="fas fa-book-open"></i>
-                    <span class="sidebar-text">Vocabulary</span>
-                </a>
-                <a href="/standards/import-manager" class="sidebar-link {% if request.path == '/standards/import-manager' %}active{% endif %}">
-                    <i class="fas fa-file-import"></i>
-                    <span class="sidebar-text">Import Manager</span>
-                </a>
-                <a href="/standards/bulk-editor" class="sidebar-link {% if request.path == '/standards/bulk-editor' %}active{% endif %}">
-                    <i class="fas fa-edit"></i>
-                    <span class="sidebar-text">Bulk Editor</span>
+                <a href="/graph" class="sidebar-link {% if request.path == '/graph' %}active{% endif %}">
+                    <i class="fas fa-network-wired"></i>
+                    <span class="sidebar-text">Knowledge Graph</span>
                 </a>
             </div>
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">
-                    <i class="fas fa-folder"></i>
-                    <span class="sidebar-text">Projects</span>
+                    <i class="fas fa-database"></i>
+                    <span class="sidebar-text">Database</span>
                 </div>
-                <a href="/projects" class="sidebar-link {% if request.path == '/projects' %}active{% endif %}">
-                    <i class="fas fa-briefcase"></i>
-                    <span class="sidebar-text">Projects</span>
+                <a href="/schema" class="sidebar-link {% if request.path == '/schema' %}active{% endif %}">
+                    <i class="fas fa-table"></i>
+                    <span class="sidebar-text">Schema</span>
                 </a>
-                <a href="/drawings" class="sidebar-link {% if request.path == '/drawings' %}active{% endif %}">
-                    <i class="fas fa-file-image"></i>
-                    <span class="sidebar-text">Drawings</span>
+                <a href="/schema/relationships" class="sidebar-link {% if request.path == '/schema/relationships' %}active{% endif %}">
+                    <i class="fas fa-project-diagram"></i>
+                    <span class="sidebar-text">Relationships</span>
                 </a>
             </div>
 

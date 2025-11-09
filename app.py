@@ -110,6 +110,16 @@ def drawings_page():
     """Drawings manager page"""
     return render_template('drawings.html')
 
+@app.route('/standards-library')
+def standards_library():
+    """Standards Library landing page"""
+    return render_template('standards_library.html')
+
+@app.route('/project-operations')
+def project_operations():
+    """Project Operations landing page"""
+    return render_template('project_operations.html')
+
 # ============================================
 # DATA MANAGER PAGES
 # ============================================

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Standards Library{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-book neon-cyan"></i> Standards Library</h2>
+    <p class="subtitle">Manage global CAD standards and specifications</p>
+</div>
+
+<div class="panel" style="margin-bottom: 30px;">
+    <div style="line-height: 1.8;">
+        <p><i class="fas fa-info-circle neon-cyan"></i> <strong>Global Standards Library:</strong> These are your reusable CAD standards that can be assigned to projects. Changes here affect the global library.</p>
+    </div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px;">
+    <a href="/data-manager/layers" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-cyan);">
+            <i class="fas fa-layer-group"></i>
+        </div>
+        <div class="stat-label">Layers</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage layer naming, colors, and properties
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-cyan); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Standards
+        </div>
+    </a>
+
+    <a href="/data-manager/blocks" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-yellow);">
+            <i class="fas fa-cube"></i>
+        </div>
+        <div class="stat-label">Blocks</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage CAD block symbols and categories
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-yellow); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Standards
+        </div>
+    </a>
+
+    <a href="/data-manager/hatches" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-green);">
+            <i class="fas fa-grip-lines"></i>
+        </div>
+        <div class="stat-label">Hatches</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage fill patterns and hatches
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-green); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Standards
+        </div>
+    </a>
+
+    <a href="/data-manager/linetypes" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-magenta);">
+            <i class="fas fa-minus"></i>
+        </div>
+        <div class="stat-label">Linetypes</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage line patterns and styles
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-magenta); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Standards
+        </div>
+    </a>
+
+    <a href="/data-manager/text-styles" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-cyan);">
+            <i class="fas fa-font"></i>
+        </div>
+        <div class="stat-label">Text Styles</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage text formatting standards
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-cyan); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Standards
+        </div>
+    </a>
+
+    <a href="/data-manager/dimension-styles" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-yellow);">
+            <i class="fas fa-ruler-combined"></i>
+        </div>
+        <div class="stat-label">Dimension Styles</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage dimensioning standards
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-yellow); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Standards
+        </div>
+    </a>
+
+    <a href="/data-manager/materials" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-green);">
+            <i class="fas fa-tools"></i>
+        </div>
+        <div class="stat-label">Materials</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage material standards and specifications
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-green); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Standards
+        </div>
+    </a>
+
+    <a href="/data-manager/details" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-magenta);">
+            <i class="fas fa-file-alt"></i>
+        </div>
+        <div class="stat-label">Details</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage standard construction details library
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-magenta); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Standards
+        </div>
+    </a>
+
+    <a href="/data-manager/standard-notes" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-cyan);">
+            <i class="fas fa-sticky-note"></i>
+        </div>
+        <div class="stat-label">Standard Notes</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage construction notes library
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-cyan); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Standards
+        </div>
+    </a>
+
+    <a href="/data-manager/abbreviations" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-value" style="color: var(--neon-yellow);">
+            <i class="fas fa-font"></i>
+        </div>
+        <div class="stat-label">Abbreviations</div>
+        <div class="subtitle" style="margin-top: 10px; font-size: 0.9em;">
+            Manage CAD abbreviations and their full terms
+        </div>
+        <div style="margin-top: 15px; color: var(--neon-yellow); font-size: 0.85em;">
+            <i class="fas fa-arrow-right"></i> Manage Standards
+        </div>
+    </a>
+</div>
+
+<div class="panel">
+    <h3 class="orbitron"><i class="fas fa-lightbulb"></i> About Standards Library</h3>
+    <div style="line-height: 1.8; margin-top: 20px;">
+        <p>The Standards Library is your central repository for all reusable CAD standards. These standards can be:</p>
+        <ul style="margin-top: 15px; margin-left: 25px;">
+            <li><strong>Assigned to Projects:</strong> Link standards to specific projects for consistency</li>
+            <li><strong>Reused Across Projects:</strong> Maintain consistency across all your engineering work</li>
+            <li><strong>Updated Globally:</strong> Changes propagate to all projects using these standards</li>
+            <li><strong>Exported and Shared:</strong> Share your standards with team members or other organizations</li>
+        </ul>
+        <div class="alert" style="margin-top: 25px; padding: 15px; background: rgba(6, 182, 212, 0.1); border-left: 3px solid var(--neon-cyan); border-radius: 4px;">
+            <i class="fas fa-info-circle" style="color: var(--neon-cyan);"></i>
+            <strong>Best Practice:</strong> Establish your standards library first, then assign them to projects. This ensures consistency and makes future updates easier.
+        </div>
+    </div>
+</div>
+{% endblock %}
