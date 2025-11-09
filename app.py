@@ -154,6 +154,11 @@ def project_standards_assignment():
     """Project Standards Assignment page"""
     return render_template('project_standards_assignment.html')
 
+@app.route('/project-compliance')
+def project_compliance():
+    """Project Compliance Dashboard page"""
+    return render_template('project_compliance.html')
+
 # ============================================
 # CAD STANDARDS PORTAL PAGES
 # ============================================
@@ -2270,6 +2275,92 @@ def get_standards_by_type(standard_type):
         
         standards = execute_query(query)
         return jsonify({'standards': standards})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-compliance/<project_id>', methods=['GET'])
+def get_project_compliance(project_id):
+    """Get compliance summary for a project"""
+    try:
+        type_mapping = {
+            'layer': ('layers', 'layer_id', 'layer_name'),
+            'block': ('blocks', 'block_id', 'block_name'),
+            'hatch': ('hatch_patterns', 'hatch_id', 'pattern_name'),
+            'linetype': ('linetypes', 'linetype_id', 'linetype_name'),
+            'text_style': ('text_styles', 'style_id', 'style_name'),
+            'dimension_style': ('dimension_styles', 'dimension_style_id', 'style_name'),
+            'material': ('material_standards', 'material_id', 'material_name'),
+            'detail': ('details', 'detail_id', 'detail_name'),
+            'standard_note': ('standard_notes', 'note_id', 'note_title')
+        }
+        
+        assigned_query = """
+            SELECT standard_type, COUNT(*) as count
+            FROM project_standard_assignments
+            WHERE project_id = %s
+            GROUP BY standard_type
+        """
+        assigned_by_type = execute_query(assigned_query, (project_id,))
+        
+        deviations_query = """
+            SELECT 
+                pso.override_id,
+                pso.project_id,
+                pso.drawing_id,
+                pso.standard_type,
+                pso.standard_id,
+                pso.override_reason,
+                pso.created_date,
+                pso.created_by,
+                pso.notes,
+                d.drawing_name,
+                'Standard ID: ' || pso.standard_id::text as standard_name
+            FROM project_standard_overrides pso
+            LEFT JOIN drawings d ON pso.drawing_id = d.drawing_id
+            WHERE pso.project_id = %s
+            ORDER BY pso.created_date DESC
+        """
+        deviations = execute_query(deviations_query, (project_id,))
+        
+        deviations_by_type_query = """
+            SELECT standard_type, COUNT(*) as count
+            FROM project_standard_overrides
+            WHERE project_id = %s
+            GROUP BY standard_type
+        """
+        deviations_by_type = execute_query(deviations_by_type_query, (project_id,))
+        
+        deviation_counts = {item['standard_type']: item['count'] for item in deviations_by_type}
+        
+        total_assigned = sum(item['count'] for item in assigned_by_type)
+        total_deviations = len(deviations)
+        total_used = total_assigned
+        
+        compliance_percentage = 0
+        if total_assigned > 0:
+            compliance_percentage = ((total_assigned - total_deviations) / total_assigned) * 100
+        
+        by_category = []
+        for item in assigned_by_type:
+            standard_type = item['standard_type']
+            assigned_count = item['count']
+            deviations_count = deviation_counts.get(standard_type, 0)
+            
+            by_category.append({
+                'standard_type': standard_type,
+                'assigned': assigned_count,
+                'used': assigned_count,
+                'deviations': deviations_count
+            })
+        
+        return jsonify({
+            'total_assigned': total_assigned,
+            'total_used': total_used,
+            'deviations_count': total_deviations,
+            'compliance_percentage': compliance_percentage,
+            'by_category': by_category,
+            'deviations': deviations
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
