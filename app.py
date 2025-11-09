@@ -5784,6 +5784,148 @@ def auto_connect_pipes(network_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/pipe-networks/<network_id>/viewer-entities')
+def get_network_viewer_entities(network_id):
+    """Get network entities (pipes + structures) in Entity Viewer format with transformed geometries"""
+    try:
+        all_entities = []
+        
+        # Fetch pipes
+        pipes_query = """
+            SELECT 
+                ul.line_id::text as entity_id,
+                ul.line_number as label,
+                'pipe' as entity_type,
+                ul.utility_system,
+                ul.material,
+                ul.diameter_mm,
+                ul.slope,
+                ul.length,
+                ul.from_structure_id::text,
+                ul.to_structure_id::text,
+                ST_AsGeoJSON(ST_Transform(ul.geometry, 4326))::json as geometry
+            FROM utility_network_memberships unm
+            JOIN utility_lines ul ON unm.line_id = ul.line_id
+            WHERE unm.network_id = %s AND ul.geometry IS NOT NULL
+            ORDER BY ul.line_number
+        """
+        pipes = execute_query(pipes_query, (network_id,))
+        
+        for pipe in pipes:
+            all_entities.append({
+                'entity_id': pipe['entity_id'],
+                'entity_type': 'pipe',
+                'label': pipe['label'] or 'Unnamed Pipe',
+                'layer_name': pipe['utility_system'] or 'Unknown',
+                'category': 'Utilities',
+                'geometry_type': 'line',
+                'color': '#f7b801' if pipe['utility_system'] == 'Storm' else '#0096ff',
+                'geometry': pipe['geometry'],
+                'properties': {
+                    'material': pipe['material'],
+                    'diameter_mm': pipe['diameter_mm'],
+                    'slope': pipe['slope'],
+                    'length': pipe['length'],
+                    'from_structure': pipe['from_structure_id'],
+                    'to_structure': pipe['to_structure_id']
+                }
+            })
+        
+        # Fetch structures
+        structures_query = """
+            SELECT 
+                us.structure_id::text as entity_id,
+                us.structure_number as label,
+                'structure' as entity_type,
+                us.structure_type,
+                us.utility_system,
+                us.rim_elevation,
+                us.invert_elevation,
+                us.manhole_depth_ft,
+                us.condition,
+                ST_AsGeoJSON(ST_Transform(us.rim_geometry, 4326))::json as geometry
+            FROM utility_network_memberships unm
+            JOIN utility_structures us ON unm.structure_id = us.structure_id
+            WHERE unm.network_id = %s AND us.rim_geometry IS NOT NULL
+            ORDER BY us.structure_number
+        """
+        structures = execute_query(structures_query, (network_id,))
+        
+        for struct in structures:
+            all_entities.append({
+                'entity_id': struct['entity_id'],
+                'entity_type': 'structure',
+                'label': struct['label'] or 'Unnamed Structure',
+                'layer_name': struct['utility_system'] or 'Unknown',
+                'category': 'Utilities',
+                'geometry_type': 'point',
+                'color': '#6a994e',
+                'geometry': struct['geometry'],
+                'properties': {
+                    'type': struct['structure_type'],
+                    'rim_elevation': struct['rim_elevation'],
+                    'invert_elevation': struct['invert_elevation'],
+                    'depth_ft': struct['manhole_depth_ft'],
+                    'condition': struct['condition']
+                }
+            })
+        
+        # Calculate combined bounding box
+        bbox = None
+        if all_entities:
+            bbox_query = """
+                SELECT ST_Extent(
+                    ST_Transform(
+                        ST_Union(
+                            ARRAY[
+                                (SELECT ST_Collect(ul.geometry) 
+                                 FROM utility_network_memberships unm
+                                 JOIN utility_lines ul ON unm.line_id = ul.line_id
+                                 WHERE unm.network_id = %s AND ul.geometry IS NOT NULL),
+                                (SELECT ST_Collect(us.rim_geometry) 
+                                 FROM utility_network_memberships unm
+                                 JOIN utility_structures us ON unm.structure_id = us.structure_id
+                                 WHERE unm.network_id = %s AND us.rim_geometry IS NOT NULL)
+                            ]
+                        ),
+                        4326
+                    )
+                ) as bbox
+            """
+            bbox_result = execute_query(bbox_query, (network_id, network_id))
+            
+            if bbox_result and bbox_result[0]['bbox']:
+                bbox_str = bbox_result[0]['bbox']
+                coords = bbox_str.replace('BOX(', '').replace(')', '').split(',')
+                min_coords = coords[0].strip().split()
+                max_coords = coords[1].strip().split()
+                bbox = {
+                    'minX': float(min_coords[0]),
+                    'minY': float(min_coords[1]),
+                    'maxX': float(max_coords[0]),
+                    'maxY': float(max_coords[1])
+                }
+        
+        # Calculate counts
+        type_counts = {}
+        layer_counts = {}
+        for entity in all_entities:
+            etype = entity.get('entity_type', 'Unknown')
+            type_counts[etype] = type_counts.get(etype, 0) + 1
+            
+            layer = entity.get('layer_name', 'Unknown')
+            layer_counts[layer] = layer_counts.get(layer, 0) + 1
+        
+        return jsonify({
+            'entities': all_entities,
+            'bbox': bbox,
+            'type_counts': type_counts,
+            'layer_counts': layer_counts,
+            'total_count': len(all_entities)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ============================================================================
 # SCHEMA RELATIONSHIPS ROUTES
 # ============================================================================

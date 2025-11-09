@@ -37,10 +37,22 @@
         </div>
 
         <div class="editor-workspace" id="workspace" style="display:none;">
-            <div class="diagram-container">
-                <h3>Network Diagram</h3>
-                <div id="networkDiagram" class="network-diagram">
-                    <svg id="diagramSvg" width="100%" height="600"></svg>
+            <div class="viewer-container">
+                <div class="viewer-main">
+                    <div class="viewer-canvas-container">
+                        <div id="loadingMessage" class="loading-message">Loading network...</div>
+                        <svg id="networkCanvas" width="100%" height="100%"></svg>
+                    </div>
+                    <div class="viewer-sidebar">
+                        <div class="legend-panel">
+                            <div class="panel-title">Legend</div>
+                            <div id="viewerLegend">Select a network to view</div>
+                        </div>
+                        <div class="info-panel">
+                            <div class="panel-title">Entity Info</div>
+                            <div id="entityInfo">Hover or click an entity</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -145,18 +157,117 @@
     gap: 20px;
 }
 
-.diagram-container {
+.viewer-container {
     background: rgba(0, 20, 40, 0.6);
-    border: 1px solid var(--neon-blue);
-    padding: 20px;
+    border: 1px solid var(--mc-primary);
     border-radius: 8px;
+    padding: 1rem;
 }
 
-.network-diagram {
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--neon-cyan);
-    border-radius: 4px;
+.viewer-main {
+    display: flex;
+    gap: 1rem;
+    height: 600px;
+}
+
+.viewer-canvas-container {
+    flex: 1;
+    background: #000;
+    border: 2px solid var(--mc-primary);
+    border-radius: 8px;
+    position: relative;
     overflow: hidden;
+}
+
+.loading-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--mc-primary);
+    font-size: 1.2rem;
+    text-align: center;
+    z-index: 10;
+}
+
+#networkCanvas {
+    display: block;
+}
+
+.viewer-sidebar {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.legend-panel,
+.info-panel {
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid var(--mc-primary);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.legend-panel {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.info-panel {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.panel-title {
+    color: var(--mc-primary);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--mc-primary);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.85rem;
+}
+
+.legend-color {
+    width: 20px;
+    height: 3px;
+}
+
+.legend-color.point {
+    height: 12px;
+    width: 12px;
+    border-radius: 50%;
+}
+
+.legend-count {
+    margin-left: auto;
+    color: var(--mc-accent);
+    font-weight: bold;
+}
+
+.entity-highlighted {
+    stroke-width: 3 !important;
+    opacity: 1 !important;
+    filter: drop-shadow(0 0 4px currentColor);
+}
+
+.entity-selected {
+    stroke-width: 4 !important;
+    opacity: 1 !important;
+    filter: drop-shadow(0 0 8px currentColor);
+}
+
+.table-row-selected {
+    background: rgba(0, 255, 136, 0.15) !important;
+    border-left: 3px solid var(--mc-accent);
 }
 
 .tables-container {
@@ -249,6 +360,10 @@ let structuresData = [];
 let pipesData = [];
 let changedData = { structures: {}, pipes: {} };
 
+let viewerEntities = [];
+let selectedEntityId = null;
+let viewerBbox = null;
+
 async function loadNetworks() {
     try {
         const response = await fetch('/api/pipe-networks?mode=gravity');
@@ -303,7 +418,7 @@ async function loadNetwork() {
         document.getElementById('saveBtn').disabled = false;
         document.getElementById('autoConnectBtn').disabled = false;
         
-        setTimeout(() => renderDiagram(), 50);
+        setTimeout(() => renderViewer(), 50);
     } catch (error) {
         console.error('Error loading network:', error);
         showStatus('Error loading network data', true);
@@ -473,142 +588,222 @@ async function autoConnectPipes() {
     }
 }
 
-function renderDiagram() {
-    const svg = document.getElementById('diagramSvg');
-    const width = svg.clientWidth || 1200;
-    const height = 600;
+async function renderViewer() {
+    const networkId = currentNetwork?.network_id;
+    if (!networkId) return;
     
-    if (pipesData.length === 0 && structuresData.length === 0) {
-        svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#00ffff" font-size="16">No geometry data to display</text>';
-        return;
-    }
+    const loadingEl = document.getElementById('loadingMessage');
+    const svg = document.getElementById('networkCanvas');
     
-    const bounds = calculateBounds();
-    if (!bounds) {
-        svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#00ffff" font-size="16">Unable to calculate bounds</text>';
-        return;
-    }
+    loadingEl.style.display = 'block';
     
-    const margin = 40;
-    const drawWidth = width - 2 * margin;
-    const drawHeight = height - 2 * margin;
-    
-    const xRange = bounds.maxX - bounds.minX || 1;
-    const yRange = bounds.maxY - bounds.minY || 1;
-    
-    const scale = Math.min(drawWidth / xRange, drawHeight / yRange) * 0.9;
-    
-    const toScreenX = (x) => margin + (x - bounds.minX) * scale;
-    const toScreenY = (y) => height - margin - (y - bounds.minY) * scale;
-    
-    let svgContent = '';
-    
-    svgContent += `<defs>
-        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-            <polygon points="0 0, 10 3, 0 6" fill="#00ffff" opacity="0.6" />
-        </marker>
-    </defs>`;
-    
-    pipesData.forEach((pipe, idx) => {
-        if (!pipe.geometry) return;
+    try {
+        const response = await fetch(`/api/pipe-networks/${networkId}/viewer-entities`);
+        const data = await response.json();
         
-        try {
-            const geom = JSON.parse(pipe.geometry);
-            if (geom.type === 'LineString' && geom.coordinates.length >= 2) {
-                const coords = geom.coordinates;
-                const pathData = coords.map((coord, i) => 
-                    `${i === 0 ? 'M' : 'L'} ${toScreenX(coord[0])},${toScreenY(coord[1])}`
-                ).join(' ');
-                
-                const lastCoord = coords[coords.length - 1];
-                const secondLastCoord = coords[coords.length - 2];
-                
-                svgContent += `<path d="${pathData}" stroke="#00ffff" stroke-width="2" fill="none" opacity="0.7" marker-end="url(#arrowhead)" />`;
-                
-                const midIdx = Math.floor(coords.length / 2);
-                const midCoord = coords[midIdx];
-                const label = pipe.line_number || `P${idx + 1}`;
-                const diameter = pipe.diameter_mm ? `${Math.round(pipe.diameter_mm)}mm` : '';
-                
-                svgContent += `<text x="${toScreenX(midCoord[0])}" y="${toScreenY(midCoord[1]) - 5}" 
-                    fill="#00ffff" font-size="10" text-anchor="middle">${label}</text>`;
-                if (diameter) {
-                    svgContent += `<text x="${toScreenX(midCoord[0])}" y="${toScreenY(midCoord[1]) + 10}" 
-                        fill="#0088ff" font-size="9" text-anchor="middle">${diameter}</text>`;
-                }
-            }
-        } catch (e) {
-            console.error('Error rendering pipe geometry:', e, pipe);
-        }
-    });
-    
-    structuresData.forEach((struct, idx) => {
-        if (!struct.geometry) return;
+        viewerEntities = data.entities || [];
+        viewerBbox = data.bbox;
         
-        try {
-            const geom = JSON.parse(struct.geometry);
-            if (geom.type === 'Point' && geom.coordinates.length >= 2) {
-                const x = toScreenX(geom.coordinates[0]);
-                const y = toScreenY(geom.coordinates[1]);
-                
-                svgContent += `<circle cx="${x}" cy="${y}" r="6" fill="none" stroke="#ff00ff" stroke-width="2" />`;
-                svgContent += `<circle cx="${x}" cy="${y}" r="3" fill="#ff00ff" opacity="0.5" />`;
-                
-                const label = struct.structure_number || `S${idx + 1}`;
-                svgContent += `<text x="${x + 10}" y="${y - 8}" fill="#ff00ff" font-size="11" font-weight="bold">${label}</text>`;
-                
-                if (struct.rim_elevation) {
-                    svgContent += `<text x="${x + 10}" y="${y + 4}" fill="#ff88ff" font-size="9">Rim: ${struct.rim_elevation}ft</text>`;
-                }
-            }
-        } catch (e) {
-            console.error('Error rendering structure geometry:', e, struct);
+        if (!viewerBbox || viewerEntities.length === 0) {
+            svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#00ffff" font-size="16">No geometry data to display</text>';
+            loadingEl.style.display = 'none';
+            return;
         }
-    });
-    
-    svgContent += `<rect x="${margin}" y="${margin}" width="${drawWidth}" height="${drawHeight}" 
-        fill="none" stroke="rgba(0,255,255,0.2)" stroke-width="1" stroke-dasharray="5,5" />`;
-    
-    svg.innerHTML = svgContent;
+        
+        const width = 1000;
+        const height = 1000;
+        const padding = 50;
+        
+        const bboxWidth = viewerBbox.maxX - viewerBbox.minX;
+        const bboxHeight = viewerBbox.maxY - viewerBbox.minY;
+        
+        const scale = Math.min((width - padding * 2) / bboxWidth, (height - padding * 2) / bboxHeight);
+        
+        function projectPoint(lon, lat) {
+            const x = padding + (lon - viewerBbox.minX) * scale;
+            const y = height - padding - (lat - viewerBbox.minY) * scale;
+            return { x, y };
+        }
+        
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        svg.innerHTML = '';
+        
+        viewerEntities.forEach((entity, idx) => {
+            const geom = entity.geometry;
+            const color = entity.color || '#00ffff';
+            const entityType = entity.entity_type;
+            const entityId = entity.entity_id;
+            
+            if (geom.type === 'Point') {
+                const pt = projectPoint(geom.coordinates[0], geom.coordinates[1]);
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', pt.x);
+                circle.setAttribute('cy', pt.y);
+                circle.setAttribute('r', 5);
+                circle.setAttribute('fill', color);
+                circle.setAttribute('stroke', color);
+                circle.setAttribute('stroke-width', '1');
+                circle.setAttribute('data-entity-id', entityId);
+                circle.setAttribute('data-entity-type', entityType);
+                circle.setAttribute('data-entity-idx', idx);
+                circle.style.cursor = 'pointer';
+                circle.style.opacity = '0.8';
+                
+                circle.addEventListener('mouseenter', function() {
+                    this.classList.add('entity-highlighted');
+                    updateEntityInfo(viewerEntities[idx]);
+                });
+                
+                circle.addEventListener('mouseleave', function() {
+                    this.classList.remove('entity-highlighted');
+                });
+                
+                circle.addEventListener('click', function() {
+                    if (selectedEntityId) {
+                        const prevSelected = svg.querySelector(`[data-entity-id="${selectedEntityId}"]`);
+                        if (prevSelected) prevSelected.classList.remove('entity-selected');
+                    }
+                    selectedEntityId = entityId;
+                    this.classList.add('entity-selected');
+                    updateEntityInfo(viewerEntities[idx]);
+                });
+                
+                svg.appendChild(circle);
+                
+            } else if (geom.type === 'LineString') {
+                const points = geom.coordinates.map(coord => projectPoint(coord[0], coord[1]));
+                const pathData = 'M ' + points.map(p => `${p.x},${p.y}`).join(' L ');
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathData);
+                path.setAttribute('stroke', color);
+                path.setAttribute('stroke-width', 2);
+                path.setAttribute('fill', 'none');
+                path.setAttribute('data-entity-id', entityId);
+                path.setAttribute('data-entity-type', entityType);
+                path.setAttribute('data-entity-idx', idx);
+                path.style.cursor = 'pointer';
+                path.style.opacity = '0.7';
+                
+                path.addEventListener('mouseenter', function() {
+                    this.classList.add('entity-highlighted');
+                    updateEntityInfo(viewerEntities[idx]);
+                });
+                
+                path.addEventListener('mouseleave', function() {
+                    this.classList.remove('entity-highlighted');
+                });
+                
+                path.addEventListener('click', function() {
+                    if (selectedEntityId) {
+                        const prevSelected = svg.querySelector(`[data-entity-id="${selectedEntityId}"]`);
+                        if (prevSelected) prevSelected.classList.remove('entity-selected');
+                    }
+                    selectedEntityId = entityId;
+                    this.classList.add('entity-selected');
+                    updateEntityInfo(viewerEntities[idx]);
+                });
+                
+                svg.appendChild(path);
+            }
+        });
+        
+        updateLegend();
+        loadingEl.style.display = 'none';
+        
+    } catch (error) {
+        console.error('Error rendering viewer:', error);
+        svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#ff6b6b" font-size="16">Error loading viewer data</text>`;
+        loadingEl.style.display = 'none';
+    }
 }
 
-function calculateBounds() {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    let hasData = false;
+function updateLegend() {
+    const legendEl = document.getElementById('viewerLegend');
     
-    pipesData.forEach(pipe => {
-        if (!pipe.geometry) return;
-        try {
-            const geom = JSON.parse(pipe.geometry);
-            if (geom.type === 'LineString') {
-                geom.coordinates.forEach(coord => {
-                    minX = Math.min(minX, coord[0]);
-                    minY = Math.min(minY, coord[1]);
-                    maxX = Math.max(maxX, coord[0]);
-                    maxY = Math.max(maxY, coord[1]);
-                    hasData = true;
-                });
-            }
-        } catch (e) {}
+    const typeCounts = {};
+    viewerEntities.forEach(entity => {
+        const type = entity.entity_type || 'Unknown';
+        typeCounts[type] = (typeCounts[type] || 0) + 1;
     });
     
-    structuresData.forEach(struct => {
-        if (!struct.geometry) return;
-        try {
-            const geom = JSON.parse(struct.geometry);
-            if (geom.type === 'Point') {
-                minX = Math.min(minX, geom.coordinates[0]);
-                minY = Math.min(minY, geom.coordinates[1]);
-                maxX = Math.max(maxX, geom.coordinates[0]);
-                maxY = Math.max(maxY, geom.coordinates[1]);
-                hasData = true;
-            }
-        } catch (e) {}
+    let legendHTML = '';
+    
+    const typeColors = {
+        'storm_pipe': '#f7b801',
+        'sanitary_pipe': '#0096ff',
+        'structure': '#6a994e'
+    };
+    
+    Object.entries(typeCounts).forEach(([type, count]) => {
+        const color = typeColors[type] || '#00ffff';
+        const displayName = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const isLine = type.includes('pipe');
+        
+        legendHTML += `
+            <div class="legend-item">
+                <div class="legend-color ${isLine ? '' : 'point'}" style="background: ${color};"></div>
+                <span class="legend-label">${displayName}</span>
+                <span class="legend-count">${count}</span>
+            </div>
+        `;
     });
     
-    if (!hasData) return null;
+    if (legendHTML === '') {
+        legendHTML = '<p style="color: var(--mc-text); font-size: 0.85rem;">No entities to display</p>';
+    }
     
-    return { minX, minY, maxX, maxY };
+    legendEl.innerHTML = legendHTML;
+}
+
+function updateEntityInfo(entity) {
+    const infoEl = document.getElementById('entityInfo');
+    
+    if (!entity) {
+        infoEl.innerHTML = '<p style="color: var(--mc-text); font-size: 0.85rem;">Hover or click an entity</p>';
+        return;
+    }
+    
+    const displayName = (entity.entity_type || 'Unknown').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    
+    let infoHTML = `
+        <div style="margin-bottom: 0.5rem; color: ${entity.color}; font-weight: 600;">
+            ${displayName}
+        </div>
+    `;
+    
+    const props = entity.properties || {};
+    
+    const displayProps = [
+        { key: 'line_number', label: 'Pipe #' },
+        { key: 'structure_number', label: 'Structure #' },
+        { key: 'from_structure_number', label: 'From' },
+        { key: 'to_structure_number', label: 'To' },
+        { key: 'diameter_mm', label: 'Diameter (mm)' },
+        { key: 'material', label: 'Material' },
+        { key: 'structure_type', label: 'Type' },
+        { key: 'rim_elevation', label: 'Rim Elev (ft)' },
+        { key: 'invert_elevation', label: 'Invert Elev (ft)' },
+        { key: 'manhole_depth_ft', label: 'Depth (ft)' },
+        { key: 'length', label: 'Length' },
+        { key: 'slope', label: 'Slope' }
+    ];
+    
+    displayProps.forEach(({ key, label }) => {
+        if (props[key] !== undefined && props[key] !== null && props[key] !== '') {
+            let value = props[key];
+            if (typeof value === 'number') {
+                value = value.toFixed(2);
+            }
+            infoHTML += `
+                <div style="display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px solid rgba(0, 255, 255, 0.1); font-size: 0.85rem;">
+                    <span style="color: var(--mc-primary);">${label}:</span>
+                    <span style="color: var(--mc-text);">${value}</span>
+                </div>
+            `;
+        }
+    });
+    
+    infoEl.innerHTML = infoHTML;
 }
 
 function showStatus(message, isError) {
