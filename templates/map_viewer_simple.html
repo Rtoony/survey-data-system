@@ -6,7 +6,7 @@
 <!-- Version: {{ cache_bust }} -->
     <div class="map-viewer-wrapper">
         <!-- Collapse Toggle Button -->
-        <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+        <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Toggle Sidebar (Ctrl+B)">
             <i class="fas fa-bars" id="collapse-icon"></i>
         </button>
         
@@ -15,19 +15,22 @@
                 <h2 style="color: #00ffff; margin: 0; font-size: 18px;">
                     <i class="fas fa-map-marked-alt"></i> Map Viewer
                 </h2>
+                <div style="font-size: 10px; color: #888; margin-top: 4px;">
+                    Press <kbd>L</kbd> for Layers, <kbd>M</kbd> for Tools
+                </div>
             </div>
             
             <!-- Tab Navigation -->
             <div class="tab-nav">
-                <button class="tab-btn active" onclick="switchTab('map-controls')">
+                <button class="tab-btn active" onclick="switchTab('map-controls')" data-tab="map-controls">
                     <i class="fas fa-map"></i>
                     <span>Map</span>
                 </button>
-                <button class="tab-btn" onclick="switchTab('tools')">
+                <button class="tab-btn" onclick="switchTab('tools')" data-tab="tools">
                     <i class="fas fa-tools"></i>
                     <span>Tools</span>
                 </button>
-                <button class="tab-btn" onclick="switchTab('layers')">
+                <button class="tab-btn" onclick="switchTab('layers')" data-tab="layers">
                     <i class="fas fa-layer-group"></i>
                     <span>Layers</span>
                 </button>
@@ -134,8 +137,10 @@
                         </div>
                         
                         <div id="drawings-container" style="font-size: 11px; max-height: 300px; overflow-y: auto;">
-                            <div style="color: #888; text-align: center; padding: 10px;">
-                                Select a project to view drawings
+                            <div class="skeleton-loader">
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line"></div>
                             </div>
                         </div>
                     </div>
@@ -143,17 +148,46 @@
                     <div class="section">
                         <h3><i class="fas fa-layer-group"></i> Sonoma County Layers</h3>
                         <div id="gis-layers-container" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
-                            Loading layers...
+                            <div class="skeleton-loader">
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line"></div>
+                            </div>
                         </div>
                         <div id="gis-status" style="color: #888; font-size: 10px; margin-top: 5px;">
                             Ready to load layers
                         </div>
+                    </div>
+                    
+                    <!-- Layer Legend -->
+                    <div class="section" id="layer-legend" style="display: none;">
+                        <h3><i class="fas fa-palette"></i> Layer Legend</h3>
+                        <div id="legend-items"></div>
                     </div>
                 </div>
             </div>
         </div>
         
         <div class="map-area">
+            <!-- Map Control Buttons -->
+            <div class="map-controls-overlay">
+                <button class="map-control-btn" onclick="findMyLocation()" title="Find My Location">
+                    <i class="fas fa-location-arrow"></i>
+                </button>
+                <button class="map-control-btn" onclick="toggleFullscreen()" title="Fullscreen (F11)">
+                    <i class="fas fa-expand" id="fullscreen-icon"></i>
+                </button>
+            </div>
+            
+            <!-- Active Layer Pills -->
+            <div class="active-layers-pills" id="active-layers-pills"></div>
+            
+            <!-- Scale Bar -->
+            <div class="scale-bar" id="scale-bar">
+                <div class="scale-bar-line"></div>
+                <div class="scale-bar-label" id="scale-bar-label">1000 ft</div>
+            </div>
+            
             <div id="map"></div>
         </div>
     </div>
@@ -227,6 +261,9 @@
             </div>
         </div>
     </div>
+    
+    <!-- Layer Preview Tooltip -->
+    <div id="layer-preview-tooltip" class="layer-preview-tooltip"></div>
 {% endblock %}
 
 {% block scripts %}
@@ -241,21 +278,30 @@
             font-family: Arial, sans-serif;
             background: #001428;
             color: white;
-            overflow: hidden;
         }
         
         .map-viewer-wrapper {
             display: flex;
             width: 100vw;
-            height: 100vh;
+            height: calc(100vh - 140px);
             position: relative;
+            margin-top: 0;
+        }
+        
+        kbd {
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            border-radius: 3px;
+            padding: 2px 5px;
+            font-size: 9px;
+            font-family: monospace;
         }
         
         /* Collapse Toggle Button */
         .sidebar-collapse-btn {
             position: fixed;
             left: 10px;
-            top: 80px;
+            top: 150px;
             z-index: 2000;
             width: 40px;
             height: 40px;
@@ -365,6 +411,187 @@
         #map {
             width: 100%;
             height: 100%;
+        }
+        
+        /* Map Control Buttons Overlay */
+        .map-controls-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .map-control-btn {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #004d7a, #008793);
+            border: 2px solid #00ffff;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0, 255, 255, 0.4);
+        }
+        
+        .map-control-btn:hover {
+            background: linear-gradient(135deg, #006699, #00a8b8);
+            box-shadow: 0 6px 16px rgba(0, 255, 255, 0.6);
+            transform: scale(1.1);
+        }
+        
+        .map-control-btn i {
+            font-size: 16px;
+        }
+        
+        /* Active Layer Pills */
+        .active-layers-pills {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 80%;
+        }
+        
+        .layer-pill {
+            background: rgba(0, 40, 80, 0.95);
+            border: 2px solid;
+            border-radius: 20px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: bold;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            animation: pillSlideIn 0.3s ease;
+        }
+        
+        @keyframes pillSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .layer-pill-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .layer-pill-remove {
+            background: none;
+            border: none;
+            color: #ff4444;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 4px;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        
+        .layer-pill-remove:hover {
+            color: #ff0000;
+        }
+        
+        /* Scale Bar */
+        .scale-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(0, 40, 80, 0.95);
+            border: 2px solid #00ffff;
+            border-radius: 4px;
+            padding: 8px 12px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        .scale-bar-line {
+            height: 4px;
+            background: #00ffff;
+            margin-bottom: 4px;
+            width: 100px;
+            border-radius: 2px;
+        }
+        
+        .scale-bar-label {
+            font-size: 11px;
+            color: #00ffff;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        /* Layer Preview Tooltip */
+        .layer-preview-tooltip {
+            position: absolute;
+            background: rgba(0, 20, 40, 0.98);
+            border: 2px solid #00ffff;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 11px;
+            z-index: 10000;
+            display: none;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0, 255, 255, 0.5);
+            max-width: 250px;
+        }
+        
+        .layer-preview-tooltip.show {
+            display: block;
+        }
+        
+        .layer-preview-color {
+            width: 100%;
+            height: 20px;
+            border-radius: 3px;
+            margin: 5px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Skeleton Loader */
+        .skeleton-loader {
+            padding: 10px 0;
+        }
+        
+        .skeleton-line {
+            height: 12px;
+            background: linear-gradient(90deg, 
+                rgba(0, 255, 255, 0.1) 25%, 
+                rgba(0, 255, 255, 0.2) 50%, 
+                rgba(0, 255, 255, 0.1) 75%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        
+        .skeleton-line:nth-child(1) { width: 80%; }
+        .skeleton-line:nth-child(2) { width: 60%; }
+        .skeleton-line:nth-child(3) { width: 70%; }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
         }
         
         .section {
@@ -621,6 +848,31 @@
             margin-left: 5px;
         }
         
+        /* Legend Items */
+        #legend-items {
+            font-size: 11px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 12px;
+            border-radius: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .legend-label {
+            flex: 1;
+            color: #aaa;
+        }
+        
         /* Scrollbar styling */
         .tab-content-wrapper::-webkit-scrollbar,
         #drawings-container::-webkit-scrollbar,
@@ -655,7 +907,7 @@
                 position: absolute;
                 left: 0;
                 top: 0;
-                height: 100vh;
+                height: 100%;
                 z-index: 1500;
             }
             
@@ -665,6 +917,11 @@
             
             .sidebar-collapse-btn {
                 left: 10px;
+            }
+            
+            .active-layers-pills {
+                max-width: 90%;
+                top: 60px;
             }
         }
     </style>
@@ -692,14 +949,16 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
         
         // Sidebar collapse state
         let sidebarCollapsed = false;
+        let isFullscreen = false;
+        
+        // Layer preview tooltip
+        let layerPreviewTooltip;
         
         // Tab switching
         function switchTab(tabName) {
-            // Remove active class from all tabs
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
-            // Add active class to selected tab
             event.target.closest('.tab-btn').classList.add('active');
             document.getElementById('tab-' + tabName).classList.add('active');
         }
@@ -719,20 +978,230 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 icon.className = 'fas fa-bars';
             }
             
-            // Resize map after sidebar animation
             setTimeout(() => {
                 if (map) map.invalidateSize();
             }, 300);
         }
         
+        // Geolocation
+        function findMyLocation() {
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser');
+                return;
+            }
+            
+            const btn = event.target.closest('.map-control-btn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    map.setView([lat, lng], 16);
+                    
+                    L.marker([lat, lng], {
+                        icon: L.divIcon({
+                            className: 'location-marker',
+                            html: '<i class="fas fa-circle" style="color: #00ffff; font-size: 16px;"></i>',
+                            iconSize: [16, 16]
+                        })
+                    }).addTo(map).bindPopup('You are here').openPopup();
+                    
+                    btn.innerHTML = '<i class="fas fa-location-arrow"></i>';
+                },
+                (error) => {
+                    alert('Unable to retrieve your location: ' + error.message);
+                    btn.innerHTML = '<i class="fas fa-location-arrow"></i>';
+                }
+            );
+        }
+        
+        // Fullscreen toggle
+        function toggleFullscreen() {
+            const elem = document.documentElement;
+            const icon = document.getElementById('fullscreen-icon');
+            
+            if (!isFullscreen) {
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.webkitRequestFullscreen) {
+                    elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) {
+                    elem.msRequestFullscreen();
+                }
+                icon.className = 'fas fa-compress';
+                isFullscreen = true;
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                icon.className = 'fas fa-expand';
+                isFullscreen = false;
+            }
+        }
+        
+        // Update scale bar
+        function updateScaleBar() {
+            if (!map) return;
+            
+            const bounds = map.getBounds();
+            const centerLat = map.getCenter().lat;
+            const mapWidth = map.getSize().x;
+            
+            const point1 = L.latLng(centerLat, bounds.getWest());
+            const point2 = L.latLng(centerLat, bounds.getEast());
+            const distanceMeters = point1.distanceTo(point2);
+            const distanceFeet = distanceMeters * 3.28084;
+            const distanceMiles = distanceFeet / 5280;
+            
+            const pixelsPerFoot = mapWidth / distanceFeet;
+            
+            let scaleDistance, scaleLabel;
+            
+            if (distanceMiles > 5) {
+                scaleDistance = Math.round(distanceMiles / 2);
+                scaleLabel = scaleDistance + ' mi';
+            } else if (distanceFeet > 5000) {
+                scaleDistance = Math.round(distanceFeet / 1000) * 500;
+                scaleLabel = scaleDistance + ' ft';
+            } else {
+                scaleDistance = Math.round(distanceFeet / 100) * 50;
+                scaleLabel = scaleDistance + ' ft';
+            }
+            
+            const scaleWidth = scaleDistance * pixelsPerFoot;
+            document.querySelector('.scale-bar-line').style.width = Math.min(scaleWidth, 200) + 'px';
+            document.getElementById('scale-bar-label').textContent = scaleLabel;
+        }
+        
+        // Add active layer pill
+        function addLayerPill(layerId, layerName, layerColor) {
+            const pillsContainer = document.getElementById('active-layers-pills');
+            
+            const pill = document.createElement('div');
+            pill.className = 'layer-pill';
+            pill.id = 'pill-' + layerId;
+            pill.style.borderColor = layerColor;
+            pill.innerHTML = `
+                <div class="layer-pill-color" style="background: ${layerColor};"></div>
+                <span>${layerName}</span>
+                <button class="layer-pill-remove" onclick="removeLayerFromPill('${layerId}')" title="Remove layer">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            pillsContainer.appendChild(pill);
+            updateLayerLegend();
+        }
+        
+        // Remove layer pill
+        function removeLayerPill(layerId) {
+            const pill = document.getElementById('pill-' + layerId);
+            if (pill) {
+                pill.remove();
+                updateLayerLegend();
+            }
+        }
+        
+        // Remove layer from pill click
+        function removeLayerFromPill(layerId) {
+            const checkbox = document.getElementById('layer-' + layerId);
+            if (checkbox) {
+                checkbox.checked = false;
+                toggleLayerSelection(layerId, false);
+            }
+        }
+        
+        // Update layer legend
+        function updateLayerLegend() {
+            const legendSection = document.getElementById('layer-legend');
+            const legendItems = document.getElementById('legend-items');
+            
+            const activeLayers = Object.keys(activeGISLayers);
+            
+            if (activeLayers.length === 0) {
+                legendSection.style.display = 'none';
+                return;
+            }
+            
+            legendSection.style.display = 'block';
+            legendItems.innerHTML = activeLayers.map(layerId => {
+                const layer = gisLayersData.find(l => l.id === layerId);
+                const style = getLayerStyle(layerId);
+                return `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: ${style.color};"></div>
+                        <div class="legend-label">${layer.name}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Show layer preview on hover
+        function showLayerPreview(layerId, event) {
+            const layer = gisLayersData.find(l => l.id === layerId);
+            if (!layer) return;
+            
+            const style = getLayerStyle(layerId);
+            const tooltip = layerPreviewTooltip;
+            
+            tooltip.innerHTML = `
+                <strong>${layer.name}</strong>
+                <div class="layer-preview-color" style="background: ${style.color};"></div>
+                <div style="margin-top: 5px; color: #aaa;">
+                    <div>Weight: ${style.weight}px</div>
+                    <div>Opacity: ${(style.fillOpacity * 100).toFixed(0)}%</div>
+                </div>
+            `;
+            
+            tooltip.style.left = (event.pageX + 15) + 'px';
+            tooltip.style.top = (event.pageY + 15) + 'px';
+            tooltip.classList.add('show');
+        }
+        
+        function hideLayerPreview() {
+            layerPreviewTooltip.classList.remove('show');
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            if (e.key === 'Escape') {
+                closeExportModal();
+                clearMeasurements();
+            } else if (e.key.toLowerCase() === 'l') {
+                document.querySelector('[data-tab="layers"]').click();
+            } else if (e.key.toLowerCase() === 'm') {
+                document.querySelector('[data-tab="tools"]').click();
+            } else if (e.key === 'F11') {
+                e.preventDefault();
+                toggleFullscreen();
+            } else if (e.ctrlKey && e.key.toLowerCase() === 'b') {
+                e.preventDefault();
+                toggleSidebar();
+            }
+        });
+        
+        // Listen for fullscreen change
+        document.addEventListener('fullscreenchange', function() {
+            isFullscreen = !!document.fullscreenElement;
+            document.getElementById('fullscreen-icon').className = isFullscreen ? 'fas fa-compress' : 'fas fa-expand';
+        });
+        
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Initializing simple map...');
             
-            // Define State Plane projection
+            layerPreviewTooltip = document.getElementById('layer-preview-tooltip');
+            
             proj4.defs("EPSG:2226", "+proj=lcc +lat_1=39.83333333333334 +lat_2=38.33333333333334 +lat_0=37.66666666666666 +lon_0=-122 +x_0=2000000.0001016 +y_0=500000.0001016001 +ellps=GRS80 +datum=NAD83 +to_meter=0.3048006096012192 +no_defs");
             
-            // Create map
             map = L.map('map', {
                 zoomDelta: 0.25,
                 zoomSnap: 0.25,
@@ -740,12 +1209,10 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 boxZoom: true
             }).setView([38.5, -122.8], 10);
             
-            // Initialize measurement variables
             measureMode = null;
             measurePoints = [];
             measureLayer = new L.FeatureGroup().addTo(map);
             
-            // Basemaps
             basemaps = {
                 osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenStreetMap',
@@ -767,11 +1234,9 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
             currentBasemap = basemaps.osm;
             currentBasemap.addTo(map);
             
-            // Drawing layer
             drawnItems = new L.FeatureGroup();
             map.addLayer(drawnItems);
             
-            // Draw controls
             console.log('Creating draw control...');
             try {
                 const drawControl = new L.Control.Draw({
@@ -794,27 +1259,22 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 console.error('Error creating draw control:', err);
             }
             
-            // Draw events
             map.on('draw:created', function(e) {
                 drawnItems.clearLayers();
                 drawnItems.addLayer(e.layer);
                 
-                // Calculate area for validation
                 const bounds = e.layer.getBounds();
                 const sw = bounds.getSouthWest();
                 const ne = bounds.getNorthEast();
                 
-                // Convert to State Plane (EPSG:2226) for accurate area calculation
                 const [swX, swY] = proj4('EPSG:4326', 'EPSG:2226', [sw.lng, sw.lat]);
                 const [neX, neY] = proj4('EPSG:4326', 'EPSG:2226', [ne.lng, ne.lat]);
                 
-                // Calculate area in square feet
                 const widthFt = Math.abs(neX - swX);
                 const heightFt = Math.abs(neY - swY);
                 const areaSqFt = widthFt * heightFt;
                 const acres = areaSqFt / 43560;
                 
-                // Maximum area: 2,000,000 sq ft (~46 acres)
                 const MAX_AREA_SQ_FT = 2000000;
                 const warningThreshold = MAX_AREA_SQ_FT * 0.8;
                 
@@ -850,7 +1310,6 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 console.log('Drawing started');
             });
             
-            // Coordinate display
             map.on('mousemove', function(e) {
                 const [x, y] = proj4('EPSG:4326', 'EPSG:2226', [e.latlng.lng, e.latlng.lat]);
                 document.getElementById('coords').innerHTML = `
@@ -859,7 +1318,6 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 `;
             });
             
-            // Measurement click handler
             map.on('click', function(e) {
                 if (!measureMode) return;
                 
@@ -900,13 +1358,16 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 }
             });
             
-            // Load data
+            map.on('zoomend', updateScaleBar);
+            map.on('moveend', updateScaleBar);
+            
             loadProjectStructure();
             loadGISLayers();
             
             console.log('Map initialized!');
             setTimeout(() => {
                 map.invalidateSize();
+                updateScaleBar();
                 console.log('Map tiles should be visible now');
             }, 100);
         });
@@ -926,7 +1387,9 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 container.innerHTML = gisLayersData
                     .filter(layer => layer.enabled)
                     .map(layer => `
-                        <label style="display: flex; align-items: center; margin-bottom: 8px; cursor: pointer;">
+                        <label style="display: flex; align-items: center; margin-bottom: 8px; cursor: pointer;"
+                               onmouseenter="showLayerPreview('${layer.id}', event)"
+                               onmouseleave="hideLayerPreview()">
                             <input type="checkbox" id="layer-${layer.id}" 
                                    style="margin: 0; margin-right: 8px; flex-shrink: 0;"
                                    onchange="toggleLayerSelection('${layer.id}', this.checked)">
@@ -946,14 +1409,16 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
             console.log(`Layer ${layerId} ${checked ? 'loading...' : 'removing...'}`);
             
             const label = document.getElementById(`label-${layerId}`);
+            const originalText = label.textContent;
             
             if (checked) {
-                label.innerHTML = label.textContent + ' <i class="fas fa-spinner fa-spin"></i>';
+                label.innerHTML = originalText + ' <i class="fas fa-spinner fa-spin"></i>';
                 await loadGISLayer(layerId);
             } else {
                 if (activeGISLayers[layerId]) {
                     map.removeLayer(activeGISLayers[layerId]);
                     delete activeGISLayers[layerId];
+                    removeLayerPill(layerId);
                     console.log(`Layer ${layerId} removed from map`);
                 }
             }
@@ -1130,7 +1595,9 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 console.log(`${layerConfig.name}: Loaded ${featureCount} features`);
                 
                 const label = document.getElementById(`label-${layerId}`);
-                label.innerHTML = `${layerConfig.name} <span style="color: #888;">(${featureCount})</span>`;
+                label.innerHTML = layerConfig.name;
+                
+                addLayerPill(layerId, layerConfig.name, layerStyle.color);
                 
             } catch (error) {
                 console.error(`Error loading layer ${layerId}:`, error);
@@ -1152,6 +1619,8 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 const select = document.getElementById('project-select');
                 if (projectsData.length === 0) {
                     select.innerHTML = '<option value="">No projects available</option>';
+                    document.getElementById('drawings-container').innerHTML = 
+                        '<div style="color: #888; text-align: center; padding: 10px;">No projects available</div>';
                     return;
                 }
                 
@@ -1160,10 +1629,15 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                         `<option value="${project.project_id}">${project.project_name} (${project.drawings.length} drawings)</option>`
                     ).join('');
                 
+                document.getElementById('drawings-container').innerHTML = 
+                    '<div style="color: #888; text-align: center; padding: 10px;">Select a project to view drawings</div>';
+                
                 console.log(`Loaded ${projectsData.length} projects`);
             } catch (e) {
                 console.error('Error loading project structure:', e);
                 document.getElementById('project-select').innerHTML = '<option value="">Error loading projects</option>';
+                document.getElementById('drawings-container').innerHTML = 
+                    '<div style="color: #ff4444; text-align: center; padding: 10px;">Error loading projects</div>';
             }
         }
         
@@ -1483,7 +1957,7 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
             const status = document.getElementById('search-status');
             if (!addr) return;
             
-            status.innerHTML = 'Searching...';
+            status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
             try {
                 const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr + ', Sonoma County, CA')}`;
                 const res = await fetch(url);
@@ -1491,12 +1965,13 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 
                 if (data.length > 0) {
                     map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 16);
-                    status.innerHTML = '<span style="color: #0f0;">Found!</span>';
+                    status.innerHTML = '<span style="color: #0f0;"><i class="fas fa-check"></i> Found!</span>';
+                    setTimeout(() => status.innerHTML = '', 3000);
                 } else {
-                    status.innerHTML = '<span style="color: #f00;">Not found</span>';
+                    status.innerHTML = '<span style="color: #f00;"><i class="fas fa-times"></i> Not found</span>';
                 }
             } catch (e) {
-                status.innerHTML = '<span style="color: #f00;">Error</span>';
+                status.innerHTML = '<span style="color: #f00;"><i class="fas fa-exclamation-triangle"></i> Error</span>';
             }
         }
         
