@@ -85,7 +85,7 @@
     --transition-base: 0.2s ease;
     
     /* Layout */
-    --header-height: 100px;
+    --header-height: 88px;
 }
 
 /* ============================================
@@ -410,9 +410,9 @@ h3 {
    MAIN CONTENT
    ============================================ */
 .main-content {
-    margin-top: calc(var(--header-height) + 60px);
+    margin-top: calc(var(--header-height) + var(--spacing-md));
     padding: var(--spacing-xl);
-    min-height: calc(100vh - var(--header-height) - 60px);
+    min-height: calc(100vh - var(--header-height) - var(--spacing-md));
 }
 
 /* ============================================
