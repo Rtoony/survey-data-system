@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+
+{% block title %}Standard Notes Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-sticky-note neon-cyan"></i> Standard Notes Manager</h2>
+    <p class="subtitle">Manage reusable construction notes and specifications</p>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h3 class="orbitron"><i class="fas fa-list"></i> Notes Library</h3>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="showAddModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add New Note
+            </button>
+            <button onclick="refreshNotes()" class="btn btn-secondary">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <input type="text" id="searchInput" placeholder="Search notes by title, text, or category..." 
+               onkeyup="filterTable()" 
+               style="flex: 1; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+        <select id="categoryFilter" onchange="filterTable()" 
+                style="padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+            <option value="">All Categories</option>
+        </select>
+        <select id="disciplineFilter" onchange="filterTable()" 
+                style="padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+            <option value="">All Disciplines</option>
+        </select>
+    </div>
+
+    <div id="loadingMessage" class="alert" style="text-align: center;">
+        <i class="fas fa-spinner fa-spin"></i> Loading notes...
+    </div>
+
+    <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+    <div id="tableContainer" style="display: none; overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 200px;">Title</th>
+                    <th>Note Text</th>
+                    <th style="width: 120px;">Category</th>
+                    <th style="width: 100px;">Discipline</th>
+                    <th style="width: 80px;">Usage</th>
+                    <th style="width: 150px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="notesTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <div id="emptyMessage" class="alert" style="display: none; text-align: center;">
+        <i class="fas fa-inbox"></i> No notes found. Add your first standard note.
+    </div>
+</div>
+
+<div id="noteModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 class="orbitron" id="modalTitle">Add Standard Note</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="noteForm" onsubmit="saveNote(event)">
+            <input type="hidden" id="noteId">
+            
+            <div class="form-group">
+                <label for="noteTitle">Note Title</label>
+                <input type="text" id="noteTitle" required placeholder="e.g., General Site Protection Requirements">
+            </div>
+
+            <div class="form-group">
+                <label for="noteText">Note Text</label>
+                <textarea id="noteText" rows="6" required placeholder="Enter the full note text..."></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="noteCategory">Category</label>
+                    <input type="text" id="noteCategory" placeholder="e.g., General, Site Work, Utilities">
+                </div>
+
+                <div class="form-group">
+                    <label for="noteDiscipline">Discipline</label>
+                    <input type="text" id="noteDiscipline" placeholder="e.g., CIV, SITE, UTIL">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="noteTags">Tags (comma-separated)</label>
+                <input type="text" id="noteTags" placeholder="e.g., erosion control, grading, stormwater">
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Note
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 20, 40, 0.4);
+}
+
+.data-table th {
+    background: rgba(0, 100, 150, 0.3);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+    font-weight: 600;
+}
+
+.data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.note-text-cell {
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.usage-badge {
+    background: rgba(0, 200, 255, 0.2);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(0,20,40,0.95) 0%, rgba(0,40,80,0.95) 100%);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--neon-cyan);
+    width: 90%;
+    max-width: 600px;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,200,255,0.3);
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close {
+    color: var(--neon-cyan);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    padding: 0 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--neon-cyan);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,20,40,0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.form-group textarea {
+    resize: vertical;
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+</style>
+
+<script>
+let allNotes = [];
+
+async function loadNotes() {
+    try {
+        const response = await fetch('/api/data-manager/standard-notes');
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        allNotes = data.notes || [];
+        renderTable();
+        populateFilters();
+        
+    } catch (error) {
+        showError('Failed to load notes: ' + error.message);
+    }
+}
+
+function populateFilters() {
+    const categories = [...new Set(allNotes.map(n => n.note_category).filter(Boolean))].sort();
+    const disciplines = [...new Set(allNotes.map(n => n.discipline).filter(Boolean))].sort();
+    
+    const categoryFilter = document.getElementById('categoryFilter');
+    categoryFilter.innerHTML = '<option value="">All Categories</option>';
+    categories.forEach(cat => {
+        categoryFilter.innerHTML += `<option value="${cat}">${cat}</option>`;
+    });
+    
+    const disciplineFilter = document.getElementById('disciplineFilter');
+    disciplineFilter.innerHTML = '<option value="">All Disciplines</option>';
+    disciplines.forEach(disc => {
+        disciplineFilter.innerHTML += `<option value="${disc}">${disc}</option>`;
+    });
+}
+
+function renderTable() {
+    const tbody = document.getElementById('notesTableBody');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    const disciplineFilter = document.getElementById('disciplineFilter').value;
+    
+    let filtered = allNotes.filter(note => {
+        const matchesSearch = !search || 
+            note.note_title.toLowerCase().includes(search) ||
+            note.note_text.toLowerCase().includes(search) ||
+            (note.note_category && note.note_category.toLowerCase().includes(search));
+        
+        const matchesCategory = !categoryFilter || note.note_category === categoryFilter;
+        const matchesDiscipline = !disciplineFilter || note.discipline === disciplineFilter;
+        
+        return matchesSearch && matchesCategory && matchesDiscipline;
+    });
+    
+    if (filtered.length === 0) {
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyMessage').style.display = 'block';
+        return;
+    }
+    
+    tbody.innerHTML = filtered.map(note => `
+        <tr>
+            <td><strong>${note.note_title}</strong></td>
+            <td class="note-text-cell" title="${note.note_text}">${note.note_text}</td>
+            <td>${note.note_category || '-'}</td>
+            <td>${note.discipline || '-'}</td>
+            <td><span class="usage-badge">${note.usage_frequency || 0}</span></td>
+            <td>
+                <button onclick="editNote('${note.note_id}')" class="btn btn-sm btn-secondary" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="copyNote('${note.note_id}')" class="btn btn-sm btn-secondary" title="Copy">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button onclick="deleteNote('${note.note_id}')" class="btn btn-sm btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    document.getElementById('loadingMessage').style.display = 'none';
+    document.getElementById('tableContainer').style.display = 'block';
+    document.getElementById('emptyMessage').style.display = 'none';
+}
+
+function filterTable() {
+    renderTable();
+}
+
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add Standard Note';
+    document.getElementById('noteForm').reset();
+    document.getElementById('noteId').value = '';
+    document.getElementById('noteModal').style.display = 'block';
+}
+
+function editNote(noteId) {
+    const note = allNotes.find(n => n.note_id === noteId);
+    if (!note) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Standard Note';
+    document.getElementById('noteId').value = note.note_id;
+    document.getElementById('noteTitle').value = note.note_title;
+    document.getElementById('noteText').value = note.note_text;
+    document.getElementById('noteCategory').value = note.note_category || '';
+    document.getElementById('noteDiscipline').value = note.discipline || '';
+    document.getElementById('noteTags').value = note.tags ? note.tags.join(', ') : '';
+    
+    document.getElementById('noteModal').style.display = 'block';
+}
+
+async function saveNote(event) {
+    event.preventDefault();
+    
+    const noteId = document.getElementById('noteId').value;
+    const noteData = {
+        note_title: document.getElementById('noteTitle').value,
+        note_text: document.getElementById('noteText').value,
+        note_category: document.getElementById('noteCategory').value || null,
+        discipline: document.getElementById('noteDiscipline').value || null,
+        tags: document.getElementById('noteTags').value.split(',').map(t => t.trim()).filter(Boolean)
+    };
+    
+    try {
+        const url = noteId ? `/api/data-manager/standard-notes/${noteId}` : '/api/data-manager/standard-notes';
+        const method = noteId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(noteData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        closeModal();
+        await loadNotes();
+        
+    } catch (error) {
+        showError('Failed to save note: ' + error.message);
+    }
+}
+
+async function deleteNote(noteId) {
+    if (!confirm('Are you sure you want to delete this note?')) return;
+    
+    try {
+        const response = await fetch(`/api/data-manager/standard-notes/${noteId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        await loadNotes();
+        
+    } catch (error) {
+        showError('Failed to delete note: ' + error.message);
+    }
+}
+
+function copyNote(noteId) {
+    const note = allNotes.find(n => n.note_id === noteId);
+    if (!note) return;
+    
+    navigator.clipboard.writeText(note.note_text).then(() => {
+        alert('Note text copied to clipboard!');
+    });
+}
+
+function closeModal() {
+    document.getElementById('noteModal').style.display = 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    document.getElementById('loadingMessage').style.display = 'none';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+function refreshNotes() {
+    loadNotes();
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('noteModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadNotes);
+</script>
+{% endblock %}

@@ -4,6 +4,10 @@
 
 ACAD-GIS is an AI-first, database-centric CAD/GIS system designed for machine learning, embeddings, and GraphRAG. It aims to replace traditional file-based CAD workflows with a PostgreSQL/PostGIS database, optimizing for AI understanding and semantic reasoning. The system provides a unified entity model, centralized embeddings, explicit graph edges for GraphRAG, and built-in ML feature engineering, enabling hybrid search across CAD/GIS data. Key capabilities include a Schema Explorer, CAD Standards Portal, and Python ML Tools for intelligent CAD operations, with a focus on civil engineering and surveying workflows.
 
+## Recent Changes
+
+- **November 9, 2025**: Completed Standard Notes Library CRUD manager - full create/read/update/delete interface at `/data-manager/standard-notes` for managing construction notes, following established data manager patterns with search, filtering, and modal-based editing.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

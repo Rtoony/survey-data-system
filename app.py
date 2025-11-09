@@ -1577,6 +1577,11 @@ def details_manager():
     """Render the Details Manager page"""
     return render_template('data_manager/details.html')
 
+@app.route('/data-manager/standard-notes')
+def standard_notes_manager():
+    """Render the Standard Notes Manager page"""
+    return render_template('data_manager/standard_notes.html')
+
 @app.route('/api/data-manager/details', methods=['GET'])
 def get_details():
     """Get all details"""
@@ -1765,6 +1770,95 @@ def export_details_csv():
             as_attachment=True,
             download_name='details.csv'
         )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# STANDARD NOTES MANAGER API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/data-manager/standard-notes', methods=['GET'])
+def get_standard_notes_manager():
+    """Get all standard notes"""
+    try:
+        query = """
+            SELECT note_id, note_title, note_text, note_category, discipline, 
+                   tags, usage_frequency, created_at, updated_at
+            FROM standard_notes
+            ORDER BY note_category, note_title
+        """
+        notes = execute_query(query)
+        return jsonify({'notes': notes})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/standard-notes', methods=['POST'])
+def create_standard_note():
+    """Create a new standard note"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO standard_notes 
+                    (note_title, note_text, note_category, discipline, tags)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING note_id
+                """, (
+                    data.get('note_title'),
+                    data.get('note_text'),
+                    data.get('note_category'),
+                    data.get('discipline'),
+                    data.get('tags', [])
+                ))
+                note_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'note_id': note_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/standard-notes/<note_id>', methods=['PUT'])
+def update_standard_note(note_id):
+    """Update an existing standard note"""
+    try:
+        data = request.get_json()
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE standard_notes
+                    SET note_title = %s, note_text = %s, note_category = %s, 
+                        discipline = %s, tags = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE note_id = %s
+                """, (
+                    data.get('note_title'),
+                    data.get('note_text'),
+                    data.get('note_category'),
+                    data.get('discipline'),
+                    data.get('tags', []),
+                    note_id
+                ))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/standard-notes/<note_id>', methods=['DELETE'])
+def delete_standard_note(note_id):
+    """Delete a standard note"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM standard_notes WHERE note_id = %s", (note_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
