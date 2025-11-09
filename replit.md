@@ -2,7 +2,7 @@
 
 ## Overview
 
-ACAD-GIS is an AI-first, database-centric CAD/GIS system for machine learning, embeddings, and GraphRAG. It replaces traditional file-based CAD workflows with a PostgreSQL/PostGIS database, optimizing for AI understanding and semantic reasoning. Its core value lies in providing a unified entity model, centralized embeddings, explicit graph edges for GraphRAG, and built-in ML feature engineering, enabling hybrid search across CAD/GIS data. Key applications include a Schema Explorer, CAD Standards Portal, and Python ML Tools for intelligent CAD operations, with a focus on civil engineering and surveying workflows.
+ACAD-GIS is an AI-first, database-centric CAD/GIS system designed for machine learning, embeddings, and GraphRAG. It aims to replace traditional file-based CAD workflows with a PostgreSQL/PostGIS database, optimizing for AI understanding and semantic reasoning. The system provides a unified entity model, centralized embeddings, explicit graph edges for GraphRAG, and built-in ML feature engineering, enabling hybrid search across CAD/GIS data. Key capabilities include a Schema Explorer, CAD Standards Portal, and Python ML Tools for intelligent CAD operations, with a focus on civil engineering and surveying workflows.
 
 ## User Preferences
 
@@ -26,7 +26,6 @@ Preferred communication style: Simple, everyday language.
 - **JSONB Attributes:** Flexible metadata storage in `attributes` columns.
 - **Vector Indexing:** IVFFlat indexes for fast similarity search.
 - **Spatial Indexing:** GIST indexes on PostGIS geometry columns.
-- **Specific Tables:** `dxf_entity_links`, `pipe_networks`, `utility_network_memberships` for civil infrastructure.
 
 **Architectural Patterns & Decisions:**
 - **AI-First Design:** Database schema optimized for ML and LLM understanding.
@@ -34,22 +33,19 @@ Preferred communication style: Simple, everyday language.
 - **Spatial-Semantic Fusion:** Combines PostGIS spatial operations with vector similarity search.
 - **Quality-Driven:** Entities have quality scores based on completeness, embeddings, and relationships.
 - **Server-Side Rendering:** Flask serves Jinja2 templates, augmented by client-side JavaScript.
-- **Materialized Views:** Pre-computed views for fast AI queries (e.g., `mv_survey_points_enriched`).
+- **Materialized Views:** Pre-computed views for fast AI queries.
 
 **Key Features & Design:**
 - **Schema Explorer & Data Manager:** CRUD operations for CAD standards.
 - **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards.
-- **Standards Management UI:**
-  - **Import Template Manager:** Configure client-specific layer mapping patterns with live regex testing.
-  - **Bulk Standards Editor:** Rapid CRUD for all 6 vocabulary types (disciplines, categories, object types, phases, geometries, attributes).
-  - **Layer Standards Reference:** Comprehensive documentation of the hierarchical layer naming system.
-- **DXF Tools:** Full DXF import/export with intelligent object creation, change detection, and bidirectional sync using `ezdxf` and PostGIS GeometryZ, supporting SRID 0.
-- **Map Viewer & Export:** Interactive Leaflet map with coordinate transformation, bounding box export (DXF/SHP/PNG/KML), measurement tools, address search, and WFS layer support. Handles both SRID 0 and SRID 2226 data, with appropriate transformations.
+- **Standards Management UI:** Tools for configuring client-specific layer mapping patterns and bulk editing vocabulary types.
+- **DXF Tools:** Full DXF import/export with intelligent object creation, change detection, and bidirectional sync.
+- **Map Viewer & Export:** Interactive Leaflet map with coordinate transformation, bounding box export, measurement tools, address search, and WFS layer support.
 - **Sheet Note Manager & Sheet Set Manager:** Backend for managing construction drawing notes and deliverables.
 - **Survey & Civil Engineering Schema:** Comprehensive database schema for civil/survey data.
 - **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance.
-- **Interactive AI Visualizations:** Knowledge Graph Visualization (Vis.js) and a Quality Dashboard.
-- **Gravity Pipe Network Editor:** Backend and frontend for managing gravity pipe networks, including automatic classification, intelligent object creation, network auto-connection based on spatial proximity, and interactive SVG diagram visualization with editable tables for pipes and structures.
+- **Interactive AI Visualizations:** Knowledge Graph Visualization and a Quality Dashboard.
+- **Gravity Pipe Network Editor:** Backend and frontend for managing gravity pipe networks.
 
 ## External Dependencies
 
@@ -59,138 +55,12 @@ Preferred communication style: Simple, everyday language.
 **Database:**
 - `PostgreSQL 12+`
 - `PostGIS Extension`
-- `Supabase` (recommended hosting).
 
 **Frontend Resources (CDNs):**
 - `Font Awesome 6.4.0`
-- `Google Fonts` (Orbitron, Rajdhani)
+- `Google Fonts`
 - `Vis.js`
 - `Leaflet.js 1.9.4`, `Leaflet.draw 1.0.4`, `Proj4js 2.9.0`, `Turf.js 6.x`.
 
-**Environment Configuration:**
-- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
-
 **Related Systems:**
-- **ACAD-GIS FastAPI application:** Main API server sharing the same PostgreSQL/PostGIS database.
-
-## Recent Changes
-
-### 2025-11-09: Standards Integration - Map Viewer & DXF Tools (COMPLETED)
-**Production-ready integration** of CAD standards system into Map Viewer and DXF Tools for vocabulary-based filtering and intelligent import pattern selection.
-
-**Map Viewer Integration** (`/map-viewer`) - FULLY FUNCTIONAL:
-- **Standards Filter Panel:** Collapsible UI with checkboxes for Disciplines, Categories, and Phases
-- **Dynamic Filtering:** Category checkboxes update hierarchically based on selected disciplines
-- **Phase Colors:** Visual preview boxes showing color_rgb from phase_codes table
-- **Backend Filtering:** `/api/map-viewer/database-layers` accepts filter query params (disciplines[], categories[], phases[])
-- **Pattern Matching:** PostgreSQL regex (`~` operator) filters layers by layer_name column (e.g., `layer_name ~ '^CIV-'`)
-- **Smart Filtering:** Only applies to tables with `has_layer_name: true` flag
-- **Apply/Clear Actions:** Apply button sends filters and reloads layer list, Clear resets to all layers
-- **User Workflow:** Select vocabulary codes → Click Apply → See filtered layers with counts
-
-**DXF Tools Integration** (`/dxf-tools`) - FULLY FUNCTIONAL:
-- **Import Pattern Selector:** Dropdown populated from `/api/import-templates` endpoint
-- **Pattern Display:** Shows client name, source pattern, and confidence score for each pattern
-- **Pattern Submission:** Frontend sends pattern_id to `/api/dxf/import` endpoint via FormData
-- **Intelligent Import:** Backend enables `create_intelligent_objects=True` when pattern selected
-- **Pattern Statistics:** Response includes matched/unmatched layer counts and confidence score
-- **Import Preview Panel:** Displays classification results after import (pattern name, counts, confidence)
-- **Empty State:** Graceful fallback message when no patterns configured
-- **User Workflow:** Select pattern + file + drawing → Import → See classification statistics
-
-**Technical Implementation:**
-- Map Viewer: Uses PostgreSQL regex for layer_name pattern matching with OR logic within categories
-- DXF Import: Triggers IntelligentObjectCreator and LayerClassifierV2 when pattern selected
-- Pattern Info: Backend queries import_mapping_patterns table and returns stats in response
-- Error Handling: Graceful degradation with user-friendly error messages
-- No Breaking Changes: Backwards compatible with existing DXF import workflow
-
-**Architecture Limitation:**
-- DXFImporter uses automatic pattern detection from LayerClassifierV2 when intelligent mode enabled
-- Selected pattern_id enables intelligent mode but doesn't enforce specific pattern (classifier auto-detects best match)
-- Future Enhancement: Modify DXFImporter.import_dxf() to accept pattern_id parameter for explicit pattern enforcement
-
-**Benefits:**
-- ✅ Users can filter map layers by CAD standards (disciplines, categories, phases)
-- ✅ DXF import shows available client patterns and enables intelligent classification
-- ✅ Import statistics show matched/unmatched layers and confidence scores
-- ✅ Foundation for quality reporting and pattern refinement
-- ✅ Seamless integration with existing vocabulary management tools
-
-### 2025-11-09: Standards Management UI - Import Manager & Bulk Editor
-Built comprehensive web-based management tools for the CAD standards vocabulary system with Mission Control theme.
-
-**Import Template Manager** (`/standards/import-manager`):
-- **Purpose:** Configure client-specific layer name mapping patterns to handle legacy CAD formats
-- **Features:**
-  - Full CRUD for import mapping patterns stored in `import_mapping_patterns` table
-  - Live regex testing panel with visual feedback showing matched groups
-  - Pattern validation with extraction rule JSON testing
-  - Copy pattern feature for quick template creation
-  - Status indicators (active/inactive) and confidence scoring
-- **API Endpoints:**
-  - GET `/api/import-patterns` - List all patterns
-  - POST `/api/import-patterns` - Create new pattern
-  - PUT `/api/import-patterns/{id}` - Update pattern
-  - DELETE `/api/import-patterns/{id}` - Remove pattern
-  - POST `/api/import-patterns/test` - Live regex testing
-- **Use Case:** Client has layers like `S-UTIL-STORM-12` → pattern extracts discipline, category, type, attributes → creates standard database object
-
-**Bulk Standards Editor** (`/standards/bulk-editor`):
-- **Purpose:** Rapidly add/edit/delete vocabulary codes across all 6 standards tables
-- **Features:**
-  - Tabbed interface for: Disciplines, Categories, Object Types, Phases, Geometries, Attributes
-  - Modal-based editing with dynamic form generation per vocabulary type
-  - Relationship dropdowns (Categories→Disciplines, Object Types→Categories)
-  - Color picker for phase codes (for CAD color-coding)
-  - Active/inactive status management
-  - Batch refresh and add new buttons
-  - Sortable tables with inline edit/delete actions
-- **API Endpoints (per vocabulary type):**
-  - GET `/api/vocabulary/{type}` - List all codes
-  - POST `/api/vocabulary/{type}` - Create new code
-  - PUT `/api/vocabulary/{type}/{id}` - Update code
-  - DELETE `/api/vocabulary/{type}/{id}` - Remove code
-- **Use Case:** Expand system to support new disciplines (e.g., add MECH for mechanical), categories (e.g., HVAC), or object types (e.g., air handlers)
-
-**Integration:**
-- Both tools accessible via sidebar under new "Standards" section
-- Links from home page and CAD Standards Portal
-- Consistent API patterns enable future standards integrations (Map Viewer filtering, DXF export templates, AI validation)
-- Frontend uses vanilla JavaScript with Mission Control CSS theme for rapid development
-
-**Benefits:**
-- Self-service vocabulary management (no SQL required)
-- Live regex testing speeds pattern development by 10x
-- Extensible foundation for client-specific CAD workflows
-- Production-ready with proper validation and error handling
-
-### 2025-11-08: Revolutionary CAD Standards System
-Implemented a database-optimized CAD naming system that makes the database the source of truth, with layer names serving as semantic labels rather than data storage.
-
-**New Standards Architecture:**
-- **8 new vocabulary tables:** `discipline_codes`, `category_codes`, `object_type_codes`, `attribute_codes`, `phase_codes`, `geometry_codes`, `standard_layer_patterns`, `import_mapping_patterns`
-- **Hierarchical layer format:** `DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY`
-  - Example: `CIV-UTIL-STORM-12IN-NEW-LN` = Civil utility storm pipe, 12", new construction, line
-- **47 object types** across 8 disciplines (CIV, SITE, SURV, LAND, ARCH, UTIL, ANNO, XREF)
-- **Comprehensive coverage:** Utilities, roads, grading, stormwater, ADA, ponds, tanks, erosion control
-
-**New Tools:**
-- `LayerNameBuilder`: Generates and validates standard layer names programmatically
-- `LayerClassifierV2`: Parses both standard and legacy layer formats, auto-converts to standard naming
-- `load_standards_data.py`: Populates vocabulary tables from structured definitions
-- Migration: `migrations/create_standards_schema.sql` for reproducible schema setup
-
-**Workflow:**
-1. **Import:** DXF files with any client layer format → regex patterns extract intent → database objects created
-2. **Process:** Data enriched in database using Python scripts and ML tools
-3. **Export:** Database objects → generate layer names (standard or client-specific) → DXF output
-
-**Benefits:**
-- AI-friendly: Clear hierarchy makes LLM processing straightforward
-- Human-readable: Engineers understand `CIV-UTIL-STORM-12IN-NEW-LN` at a glance
-- Flexible: Handles variations in client CAD standards via mapping patterns
-- Extensible: New codes added without breaking existing patterns
-- Quality-driven: Database validates and scores confidence on import
-
-**Integration:** `IntelligentObjectCreator` now uses `LayerClassifierV2` for standards-driven object creation during DXF import.
+- ACAD-GIS FastAPI application (main API server).
