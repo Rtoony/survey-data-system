@@ -173,7 +173,7 @@ h3 {
 .header {
     background: linear-gradient(90deg, rgba(0, 255, 255, 0.3), rgba(0, 255, 136, 0.3));
     border-bottom: 2px solid rgba(0, 255, 255, 0.5);
-    padding: var(--spacing-lg);
+    padding: var(--spacing-sm) var(--spacing-lg);
     backdrop-filter: blur(10px);
 }
 
@@ -188,22 +188,23 @@ h3 {
 .header-title {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
 .header-title i {
-    font-size: 2rem;
+    font-size: 1.25rem;
 }
 
 .header-title h1 {
-    font-size: 1.75rem;
+    font-size: 1.25rem;
     font-weight: 700;
+    margin: 0;
 }
 
 .header-subtitle {
     color: var(--mc-accent);
-    font-size: 0.875rem;
-    margin-top: var(--spacing-xs);
+    font-size: 0.75rem;
+    margin-top: 2px;
 }
 
 /* ============================================
