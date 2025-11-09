@@ -315,6 +315,10 @@
     background: rgba(0, 255, 255, 0.05);
 }
 
+.data-table tbody tr.table-row {
+    cursor: pointer;
+}
+
 .data-table input {
     width: 100%;
     background: rgba(0, 0, 0, 0.5);
@@ -440,7 +444,7 @@ function displayStructures() {
     }
     
     tbody.innerHTML = structuresData.map(struct => `
-        <tr>
+        <tr class="table-row" data-entity-id="${struct.structure_id}" data-entity-type="structure" onclick="selectEntityFromTable(event, '${struct.structure_id}', 'structure')">
             <td><input type="text" value="${struct.structure_number || ''}" onchange="updateStructure('${struct.structure_id}', 'structure_number', this.value)"></td>
             <td>${struct.structure_type || ''}</td>
             <td><input type="number" step="0.01" value="${struct.rim_elevation || ''}" onchange="updateStructure('${struct.structure_id}', 'rim_elevation', this.value)"></td>
@@ -461,7 +465,7 @@ function displayPipes() {
     }
     
     tbody.innerHTML = pipesData.map(pipe => `
-        <tr>
+        <tr class="table-row" data-entity-id="${pipe.line_id}" data-entity-type="pipe" onclick="selectEntityFromTable(event, '${pipe.line_id}', 'pipe')">
             <td><input type="text" value="${pipe.line_number || ''}" onchange="updatePipe('${pipe.line_id}', 'line_number', this.value)"></td>
             <td>${pipe.from_structure_number || 'N/A'}</td>
             <td>${pipe.to_structure_number || 'N/A'}</td>
@@ -540,6 +544,43 @@ async function saveChanges() {
         console.error('Error saving changes:', error);
         showStatus('Error saving changes: ' + error.message, true);
     }
+}
+
+function findEntityById(entityId) {
+    return viewerEntities.find(entity => entity.entity_id === entityId);
+}
+
+function selectEntity(entityId, entityType) {
+    const svg = document.getElementById('networkCanvas');
+    
+    selectedEntityId = entityId;
+    
+    const allSvgEntities = svg.querySelectorAll('[data-entity-id]');
+    allSvgEntities.forEach(el => el.classList.remove('entity-selected'));
+    
+    const svgEntity = svg.querySelector(`[data-entity-id="${entityId}"]`);
+    if (svgEntity) {
+        svgEntity.classList.add('entity-selected');
+    }
+    
+    const allTableRows = document.querySelectorAll('.table-row');
+    allTableRows.forEach(row => row.classList.remove('table-row-selected'));
+    
+    const tableRow = document.querySelector(`.table-row[data-entity-id="${entityId}"]`);
+    if (tableRow) {
+        tableRow.classList.add('table-row-selected');
+        tableRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    
+    const entity = findEntityById(entityId);
+    if (entity) {
+        updateEntityInfo(entity);
+    }
+}
+
+function selectEntityFromTable(event, entityId, entityType) {
+    selectEntity(entityId, entityType);
+    event.stopPropagation();
 }
 
 async function autoConnectPipes() {
@@ -659,13 +700,7 @@ async function renderViewer() {
                 });
                 
                 circle.addEventListener('click', function() {
-                    if (selectedEntityId) {
-                        const prevSelected = svg.querySelector(`[data-entity-id="${selectedEntityId}"]`);
-                        if (prevSelected) prevSelected.classList.remove('entity-selected');
-                    }
-                    selectedEntityId = entityId;
-                    this.classList.add('entity-selected');
-                    updateEntityInfo(viewerEntities[idx]);
+                    selectEntity(entityId, entityType);
                 });
                 
                 svg.appendChild(circle);
@@ -694,13 +729,7 @@ async function renderViewer() {
                 });
                 
                 path.addEventListener('click', function() {
-                    if (selectedEntityId) {
-                        const prevSelected = svg.querySelector(`[data-entity-id="${selectedEntityId}"]`);
-                        if (prevSelected) prevSelected.classList.remove('entity-selected');
-                    }
-                    selectedEntityId = entityId;
-                    this.classList.add('entity-selected');
-                    updateEntityInfo(viewerEntities[idx]);
+                    selectEntity(entityId, entityType);
                 });
                 
                 svg.appendChild(path);
