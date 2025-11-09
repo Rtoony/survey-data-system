@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAD Standards Vocabulary - ACAD-GIS</title>
+    <title>CAD Layer Vocabulary - ACAD-GIS</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap">
     <style>
@@ -510,8 +510,8 @@
             <i class="fas fa-arrow-left"></i> Back to CAD Standards Portal
         </a>
         
-        <h1><i class="fas fa-book"></i> CAD Standards Vocabulary</h1>
-        <p class="subtitle">Database-Driven Hierarchical Layer Naming System</p>
+        <h1><i class="fas fa-layer-group"></i> CAD Layer Vocabulary</h1>
+        <p class="subtitle">Database-Driven Layer Naming Classification System</p>
         
         <div class="stats-grid" id="statsGrid"></div>
         
@@ -655,8 +655,7 @@
             categories: [],
             types: [],
             phases: [],
-            geometries: [],
-            entityRegistry: []
+            geometries: []
         };
         
         let currentEdit = {
@@ -687,13 +686,12 @@
         // Load data
         async function loadVocabulary() {
             try {
-                const [disciplines, categories, types, phases, geometries, entityRegistry] = await Promise.all([
+                const [disciplines, categories, types, phases, geometries] = await Promise.all([
                     fetch('/api/vocabulary/disciplines').then(r => r.json()),
                     fetch('/api/vocabulary/categories').then(r => r.json()),
                     fetch('/api/vocabulary/object-types').then(r => r.json()),
                     fetch('/api/vocabulary/phases').then(r => r.json()),
-                    fetch('/api/vocabulary/geometries').then(r => r.json()),
-                    fetch('/api/entity-registry').then(r => r.json())
+                    fetch('/api/vocabulary/geometries').then(r => r.json())
                 ]);
                 
                 currentVocabulary.disciplines = disciplines.disciplines;
@@ -701,7 +699,6 @@
                 currentVocabulary.types = types.object_types;
                 currentVocabulary.phases = phases.phases;
                 currentVocabulary.geometries = geometries.geometries;
-                currentVocabulary.entityRegistry = entityRegistry.entities || [];
                 
                 renderStats(disciplines, categories, types, phases, geometries);
                 renderDisciplines(disciplines.disciplines);
@@ -826,30 +823,30 @@
         }
         
         function renderHierarchy(disciplines, categories, types) {
-            const html = disciplines.map(d => {
-                const discCategories = categories.filter(c => c.discipline_code === d.code);
+            const hierarchyHTML = disciplines.map(discipline => {
+                const disciplineCategories = categories.filter(c => c.discipline_id === discipline.discipline_id);
                 
                 return `
                     <div class="discipline-group">
                         <div class="discipline-header">
-                            <div class="discipline-title">${d.code} - ${d.full_name}</div>
+                            <div class="discipline-title">${discipline.code} - ${discipline.full_name}</div>
                         </div>
-                        ${discCategories.map(c => {
-                            const catTypes = types.filter(t => 
-                                t.discipline_code === d.code && t.category_code === c.code
-                            );
+                        ${disciplineCategories.map(category => {
+                            const categoryTypes = types.filter(t => t.category_id === category.category_id);
                             
                             return `
                                 <div class="category-item">
-                                    <div class="category-title">${c.code} - ${c.full_name}</div>
-                                    <div class="type-list">
-                                        ${catTypes.map(t => `
-                                            <div class="type-item">
-                                                <strong>${t.code}</strong> - ${t.full_name}
-                                                ${t.database_table ? `<br><small>→ ${t.database_table}</small>` : ''}
-                                            </div>
-                                        `).join('')}
-                                    </div>
+                                    <div class="category-title">${category.code} - ${category.full_name}</div>
+                                    ${categoryTypes.length > 0 ? `
+                                        <div class="type-list">
+                                            ${categoryTypes.map(type => `
+                                                <div class="type-item">
+                                                    <strong>${type.code}</strong> - ${type.full_name}
+                                                    ${type.database_table ? `<br><small style="color: var(--muted);">Table: ${type.database_table}</small>` : ''}
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    ` : ''}
                                 </div>
                             `;
                         }).join('')}
@@ -857,35 +854,21 @@
                 `;
             }).join('');
             
-            document.getElementById('hierarchyTree').innerHTML = html;
+            document.getElementById('hierarchyTree').innerHTML = hierarchyHTML;
         }
         
-        // Modal management
+        // Modal functions
         function openAddModal(type) {
             currentEdit = { type, id: null, data: null };
-            const typeNames = {
-                disciplines: 'Discipline',
-                categories: 'Category',
-                types: 'Object Type',
-                phases: 'Phase',
-                geometries: 'Geometry'
-            };
-            document.getElementById('modalTitle').textContent = `Add New ${typeNames[type]}`;
-            generateFormFields(type, null);
+            document.getElementById('modalTitle').textContent = 'Add New ' + type.charAt(0).toUpperCase() + type.slice(1, -1);
+            buildForm(type);
             document.getElementById('editModal').classList.add('active');
         }
         
         function openEditModal(type, id, data) {
             currentEdit = { type, id, data };
-            const typeNames = {
-                disciplines: 'Discipline',
-                categories: 'Category',
-                types: 'Object Type',
-                phases: 'Phase',
-                geometries: 'Geometry'
-            };
-            document.getElementById('modalTitle').textContent = `Edit ${typeNames[type]}`;
-            generateFormFields(type, data);
+            document.getElementById('modalTitle').textContent = 'Edit ' + type.charAt(0).toUpperCase() + type.slice(1, -1);
+            buildForm(type, data);
             document.getElementById('editModal').classList.add('active');
         }
         
@@ -896,15 +879,7 @@
         
         function openDeleteModal(type, id, name) {
             deleteTarget = { type, id, name };
-            const typeNames = {
-                disciplines: 'discipline',
-                categories: 'category',
-                types: 'object type',
-                phases: 'phase',
-                geometries: 'geometry'
-            };
-            document.getElementById('confirmMessage').textContent = 
-                `Are you sure you want to delete ${typeNames[type]} "${name}"? This action cannot be undone.`;
+            document.getElementById('confirmMessage').textContent = `Are you sure you want to delete "${name}"?`;
             document.getElementById('confirmModal').classList.add('active');
         }
         
@@ -913,8 +888,8 @@
             deleteTarget = { type: null, id: null, name: null };
         }
         
-        // Generate form fields based on vocabulary type
-        function generateFormFields(type, data) {
+        // Form builder with dynamic entity registry loading for Object Types
+        async function buildForm(type, data = null) {
             const formFields = document.getElementById('formFields');
             let html = '';
             
@@ -970,10 +945,10 @@
                 const categoryOptions = currentVocabulary.categories.map(c => 
                     `<option value="${c.category_id}" ${data?.category_id === c.category_id ? 'selected' : ''}>${c.discipline_code}-${c.code} - ${c.full_name}</option>`
                 ).join('');
-                const entityOptions = currentVocabulary.entityRegistry.map(e => 
-                    `<option value="${e.table_name}" ${data?.database_table === e.table_name ? 'selected' : ''}>${e.display_name} (${e.table_name})</option>`
-                ).join('');
-                html = `
+                
+                // Fetch entity registry dynamically
+                let entityOptions = '<option value="">Loading...</option>';
+                formFields.innerHTML = `
                     <div class="form-group">
                         <label>Code <span style="color: #ff4444;">*</span></label>
                         <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
@@ -991,8 +966,7 @@
                     </div>
                     <div class="form-group">
                         <label>Database Table</label>
-                        <select name="database_table">
-                            <option value="">Select Database Table (Optional)</option>
+                        <select name="database_table" id="entityTableSelect">
                             ${entityOptions}
                         </select>
                     </div>
@@ -1005,6 +979,22 @@
                         <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
                     </div>
                 `;
+                
+                // Load entity registry asynchronously
+                try {
+                    const response = await fetch('/api/entity-registry');
+                    const entityData = await response.json();
+                    const entities = entityData.entities || [];
+                    entityOptions = '<option value="">Select Database Table (Optional)</option>' + 
+                        entities.map(e => 
+                            `<option value="${e.table_name}" ${data?.database_table === e.table_name ? 'selected' : ''}>${e.display_name} (${e.table_name})</option>`
+                        ).join('');
+                    document.getElementById('entityTableSelect').innerHTML = entityOptions;
+                } catch (error) {
+                    console.error('Error loading entity registry:', error);
+                    document.getElementById('entityTableSelect').innerHTML = '<option value="">Select Database Table (Optional)</option>';
+                }
+                return;
             } else if (type === 'phases') {
                 html = `
                     <div class="form-group">

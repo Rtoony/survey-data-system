@@ -15,7 +15,7 @@
         </span>
     </div>
     <div>
-        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-lg);">
+        <p style="color: var(--mc-muted); margin-bottom: var(--mc-spacing-lg);">
             A companion tool for viewing and managing your ACAD-GIS Supabase database.
             This tool connects directly to your database and provides real-time visibility into your data.
         </p>
@@ -41,19 +41,19 @@
 
         <div class="grid grid-2 mb-lg">
             <div class="card">
-                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                <h3 style="margin-bottom: var(--mc-spacing-md); color: var(--mc-accent);">
                     <i class="fas fa-clock"></i> Recent Projects
                 </h3>
-                <div id="recentProjects" style="color: var(--color-text-secondary);">
+                <div id="recentProjects" style="color: var(--mc-muted);">
                     Loading...
                 </div>
             </div>
 
             <div class="card">
-                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                <h3 style="margin-bottom: var(--mc-spacing-md); color: var(--mc-accent);">
                     <i class="fas fa-file"></i> Recent Drawings
                 </h3>
-                <div id="recentDrawings" style="color: var(--color-text-secondary);">
+                <div id="recentDrawings" style="color: var(--mc-muted);">
                     Loading...
                 </div>
             </div>
@@ -61,10 +61,10 @@
 
         <div class="grid grid-2">
             <div class="card">
-                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                <h3 style="margin-bottom: var(--mc-spacing-md); color: var(--mc-accent);">
                     <i class="fas fa-table"></i> Schema Viewer
                 </h3>
-                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+                <p style="color: var(--mc-muted); margin-bottom: var(--mc-spacing-md);">
                     Explore your database structure, view table schemas, column types, and row counts.
                 </p>
                 <a href="/schema" class="btn btn-primary">
@@ -73,10 +73,10 @@
             </div>
 
             <div class="card">
-                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                <h3 style="margin-bottom: var(--mc-spacing-md); color: var(--mc-accent);">
                     <i class="fas fa-folder"></i> Projects Manager
                 </h3>
-                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+                <p style="color: var(--mc-muted); margin-bottom: var(--mc-spacing-md);">
                     View and manage your projects, delete test data, and see drawing counts.
                 </p>
                 <a href="/projects" class="btn btn-primary">
@@ -85,10 +85,10 @@
             </div>
 
             <div class="card">
-                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                <h3 style="margin-bottom: var(--mc-spacing-md); color: var(--mc-accent);">
                     <i class="fas fa-file-image"></i> Drawings Manager
                 </h3>
-                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+                <p style="color: var(--mc-muted); margin-bottom: var(--mc-spacing-md);">
                     Browse all drawings, filter by project, and clean up test drawings.
                 </p>
                 <a href="/drawings" class="btn btn-primary">
@@ -97,10 +97,10 @@
             </div>
 
             <div class="card">
-                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                <h3 style="margin-bottom: var(--mc-spacing-md); color: var(--mc-accent);">
                     <i class="fas fa-ruler-combined"></i> CAD Standards Portal
                 </h3>
-                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">
+                <p style="color: var(--mc-muted); margin-bottom: var(--mc-spacing-md);">
                     Browse your CAD standards in a human-friendly format: layers, blocks, colors, and more.
                 </p>
                 <div style="display: flex; gap: 0.5rem;">
@@ -114,10 +114,10 @@
             </div>
 
             <div class="card">
-                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-accent-cyan);">
+                <h3 style="margin-bottom: var(--mc-spacing-md); color: var(--mc-accent);">
                     <i class="fas fa-info-circle"></i> About This Tool
                 </h3>
-                <p style="color: var(--color-text-secondary);">
+                <p style="color: var(--mc-muted);">
                     Built as a companion to your main ACAD-GIS tool. Connects directly to Supabase
                     and auto-updates whenever you make changes elsewhere.
                 </p>
@@ -174,18 +174,18 @@
             const recentProjects = activity.recent_projects || [];
             const recentProjectsEl = document.getElementById('recentProjects');
             if (recentProjects.length === 0) {
-                recentProjectsEl.innerHTML = '<p style="color: var(--color-text-secondary); font-style: italic;">No projects yet</p>';
+                recentProjectsEl.innerHTML = '<p style="color: var(--mc-muted); font-style: italic;">No projects yet</p>';
             } else {
                 recentProjectsEl.innerHTML = recentProjects.map(project => `
-                    <div style="padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--color-border);">
+                    <div style="padding: var(--mc-spacing-sm) 0; border-bottom: 1px solid rgba(0, 255, 255, 0.2);">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
                             <div style="flex: 1;">
-                                <div style="color: var(--color-accent-cyan); font-weight: 500;">${project.project_name || 'Untitled'}</div>
-                                <div style="font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 4px;">
+                                <div style="color: var(--mc-primary); font-weight: 500;">${project.project_name || 'Untitled'}</div>
+                                <div style="font-size: 0.85rem; color: var(--mc-muted); margin-top: 4px;">
                                     ${project.client_name || 'No client'} • ${project.drawing_count || 0} drawing${project.drawing_count === 1 ? '' : 's'}
                                 </div>
                             </div>
-                            <div style="font-size: 0.8rem; color: var(--color-text-muted); white-space: nowrap;">
+                            <div style="font-size: 0.8rem; color: var(--mc-muted); white-space: nowrap;">
                                 ${formatDate(project.created_at)}
                             </div>
                         </div>
@@ -196,18 +196,18 @@
             const recentDrawings = activity.recent_drawings || [];
             const recentDrawingsEl = document.getElementById('recentDrawings');
             if (recentDrawings.length === 0) {
-                recentDrawingsEl.innerHTML = '<p style="color: var(--color-text-secondary); font-style: italic;">No drawings yet</p>';
+                recentDrawingsEl.innerHTML = '<p style="color: var(--mc-muted); font-style: italic;">No drawings yet</p>';
             } else {
                 recentDrawingsEl.innerHTML = recentDrawings.map(drawing => `
-                    <div style="padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--color-border);">
+                    <div style="padding: var(--mc-spacing-sm) 0; border-bottom: 1px solid rgba(0, 255, 255, 0.2);">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
                             <div style="flex: 1;">
-                                <div style="color: var(--color-accent-cyan); font-weight: 500;">${drawing.drawing_name || 'Untitled'}</div>
-                                <div style="font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 4px;">
+                                <div style="color: var(--mc-primary); font-weight: 500;">${drawing.drawing_name || 'Untitled'}</div>
+                                <div style="font-size: 0.85rem; color: var(--mc-muted); margin-top: 4px;">
                                     ${drawing.project_name || 'No project'} ${drawing.drawing_type ? `• ${drawing.drawing_type}` : ''}
                                 </div>
                             </div>
-                            <div style="font-size: 0.8rem; color: var(--color-text-muted); white-space: nowrap;">
+                            <div style="font-size: 0.8rem; color: var(--mc-muted); white-space: nowrap;">
                                 ${formatDate(drawing.created_at)}
                             </div>
                         </div>
@@ -219,8 +219,8 @@
             console.error('Error loading stats:', error);
             document.getElementById('status').className = 'status-offline';
             document.getElementById('status').innerHTML = '<span class="status-dot"></span> Error';
-            document.getElementById('recentProjects').innerHTML = '<p style="color: var(--color-error);">Error loading data</p>';
-            document.getElementById('recentDrawings').innerHTML = '<p style="color: var(--color-error);">Error loading data</p>';
+            document.getElementById('recentProjects').innerHTML = '<p style="color: var(--mc-danger);">Error loading data</p>';
+            document.getElementById('recentDrawings').innerHTML = '<p style="color: var(--mc-danger);">Error loading data</p>';
         }
     }
 

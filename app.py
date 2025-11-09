@@ -233,6 +233,16 @@ def standards_vocabulary():
     """CAD Standards Vocabulary browser page"""
     return render_template('standards/vocabulary.html')
 
+@app.route('/standards/layer-vocabulary')
+def standards_layer_vocabulary():
+    """CAD Layer Vocabulary - layer naming classification system"""
+    return render_template('standards/layer-vocabulary.html')
+
+@app.route('/standards/reference-data')
+def standards_reference_data():
+    """Reference Data Hub - system configuration and reference tables"""
+    return render_template('standards/reference-data.html')
+
 @app.route('/standards/reference')
 def standards_reference():
     """CAD Standards Layer Reference - visual layer examples"""
@@ -9328,6 +9338,36 @@ def invalidate_classifier_cache():
     except Exception as e:
         print(f"Warning: Failed to reload classifier cache: {e}")
 
+def validate_table_exists(table_name):
+    """
+    Validate that a table exists in the database by checking information_schema.
+    Returns (is_valid, message) tuple.
+    """
+    if not table_name or not isinstance(table_name, str):
+        return False, "Table name must be a non-empty string"
+    
+    table_name = table_name.strip().lower()
+    
+    if not table_name.replace('_', '').isalnum():
+        return False, "Table name contains invalid characters"
+    
+    try:
+        query = """
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_type = 'BASE TABLE'
+            AND table_name = %s
+        """
+        result = execute_query(query, (table_name,))
+        
+        if result:
+            return True, f"Table '{table_name}' exists"
+        else:
+            return False, f"Table '{table_name}' does not exist in the database"
+    except Exception as e:
+        return False, f"Error validating table: {str(e)}"
+
 # ===== DISCIPLINES =====
 
 @app.route('/api/vocabulary/disciplines', methods=['POST'])
@@ -9592,6 +9632,13 @@ def create_object_type():
         if existing:
             return jsonify({'error': f'Object type code {code} already exists for this category'}), 409
         
+        database_table = data.get('database_table', '').strip() or None
+        if database_table:
+            registry_check = "SELECT registry_id FROM entity_registry WHERE table_name = %s AND is_active = TRUE"
+            registry_entry = execute_query(registry_check, (database_table,))
+            if not registry_entry:
+                return jsonify({'error': f'Database table {database_table} is not registered in entity registry. Please register it first.'}), 400
+        
         query = """
             INSERT INTO object_type_codes (category_id, code, full_name, description, database_table, sort_order, is_active)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -9602,7 +9649,7 @@ def create_object_type():
             code,
             data['full_name'].strip(),
             data.get('description', '').strip() or None,
-            data.get('database_table', '').strip() or None,
+            database_table,
             data.get('sort_order', 100),
             data.get('is_active', True)
         ))
@@ -9642,6 +9689,13 @@ def update_object_type(type_id):
         if existing:
             return jsonify({'error': f'Object type code {code} already exists for this category'}), 409
         
+        database_table = data.get('database_table', '').strip() or None
+        if database_table:
+            registry_check = "SELECT registry_id FROM entity_registry WHERE table_name = %s AND is_active = TRUE"
+            registry_entry = execute_query(registry_check, (database_table,))
+            if not registry_entry:
+                return jsonify({'error': f'Database table {database_table} is not registered in entity registry. Please register it first.'}), 400
+        
         query = """
             UPDATE object_type_codes 
             SET code = %s, full_name = %s, description = %s, database_table = %s, sort_order = %s, is_active = %s
@@ -9652,7 +9706,7 @@ def update_object_type(type_id):
             code,
             data['full_name'].strip(),
             data.get('description', '').strip() or None,
-            data.get('database_table', '').strip() or None,
+            database_table,
             data.get('sort_order', 100),
             data.get('is_active', True),
             type_id
@@ -9890,6 +9944,148 @@ def delete_geometry(geometry_id):
         invalidate_classifier_cache()
         
         return jsonify({'message': 'Geometry deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== ENTITY REGISTRY =====
+
+@app.route('/api/entity-registry')
+def get_entity_registry():
+    """Get all entity registry entries"""
+    try:
+        query = """
+            SELECT registry_id, table_name, display_name, description, icon, category, is_active, sort_order
+            FROM entity_registry
+            WHERE is_active = TRUE
+            ORDER BY category, sort_order, display_name
+        """
+        entries = execute_query(query)
+        return jsonify({'entities': entries})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/entity-registry/<int:registry_id>')
+def get_entity_registry_detail(registry_id):
+    """Get a specific entity registry entry"""
+    try:
+        query = """
+            SELECT registry_id, table_name, display_name, description, icon, category, is_active, sort_order
+            FROM entity_registry
+            WHERE registry_id = %s
+        """
+        result = execute_query(query, (registry_id,))
+        
+        if not result:
+            return jsonify({'error': 'Entity registry entry not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/entity-registry', methods=['POST'])
+def create_entity_registry():
+    """Create a new entity registry entry with table validation"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('table_name') or not data.get('display_name'):
+            return jsonify({'error': 'table_name and display_name are required'}), 400
+        
+        table_name = data['table_name'].strip().lower()
+        
+        is_valid, message = validate_table_exists(table_name)
+        if not is_valid:
+            return jsonify({'error': f'Table validation failed: {message}'}), 400
+        
+        check_query = "SELECT registry_id FROM entity_registry WHERE table_name = %s"
+        existing = execute_query(check_query, (table_name,))
+        if existing:
+            return jsonify({'error': f'Entity registry entry for table {table_name} already exists'}), 409
+        
+        query = """
+            INSERT INTO entity_registry (table_name, display_name, description, icon, category, sort_order, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING registry_id
+        """
+        result = execute_query(query, (
+            table_name,
+            data['display_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('icon', '').strip() or None,
+            data.get('category', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True)
+        ))
+        
+        return jsonify({
+            'registry_id': result[0]['registry_id'],
+            'message': f'Entity registry entry for {table_name} created successfully',
+            'table_validation': message
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/entity-registry/<int:registry_id>', methods=['PUT'])
+def update_entity_registry(registry_id):
+    """Update an entity registry entry with table validation"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('table_name') or not data.get('display_name'):
+            return jsonify({'error': 'table_name and display_name are required'}), 400
+        
+        table_name = data['table_name'].strip().lower()
+        
+        is_valid, message = validate_table_exists(table_name)
+        if not is_valid:
+            return jsonify({'error': f'Table validation failed: {message}'}), 400
+        
+        check_query = """
+            SELECT registry_id FROM entity_registry 
+            WHERE table_name = %s AND registry_id != %s
+        """
+        existing = execute_query(check_query, (table_name, registry_id))
+        if existing:
+            return jsonify({'error': f'Entity registry entry for table {table_name} already exists'}), 409
+        
+        query = """
+            UPDATE entity_registry 
+            SET table_name = %s, display_name = %s, description = %s, icon = %s, category = %s, sort_order = %s, is_active = %s
+            WHERE registry_id = %s
+            RETURNING registry_id
+        """
+        result = execute_query(query, (
+            table_name,
+            data['display_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('icon', '').strip() or None,
+            data.get('category', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('is_active', True),
+            registry_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Entity registry entry not found'}), 404
+        
+        return jsonify({
+            'message': f'Entity registry entry for {table_name} updated successfully',
+            'table_validation': message
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/entity-registry/<int:registry_id>', methods=['DELETE'])
+def delete_entity_registry(registry_id):
+    """Delete an entity registry entry (soft delete - mark inactive)"""
+    try:
+        query = "UPDATE entity_registry SET is_active = FALSE WHERE registry_id = %s RETURNING registry_id"
+        result = execute_query(query, (registry_id,))
+        
+        if not result:
+            return jsonify({'error': 'Entity registry entry not found'}), 404
+        
+        return jsonify({'message': 'Entity registry entry deactivated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

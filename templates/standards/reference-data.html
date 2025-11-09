@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reference Data Hub - ACAD-GIS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap">
+    <style>
+        :root {
+            --primary: #00ffff;
+            --secondary: #ff00ff;
+            --accent: #00ff88;
+            --background: #0a0e27;
+            --surface: #1a1f3a;
+            --text: #e0e6ed;
+            --muted: #8892b0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: var(--muted);
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--surface);
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: var(--surface);
+            border: 1px solid transparent;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .tab:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: #000;
+            font-weight: 700;
+        }
+        
+        .tab.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .card {
+            background: var(--surface);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card h2 {
+            color: var(--accent);
+            margin-bottom: 15px;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .entity-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-left: 3px solid var(--primary);
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        
+        .entity-item:hover {
+            border-left-color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .entity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .entity-icon {
+            font-size: 1.5em;
+            color: var(--primary);
+            margin-right: 10px;
+        }
+        
+        .entity-title {
+            flex: 1;
+        }
+        
+        .entity-name {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary);
+            font-size: 1.2em;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+        
+        .entity-table {
+            font-family: 'Courier New', monospace;
+            color: var(--muted);
+            font-size: 0.9em;
+        }
+        
+        .entity-category {
+            display: inline-block;
+            padding: 3px 10px;
+            background: rgba(255, 0, 255, 0.2);
+            border: 1px solid var(--secondary);
+            border-radius: 12px;
+            font-size: 0.85em;
+            color: var(--secondary);
+            margin-top: 5px;
+        }
+        
+        .entity-desc {
+            color: var(--text);
+            font-size: 0.95em;
+            margin-top: 8px;
+        }
+        
+        .entity-validation {
+            margin-top: 8px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        
+        .entity-validation.valid {
+            background: rgba(0, 255, 136, 0.2);
+            border-left: 3px solid var(--accent);
+            color: var(--accent);
+        }
+        
+        .entity-validation.invalid {
+            background: rgba(255, 68, 68, 0.2);
+            border-left: 3px solid #ff4444;
+            color: #ff4444;
+        }
+        
+        .category-section {
+            margin-bottom: 30px;
+        }
+        
+        .category-header {
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.1) 0%, rgba(255, 0, 255, 0.1) 100%);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .category-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.3em;
+            color: var(--primary);
+        }
+        
+        .category-count {
+            color: var(--muted);
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--primary);
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        
+        .back-link:hover {
+            color: var(--accent);
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: 1px solid var(--primary);
+            background: var(--surface);
+            color: var(--primary);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 600;
+            font-size: 1em;
+        }
+        
+        .btn:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+        
+        .btn-add {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            color: #000;
+            border: none;
+        }
+        
+        .btn-add:hover {
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+            transform: translateY(-2px);
+        }
+        
+        .item-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 1.1em;
+            padding: 5px;
+            transition: all 0.3s;
+        }
+        
+        .icon-btn:hover {
+            color: var(--primary);
+            transform: scale(1.2);
+        }
+        
+        .icon-btn.delete:hover {
+            color: #ff4444;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--surface);
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary);
+            margin: 0;
+        }
+        
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .close-btn:hover {
+            color: var(--primary);
+            transform: rotate(90deg);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: var(--accent);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 6px;
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1em;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .form-group .help-text {
+            font-size: 0.85em;
+            color: var(--muted);
+            margin-top: 5px;
+        }
+        
+        .validation-feedback {
+            margin-top: 8px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        
+        .validation-feedback.valid {
+            background: rgba(0, 255, 136, 0.2);
+            border-left: 3px solid var(--accent);
+            color: var(--accent);
+        }
+        
+        .validation-feedback.invalid {
+            background: rgba(255, 68, 68, 0.2);
+            border-left: 3px solid #ff4444;
+            color: #ff4444;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+        
+        .btn-cancel {
+            background: transparent;
+            border-color: var(--muted);
+            color: var(--muted);
+        }
+        
+        .btn-cancel:hover {
+            background: var(--muted);
+            color: #000;
+        }
+        
+        .btn-submit {
+            background: var(--accent);
+            color: #000;
+            border: none;
+        }
+        
+        .btn-submit:hover {
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--surface);
+            border: 1px solid var(--primary);
+            border-radius: 8px;
+            padding: 15px 20px;
+            min-width: 300px;
+            z-index: 2000;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            animation: slideIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .toast.success {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+        }
+        
+        .toast.error {
+            border-color: #ff4444;
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .confirm-dialog {
+            text-align: center;
+        }
+        
+        .confirm-dialog p {
+            margin-bottom: 20px;
+            color: var(--text);
+            font-size: 1.1em;
+        }
+        
+        .confirm-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .btn-danger {
+            background: #ff4444;
+            color: #fff;
+            border: none;
+        }
+        
+        .btn-danger:hover {
+            background: #ff0000;
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.6);
+        }
+        
+        .placeholder-message {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+        }
+        
+        .placeholder-message i {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/standards" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to CAD Standards Portal
+        </a>
+        
+        <h1><i class="fas fa-database"></i> Reference Data Hub</h1>
+        <p class="subtitle">System Configuration & Reference Tables</p>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="entity-registry">Entity Registry</div>
+            <div class="tab disabled" data-tab="clients">Clients</div>
+            <div class="tab disabled" data-tab="vendors">Vendors</div>
+            <div class="tab disabled" data-tab="municipalities">Municipalities</div>
+            <div class="tab disabled" data-tab="coordinate-systems">Coordinate Systems</div>
+            <div class="tab disabled" data-tab="survey-points">Survey Point Descriptions</div>
+        </div>
+        
+        <div class="tab-content active" id="entity-registry">
+            <div class="card">
+                <div class="section-header">
+                    <h2><i class="fas fa-table"></i> Entity Registry</h2>
+                    <button class="btn btn-add" onclick="openAddEntityModal()">
+                        <i class="fas fa-plus"></i> Add New Entity
+                    </button>
+                </div>
+                <p style="color: var(--muted); margin-bottom: 20px;">
+                    Define database tables that can be linked to Object Type codes in the layer vocabulary.
+                </p>
+                <div id="entityRegistryContainer"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="clients">
+            <div class="placeholder-message">
+                <i class="fas fa-briefcase"></i>
+                <h2>Client Management</h2>
+                <p>Coming Soon</p>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="vendors">
+            <div class="placeholder-message">
+                <i class="fas fa-truck"></i>
+                <h2>Vendor Management</h2>
+                <p>Coming Soon</p>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="municipalities">
+            <div class="placeholder-message">
+                <i class="fas fa-city"></i>
+                <h2>Municipality Management</h2>
+                <p>Coming Soon</p>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="coordinate-systems">
+            <div class="placeholder-message">
+                <i class="fas fa-globe"></i>
+                <h2>Coordinate Systems</h2>
+                <p>Coming Soon</p>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="survey-points">
+            <div class="placeholder-message">
+                <i class="fas fa-map-pin"></i>
+                <h2>Survey Point Descriptions</h2>
+                <p>Coming Soon</p>
+            </div>
+        </div>
+    </div>
+    
+    <div id="entityModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="entityModalTitle">Add New Entity</h3>
+                <button class="close-btn" onclick="closeEntityModal()">&times;</button>
+            </div>
+            <form id="entityForm" onsubmit="handleEntitySubmit(event)">
+                <div class="form-group">
+                    <label>Table Name <span style="color: #ff4444;">*</span></label>
+                    <input type="text" id="tableName" name="table_name" required 
+                           placeholder="e.g., storm_structures" 
+                           onblur="validateTableName()">
+                    <div class="help-text">Database table name (lowercase, underscores only)</div>
+                    <div id="tableValidation"></div>
+                </div>
+                <div class="form-group">
+                    <label>Display Name <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="display_name" required placeholder="e.g., Storm Structures">
+                    <div class="help-text">Human-readable name</div>
+                </div>
+                <div class="form-group">
+                    <label>Category <span style="color: #ff4444;">*</span></label>
+                    <select name="category" required>
+                        <option value="">Select Category</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Survey">Survey</option>
+                        <option value="Annotation">Annotation</option>
+                        <option value="Civil">Civil</option>
+                        <option value="Architecture">Architecture</option>
+                        <option value="Mechanical">Mechanical</option>
+                        <option value="Electrical">Electrical</option>
+                        <option value="General">General</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Icon</label>
+                    <input type="text" name="icon" placeholder="fas fa-table">
+                    <div class="help-text">Font Awesome icon class (optional)</div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" placeholder="Brief description of this entity table..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Sort Order</label>
+                    <input type="number" name="sort_order" min="0" placeholder="0">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeEntityModal()">Cancel</button>
+                    <button type="submit" class="btn btn-submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Delete</h3>
+                <button class="close-btn" onclick="closeConfirmModal()">&times;</button>
+            </div>
+            <div class="confirm-dialog">
+                <p id="confirmMessage">Are you sure you want to delete this entity?</p>
+                <div class="confirm-actions">
+                    <button class="btn btn-cancel" onclick="closeConfirmModal()">Cancel</button>
+                    <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let entities = [];
+        let currentEdit = {
+            id: null,
+            data: null
+        };
+        let deleteTarget = {
+            id: null,
+            name: null
+        };
+        
+        // Tab switching (only for enabled tabs)
+        document.querySelectorAll('.tab:not(.disabled)').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tabName).classList.add('active');
+            });
+        });
+        
+        // Load entity registry
+        async function loadEntityRegistry() {
+            try {
+                const response = await fetch('/api/entity-registry');
+                const data = await response.json();
+                entities = data.entities || [];
+                renderEntityRegistry();
+            } catch (error) {
+                console.error('Error loading entity registry:', error);
+                showToast('Failed to load entity registry', 'error');
+            }
+        }
+        
+        // Render entity registry grouped by category
+        function renderEntityRegistry() {
+            const container = document.getElementById('entityRegistryContainer');
+            
+            if (entities.length === 0) {
+                container.innerHTML = `
+                    <div class="placeholder-message">
+                        <i class="fas fa-table"></i>
+                        <h3>No entities registered yet</h3>
+                        <p>Click "Add New Entity" to register your first database table.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Group by category
+            const grouped = entities.reduce((acc, entity) => {
+                const category = entity.category || 'Uncategorized';
+                if (!acc[category]) acc[category] = [];
+                acc[category].push(entity);
+                return acc;
+            }, {});
+            
+            // Sort entities within each category by sort_order
+            Object.values(grouped).forEach(group => {
+                group.sort((a, b) => (a.sort_order || 999) - (b.sort_order || 999));
+            });
+            
+            const html = Object.entries(grouped).map(([category, items]) => `
+                <div class="category-section">
+                    <div class="category-header">
+                        <span class="category-title">${category}</span>
+                        <span class="category-count">(${items.length} ${items.length === 1 ? 'entity' : 'entities'})</span>
+                    </div>
+                    <div class="grid">
+                        ${items.map(entity => renderEntityCard(entity)).join('')}
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = html;
+        }
+        
+        function renderEntityCard(entity) {
+            const icon = entity.icon || 'fas fa-table';
+            return `
+                <div class="entity-item">
+                    <div class="entity-header">
+                        <div style="display: flex; align-items: start;">
+                            <i class="${icon} entity-icon"></i>
+                            <div class="entity-title">
+                                <div class="entity-name">${entity.display_name}</div>
+                                <div class="entity-table">${entity.table_name}</div>
+                                <span class="entity-category">${entity.category || 'General'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ${entity.description ? `<div class="entity-desc">${entity.description}</div>` : ''}
+                    <div class="item-actions">
+                        <button class="icon-btn" onclick='openEditEntityModal(${entity.entity_id}, ${JSON.stringify(entity)})' title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="icon-btn delete" onclick='openDeleteModal(${entity.entity_id}, "${entity.display_name}")' title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Modal functions
+        function openAddEntityModal() {
+            currentEdit = { id: null, data: null };
+            document.getElementById('entityModalTitle').textContent = 'Add New Entity';
+            document.getElementById('entityForm').reset();
+            document.getElementById('tableValidation').innerHTML = '';
+            document.getElementById('entityModal').classList.add('active');
+        }
+        
+        function openEditEntityModal(id, data) {
+            currentEdit = { id, data };
+            document.getElementById('entityModalTitle').textContent = 'Edit Entity';
+            
+            // Populate form
+            const form = document.getElementById('entityForm');
+            form.table_name.value = data.table_name || '';
+            form.display_name.value = data.display_name || '';
+            form.category.value = data.category || '';
+            form.icon.value = data.icon || '';
+            form.description.value = data.description || '';
+            form.sort_order.value = data.sort_order || '';
+            
+            document.getElementById('tableValidation').innerHTML = '';
+            document.getElementById('entityModal').classList.add('active');
+        }
+        
+        function closeEntityModal() {
+            document.getElementById('entityModal').classList.remove('active');
+            currentEdit = { id: null, data: null };
+        }
+        
+        function openDeleteModal(id, name) {
+            deleteTarget = { id, name };
+            document.getElementById('confirmMessage').textContent = `Are you sure you want to delete "${name}"?`;
+            document.getElementById('confirmModal').classList.add('active');
+        }
+        
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.remove('active');
+            deleteTarget = { id: null, name: null };
+        }
+        
+        // Table name validation
+        async function validateTableName() {
+            const tableNameInput = document.getElementById('tableName');
+            const tableName = tableNameInput.value.trim();
+            const validationDiv = document.getElementById('tableValidation');
+            
+            if (!tableName) {
+                validationDiv.innerHTML = '';
+                return;
+            }
+            
+            // Check format (lowercase, underscores only)
+            const formatValid = /^[a-z][a-z0-9_]*$/.test(tableName);
+            if (!formatValid) {
+                validationDiv.innerHTML = `
+                    <div class="validation-feedback invalid">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Invalid format: use lowercase letters, numbers, and underscores only
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                // Check if table exists in database
+                const response = await fetch('/api/schema');
+                const data = await response.json();
+                const tableExists = data.tables && data.tables[tableName];
+                
+                if (tableExists) {
+                    validationDiv.innerHTML = `
+                        <div class="validation-feedback valid">
+                            <i class="fas fa-check-circle"></i>
+                            Table exists in database (${data.counts[tableName] || 0} rows)
+                        </div>
+                    `;
+                } else {
+                    validationDiv.innerHTML = `
+                        <div class="validation-feedback invalid">
+                            <i class="fas fa-info-circle"></i>
+                            Table does not exist in database
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error validating table:', error);
+                validationDiv.innerHTML = `
+                    <div class="validation-feedback invalid">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Could not validate table
+                    </div>
+                `;
+            }
+        }
+        
+        // Handle form submission
+        async function handleEntitySubmit(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Clean empty values
+            Object.keys(data).forEach(key => {
+                if (data[key] === '') {
+                    data[key] = null;
+                }
+            });
+            
+            try {
+                if (currentEdit.id) {
+                    await updateEntity(currentEdit.id, data);
+                } else {
+                    await createEntity(data);
+                }
+            } catch (error) {
+                console.error('Error submitting entity:', error);
+            }
+        }
+        
+        // API functions
+        async function createEntity(data) {
+            try {
+                const response = await fetch('/api/entity-registry', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast(result.message || 'Entity created successfully', 'success');
+                    closeEntityModal();
+                    await loadEntityRegistry();
+                } else {
+                    showToast(result.error || 'Failed to create entity', 'error');
+                }
+            } catch (error) {
+                showToast('Network error: Failed to create entity', 'error');
+            }
+        }
+        
+        async function updateEntity(id, data) {
+            try {
+                const response = await fetch(`/api/entity-registry/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast(result.message || 'Entity updated successfully', 'success');
+                    closeEntityModal();
+                    await loadEntityRegistry();
+                } else {
+                    showToast(result.error || 'Failed to update entity', 'error');
+                }
+            } catch (error) {
+                showToast('Network error: Failed to update entity', 'error');
+            }
+        }
+        
+        async function confirmDelete() {
+            const { id } = deleteTarget;
+            
+            try {
+                const response = await fetch(`/api/entity-registry/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast(result.message || 'Entity deleted successfully', 'success');
+                    closeConfirmModal();
+                    await loadEntityRegistry();
+                } else {
+                    showToast(result.error || 'Failed to delete entity', 'error');
+                }
+            } catch (error) {
+                showToast('Network error: Failed to delete entity', 'error');
+            }
+        }
+        
+        // Toast notifications
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 4000);
+        }
+        
+        // Keyboard and click event handlers
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeEntityModal();
+                closeConfirmModal();
+            }
+        });
+        
+        document.getElementById('entityModal').addEventListener('click', (e) => {
+            if (e.target.id === 'entityModal') {
+                closeEntityModal();
+            }
+        });
+        
+        document.getElementById('confirmModal').addEventListener('click', (e) => {
+            if (e.target.id === 'confirmModal') {
+                closeConfirmModal();
+            }
+        });
+        
+        // Load on page load
+        loadEntityRegistry();
+    </script>
+</body>
+</html>
