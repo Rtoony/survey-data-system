@@ -1,0 +1,640 @@
+{% extends "base.html" %}
+
+{% block title %}Project Standards Assignment{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-project-diagram neon-cyan"></i> Project Standards Assignment</h2>
+    <p class="subtitle">Assign CAD standards to projects and define required vs optional standards</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 400px 1fr; gap: 20px; height: calc(100vh - 200px);">
+    
+    <div class="panel" style="display: flex; flex-direction: column; height: 100%;">
+        <div style="margin-bottom: 15px;">
+            <h3 class="orbitron"><i class="fas fa-folder-open"></i> Projects</h3>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="projectSearch" placeholder="Search projects..." 
+                   onkeyup="filterProjects()" 
+                   style="width: 100%; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+        </div>
+
+        <div id="projectLoadingMessage" class="alert" style="text-align: center;">
+            <i class="fas fa-spinner fa-spin"></i> Loading projects...
+        </div>
+
+        <div id="projectErrorMessage" class="alert alert-error" style="display: none;"></div>
+
+        <div id="projectsListContainer" style="display: none; flex: 1; overflow-y: auto;">
+            <div id="projectsList"></div>
+        </div>
+
+        <div id="projectsEmptyMessage" class="alert" style="display: none; text-align: center;">
+            <i class="fas fa-inbox"></i> No projects found.
+        </div>
+    </div>
+
+    <div class="panel" style="display: flex; flex-direction: column; height: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 class="orbitron"><i class="fas fa-list-check"></i> Assigned Standards</h3>
+            <button id="addStandardBtn" onclick="showAddStandardModal()" class="btn btn-primary" style="display: none;">
+                <i class="fas fa-plus"></i> Add Standard
+            </button>
+        </div>
+
+        <div id="noSelectionMessage" class="alert" style="text-align: center;">
+            <i class="fas fa-hand-pointer"></i> Select a project from the left to view and manage its assigned standards.
+        </div>
+
+        <div id="standardsLoadingMessage" class="alert" style="display: none; text-align: center;">
+            <i class="fas fa-spinner fa-spin"></i> Loading standards...
+        </div>
+
+        <div id="standardsErrorMessage" class="alert alert-error" style="display: none;"></div>
+
+        <div id="standardsContainer" style="display: none; flex: 1; overflow-y: auto;">
+            <div id="standardsContent"></div>
+        </div>
+
+        <div id="standardsEmptyMessage" class="alert" style="display: none; text-align: center;">
+            <i class="fas fa-inbox"></i> No standards assigned to this project yet.
+        </div>
+    </div>
+</div>
+
+<div id="addStandardModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 class="orbitron">Add Standard to Project</h3>
+            <span class="close" onclick="closeAddStandardModal()">&times;</span>
+        </div>
+        <form id="addStandardForm" onsubmit="saveStandardAssignment(event)">
+            <div class="form-group">
+                <label for="standardTypeSelect">Standard Type *</label>
+                <select id="standardTypeSelect" required onchange="loadStandardsByType()">
+                    <option value="">Select Type...</option>
+                    <option value="layer">Layer</option>
+                    <option value="block">Block</option>
+                    <option value="hatch">Hatch</option>
+                    <option value="linetype">Linetype</option>
+                    <option value="text_style">Text Style</option>
+                    <option value="dimension_style">Dimension Style</option>
+                    <option value="material">Material</option>
+                    <option value="detail">Detail</option>
+                    <option value="standard_note">Standard Note</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="standardSelect">Standard *</label>
+                <select id="standardSelect" required disabled>
+                    <option value="">Select type first...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="isRequired" style="width: auto; margin-right: 10px;">
+                    <span>Mark as Required</span>
+                </label>
+                <small style="color: var(--text-muted); margin-top: 5px; display: block;">
+                    Required standards must be used in all project drawings
+                </small>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" rows="3" placeholder="Additional notes or usage instructions..."></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeAddStandardModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Add Standard
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.project-item {
+    padding: 12px;
+    margin-bottom: 8px;
+    background: rgba(0, 20, 40, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.project-item:hover {
+    background: rgba(0, 100, 150, 0.2);
+    border-color: var(--neon-cyan);
+}
+
+.project-item.selected {
+    background: rgba(0, 100, 150, 0.4);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0,200,255,0.3);
+}
+
+.project-item .project-name {
+    font-weight: 600;
+    color: var(--neon-cyan);
+    margin-bottom: 4px;
+}
+
+.project-item .project-info {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+
+.standards-category {
+    margin-bottom: 25px;
+}
+
+.category-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    background: rgba(0, 100, 150, 0.3);
+    border-left: 3px solid var(--neon-cyan);
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.category-header i {
+    margin-right: 10px;
+    color: var(--neon-cyan);
+}
+
+.category-title {
+    font-weight: 600;
+    font-size: 1.1em;
+}
+
+.category-count {
+    margin-left: auto;
+    background: rgba(0, 200, 255, 0.2);
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.9em;
+}
+
+.standard-item {
+    padding: 12px 15px;
+    background: rgba(0, 20, 40, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.standard-item:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.standard-info {
+    flex: 1;
+}
+
+.standard-name {
+    font-weight: 600;
+    color: var(--neon-cyan);
+    margin-bottom: 4px;
+}
+
+.standard-desc {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+
+.standard-notes {
+    font-size: 0.85em;
+    color: var(--text-color);
+    font-style: italic;
+    margin-top: 4px;
+}
+
+.badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.badge-required {
+    background: rgba(255, 100, 100, 0.3);
+    border: 1px solid rgba(255, 100, 100, 0.6);
+    color: #ff6666;
+}
+
+.badge-optional {
+    background: rgba(100, 200, 100, 0.3);
+    border: 1px solid rgba(100, 200, 100, 0.6);
+    color: #66cc66;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(0,20,40,0.95) 0%, rgba(0,40,80,0.95) 100%);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--neon-cyan);
+    width: 90%;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,200,255,0.3);
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close {
+    color: var(--neon-cyan);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    padding: 0 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--neon-cyan);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,20,40,0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.form-group input[type="checkbox"] {
+    width: auto;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+</style>
+
+<script>
+let allProjects = [];
+let selectedProjectId = null;
+let currentStandards = {};
+
+const standardTypeIcons = {
+    layer: 'fa-layer-group',
+    block: 'fa-cubes',
+    hatch: 'fa-th',
+    linetype: 'fa-grip-lines',
+    text_style: 'fa-font',
+    dimension_style: 'fa-ruler-combined',
+    material: 'fa-hammer',
+    detail: 'fa-file-contract',
+    standard_note: 'fa-sticky-note'
+};
+
+const standardTypeLabels = {
+    layer: 'Layers',
+    block: 'Blocks',
+    hatch: 'Hatch Patterns',
+    linetype: 'Linetypes',
+    text_style: 'Text Styles',
+    dimension_style: 'Dimension Styles',
+    material: 'Materials',
+    detail: 'Details',
+    standard_note: 'Standard Notes'
+};
+
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/projects');
+        const data = await response.json();
+        
+        if (data.error) {
+            showProjectError(data.error);
+            return;
+        }
+        
+        allProjects = data.projects || data || [];
+        renderProjects();
+        
+    } catch (error) {
+        showProjectError('Failed to load projects: ' + error.message);
+    }
+}
+
+function filterProjects() {
+    renderProjects();
+}
+
+function renderProjects() {
+    const search = document.getElementById('projectSearch').value.toLowerCase();
+    
+    let filtered = allProjects.filter(p => {
+        return !search || 
+            p.project_name.toLowerCase().includes(search) ||
+            (p.project_number && p.project_number.toLowerCase().includes(search)) ||
+            (p.client_name && p.client_name.toLowerCase().includes(search));
+    });
+    
+    const listContainer = document.getElementById('projectsList');
+    
+    if (filtered.length === 0) {
+        document.getElementById('projectLoadingMessage').style.display = 'none';
+        document.getElementById('projectsListContainer').style.display = 'none';
+        document.getElementById('projectsEmptyMessage').style.display = 'block';
+        return;
+    }
+    
+    listContainer.innerHTML = filtered.map(p => `
+        <div class="project-item ${selectedProjectId === p.project_id ? 'selected' : ''}" 
+             onclick="selectProject('${p.project_id}')">
+            <div class="project-name">${p.project_name}</div>
+            <div class="project-info">
+                ${p.project_number ? 'No. ' + p.project_number : 'No number'}
+                ${p.client_name ? ' • ' + p.client_name : ''}
+            </div>
+        </div>
+    `).join('');
+    
+    document.getElementById('projectLoadingMessage').style.display = 'none';
+    document.getElementById('projectsListContainer').style.display = 'block';
+    document.getElementById('projectsEmptyMessage').style.display = 'none';
+}
+
+async function selectProject(projectId) {
+    selectedProjectId = projectId;
+    renderProjects();
+    
+    document.getElementById('noSelectionMessage').style.display = 'none';
+    document.getElementById('standardsLoadingMessage').style.display = 'block';
+    document.getElementById('standardsContainer').style.display = 'none';
+    document.getElementById('standardsEmptyMessage').style.display = 'none';
+    document.getElementById('standardsErrorMessage').style.display = 'none';
+    document.getElementById('addStandardBtn').style.display = 'inline-block';
+    
+    await loadProjectStandards(projectId);
+}
+
+async function loadProjectStandards(projectId) {
+    try {
+        const response = await fetch(`/api/project-standards/${projectId}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            showStandardsError(data.error);
+            return;
+        }
+        
+        currentStandards = data.standards || {};
+        renderStandards();
+        
+    } catch (error) {
+        showStandardsError('Failed to load standards: ' + error.message);
+    }
+}
+
+function renderStandards() {
+    const container = document.getElementById('standardsContent');
+    
+    const standardTypes = Object.keys(currentStandards);
+    
+    if (standardTypes.length === 0) {
+        document.getElementById('standardsLoadingMessage').style.display = 'none';
+        document.getElementById('standardsContainer').style.display = 'none';
+        document.getElementById('standardsEmptyMessage').style.display = 'block';
+        return;
+    }
+    
+    let html = '';
+    
+    for (const type of standardTypes) {
+        const standards = currentStandards[type];
+        const icon = standardTypeIcons[type] || 'fa-star';
+        const label = standardTypeLabels[type] || type;
+        
+        html += `
+            <div class="standards-category">
+                <div class="category-header">
+                    <i class="fas ${icon}"></i>
+                    <span class="category-title">${label}</span>
+                    <span class="category-count">${standards.length}</span>
+                </div>
+        `;
+        
+        for (const std of standards) {
+            html += `
+                <div class="standard-item">
+                    <div class="standard-info">
+                        <div class="standard-name">${std.standard_name || 'Unnamed'}</div>
+                        ${std.standard_description ? `<div class="standard-desc">${std.standard_description}</div>` : ''}
+                        ${std.notes ? `<div class="standard-notes">Note: ${std.notes}</div>` : ''}
+                    </div>
+                    <span class="badge ${std.is_required ? 'badge-required' : 'badge-optional'}">
+                        ${std.is_required ? 'Required' : 'Optional'}
+                    </span>
+                    <button onclick="removeStandard(${std.assignment_id})" class="btn btn-sm btn-danger" title="Remove">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+    }
+    
+    container.innerHTML = html;
+    
+    document.getElementById('standardsLoadingMessage').style.display = 'none';
+    document.getElementById('standardsContainer').style.display = 'block';
+    document.getElementById('standardsEmptyMessage').style.display = 'none';
+}
+
+function showAddStandardModal() {
+    if (!selectedProjectId) {
+        alert('Please select a project first.');
+        return;
+    }
+    
+    document.getElementById('addStandardForm').reset();
+    document.getElementById('standardSelect').disabled = true;
+    document.getElementById('standardSelect').innerHTML = '<option value="">Select type first...</option>';
+    document.getElementById('addStandardModal').style.display = 'block';
+}
+
+function closeAddStandardModal() {
+    document.getElementById('addStandardModal').style.display = 'none';
+}
+
+async function loadStandardsByType() {
+    const type = document.getElementById('standardTypeSelect').value;
+    const standardSelect = document.getElementById('standardSelect');
+    
+    if (!type) {
+        standardSelect.disabled = true;
+        standardSelect.innerHTML = '<option value="">Select type first...</option>';
+        return;
+    }
+    
+    standardSelect.disabled = true;
+    standardSelect.innerHTML = '<option value="">Loading...</option>';
+    
+    try {
+        const response = await fetch(`/api/standards-by-type/${type}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error: ' + data.error);
+            standardSelect.innerHTML = '<option value="">Error loading standards</option>';
+            return;
+        }
+        
+        const standards = data.standards || [];
+        
+        if (standards.length === 0) {
+            standardSelect.innerHTML = '<option value="">No standards available</option>';
+            return;
+        }
+        
+        standardSelect.innerHTML = '<option value="">Select Standard...</option>' +
+            standards.map(s => `<option value="${s.id}">${s.name}${s.description ? ' - ' + s.description : ''}</option>`).join('');
+        
+        standardSelect.disabled = false;
+        
+    } catch (error) {
+        alert('Failed to load standards: ' + error.message);
+        standardSelect.innerHTML = '<option value="">Error loading standards</option>';
+    }
+}
+
+async function saveStandardAssignment(event) {
+    event.preventDefault();
+    
+    const standardType = document.getElementById('standardTypeSelect').value;
+    const standardId = document.getElementById('standardSelect').value;
+    const isRequired = document.getElementById('isRequired').checked;
+    const notes = document.getElementById('notes').value;
+    
+    try {
+        const response = await fetch('/api/project-standards', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_id: selectedProjectId,
+                standard_type: standardType,
+                standard_id: standardId,
+                is_required: isRequired,
+                notes: notes || null
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error: ' + data.error);
+            return;
+        }
+        
+        closeAddStandardModal();
+        await loadProjectStandards(selectedProjectId);
+        
+    } catch (error) {
+        alert('Failed to add standard: ' + error.message);
+    }
+}
+
+async function removeStandard(assignmentId) {
+    if (!confirm('Are you sure you want to remove this standard from the project?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/project-standards/${assignmentId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error: ' + data.error);
+            return;
+        }
+        
+        await loadProjectStandards(selectedProjectId);
+        
+    } catch (error) {
+        alert('Failed to remove standard: ' + error.message);
+    }
+}
+
+function showProjectError(message) {
+    document.getElementById('projectErrorMessage').textContent = message;
+    document.getElementById('projectErrorMessage').style.display = 'block';
+    document.getElementById('projectLoadingMessage').style.display = 'none';
+    document.getElementById('projectsListContainer').style.display = 'none';
+}
+
+function showStandardsError(message) {
+    document.getElementById('standardsErrorMessage').textContent = message;
+    document.getElementById('standardsErrorMessage').style.display = 'block';
+    document.getElementById('standardsLoadingMessage').style.display = 'none';
+    document.getElementById('standardsContainer').style.display = 'none';
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('addStandardModal');
+    if (event.target === modal) {
+        closeAddStandardModal();
+    }
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+    loadProjects();
+});
+</script>
+{% endblock %}

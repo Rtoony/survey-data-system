@@ -149,6 +149,11 @@ def data_manager_details():
     """Details data manager page"""
     return render_template('data_manager/details.html')
 
+@app.route('/project-standards-assignment')
+def project_standards_assignment():
+    """Project Standards Assignment page"""
+    return render_template('project_standards_assignment.html')
+
 # ============================================
 # CAD STANDARDS PORTAL PAGES
 # ============================================
@@ -2106,6 +2111,165 @@ def remove_material_from_drawing(assignment_id):
         
         cache.clear()
         return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# PROJECT STANDARDS ASSIGNMENT API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/project-standards/<project_id>', methods=['GET'])
+def get_project_standards(project_id):
+    """Get all assigned standards for a project grouped by type"""
+    try:
+        query = """
+            SELECT 
+                psa.assignment_id,
+                psa.project_id,
+                psa.standard_type,
+                psa.standard_id,
+                psa.is_required,
+                psa.notes,
+                psa.assigned_date,
+                CASE 
+                    WHEN psa.standard_type = 'layer' THEN l.layer_name
+                    WHEN psa.standard_type = 'block' THEN b.block_name
+                    WHEN psa.standard_type = 'hatch' THEN hp.pattern_name
+                    WHEN psa.standard_type = 'linetype' THEN lt.linetype_name
+                    WHEN psa.standard_type = 'text_style' THEN ts.style_name
+                    WHEN psa.standard_type = 'dimension_style' THEN ds.style_name
+                    WHEN psa.standard_type = 'material' THEN ms.material_name
+                    WHEN psa.standard_type = 'detail' THEN d.detail_name
+                    WHEN psa.standard_type = 'standard_note' THEN LEFT(sn.note_text, 50)
+                END as standard_name,
+                CASE 
+                    WHEN psa.standard_type = 'layer' THEN l.description
+                    WHEN psa.standard_type = 'block' THEN b.description
+                    WHEN psa.standard_type = 'hatch' THEN hp.description
+                    WHEN psa.standard_type = 'linetype' THEN lt.description
+                    WHEN psa.standard_type = 'text_style' THEN ts.description
+                    WHEN psa.standard_type = 'dimension_style' THEN ds.description
+                    WHEN psa.standard_type = 'material' THEN ms.description
+                    WHEN psa.standard_type = 'detail' THEN d.description
+                    WHEN psa.standard_type = 'standard_note' THEN sn.category
+                END as standard_description
+            FROM project_standard_assignments psa
+            LEFT JOIN layers l ON psa.standard_type = 'layer' AND psa.standard_id = l.layer_id
+            LEFT JOIN blocks b ON psa.standard_type = 'block' AND psa.standard_id = b.block_id
+            LEFT JOIN hatch_patterns hp ON psa.standard_type = 'hatch' AND psa.standard_id = hp.hatch_id
+            LEFT JOIN linetypes lt ON psa.standard_type = 'linetype' AND psa.standard_id = lt.linetype_id
+            LEFT JOIN text_styles ts ON psa.standard_type = 'text_style' AND psa.standard_id = ts.style_id
+            LEFT JOIN dimension_styles ds ON psa.standard_type = 'dimension_style' AND psa.standard_id = ds.dimension_style_id
+            LEFT JOIN material_standards ms ON psa.standard_type = 'material' AND psa.standard_id = ms.material_id
+            LEFT JOIN details d ON psa.standard_type = 'detail' AND psa.standard_id = d.detail_id
+            LEFT JOIN standard_notes sn ON psa.standard_type = 'standard_note' AND psa.standard_id = sn.note_id
+            WHERE psa.project_id = %s
+            ORDER BY psa.standard_type, standard_name
+        """
+        standards = execute_query(query, (project_id,))
+        
+        grouped = {}
+        for standard in standards:
+            std_type = standard['standard_type']
+            if std_type not in grouped:
+                grouped[std_type] = []
+            grouped[std_type].append(standard)
+        
+        return jsonify({'standards': grouped})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-standards', methods=['POST'])
+def add_project_standard():
+    """Add a standard to a project"""
+    try:
+        data = request.get_json()
+        
+        project_id = data.get('project_id')
+        standard_type = data.get('standard_type')
+        standard_id = data.get('standard_id')
+        is_required = data.get('is_required', False)
+        notes = data.get('notes')
+        
+        if not project_id or not standard_type or not standard_id:
+            return jsonify({'error': 'project_id, standard_type, and standard_id are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO project_standard_assignments 
+                    (project_id, standard_type, standard_id, is_required, notes)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING assignment_id
+                """, (
+                    project_id,
+                    standard_type,
+                    standard_id,
+                    is_required,
+                    notes
+                ))
+                assignment_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'assignment_id': assignment_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-standards/<assignment_id>', methods=['DELETE'])
+def remove_project_standard(assignment_id):
+    """Remove a standard assignment from a project"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM project_standard_assignments WHERE assignment_id = %s", (assignment_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards-by-type/<standard_type>', methods=['GET'])
+def get_standards_by_type(standard_type):
+    """Get all available standards of a specific type"""
+    try:
+        type_mapping = {
+            'layer': ('layers', 'layer_id', 'layer_name', 'description'),
+            'block': ('blocks', 'block_id', 'block_name', 'description'),
+            'hatch': ('hatch_patterns', 'hatch_id', 'pattern_name', 'description'),
+            'linetype': ('linetypes', 'linetype_id', 'linetype_name', 'description'),
+            'text_style': ('text_styles', 'style_id', 'style_name', 'description'),
+            'dimension_style': ('dimension_styles', 'dimension_style_id', 'style_name', 'description'),
+            'material': ('material_standards', 'material_id', 'material_name', 'description'),
+            'detail': ('details', 'detail_id', 'detail_name', 'description'),
+            'standard_note': ('standard_notes', 'note_id', 'note_text', 'category')
+        }
+        
+        if standard_type not in type_mapping:
+            return jsonify({'error': 'Invalid standard type'}), 400
+        
+        table, id_col, name_col, desc_col = type_mapping[standard_type]
+        
+        if standard_type == 'standard_note':
+            query = f"""
+                SELECT {id_col} as id, 
+                       LEFT({name_col}, 100) as name, 
+                       {desc_col} as description
+                FROM {table}
+                ORDER BY {name_col}
+                LIMIT 500
+            """
+        else:
+            query = f"""
+                SELECT {id_col} as id, {name_col} as name, {desc_col} as description
+                FROM {table}
+                ORDER BY {name_col}
+                LIMIT 500
+            """
+        
+        standards = execute_query(query)
+        return jsonify({'standards': standards})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
