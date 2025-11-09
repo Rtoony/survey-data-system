@@ -187,7 +187,7 @@
                 </div>
             </div>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/map-viewer', '/map-viewer-v2', '/gravity-network-editor', '/sheet-notes'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/map-viewer', '/map-viewer-v2', '/gravity-network-editor', '/sheet-notes', '/entity-viewer'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-drafting-compass"></i>
                     <span>Tools</span>
@@ -201,6 +201,10 @@
                     <a href="/map-viewer-v2" class="mc-dropdown-item {% if request.path in ['/map-viewer', '/map-viewer-v2'] %}active{% endif %}">
                         <i class="fas fa-map-marked-alt"></i>
                         Map Viewer
+                    </a>
+                    <a href="/entity-viewer" class="mc-dropdown-item {% if request.path == '/entity-viewer' %}active{% endif %}">
+                        <i class="fas fa-eye"></i>
+                        Entity Viewer
                     </a>
                     <a href="/gravity-network-editor" class="mc-dropdown-item {% if request.path == '/gravity-network-editor' %}active{% endif %}">
                         <i class="fas fa-water"></i>

@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+
+{% block title %}Entity Viewer{% endblock %}
+
+{% block content %}
+<style>
+    .entity-viewer-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 180px);
+        gap: 1rem;
+    }
+
+    .viewer-controls {
+        background: rgba(0, 0, 0, 0.8);
+        border: 1px solid var(--mc-primary);
+        border-radius: 8px;
+        padding: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-width: 200px;
+    }
+
+    .control-group label {
+        color: var(--mc-primary);
+        font-family: 'Rajdhani', sans-serif;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+    }
+
+    .control-group select,
+    .control-group input {
+        background: rgba(0, 20, 40, 0.9);
+        border: 1px solid var(--mc-primary);
+        color: var(--mc-text);
+        padding: 0.5rem;
+        border-radius: 4px;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .control-group select:focus,
+    .control-group input:focus {
+        outline: none;
+        border-color: var(--mc-accent);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+    }
+
+    .entity-type-toggles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background: rgba(0, 20, 40, 0.5);
+        border-radius: 4px;
+    }
+
+    .entity-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(0, 255, 255, 0.3);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.85rem;
+    }
+
+    .entity-toggle:hover {
+        border-color: var(--mc-accent);
+        background: rgba(0, 255, 136, 0.1);
+    }
+
+    .entity-toggle.active {
+        border-color: var(--mc-accent);
+        background: rgba(0, 255, 136, 0.2);
+    }
+
+    .entity-toggle input[type="checkbox"] {
+        cursor: pointer;
+    }
+
+    .viewer-main {
+        display: flex;
+        gap: 1rem;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .viewer-canvas-container {
+        flex: 1;
+        background: #000;
+        border: 2px solid var(--mc-primary);
+        border-radius: 8px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    #entityCanvas {
+        width: 100%;
+        height: 100%;
+    }
+
+    .viewer-sidebar {
+        width: 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .legend-panel,
+    .info-panel {
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid var(--mc-primary);
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
+    .legend-panel {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .info-panel {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .panel-title {
+        color: var(--mc-primary);
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1rem;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--mc-primary);
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0;
+        font-size: 0.85rem;
+    }
+
+    .legend-color {
+        width: 20px;
+        height: 3px;
+        border-radius: 2px;
+    }
+
+    .legend-label {
+        flex: 1;
+        color: var(--mc-text);
+    }
+
+    .legend-count {
+        color: var(--mc-accent);
+        font-weight: 600;
+    }
+
+    .entity-info {
+        font-size: 0.85rem;
+        line-height: 1.6;
+    }
+
+    .entity-info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.25rem 0;
+        border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+    }
+
+    .entity-info-label {
+        color: var(--mc-primary);
+        font-weight: 600;
+    }
+
+    .entity-info-value {
+        color: var(--mc-text);
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .loading-overlay.hidden {
+        display: none;
+    }
+
+    .loading-spinner {
+        color: var(--mc-primary);
+        font-size: 1.2rem;
+    }
+
+    .btn-refresh {
+        background: var(--mc-primary);
+        color: #000;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: 'Rajdhani', sans-serif;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .btn-refresh:hover {
+        background: var(--mc-accent);
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+    }
+
+    .no-data-message {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: var(--mc-primary);
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.2rem;
+        text-align: center;
+    }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1 class="orbitron">Entity Viewer</h1>
+        <p class="page-description">View and explore project entities in a simple 2D viewer</p>
+    </div>
+</div>
+
+<div class="entity-viewer-container">
+    <div class="viewer-controls">
+        <div class="control-group">
+            <label for="projectSelect">Project</label>
+            <select id="projectSelect">
+                <option value="">Select a project...</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="drawingSelect">Drawings (Multi-select)</label>
+            <select id="drawingSelect" multiple size="3" style="height: 60px;">
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="layerSelect">Layers (Multi-select)</label>
+            <select id="layerSelect" multiple size="3" style="height: 60px;">
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Entity Types</label>
+            <div class="entity-type-toggles" id="entityTypeToggles">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <button class="btn-refresh" onclick="loadEntities()">
+                <i class="fas fa-sync-alt"></i> Refresh View
+            </button>
+        </div>
+    </div>
+
+    <div class="viewer-main">
+        <div class="viewer-canvas-container">
+            <svg id="entityCanvas" viewBox="0 0 1000 1000"></svg>
+            <div id="loadingOverlay" class="loading-overlay hidden">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i> Loading entities...
+                </div>
+            </div>
+            <div id="noDataMessage" class="no-data-message hidden">
+                No entities to display. Select a project and filters above.
+            </div>
+        </div>
+
+        <div class="viewer-sidebar">
+            <div class="legend-panel">
+                <div class="panel-title">Legend</div>
+                <div id="legendContent">
+                    <p style="color: var(--mc-text); font-size: 0.85rem;">Select a project to view entities</p>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <div class="panel-title">Entity Info</div>
+                <div id="entityInfo">
+                    <p style="color: var(--mc-text); font-size: 0.85rem;">Hover or click on an entity to see details</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentProject = null;
+let currentEntities = [];
+let currentBbox = null;
+let entityTypeCatalog = [];
+let selectedEntityTypes = new Set();
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadProjects();
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    document.getElementById('projectSelect').addEventListener('change', onProjectChange);
+    document.getElementById('drawingSelect').addEventListener('change', onFilterChange);
+    document.getElementById('layerSelect').addEventListener('change', onFilterChange);
+}
+
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/projects');
+        const data = await response.json();
+        const projects = data.projects || data;
+        
+        const select = document.getElementById('projectSelect');
+        if (Array.isArray(projects)) {
+            projects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.project_id;
+                option.textContent = project.project_name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading projects:', error);
+    }
+}
+
+async function onProjectChange(e) {
+    currentProject = e.target.value;
+    
+    if (!currentProject) {
+        clearViewer();
+        return;
+    }
+    
+    await loadCatalog();
+    await loadDrawings();
+    await loadLayers();
+    loadEntities();
+}
+
+async function loadCatalog() {
+    try {
+        const response = await fetch(`/api/entity-viewer/catalog?project_id=${currentProject}`);
+        const data = await response.json();
+        entityTypeCatalog = data.catalog;
+        
+        const container = document.getElementById('entityTypeToggles');
+        container.innerHTML = '';
+        
+        selectedEntityTypes.clear();
+        
+        entityTypeCatalog.forEach(item => {
+            selectedEntityTypes.add(item.entity_type);
+            
+            const toggle = document.createElement('label');
+            toggle.className = 'entity-toggle active';
+            toggle.innerHTML = `
+                <input type="checkbox" value="${item.entity_type}" checked>
+                <span style="color: ${item.color};">■</span>
+                <span>${item.entity_type.replace(/_/g, ' ')}</span>
+                <span class="legend-count">(${item.count})</span>
+            `;
+            
+            toggle.querySelector('input').addEventListener('change', function(e) {
+                if (e.target.checked) {
+                    selectedEntityTypes.add(item.entity_type);
+                    toggle.classList.add('active');
+                } else {
+                    selectedEntityTypes.delete(item.entity_type);
+                    toggle.classList.remove('active');
+                }
+                loadEntities();
+            });
+            
+            container.appendChild(toggle);
+        });
+    } catch (error) {
+        console.error('Error loading catalog:', error);
+    }
+}
+
+async function loadDrawings() {
+    try {
+        const response = await fetch(`/api/projects/${currentProject}/drawings`);
+        const data = await response.json();
+        const drawings = data.drawings || data;
+        
+        const select = document.getElementById('drawingSelect');
+        select.innerHTML = '';
+        
+        if (Array.isArray(drawings)) {
+            drawings.forEach(drawing => {
+                const option = document.createElement('option');
+                option.value = drawing.drawing_id;
+                option.textContent = drawing.drawing_name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading drawings:', error);
+    }
+}
+
+async function loadLayers() {
+    try {
+        const response = await fetch(`/api/entity-viewer/layers?project_id=${currentProject}`);
+        const data = await response.json();
+        
+        const select = document.getElementById('layerSelect');
+        select.innerHTML = '';
+        
+        data.layers.forEach(layer => {
+            const option = document.createElement('option');
+            option.value = layer;
+            option.textContent = layer;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading layers:', error);
+    }
+}
+
+function onFilterChange() {
+    loadEntities();
+}
+
+async function loadEntities() {
+    if (!currentProject) return;
+    
+    showLoading(true);
+    
+    try {
+        const drawingSelect = document.getElementById('drawingSelect');
+        const layerSelect = document.getElementById('layerSelect');
+        
+        const selectedDrawings = Array.from(drawingSelect.selectedOptions).map(opt => opt.value);
+        const selectedLayers = Array.from(layerSelect.selectedOptions).map(opt => opt.value);
+        
+        let url = `/api/entity-viewer/entities?project_id=${currentProject}`;
+        
+        Array.from(selectedEntityTypes).forEach(type => {
+            url += `&entity_type=${type}`;
+        });
+        
+        selectedDrawings.forEach(id => {
+            url += `&drawing_id=${id}`;
+        });
+        
+        selectedLayers.forEach(layer => {
+            url += `&layer=${encodeURIComponent(layer)}`;
+        });
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        currentEntities = data.entities;
+        currentBbox = data.bbox;
+        
+        renderEntities();
+        updateLegend(data.layer_counts, data.type_counts);
+        
+        showLoading(false);
+        
+        if (currentEntities.length === 0) {
+            document.getElementById('noDataMessage').classList.remove('hidden');
+        } else {
+            document.getElementById('noDataMessage').classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Error loading entities:', error);
+        showLoading(false);
+    }
+}
+
+function renderEntities() {
+    const svg = document.getElementById('entityCanvas');
+    svg.innerHTML = '';
+    
+    if (!currentBbox || currentEntities.length === 0) {
+        return;
+    }
+    
+    const width = 1000;
+    const height = 1000;
+    const padding = 50;
+    
+    const bboxWidth = currentBbox.maxX - currentBbox.minX;
+    const bboxHeight = currentBbox.maxY - currentBbox.minY;
+    
+    const scale = Math.min((width - padding * 2) / bboxWidth, (height - padding * 2) / bboxHeight);
+    
+    function projectPoint(lon, lat) {
+        const x = padding + (lon - currentBbox.minX) * scale;
+        const y = height - padding - (lat - currentBbox.minY) * scale;
+        return { x, y };
+    }
+    
+    currentEntities.forEach((entity, idx) => {
+        const geom = entity.geometry;
+        const color = entity.color || '#00ffff';
+        
+        if (geom.type === 'Point') {
+            const pt = projectPoint(geom.coordinates[0], geom.coordinates[1]);
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', pt.x);
+            circle.setAttribute('cy', pt.y);
+            circle.setAttribute('r', 4);
+            circle.setAttribute('fill', color);
+            circle.setAttribute('data-entity-idx', idx);
+            circle.style.cursor = 'pointer';
+            svg.appendChild(circle);
+        } else if (geom.type === 'LineString') {
+            const points = geom.coordinates.map(coord => projectPoint(coord[0], coord[1]));
+            const pathData = 'M ' + points.map(p => `${p.x},${p.y}`).join(' L ');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', pathData);
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', 2);
+            path.setAttribute('fill', 'none');
+            path.setAttribute('data-entity-idx', idx);
+            path.style.cursor = 'pointer';
+            svg.appendChild(path);
+        } else if (geom.type === 'Polygon') {
+            const rings = geom.coordinates;
+            rings.forEach(ring => {
+                const points = ring.map(coord => projectPoint(coord[0], coord[1]));
+                const pathData = 'M ' + points.map(p => `${p.x},${p.y}`).join(' L ') + ' Z';
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathData);
+                path.setAttribute('stroke', color);
+                path.setAttribute('stroke-width', 1);
+                path.setAttribute('fill', color);
+                path.setAttribute('fill-opacity', 0.2);
+                path.setAttribute('data-entity-idx', idx);
+                path.style.cursor = 'pointer';
+                svg.appendChild(path);
+            });
+        }
+    });
+    
+    svg.querySelectorAll('[data-entity-idx]').forEach(el => {
+        el.addEventListener('mouseenter', function() {
+            const idx = parseInt(this.getAttribute('data-entity-idx'));
+            showEntityInfo(currentEntities[idx]);
+            this.style.opacity = '0.7';
+        });
+        
+        el.addEventListener('mouseleave', function() {
+            this.style.opacity = '1';
+        });
+        
+        el.addEventListener('click', function() {
+            const idx = parseInt(this.getAttribute('data-entity-idx'));
+            showEntityInfo(currentEntities[idx]);
+        });
+    });
+}
+
+function updateLegend(layerCounts, typeCounts) {
+    const container = document.getElementById('legendContent');
+    container.innerHTML = '';
+    
+    const typeSection = document.createElement('div');
+    typeSection.innerHTML = '<div style="color: var(--mc-accent); font-weight: 600; margin-bottom: 0.5rem;">Entity Types</div>';
+    
+    Object.entries(typeCounts).forEach(([type, count]) => {
+        const config = entityTypeCatalog.find(c => c.entity_type === type);
+        const color = config ? config.color : '#00ffff';
+        
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `
+            <div class="legend-color" style="background: ${color};"></div>
+            <div class="legend-label">${type.replace(/_/g, ' ')}</div>
+            <div class="legend-count">${count}</div>
+        `;
+        typeSection.appendChild(item);
+    });
+    
+    container.appendChild(typeSection);
+    
+    if (Object.keys(layerCounts).length > 0) {
+        const layerSection = document.createElement('div');
+        layerSection.innerHTML = '<div style="color: var(--mc-accent); font-weight: 600; margin: 1rem 0 0.5rem;">Layers</div>';
+        
+        Object.entries(layerCounts).forEach(([layer, count]) => {
+            const item = document.createElement('div');
+            item.className = 'legend-item';
+            item.innerHTML = `
+                <div class="legend-label">${layer}</div>
+                <div class="legend-count">${count}</div>
+            `;
+            layerSection.appendChild(item);
+        });
+        
+        container.appendChild(layerSection);
+    }
+}
+
+function showEntityInfo(entity) {
+    const container = document.getElementById('entityInfo');
+    container.innerHTML = '';
+    
+    const fields = [
+        { label: 'Type', value: entity.entity_type?.replace(/_/g, ' ') },
+        { label: 'ID', value: entity.entity_id },
+        { label: 'Label', value: entity.label },
+        { label: 'Layer', value: entity.layer_name },
+        { label: 'Category', value: entity.category },
+        { label: 'Geometry', value: entity.geom_type }
+    ];
+    
+    fields.forEach(field => {
+        if (field.value) {
+            const row = document.createElement('div');
+            row.className = 'entity-info-row';
+            row.innerHTML = `
+                <span class="entity-info-label">${field.label}:</span>
+                <span class="entity-info-value">${field.value}</span>
+            `;
+            container.appendChild(row);
+        }
+    });
+}
+
+function showLoading(show) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (show) {
+        overlay.classList.remove('hidden');
+    } else {
+        overlay.classList.add('hidden');
+    }
+}
+
+function clearViewer() {
+    document.getElementById('entityCanvas').innerHTML = '';
+    document.getElementById('legendContent').innerHTML = '<p style="color: var(--mc-text); font-size: 0.85rem;">Select a project to view entities</p>';
+    document.getElementById('entityInfo').innerHTML = '<p style="color: var(--mc-text); font-size: 0.85rem;">Hover or click on an entity to see details</p>';
+    document.getElementById('drawingSelect').innerHTML = '';
+    document.getElementById('layerSelect').innerHTML = '';
+    document.getElementById('entityTypeToggles').innerHTML = '';
+    document.getElementById('noDataMessage').classList.add('hidden');
+}
+</script>
+{% endblock %}

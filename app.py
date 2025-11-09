@@ -10143,5 +10143,368 @@ def delete_attribute(attribute_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============================================
+# ENTITY VIEWER API
+# ============================================
+
+ENTITY_VIEWER_REGISTRY = {
+    'parcels': {
+        'table': 'parcels',
+        'geometry_column': 'boundary_geometry',
+        'srid': 2226,
+        'id_column': 'parcel_id',
+        'label_column': 'parcel_name',
+        'type': 'polygon',
+        'category': 'Property',
+        'color': '#ff6b35'
+    },
+    'utility_lines': {
+        'table': 'utility_lines',
+        'geometry_column': 'geometry',
+        'srid': 2226,
+        'id_column': 'line_id',
+        'label_column': 'line_name',
+        'type': 'line',
+        'category': 'Utilities',
+        'color': '#f7b801'
+    },
+    'utility_structures': {
+        'table': 'utility_structures',
+        'geometry_column': 'rim_geometry',
+        'srid': 2226,
+        'id_column': 'structure_id',
+        'label_column': 'structure_name',
+        'type': 'point',
+        'category': 'Utilities',
+        'color': '#6a994e'
+    },
+    'survey_points': {
+        'table': 'survey_points',
+        'geometry_column': 'geometry',
+        'srid': 2226,
+        'id_column': 'point_id',
+        'label_column': 'point_number',
+        'type': 'point',
+        'category': 'Survey',
+        'color': '#00d9ff'
+    },
+    'horizontal_alignments': {
+        'table': 'horizontal_alignments',
+        'geometry_column': 'geometry',
+        'srid': 2226,
+        'id_column': 'alignment_id',
+        'label_column': 'alignment_name',
+        'type': 'line',
+        'category': 'Civil',
+        'color': '#bc4b51'
+    },
+    'easements': {
+        'table': 'easements',
+        'geometry_column': 'geometry',
+        'srid': 2226,
+        'id_column': 'easement_id',
+        'label_column': 'easement_type',
+        'type': 'polygon',
+        'category': 'Property',
+        'color': '#8e7dbe'
+    },
+    'right_of_way': {
+        'table': 'right_of_way',
+        'geometry_column': 'geometry',
+        'srid': 2226,
+        'id_column': 'row_id',
+        'label_column': 'row_type',
+        'type': 'polygon',
+        'category': 'Property',
+        'color': '#5f0f40'
+    },
+    'drawing_entities': {
+        'table': 'drawing_entities',
+        'geometry_column': 'geometry',
+        'srid': 0,
+        'id_column': 'entity_id',
+        'label_column': 'entity_type',
+        'type': 'mixed',
+        'category': 'Drawing',
+        'color': '#06ffa5'
+    }
+}
+
+@app.route('/entity-viewer')
+def entity_viewer_page():
+    """Entity Viewer page"""
+    return render_template('entity_viewer.html')
+
+@app.route('/api/entity-viewer/catalog')
+def get_entity_viewer_catalog():
+    """Get available entity types with counts per project"""
+    try:
+        project_id = request.args.get('project_id')
+        
+        catalog = []
+        for entity_key, config in ENTITY_VIEWER_REGISTRY.items():
+            try:
+                col_check = execute_query(f"""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='{config['table']}' 
+                    AND column_name IN ('project_id', 'drawing_id')
+                """)
+                col_names = [c['column_name'] for c in col_check]
+                has_project_id = 'project_id' in col_names
+                has_drawing_id = 'drawing_id' in col_names
+                
+                if has_project_id:
+                    query = f"""
+                        SELECT 
+                            '{entity_key}' as entity_type,
+                            '{config['category']}' as category,
+                            '{config['type']}' as geometry_type,
+                            '{config['color']}' as color,
+                            COUNT(*) as count
+                        FROM {config['table']}
+                        WHERE project_id = %s
+                    """
+                    result = execute_query(query, (project_id,))
+                elif has_drawing_id:
+                    query = f"""
+                        SELECT 
+                            '{entity_key}' as entity_type,
+                            '{config['category']}' as category,
+                            '{config['type']}' as geometry_type,
+                            '{config['color']}' as color,
+                            COUNT(*) as count
+                        FROM {config['table']} t
+                        JOIN drawings d ON t.drawing_id = d.drawing_id
+                        WHERE d.project_id = %s
+                    """
+                    result = execute_query(query, (project_id,))
+                else:
+                    continue
+                
+                if result and result[0]['count'] > 0:
+                    catalog.append(result[0])
+            except Exception as e:
+                print(f"Error loading catalog for {entity_key}: {e}")
+                continue
+        
+        return jsonify({'catalog': catalog})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/entity-viewer/layers')
+def get_entity_viewer_layers():
+    """Get available layers for a project"""
+    try:
+        project_id = request.args.get('project_id')
+        drawing_ids = request.args.getlist('drawing_id')
+        
+        query = """
+            SELECT DISTINCT layer_name
+            FROM layers
+            WHERE project_id = %s
+        """
+        params = [project_id]
+        
+        if drawing_ids:
+            placeholders = ','.join(['%s'] * len(drawing_ids))
+            query += f" AND drawing_id IN ({placeholders})"
+            params.extend(drawing_ids)
+        
+        query += " ORDER BY layer_name"
+        
+        layers = execute_query(query, tuple(params))
+        return jsonify({'layers': [l['layer_name'] for l in layers]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/entity-viewer/entities')
+def get_entity_viewer_entities():
+    """Get entities with geometries, transformed to EPSG:4326"""
+    try:
+        project_id = request.args.get('project_id')
+        entity_types = request.args.getlist('entity_type')
+        drawing_ids = request.args.getlist('drawing_id')
+        layer_names = request.args.getlist('layer')
+        
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        if not entity_types:
+            entity_types = list(ENTITY_VIEWER_REGISTRY.keys())
+        
+        all_entities = []
+        union_queries = []
+        bbox_queries = []
+        
+        for entity_type in entity_types:
+            if entity_type not in ENTITY_VIEWER_REGISTRY:
+                continue
+            
+            config = ENTITY_VIEWER_REGISTRY[entity_type]
+            geom_col = config['geometry_column']
+            srid = config['srid']
+            
+            transform_func = f"ST_Transform({geom_col}, 4326)" if srid != 4326 else geom_col
+            
+            has_project_id = False
+            has_drawing_id = False
+            has_layer_name = False
+            
+            try:
+                col_check = execute_query(f"""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='{config['table']}' 
+                    AND column_name IN ('project_id', 'drawing_id', 'layer_name')
+                """)
+                col_names = [c['column_name'] for c in col_check]
+                has_project_id = 'project_id' in col_names
+                has_drawing_id = 'drawing_id' in col_names
+                has_layer_name = 'layer_name' in col_names
+            except:
+                pass
+            
+            if has_project_id:
+                query = f"""
+                    SELECT 
+                        '{entity_type}' as entity_type,
+                        t.{config['id_column']}::text as entity_id,
+                        t.{config['label_column']} as label,
+                        {'t.layer_name' if has_layer_name else "'' as layer_name"},
+                        '{config['category']}' as category,
+                        '{config['type']}' as geometry_type,
+                        '{config['color']}' as color,
+                        ST_AsGeoJSON({transform_func})::json as geometry,
+                        ST_GeometryType(t.{geom_col}) as geom_type
+                    FROM {config['table']} t
+                    WHERE t.project_id = %s
+                """
+                params = [project_id]
+                
+                if drawing_ids and has_drawing_id:
+                    placeholders = ','.join(['%s'] * len(drawing_ids))
+                    query += f" AND t.drawing_id IN ({placeholders})"
+                    params.extend(drawing_ids)
+                
+                if layer_names and has_layer_name:
+                    placeholders = ','.join(['%s'] * len(layer_names))
+                    query += f" AND t.layer_name IN ({placeholders})"
+                    params.extend(layer_names)
+            elif has_drawing_id:
+                query = f"""
+                    SELECT 
+                        '{entity_type}' as entity_type,
+                        t.{config['id_column']}::text as entity_id,
+                        t.{config['label_column']} as label,
+                        {'t.layer_name' if has_layer_name else "'' as layer_name"},
+                        '{config['category']}' as category,
+                        '{config['type']}' as geometry_type,
+                        '{config['color']}' as color,
+                        ST_AsGeoJSON(ST_Transform(t.{geom_col}, 4326))::json as geometry,
+                        ST_GeometryType(t.{geom_col}) as geom_type
+                    FROM {config['table']} t
+                    JOIN drawings d ON t.drawing_id = d.drawing_id
+                    WHERE d.project_id = %s
+                """
+                params = [project_id]
+                
+                if drawing_ids:
+                    placeholders = ','.join(['%s'] * len(drawing_ids))
+                    query += f" AND t.drawing_id IN ({placeholders})"
+                    params.extend(drawing_ids)
+                
+                if layer_names and has_layer_name:
+                    placeholders = ','.join(['%s'] * len(layer_names))
+                    query += f" AND t.layer_name IN ({placeholders})"
+                    params.extend(layer_names)
+            else:
+                continue
+            
+            query += f" AND t.{geom_col} IS NOT NULL"
+            
+            entities = execute_query(query, tuple(params))
+            all_entities.extend(entities)
+            
+            if entities:
+                if has_project_id:
+                    bbox_query = f"""
+                        SELECT ST_Extent(ST_Transform(t.{geom_col}, 4326)) as bbox
+                        FROM {config['table']} t
+                        WHERE t.project_id = %s AND t.{geom_col} IS NOT NULL
+                    """
+                    bbox_params = [project_id]
+                    
+                    if drawing_ids and has_drawing_id:
+                        placeholders = ','.join(['%s'] * len(drawing_ids))
+                        bbox_query += f" AND t.drawing_id IN ({placeholders})"
+                        bbox_params.extend(drawing_ids)
+                    
+                    if layer_names and has_layer_name:
+                        placeholders = ','.join(['%s'] * len(layer_names))
+                        bbox_query += f" AND t.layer_name IN ({placeholders})"
+                        bbox_params.extend(layer_names)
+                    
+                    bbox_queries.append((bbox_query, tuple(bbox_params)))
+                elif has_drawing_id:
+                    bbox_query = f"""
+                        SELECT ST_Extent(ST_Transform(t.{geom_col}, 4326)) as bbox
+                        FROM {config['table']} t
+                        JOIN drawings d ON t.drawing_id = d.drawing_id
+                        WHERE d.project_id = %s AND t.{geom_col} IS NOT NULL
+                    """
+                    bbox_params = [project_id]
+                    
+                    if drawing_ids:
+                        placeholders = ','.join(['%s'] * len(drawing_ids))
+                        bbox_query += f" AND t.drawing_id IN ({placeholders})"
+                        bbox_params.extend(drawing_ids)
+                    
+                    if layer_names and has_layer_name:
+                        placeholders = ','.join(['%s'] * len(layer_names))
+                        bbox_query += f" AND t.layer_name IN ({placeholders})"
+                        bbox_params.extend(layer_names)
+                    
+                    bbox_queries.append((bbox_query, tuple(bbox_params)))
+        
+        bbox = None
+        if bbox_queries:
+            bbox_union = " UNION ALL ".join([q[0] for q in bbox_queries])
+            all_bbox_params = []
+            for _, params in bbox_queries:
+                all_bbox_params.extend(params)
+            
+            bbox_result = execute_query(f"SELECT ST_Extent(bbox::geometry) as combined_bbox FROM ({bbox_union}) t", tuple(all_bbox_params))
+            if bbox_result and bbox_result[0]['combined_bbox']:
+                bbox_str = bbox_result[0]['combined_bbox']
+                coords = bbox_str.replace('BOX(', '').replace(')', '').split(',')
+                min_coords = coords[0].strip().split()
+                max_coords = coords[1].strip().split()
+                bbox = {
+                    'minX': float(min_coords[0]),
+                    'minY': float(min_coords[1]),
+                    'maxX': float(max_coords[0]),
+                    'maxY': float(max_coords[1])
+                }
+        
+        layer_counts = {}
+        type_counts = {}
+        for entity in all_entities:
+            layer = entity.get('layer_name', 'Unknown')
+            layer_counts[layer] = layer_counts.get(layer, 0) + 1
+            
+            etype = entity.get('entity_type', 'Unknown')
+            type_counts[etype] = type_counts.get(etype, 0) + 1
+        
+        return jsonify({
+            'entities': all_entities,
+            'bbox': bbox,
+            'layer_counts': layer_counts,
+            'type_counts': type_counts,
+            'total_count': len(all_entities)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
