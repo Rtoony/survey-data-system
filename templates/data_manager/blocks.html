@@ -76,12 +76,16 @@
 
             <div class="form-group">
                 <label for="category">Category</label>
-                <input type="text" id="category" required placeholder="e.g., Storm Drainage - Manholes">
+                <select id="category" required>
+                    <option value="">-- Select Category --</option>
+                </select>
             </div>
 
             <div class="form-group">
-                <label for="domain">Domain (optional)</label>
-                <input type="text" id="domain" placeholder="e.g., Civil, Structural">
+                <label for="discipline">Discipline</label>
+                <select id="discipline">
+                    <option value="">-- Select Discipline (optional) --</option>
+                </select>
             </div>
 
             <div class="form-group">
@@ -242,7 +246,8 @@
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
     width: 100%;
     padding: 10px 15px;
     background: rgba(255,255,255,0.05);
@@ -254,10 +259,16 @@
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
     outline: none;
     border-color: var(--accent-cyan);
     background: rgba(255,255,255,0.08);
+}
+
+.form-group select option {
+    background: #1a1a2e;
+    color: var(--text-primary);
 }
 
 .modal-footer {
@@ -310,6 +321,50 @@
 
 <script>
 let blocksData = [];
+let categoriesData = [];
+let disciplinesData = [];
+
+// Load categories and disciplines for dropdowns
+async function loadDropdownOptions() {
+    try {
+        const [catResponse, discResponse] = await Promise.all([
+            fetch('/api/categories?standard_type=blocks'),
+            fetch('/api/disciplines?standard_type=blocks')
+        ]);
+        
+        const catData = await catResponse.json();
+        const discData = await discResponse.json();
+        
+        categoriesData = catData.categories || [];
+        disciplinesData = discData.disciplines || [];
+        
+        populateDropdowns();
+    } catch (error) {
+        console.error('Error loading dropdown options:', error);
+    }
+}
+
+function populateDropdowns() {
+    // Populate categories dropdown
+    const categorySelect = document.getElementById('category');
+    categorySelect.innerHTML = '<option value="">-- Select Category --</option>';
+    categoriesData.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.category_code;
+        option.textContent = `${cat.category_code} - ${cat.category_name}`;
+        categorySelect.appendChild(option);
+    });
+    
+    // Populate disciplines dropdown
+    const disciplineSelect = document.getElementById('discipline');
+    disciplineSelect.innerHTML = '<option value="">-- Select Discipline (optional) --</option>';
+    disciplinesData.forEach(disc => {
+        const option = document.createElement('option');
+        option.value = disc.discipline_code;
+        option.textContent = `${disc.discipline_code} - ${disc.discipline_name}`;
+        disciplineSelect.appendChild(option);
+    });
+}
 
 async function loadBlocks() {
     try {
@@ -402,22 +457,24 @@ function filterTable() {
     }
 }
 
-function addNewBlock() {
+async function addNewBlock() {
     document.getElementById('modalTitle').textContent = 'Add New Block';
     document.getElementById('blockForm').reset();
     document.getElementById('blockId').value = '';
+    await loadDropdownOptions();
     document.getElementById('blockModal').style.display = 'block';
 }
 
-function editBlock(id) {
+async function editBlock(id) {
     const item = blocksData.find(b => b.block_id == id);
     if (!item) return;
     
     document.getElementById('modalTitle').textContent = 'Edit Block';
     document.getElementById('blockId').value = item.block_id;
     document.getElementById('blockName').value = item.block_name || '';
+    await loadDropdownOptions();
     document.getElementById('category').value = item.category || '';
-    document.getElementById('domain').value = item.domain || '';
+    document.getElementById('discipline').value = item.block_type || '';
     document.getElementById('description').value = item.description || '';
     document.getElementById('blockModal').style.display = 'block';
 }
@@ -433,7 +490,7 @@ async function saveBlock(event) {
     const blockData = {
         block_name: document.getElementById('blockName').value,
         category: document.getElementById('category').value,
-        domain: document.getElementById('domain').value,
+        block_type: document.getElementById('discipline').value,
         description: document.getElementById('description').value
     };
     

@@ -82,7 +82,16 @@
 
             <div class="form-group">
                 <label for="category">Category</label>
-                <input type="text" id="category" placeholder="e.g., Grading, Structural, Utilities">
+                <select id="category">
+                    <option value="">-- Select Category (optional) --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="discipline">Discipline</label>
+                <select id="discipline">
+                    <option value="">-- Select Discipline (optional) --</option>
+                </select>
             </div>
 
             <div class="form-group">
@@ -226,7 +235,8 @@
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
     width: 100%;
     padding: 10px 15px;
     background: rgba(255,255,255,0.05);
@@ -238,10 +248,16 @@
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
     outline: none;
     border-color: var(--accent-cyan);
     background: rgba(255,255,255,0.08);
+}
+
+.form-group select option {
+    background: #1a1a2e;
+    color: var(--text-primary);
 }
 
 .modal-footer {
@@ -294,6 +310,44 @@
 
 <script>
 let detailsData = [];
+let categoriesData = [];
+let disciplinesData = [];
+
+async function loadDropdownOptions() {
+    try {
+        const [catResponse, discResponse] = await Promise.all([
+            fetch('/api/categories?standard_type=details'),
+            fetch('/api/disciplines?standard_type=details')
+        ]);
+        const catData = await catResponse.json();
+        const discData = await discResponse.json();
+        categoriesData = catData.categories || [];
+        disciplinesData = discData.disciplines || [];
+        populateDropdowns();
+    } catch (error) {
+        console.error('Error loading dropdown options:', error);
+    }
+}
+
+function populateDropdowns() {
+    const categorySelect = document.getElementById('category');
+    categorySelect.innerHTML = '<option value="">-- Select Category (optional) --</option>';
+    categoriesData.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.category_code;
+        option.textContent = `${cat.category_code} - ${cat.category_name}`;
+        categorySelect.appendChild(option);
+    });
+    
+    const disciplineSelect = document.getElementById('discipline');
+    disciplineSelect.innerHTML = '<option value="">-- Select Discipline (optional) --</option>';
+    disciplinesData.forEach(disc => {
+        const option = document.createElement('option');
+        option.value = disc.discipline_code;
+        option.textContent = `${disc.discipline_code} - ${disc.discipline_name}`;
+        disciplineSelect.appendChild(option);
+    });
+}
 
 async function loadDetails() {
     try {
@@ -374,14 +428,15 @@ function filterTable() {
     }
 }
 
-function addNewDetail() {
+async function addNewDetail() {
     document.getElementById('modalTitle').textContent = 'Add New Detail';
     document.getElementById('detailForm').reset();
     document.getElementById('detailId').value = '';
+    await loadDropdownOptions();
     document.getElementById('detailModal').style.display = 'block';
 }
 
-function editDetail(id) {
+async function editDetail(id) {
     const item = detailsData.find(d => d.detail_id == id);
     if (!item) return;
     
@@ -389,7 +444,9 @@ function editDetail(id) {
     document.getElementById('detailId').value = item.detail_id;
     document.getElementById('detailNumber').value = item.detail_number || '';
     document.getElementById('detailTitle').value = item.detail_title || '';
+    await loadDropdownOptions();
     document.getElementById('category').value = item.detail_category || '';
+    document.getElementById('discipline').value = item.discipline || '';
     document.getElementById('scale').value = item.scale || '';
     document.getElementById('description').value = item.description || '';
     document.getElementById('detailModal').style.display = 'block';

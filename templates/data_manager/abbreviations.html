@@ -71,8 +71,17 @@
             <input type="hidden" id="abbreviationId">
             
             <div class="form-group">
-                <label for="discipline">Category</label>
-                <input type="text" id="discipline" required placeholder="e.g., General Terms, ADA Compliance, Materials">
+                <label for="category">Category</label>
+                <select id="category">
+                    <option value="">-- Select Category (optional) --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="discipline">Discipline</label>
+                <select id="discipline">
+                    <option value="">-- Select Discipline (optional) --</option>
+                </select>
             </div>
 
             <div class="form-group">
@@ -282,6 +291,44 @@
 
 <script>
 let abbreviationsData = [];
+let categoriesData = [];
+let disciplinesData = [];
+
+async function loadDropdownOptions() {
+    try {
+        const [catResponse, discResponse] = await Promise.all([
+            fetch('/api/categories?standard_type=abbreviations'),
+            fetch('/api/disciplines?standard_type=abbreviations')
+        ]);
+        const catData = await catResponse.json();
+        const discData = await discResponse.json();
+        categoriesData = catData.categories || [];
+        disciplinesData = discData.disciplines || [];
+        populateDropdowns();
+    } catch (error) {
+        console.error('Error loading dropdown options:', error);
+    }
+}
+
+function populateDropdowns() {
+    const categorySelect = document.getElementById('category');
+    categorySelect.innerHTML = '<option value="">-- Select Category (optional) --</option>';
+    categoriesData.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.category_code;
+        option.textContent = `${cat.category_code} - ${cat.category_name}`;
+        categorySelect.appendChild(option);
+    });
+    
+    const disciplineSelect = document.getElementById('discipline');
+    disciplineSelect.innerHTML = '<option value="">-- Select Discipline (optional) --</option>';
+    disciplinesData.forEach(disc => {
+        const option = document.createElement('option');
+        option.value = disc.discipline_code;
+        option.textContent = `${disc.discipline_code} - ${disc.discipline_name}`;
+        disciplineSelect.appendChild(option);
+    });
+}
 
 async function loadAbbreviations() {
     try {
@@ -338,20 +385,23 @@ function filterTable() {
     }
 }
 
-function showAddModal() {
+async function showAddModal() {
     document.getElementById('modalTitle').textContent = 'Add Abbreviation';
     document.getElementById('abbreviationForm').reset();
     document.getElementById('abbreviationId').value = '';
+    await loadDropdownOptions();
     document.getElementById('abbreviationModal').style.display = 'block';
 }
 
-function editAbbreviation(id) {
+async function editAbbreviation(id) {
     const item = abbreviationsData.find(a => a.abbreviation_id == id);
     if (!item) return;
     
     document.getElementById('modalTitle').textContent = 'Edit Abbreviation';
     document.getElementById('abbreviationId').value = item.abbreviation_id;
-    document.getElementById('discipline').value = item.category || '';
+    await loadDropdownOptions();
+    document.getElementById('category').value = item.category || '';
+    document.getElementById('discipline').value = item.discipline || '';
     document.getElementById('abbreviation').value = item.abbreviation || '';
     document.getElementById('fullText').value = item.full_text || '';
     document.getElementById('description').value = item.context_usage_notes || '';
