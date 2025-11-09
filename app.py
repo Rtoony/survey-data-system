@@ -1622,6 +1622,11 @@ def dimension_styles_manager():
     """Render the Dimension Styles Manager page"""
     return render_template('data_manager/dimension-styles.html')
 
+@app.route('/data-manager/drawing-materials')
+def drawing_materials_manager():
+    """Render the Drawing-Materials Relationship Manager page"""
+    return render_template('data_manager/drawing_materials.html')
+
 @app.route('/usage-dashboard')
 def usage_dashboard():
     """Render the Usage Tracking Dashboard page"""
@@ -2001,6 +2006,92 @@ def delete_material(material_id):
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM material_standards WHERE material_id = %s", (material_id,))
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# DRAWING-MATERIALS RELATIONSHIP API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/data-manager/drawing-materials/<drawing_id>', methods=['GET'])
+def get_drawing_materials(drawing_id):
+    """Get all materials assigned to a specific drawing"""
+    try:
+        query = """
+            SELECT 
+                dm.assignment_id,
+                dm.drawing_id,
+                dm.material_id,
+                dm.quantity,
+                dm.unit_of_measure,
+                dm.usage_context,
+                dm.notes,
+                dm.created_at,
+                m.material_name,
+                m.material_type,
+                m.manufacturer,
+                m.cost_per_unit,
+                m.unit_of_measure as material_default_unit
+            FROM drawing_materials dm
+            JOIN material_standards m ON dm.material_id = m.material_id
+            WHERE dm.drawing_id = %s
+            ORDER BY m.material_name
+        """
+        materials = execute_query(query, (drawing_id,))
+        return jsonify({'materials': materials})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/drawing-materials', methods=['POST'])
+def add_material_to_drawing():
+    """Add a material to a drawing"""
+    try:
+        data = request.get_json()
+        
+        drawing_id = data.get('drawing_id')
+        material_id = data.get('material_id')
+        quantity = data.get('quantity')
+        unit_of_measure = data.get('unit_of_measure')
+        usage_context = data.get('usage_context')
+        notes = data.get('notes')
+        
+        if not drawing_id or not material_id:
+            return jsonify({'error': 'drawing_id and material_id are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO drawing_materials 
+                    (drawing_id, material_id, quantity, unit_of_measure, usage_context, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING assignment_id
+                """, (
+                    drawing_id,
+                    material_id,
+                    quantity,
+                    unit_of_measure,
+                    usage_context,
+                    notes
+                ))
+                assignment_id = cur.fetchone()[0]
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({'assignment_id': str(assignment_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data-manager/drawing-materials/<assignment_id>', methods=['DELETE'])
+def remove_material_from_drawing(assignment_id):
+    """Remove a material assignment from a drawing"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM drawing_materials WHERE assignment_id = %s", (assignment_id,))
                 conn.commit()
         
         cache.clear()

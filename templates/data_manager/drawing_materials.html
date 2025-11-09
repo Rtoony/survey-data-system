@@ -1,0 +1,525 @@
+{% extends "base.html" %}
+
+{% block title %}Drawing-Materials Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-link neon-cyan"></i> Drawing-Materials Relationship Manager</h2>
+    <p class="subtitle">Link materials to drawings and track material specifications</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 400px 1fr; gap: 20px; height: calc(100vh - 200px);">
+    
+    <div class="panel" style="display: flex; flex-direction: column; height: 100%;">
+        <div style="margin-bottom: 15px;">
+            <h3 class="orbitron"><i class="fas fa-file-alt"></i> Drawings</h3>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="drawingSearch" placeholder="Search drawings..." 
+                   onkeyup="filterDrawings()" 
+                   style="width: 100%; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+        </div>
+
+        <div id="drawingLoadingMessage" class="alert" style="text-align: center;">
+            <i class="fas fa-spinner fa-spin"></i> Loading drawings...
+        </div>
+
+        <div id="drawingErrorMessage" class="alert alert-error" style="display: none;"></div>
+
+        <div id="drawingsListContainer" style="display: none; flex: 1; overflow-y: auto;">
+            <div id="drawingsList"></div>
+        </div>
+
+        <div id="drawingsEmptyMessage" class="alert" style="display: none; text-align: center;">
+            <i class="fas fa-inbox"></i> No drawings found.
+        </div>
+    </div>
+
+    <div class="panel" style="display: flex; flex-direction: column; height: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 class="orbitron"><i class="fas fa-tools"></i> Materials</h3>
+            <button id="addMaterialBtn" onclick="showAddMaterialModal()" class="btn btn-primary" style="display: none;">
+                <i class="fas fa-plus"></i> Add Material
+            </button>
+        </div>
+
+        <div id="noSelectionMessage" class="alert" style="text-align: center;">
+            <i class="fas fa-hand-pointer"></i> Select a drawing from the left to view and manage its materials.
+        </div>
+
+        <div id="materialsLoadingMessage" class="alert" style="display: none; text-align: center;">
+            <i class="fas fa-spinner fa-spin"></i> Loading materials...
+        </div>
+
+        <div id="materialsErrorMessage" class="alert alert-error" style="display: none;"></div>
+
+        <div id="materialsContainer" style="display: none; flex: 1; overflow-y: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Material</th>
+                        <th>Type</th>
+                        <th>Quantity</th>
+                        <th>Unit</th>
+                        <th>Usage Context</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="materialsTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div id="materialsEmptyMessage" class="alert" style="display: none; text-align: center;">
+            <i class="fas fa-inbox"></i> No materials assigned to this drawing yet.
+        </div>
+    </div>
+</div>
+
+<div id="addMaterialModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 class="orbitron">Add Material to Drawing</h3>
+            <span class="close" onclick="closeAddMaterialModal()">&times;</span>
+        </div>
+        <form id="addMaterialForm" onsubmit="saveMaterialAssignment(event)">
+            <div class="form-group">
+                <label for="materialSelect">Material *</label>
+                <select id="materialSelect" required>
+                    <option value="">Select Material...</option>
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="quantity">Quantity</label>
+                    <input type="number" step="0.01" id="quantity" placeholder="e.g., 100">
+                </div>
+                <div class="form-group">
+                    <label for="unitOfMeasure">Unit of Measure</label>
+                    <input type="text" id="unitOfMeasure" placeholder="e.g., CY, SF, LF">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="usageContext">Usage Context</label>
+                <input type="text" id="usageContext" placeholder="e.g., Foundation, Pavement, Structural">
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" rows="3" placeholder="Additional notes..."></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeAddMaterialModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Add Material
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.drawing-item {
+    padding: 12px;
+    margin-bottom: 8px;
+    background: rgba(0, 20, 40, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.drawing-item:hover {
+    background: rgba(0, 100, 150, 0.2);
+    border-color: var(--neon-cyan);
+}
+
+.drawing-item.selected {
+    background: rgba(0, 100, 150, 0.4);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0,200,255,0.3);
+}
+
+.drawing-item .drawing-name {
+    font-weight: 600;
+    color: var(--neon-cyan);
+    margin-bottom: 4px;
+}
+
+.drawing-item .drawing-info {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 20, 40, 0.4);
+}
+
+.data-table th {
+    background: rgba(0, 100, 150, 0.3);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--neon-cyan);
+    font-weight: 600;
+}
+
+.data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 100, 150, 0.2);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(0,20,40,0.95) 0%, rgba(0,40,80,0.95) 100%);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--neon-cyan);
+    width: 90%;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,200,255,0.3);
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close {
+    color: var(--neon-cyan);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    padding: 0 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--neon-cyan);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,20,40,0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+</style>
+
+<script>
+let allDrawings = [];
+let allMaterials = [];
+let selectedDrawingId = null;
+let currentMaterials = [];
+
+async function loadDrawings() {
+    try {
+        const response = await fetch('/api/drawings');
+        const data = await response.json();
+        
+        if (data.error) {
+            showDrawingError(data.error);
+            return;
+        }
+        
+        allDrawings = data.drawings || data || [];
+        renderDrawings();
+        
+    } catch (error) {
+        showDrawingError('Failed to load drawings: ' + error.message);
+    }
+}
+
+async function loadAvailableMaterials() {
+    try {
+        const response = await fetch('/api/data-manager/materials');
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Failed to load materials:', data.error);
+            return;
+        }
+        
+        allMaterials = data.materials || [];
+        populateMaterialDropdown();
+        
+    } catch (error) {
+        console.error('Failed to load materials:', error);
+    }
+}
+
+function populateMaterialDropdown() {
+    const dropdown = document.getElementById('materialSelect');
+    dropdown.innerHTML = '<option value="">Select Material...</option>';
+    
+    allMaterials.forEach(m => {
+        dropdown.innerHTML += `<option value="${m.material_id}" data-unit="${m.unit_of_measure || ''}">${m.material_name} (${m.material_type || 'N/A'})</option>`;
+    });
+}
+
+function filterDrawings() {
+    renderDrawings();
+}
+
+function renderDrawings() {
+    const search = document.getElementById('drawingSearch').value.toLowerCase();
+    
+    let filtered = allDrawings.filter(d => {
+        return !search || 
+            d.drawing_name.toLowerCase().includes(search) ||
+            (d.drawing_number && d.drawing_number.toLowerCase().includes(search));
+    });
+    
+    const listContainer = document.getElementById('drawingsList');
+    
+    if (filtered.length === 0) {
+        document.getElementById('drawingLoadingMessage').style.display = 'none';
+        document.getElementById('drawingsListContainer').style.display = 'none';
+        document.getElementById('drawingsEmptyMessage').style.display = 'block';
+        return;
+    }
+    
+    listContainer.innerHTML = filtered.map(d => `
+        <div class="drawing-item ${selectedDrawingId === d.drawing_id ? 'selected' : ''}" 
+             onclick="selectDrawing('${d.drawing_id}')">
+            <div class="drawing-name">${d.drawing_name}</div>
+            <div class="drawing-info">
+                ${d.drawing_number ? 'No. ' + d.drawing_number : 'No number'}
+                ${d.discipline ? ' • ' + d.discipline : ''}
+            </div>
+        </div>
+    `).join('');
+    
+    document.getElementById('drawingLoadingMessage').style.display = 'none';
+    document.getElementById('drawingsListContainer').style.display = 'block';
+    document.getElementById('drawingsEmptyMessage').style.display = 'none';
+}
+
+async function selectDrawing(drawingId) {
+    selectedDrawingId = drawingId;
+    renderDrawings();
+    
+    document.getElementById('noSelectionMessage').style.display = 'none';
+    document.getElementById('materialsLoadingMessage').style.display = 'block';
+    document.getElementById('materialsContainer').style.display = 'none';
+    document.getElementById('materialsEmptyMessage').style.display = 'none';
+    document.getElementById('materialsErrorMessage').style.display = 'none';
+    document.getElementById('addMaterialBtn').style.display = 'inline-block';
+    
+    await loadDrawingMaterials(drawingId);
+}
+
+async function loadDrawingMaterials(drawingId) {
+    try {
+        const response = await fetch(`/api/data-manager/drawing-materials/${drawingId}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            showMaterialsError(data.error);
+            return;
+        }
+        
+        currentMaterials = data.materials || [];
+        renderMaterials();
+        
+    } catch (error) {
+        showMaterialsError('Failed to load materials: ' + error.message);
+    }
+}
+
+function renderMaterials() {
+    const tbody = document.getElementById('materialsTableBody');
+    
+    if (currentMaterials.length === 0) {
+        document.getElementById('materialsLoadingMessage').style.display = 'none';
+        document.getElementById('materialsContainer').style.display = 'none';
+        document.getElementById('materialsEmptyMessage').style.display = 'block';
+        return;
+    }
+    
+    tbody.innerHTML = currentMaterials.map(m => `
+        <tr>
+            <td>
+                <strong>${m.material_name}</strong>
+                ${m.manufacturer ? '<br><small style="color: var(--text-muted);">' + m.manufacturer + '</small>' : ''}
+            </td>
+            <td>${m.material_type || '-'}</td>
+            <td>${m.quantity ? Number(m.quantity).toFixed(2) : '-'}</td>
+            <td>${m.unit_of_measure || m.material_default_unit || '-'}</td>
+            <td>
+                ${m.usage_context || '-'}
+                ${m.notes ? '<br><small style="color: var(--text-muted);">' + m.notes + '</small>' : ''}
+            </td>
+            <td>
+                <button onclick="removeMaterial('${m.assignment_id}')" class="btn btn-sm btn-danger" title="Remove">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    document.getElementById('materialsLoadingMessage').style.display = 'none';
+    document.getElementById('materialsContainer').style.display = 'block';
+    document.getElementById('materialsEmptyMessage').style.display = 'none';
+}
+
+function showAddMaterialModal() {
+    if (!selectedDrawingId) {
+        alert('Please select a drawing first.');
+        return;
+    }
+    
+    document.getElementById('addMaterialForm').reset();
+    document.getElementById('addMaterialModal').style.display = 'block';
+}
+
+function closeAddMaterialModal() {
+    document.getElementById('addMaterialModal').style.display = 'none';
+}
+
+document.getElementById('materialSelect').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const defaultUnit = selectedOption.getAttribute('data-unit');
+    if (defaultUnit) {
+        document.getElementById('unitOfMeasure').value = defaultUnit;
+    }
+});
+
+async function saveMaterialAssignment(event) {
+    event.preventDefault();
+    
+    const materialId = document.getElementById('materialSelect').value;
+    const quantity = document.getElementById('quantity').value;
+    const unitOfMeasure = document.getElementById('unitOfMeasure').value;
+    const usageContext = document.getElementById('usageContext').value;
+    const notes = document.getElementById('notes').value;
+    
+    try {
+        const response = await fetch('/api/data-manager/drawing-materials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                drawing_id: selectedDrawingId,
+                material_id: materialId,
+                quantity: quantity || null,
+                unit_of_measure: unitOfMeasure || null,
+                usage_context: usageContext || null,
+                notes: notes || null
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error: ' + data.error);
+            return;
+        }
+        
+        closeAddMaterialModal();
+        await loadDrawingMaterials(selectedDrawingId);
+        
+    } catch (error) {
+        alert('Failed to add material: ' + error.message);
+    }
+}
+
+async function removeMaterial(assignmentId) {
+    if (!confirm('Are you sure you want to remove this material from the drawing?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/data-manager/drawing-materials/${assignmentId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error: ' + data.error);
+            return;
+        }
+        
+        await loadDrawingMaterials(selectedDrawingId);
+        
+    } catch (error) {
+        alert('Failed to remove material: ' + error.message);
+    }
+}
+
+function showDrawingError(message) {
+    document.getElementById('drawingErrorMessage').textContent = message;
+    document.getElementById('drawingErrorMessage').style.display = 'block';
+    document.getElementById('drawingLoadingMessage').style.display = 'none';
+    document.getElementById('drawingsListContainer').style.display = 'none';
+}
+
+function showMaterialsError(message) {
+    document.getElementById('materialsErrorMessage').textContent = message;
+    document.getElementById('materialsErrorMessage').style.display = 'block';
+    document.getElementById('materialsLoadingMessage').style.display = 'none';
+    document.getElementById('materialsContainer').style.display = 'none';
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('addMaterialModal');
+    if (event.target === modal) {
+        closeAddMaterialModal();
+    }
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+    loadDrawings();
+    loadAvailableMaterials();
+});
+</script>
+{% endblock %}
