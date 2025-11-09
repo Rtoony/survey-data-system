@@ -25,6 +25,13 @@
         <input type="text" id="searchInput" placeholder="Search drawings..." 
                onkeyup="filterTable()" 
                style="flex: 1; padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+        <select id="tierFilter" onchange="filterTable()" 
+                style="padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+            <option value="">All Tiers</option>
+            <option value="tier1_design">Tier 1: Design</option>
+            <option value="tier2_geometry">Tier 2: Geometry</option>
+            <option value="tier3_sheets">Tier 3: Sheets</option>
+        </select>
         <select id="disciplineFilter" onchange="filterTable()" 
                 style="padding: 10px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
             <option value="">All Disciplines</option>
@@ -47,6 +54,7 @@
                 <tr>
                     <th>Drawing Name</th>
                     <th>Number</th>
+                    <th>Tier</th>
                     <th>Discipline</th>
                     <th>Project</th>
                     <th>Entities</th>
@@ -92,7 +100,9 @@
                 </div>
                 <div class="form-group">
                     <label for="discipline">Discipline</label>
-                    <input type="text" id="discipline" placeholder="e.g., CIV, ARCH">
+                    <select id="discipline">
+                        <option value="">Select Discipline...</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="drawingType">Type</label>
@@ -100,7 +110,19 @@
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="drawingTier">
+                        Drawing Tier
+                        <i class="fas fa-info-circle" title="Civil 3D tier structure: Tier 1 (design data), Tier 2 (geometry), Tier 3 (sheets/annotation)" style="font-size: 0.85em; color: var(--neon-cyan); cursor: help;"></i>
+                    </label>
+                    <select id="drawingTier">
+                        <option value="">Select Tier...</option>
+                        <option value="tier1_design">Tier 1: Design Data</option>
+                        <option value="tier2_geometry">Tier 2: Background Geometry</option>
+                        <option value="tier3_sheets">Tier 3: Sheets & Annotation</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="sheetTitle">Sheet Title</label>
                     <input type="text" id="sheetTitle" placeholder="Title for sheet header">
@@ -222,6 +244,7 @@
 <script>
 let allDrawings = [];
 let allProjects = [];
+let allDisciplines = [];
 
 async function loadProjects() {
     try {
@@ -235,11 +258,30 @@ async function loadProjects() {
     }
 }
 
+async function loadDisciplines() {
+    try {
+        const response = await fetch('/api/disciplines');
+        const data = await response.json();
+        allDisciplines = data.disciplines || data || [];
+        populateDisciplineDropdown();
+    } catch (error) {
+        console.error('Failed to load disciplines:', error);
+    }
+}
+
 function populateProjectDropdown() {
     const dropdown = document.getElementById('projectId');
     dropdown.innerHTML = '<option value="">Select Project...</option>';
     allProjects.forEach(p => {
         dropdown.innerHTML += `<option value="${p.project_id}">${p.project_name}</option>`;
+    });
+}
+
+function populateDisciplineDropdown() {
+    const dropdown = document.getElementById('discipline');
+    dropdown.innerHTML = '<option value="">Select Discipline...</option>';
+    allDisciplines.forEach(d => {
+        dropdown.innerHTML += `<option value="${d.discipline_code}">${d.discipline_name}</option>`;
     });
 }
 
@@ -279,9 +321,20 @@ function populateFilters() {
     });
 }
 
+function getTierBadge(tier) {
+    if (!tier) return '-';
+    const badges = {
+        'tier1_design': '<span style="background: rgba(255,100,100,0.3); color: #ff6666; padding: 3px 8px; border-radius: 3px; font-size: 0.85em; font-weight: 600;">T1: Design</span>',
+        'tier2_geometry': '<span style="background: rgba(100,255,100,0.3); color: #66ff66; padding: 3px 8px; border-radius: 3px; font-size: 0.85em; font-weight: 600;">T2: Geometry</span>',
+        'tier3_sheets': '<span style="background: rgba(100,100,255,0.3); color: #6666ff; padding: 3px 8px; border-radius: 3px; font-size: 0.85em; font-weight: 600;">T3: Sheets</span>'
+    };
+    return badges[tier] || tier;
+}
+
 function renderTable() {
     const tbody = document.getElementById('drawingsTableBody');
     const search = document.getElementById('searchInput').value.toLowerCase();
+    const tierFilter = document.getElementById('tierFilter').value;
     const disciplineFilter = document.getElementById('disciplineFilter').value;
     const projectFilter = document.getElementById('projectFilter').value;
     
@@ -290,10 +343,11 @@ function renderTable() {
             drawing.drawing_name.toLowerCase().includes(search) ||
             (drawing.drawing_number && drawing.drawing_number.toLowerCase().includes(search));
         
+        const matchesTier = !tierFilter || drawing.drawing_tier === tierFilter;
         const matchesDiscipline = !disciplineFilter || drawing.discipline === disciplineFilter;
         const matchesProject = !projectFilter || drawing.project_id === projectFilter;
         
-        return matchesSearch && matchesDiscipline && matchesProject;
+        return matchesSearch && matchesTier && matchesDiscipline && matchesProject;
     });
     
     if (filtered.length === 0) {
@@ -309,6 +363,7 @@ function renderTable() {
         <tr>
             <td><strong>${d.drawing_name}</strong></td>
             <td>${d.drawing_number || '-'}</td>
+            <td>${getTierBadge(d.drawing_tier)}</td>
             <td>${d.discipline || '-'}</td>
             <td>${project ? project.project_name : '-'}</td>
             <td>${d.entity_count || 0}</td>
@@ -349,6 +404,7 @@ function editDrawing(drawingId) {
     document.getElementById('drawingNumber').value = drawing.drawing_number || '';
     document.getElementById('projectId').value = drawing.project_id || '';
     document.getElementById('discipline').value = drawing.discipline || '';
+    document.getElementById('drawingTier').value = drawing.drawing_tier || '';
     document.getElementById('drawingType').value = drawing.drawing_type || '';
     document.getElementById('sheetTitle').value = drawing.sheet_title || '';
     document.getElementById('scale').value = drawing.scale || '';
@@ -365,6 +421,7 @@ async function saveDrawing(event) {
         drawing_number: document.getElementById('drawingNumber').value || null,
         project_id: document.getElementById('projectId').value,
         discipline: document.getElementById('discipline').value || null,
+        drawing_tier: document.getElementById('drawingTier').value || null,
         drawing_type: document.getElementById('drawingType').value || null,
         sheet_title: document.getElementById('sheetTitle').value || null,
         scale: document.getElementById('scale').value || null
@@ -444,6 +501,7 @@ window.onclick = function(event) {
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadProjects();
+    await loadDisciplines();
     await loadDrawings();
 });
 </script>
