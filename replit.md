@@ -2,7 +2,7 @@
 
 ## Overview
 
-ACAD-GIS is an AI-first, database-centric CAD/GIS system designed for machine learning, embeddings, and GraphRAG. It aims to replace traditional file-based CAD workflows with a PostgreSQL/PostGIS database, optimizing for AI understanding and semantic reasoning. The system provides a unified entity model, centralized embeddings, explicit graph edges for GraphRAG, and built-in ML feature engineering, enabling hybrid search across CAD/GIS data. Key capabilities include a Schema Explorer, CAD Standards Portal, and Python ML Tools for intelligent CAD operations, with a focus on civil engineering and surveying workflows. This project aims to revolutionize CAD/GIS data management by integrating AI directly into the core architecture, offering enhanced data consistency, semantic understanding, and automated compliance tracking for civil engineering and surveying firms.
+ACAD-GIS is an AI-first, database-centric CAD/GIS system designed for machine learning, embeddings, and GraphRAG. It replaces traditional file-based CAD workflows with a PostgreSQL/PostGIS database, optimizing for AI understanding and semantic reasoning. The system provides a unified entity model, centralized embeddings, explicit graph edges for GraphRAG, and built-in ML feature engineering, enabling hybrid search across CAD/GIS data. Key capabilities include a Schema Explorer, CAD Standards Portal, and Python ML Tools for intelligent CAD operations, with a focus on civil engineering and surveying workflows. This project aims to revolutionize CAD/GIS data management by integrating AI directly into the core architecture, offering enhanced data consistency, semantic understanding, and automated compliance tracking for civil engineering and surveying firms.
 
 ## User Preferences
 
@@ -15,16 +15,15 @@ Preferred communication style: Simple, everyday language.
 - **AI/ML Stack:** Vector embeddings (1536 dimensions), GraphRAG, full-text search.
 - **Web Framework:** Flask (Python) for server-rendered HTML and JSON APIs.
 - **Frontend:** Jinja2 templating, Mission Control-themed CSS, vanilla JavaScript, Leaflet.js.
-- **Spatial:** PostGIS with SRID 2226 (California State Plane Zone 2, US Survey Feet) for GIS and SRID 0 for CAD data.
+- **Spatial:** PostGIS with SRID 2226 for GIS and SRID 0 for CAD data.
 
 **AI-First Database Architecture:**
-- **Unified Entity Registry (`standards_entities`):** Canonical identity for all CAD/GIS elements.
-- **Entity Registry (`entity_registry`):** Validated registry of database tables that can store CAD objects, enforcing referential integrity between layer vocabulary and database schema. Each entry validates table existence in `information_schema.tables` before registration.
-- **Centralized Embeddings (`entity_embeddings`):** Stores versioned vector embeddings.
-- **Graph Edges (`entity_relationships`):** Defines explicit spatial, engineering, and semantic relationships for GraphRAG.
+- **Unified Entity Registry:** Canonical identity for all CAD/GIS elements (`standards_entities`, `entity_registry`).
+- **Centralized Embeddings:** Stores versioned vector embeddings (`entity_embeddings`).
+- **Graph Edges:** Defines explicit spatial, engineering, and semantic relationships for GraphRAG (`entity_relationships`).
 - **Quality Scoring:** `quality_score` column for data quality assessment.
-- **Full-Text Search:** `search_vector` tsvector columns with weighted search.
-- **JSONB Attributes:** Flexible metadata storage in `attributes` columns.
+- **Full-Text Search:** `search_vector` tsvector columns.
+- **JSONB Attributes:** Flexible metadata storage.
 - **Vector Indexing:** IVFFlat indexes for fast similarity search.
 - **Spatial Indexing:** GIST indexes on PostGIS geometry columns.
 
@@ -33,43 +32,27 @@ Preferred communication style: Simple, everyday language.
 - **Quality-Driven:** Entities have quality scores based on completeness, embeddings, and relationships.
 - **Server-Side Rendering:** Flask serves Jinja2 templates, augmented by client-side JavaScript.
 - **Materialized Views:** Pre-computed views for fast AI queries.
-- **Modular Standards Management:** Separation of "Standards Library" from "Project Operations" with clear navigation, project assignment, and compliance tracking.
-- **Database-Driven Vocabulary:** Implemented a comprehensive, database-backed controlled vocabulary system for CAD elements (disciplines, categories, object types, phases, geometries) with full CRUD and automatic propagation across the application.
-- **CAD Layer Naming Standards:** Defined and implemented a database-driven classifier (`[DISCIPLINE]-[CATEGORY]-[OBJECT_TYPE]-[PHASE]-[GEOMETRY]`) for CAD layer names, supporting extraction of attributes like diameter and network mode.
-- **Split Vocabulary Architecture:** Separated layer-specific vocabulary (/standards/layer-vocabulary) from general reference data management (/standards/reference-data) for better organization and focused workflows.
-- **Mission Control Design System:** Centralized design system in static/css/styles.css with reusable mc-* classes and --mc-* CSS variables. Cyan/neon color palette (#00ffff primary, #ff00ff secondary, #00ff88 accent) with Orbitron headings and Rajdhani body text. All 27+ templates use shared styles for visual consistency.
-- **Horizontal Navigation Architecture:** Replaced vertical sidebar with sticky horizontal navbar in base.html featuring 10 dropdown menus (Home, Standards, Data Manager, Mapping, Projects, Tools, Analytics, AI, Database, About) organizing 41 navigation items. Implements hybrid hover/click dropdowns with ARIA accessibility, responsive mobile hamburger menu, and automatic active state highlighting. All templates must extend base.html to inherit the shared navbar and Mission Control theme.
+- **Modular Standards Management:** Separation of "Standards Library" from "Project Operations" with clear navigation and compliance tracking.
+- **Database-Driven Vocabulary:** Comprehensive, database-backed controlled vocabulary system for CAD elements with full CRUD.
+- **CAD Layer Naming Standards:** Database-driven classifier (`[DISCIPLINE]-[CATEGORY]-[OBJECT_TYPE]-[PHASE]-[GEOMETRY]`) for CAD layer names.
+- **Mission Control Design System:** Centralized design system with reusable classes, variables, and a cyan/neon color palette. All templates extend `base.html` for consistency.
+- **Horizontal Navigation Architecture:** Sticky horizontal navbar in `base.html` with 10 dropdown menus and 41 navigation items, implementing hybrid hover/click dropdowns, ARIA accessibility, and a responsive mobile hamburger menu.
+- **Projects Navigation Restructure:** Unified projects functionality under `/projects` route with search, CRUD, and individual project overviews.
 
 **Key Features & Design:**
-- **Layer Vocabulary Page (/standards/layer-vocabulary):** Dedicated interface for database-driven layer naming classification with 7 tabs (Overview, Disciplines, Categories, Object Types, Phases, Geometries, Full Hierarchy). Object Type codes link to validated database tables via Entity Registry dropdown with server-side validation.
-- **Reference Data Hub (/standards/reference-data):** Centralized management of system configuration and reference tables with 6 fully functional tabs:
-  - **Entity Registry:** Full CRUD interface for managing valid database entity tables with real-time table existence validation, category grouping, and modal editing.
-  - **Clients:** Client management with contact information, location data, and project assignment capabilities. Supports full CRUD operations with soft delete.
-  - **Vendors:** Vendor database with specialty tracking, certifications, contact details, and equipment/service categorization. Full CRUD with soft delete.
-  - **Municipalities:** Municipality database for tracking local government entities, permit portals, CAD standards URLs, FIPS codes, and agency contacts. Full CRUD with soft delete.
-  - **Coordinate Systems:** Coordinate reference system registry with EPSG codes, datum information, units, zones, and regional categorization. Integrates with existing coordinate_systems table. Full CRUD with soft delete.
-  - **Survey Point Descriptions:** Standardized survey point code library with descriptions, categories, discipline assignment, symbol references, and layer suggestions. Supports custom and standard codes. Full CRUD with soft delete and unique code validation.
-- **Schema Explorer & Data Manager:** CRUD operations for CAD standards, including a complete vocabulary inline editing interface.
-- **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards, including a curated layer examples catalog.
-- **Standards Mapping Framework:** 11-table database schema with 5 name mapping managers (blocks, details, hatches, materials, notes) supporting bidirectional DXF↔Database translation, a visualization dashboard, and full-text search.
-- **Project Context Mapping Manager:** Manages 6 relationship types (Keynote↔Block, Keynote↔Detail, Hatch↔Material, Detail↔Material, Block↔Specification, Cross-References) with project-scoped views, modal editing, and hybrid typeahead search UI.
-- **Standards Documentation Export:** Generates client handoffs and training materials in Excel, CSV, HTML, and PDF formats.
+- **Standards Management:** Dedicated interfaces for Layer Vocabulary (`/standards/layer-vocabulary`) and Reference Data Hub (`/standards/reference-data`) for managing entities, clients, vendors, municipalities, coordinate systems, and survey point descriptions with full CRUD.
+- **Schema Explorer & Data Manager:** CRUD operations for CAD standards and vocabulary inline editing.
+- **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards.
+- **Standards Mapping Framework:** 11-table database schema with 5 name mapping managers (blocks, details, hatches, materials, notes) supporting bidirectional DXF↔Database translation.
+- **Project Context Mapping Manager:** Manages 6 relationship types (Keynote↔Block, Keynote↔Detail, Hatch↔Material, Detail↔Material, Block↔Specification, Cross-References).
+- **Standards Documentation Export:** Generates client handoffs and training materials (Excel, CSV, HTML, PDF).
 - **DXF Tools:** Full DXF import/export with intelligent object creation, change detection, and bidirectional sync.
 - **Map Viewer & Export:** Interactive Leaflet map with coordinate transformation, bounding box export, and measurement tools.
-- **Entity Viewer (/entity-viewer):** Lightweight 2D viewer for project entities with SVG rendering on black background, supporting 8 entity types (parcels, utility lines, structures, survey points, alignments, easements, ROW, drawing entities). Features project/drawing/layer multi-select filters, auto-fit viewport, hover/click entity info, and dynamic legend with entity type and layer counts. Handles both project_id and drawing_id scoped tables with proper coordinate transformation to EPSG:4326.
-- **Network Managers Suite:** Unified framework of specialized manager tools for different infrastructure types, all following the Entity Viewer pattern with shared viewer core module (static/js/entity_viewer_core.js - 27KB reusable class):
-  - **Shared Entity Viewer Core Features:** Mouse wheel zoom (0.5x-10x), click-drag panning, zoom controls (+/-/reset/zoom%), auto-scaled coordinate grid, north arrow, dynamic scale bar (ft/mi), SVG viewBox manipulation for smooth performance. All features enabled by default across all managers.
-  - **Gravity Pipe Network Manager (/gravity-network-manager):** Manages gravity-flow networks (Storm/Sanitary) with color-coded visualization (Storm=orange, Sanitary=blue), bidirectional selection sync, auto-fit viewport, zoom/pan/grid navigation, and pressure-specific editing for inverts/slopes. Includes Auto-Connect and Save Changes functionality.
-  - **Pressure Pipe Network Manager (/pressure-network-manager):** Manages pressurized networks (Potable/Reclaimed/Fire) with color-coded visualization (Potable=blue, Reclaimed=purple, Fire=red), zoom/pan/grid navigation, pressure-specific database tables (utility_line_pressure_data, utility_structure_pressure_data, pressure_zones), and editing for pressure ratings, valve types/status, and flow directions.
-  - **BMP Manager (/bmp-manager):** Manages stormwater Best Management Practices with polygon rendering, color-coded by BMP type (bioswale, detention basin, retention basin, etc.), zoom/pan/grid navigation, dedicated database schema (storm_bmps, bmp_inflow_outflow, bmp_drainage_areas, bmp_maintenance_log), and editing for treatment volumes, infiltration rates, and drainage areas.
-- **Unified Batch CAD Import Tool (/tools/batch-cad-import):** Productivity tool for batch importing 4 types of CAD elements from DXF files: **Blocks** (symbols), **Details** (construction details), **Hatches** (fill patterns), and **Linetypes** (line patterns). Built with strategy pattern architecture using `BatchCADExtractor` factory and discrete extractor modules (`BlockExtractor`, `DetailExtractor`, `HatchExtractor`, `LinetypeExtractor`). Features drag-and-drop multi-file upload, automatic element extraction with CAD Layer Vocabulary integration for smart category/discipline suggestions, SVG preview generation (matplotlib Agg backend), existing element detection, conflict resolution (import/update/skip actions), search/filter capabilities, and batch selection controls. Unified API endpoints (`/api/batch-cad-import/extract`, `/api/batch-cad-import/save`) dispatch to type-specific handlers with backward-compatible legacy routes. Supports importing entire CAD libraries in minutes vs hours of manual entry. Legacy route `/tools/batch-block-import` redirects to unified tool.
-- **Drawing Usage Tracking Dashboard:** Provides analytics on drawing/layer/block/note usage patterns.
-- **Civil Project Manager (/projects/<id>):** Comprehensive project overview dashboard with 5 tabs (Overview, Drawings, Reference Data, Compliance, Standards). Features 60/40 hero section with Leaflet map showing project spatial extent + editable project information card. Built on metadata-driven CRUD architecture with 6 project mapping tables.
-  - **Project Mapping Architecture:** 6 database tables (project_clients, project_vendors, project_municipalities, project_coordinate_systems, project_survey_point_descriptions, project_gis_layers) with unified schema (mapping_id PK, project_id FK, entity_id FK, is_primary, relationship_notes, display_order, is_active). Metadata-driven registry (`project_mapping_registry.py`) and generic service class (`ProjectMappingService`) enable DRY CRUD operations across all entity types via 5 reusable API endpoints.
-  - **Overview Tab:** Displays real-time project KPIs (drawing count, CAD entity count, reference data summary, spatial data status) using efficient UNION ALL COUNT queries. Shows comprehensive reference data breakdown (6 entity types) with auto-population via statistics API endpoint. Only counts active attachments (is_active = true) to reflect current project state.
-  - **Reference Data Tab:** Manages project attachments for 6 entity types with universal attachment modal, search functionality, primary designation toggle, relationship notes, and real-time attach/detach operations. Uses entity-specific rendering config for dynamic display fields. Supports soft delete with automatic statistics updates.
-  - **Drawings Tab:** Lists all project drawings with file metadata, entity counts, and quick actions.
-  - **API Endpoints:** GET `/api/projects/<id>` (project details), GET `/api/projects/<id>/statistics` (KPIs with efficient counts), GET `/api/projects/<id>/drawings` (drawings list), GET `/api/projects/<id>/map-summary` (PostGIS spatial extent + GeoJSON features), and generic CRUD endpoints `/api/projects/<id>/<entity_type>` (list/attach/update/detach for all 6 entity types).
+- **Entity Viewer (`/entity-viewer`):** Lightweight 2D viewer for project entities with SVG rendering, supporting 8 entity types, multi-select filters, and dynamic legend.
+- **Network Managers Suite:** Unified framework of specialized manager tools (Gravity Pipe, Pressure Pipe, BMP Manager) following the Entity Viewer pattern, with shared core module for zoom, pan, grid, scale, and north arrow functionalities.
+- **Unified Batch CAD Import Tool (`/tools/batch-cad-import`):** Productivity tool for batch importing Blocks, Details, Hatches, and Linetypes from DXF files. Features drag-and-drop upload, automatic extraction, SVG preview, conflict resolution, and batch selection.
+- **Drawing Usage Tracking Dashboard:** Analytics on drawing/layer/block/note usage patterns.
+- **Civil Project Manager (`/projects/<id>`):** Comprehensive project overview dashboard with 5 tabs (Overview, Drawings, Reference Data, Compliance, Standards). Features Leaflet map, editable project information, and a metadata-driven CRUD architecture for managing project-specific attachments across 6 entity types.
 - **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance.
 - **Interactive AI Visualizations:** Knowledge Graph Visualization and a Quality Dashboard.
 
