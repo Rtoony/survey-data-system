@@ -421,8 +421,9 @@ class EntityViewerCore {
         const newWidth = this.baseViewBox.width / this.zoomLevel;
         const newHeight = this.baseViewBox.height / this.zoomLevel;
         
-        const panFactorX = this.panX / this.zoomLevel / 5;
-        const panFactorY = this.panY / this.zoomLevel / 5;
+        const panSensitivity = 2.5;
+        const panFactorX = this.panX * panSensitivity / this.zoomLevel;
+        const panFactorY = this.panY * panSensitivity / this.zoomLevel;
         
         const x = centerX - newWidth / 2 - panFactorX;
         const y = centerY - newHeight / 2 - panFactorY;
