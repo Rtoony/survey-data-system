@@ -42,7 +42,13 @@ Preferred communication style: Simple, everyday language.
 
 **Key Features & Design:**
 - **Layer Vocabulary Page (/standards/layer-vocabulary):** Dedicated interface for database-driven layer naming classification with 7 tabs (Overview, Disciplines, Categories, Object Types, Phases, Geometries, Full Hierarchy). Object Type codes link to validated database tables via Entity Registry dropdown with server-side validation.
-- **Reference Data Hub (/standards/reference-data):** Centralized management of system configuration and reference tables. Entity Registry tab provides full CRUD interface for managing valid database entity tables with real-time table existence validation, category grouping, and modal editing. Future tabs: Clients, Vendors, Municipalities, Coordinate Systems, Survey Point Descriptions.
+- **Reference Data Hub (/standards/reference-data):** Centralized management of system configuration and reference tables with 6 fully functional tabs:
+  - **Entity Registry:** Full CRUD interface for managing valid database entity tables with real-time table existence validation, category grouping, and modal editing.
+  - **Clients:** Client management with contact information, location data, and project assignment capabilities. Supports full CRUD operations with soft delete.
+  - **Vendors:** Vendor database with specialty tracking, certifications, contact details, and equipment/service categorization. Full CRUD with soft delete.
+  - **Municipalities:** Municipality database for tracking local government entities, permit portals, CAD standards URLs, FIPS codes, and agency contacts. Full CRUD with soft delete.
+  - **Coordinate Systems:** Coordinate reference system registry with EPSG codes, datum information, units, zones, and regional categorization. Integrates with existing coordinate_systems table. Full CRUD with soft delete.
+  - **Survey Point Descriptions:** Standardized survey point code library with descriptions, categories, discipline assignment, symbol references, and layer suggestions. Supports custom and standard codes. Full CRUD with soft delete and unique code validation.
 - **Schema Explorer & Data Manager:** CRUD operations for CAD standards, including a complete vocabulary inline editing interface.
 - **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards, including a curated layer examples catalog.
 - **Standards Mapping Framework:** 11-table database schema with 5 name mapping managers (blocks, details, hatches, materials, notes) supporting bidirectional DXF↔Database translation, a visualization dashboard, and full-text search.
