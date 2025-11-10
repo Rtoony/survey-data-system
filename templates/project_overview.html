@@ -3,8 +3,12 @@
 {% block title %}Project Overview{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
 {% endblock %}
 
 {% block content %}
@@ -700,21 +704,23 @@ async function initializeMap(mapData) {
     return new Promise((resolve, reject) => {
         function tryInitMap(attempts = 0) {
             if (typeof L === 'undefined') {
-                if (attempts < 20) {
-                    console.log(`Waiting for Leaflet... attempt ${attempts + 1}`);
-                    setTimeout(() => tryInitMap(attempts + 1), 100);
+                if (attempts < 30) {
+                    if (attempts % 5 === 0) {
+                        console.log(`Waiting for Leaflet library... attempt ${attempts + 1}`);
+                    }
+                    setTimeout(() => tryInitMap(attempts + 1), 150);
                 } else {
-                    reject(new Error('Leaflet library failed to load'));
+                    console.error('Failed to load Leaflet after 30 attempts');
+                    reject(new Error('Leaflet library failed to load after 4.5 seconds'));
                 }
                 return;
             }
             
             try {
-                console.log('Initializing map...');
+                console.log(`✓ Leaflet loaded! Initializing map...`);
                 document.getElementById('mapPlaceholder').style.display = 'none';
                 document.getElementById('projectMap').style.display = 'block';
                 
-                console.log('Creating Leaflet map...');
                 map = L.map('projectMap', {
                     zoomControl: true,
                     dragging: true,
@@ -725,13 +731,11 @@ async function initializeMap(mapData) {
                     keyboard: false
                 });
                 
-                console.log('Adding tile layer...');
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors',
+                    attribution: '&copy; OpenStreetMap',
                     maxZoom: 19
                 }).addTo(map);
                 
-                console.log('Setting bounds:', mapData.bbox);
                 const bounds = [
                     [mapData.bbox.min_y, mapData.bbox.min_x],
                     [mapData.bbox.max_y, mapData.bbox.max_x]
@@ -739,7 +743,6 @@ async function initializeMap(mapData) {
                 
                 map.fitBounds(bounds, { padding: [50, 50] });
                 
-                console.log('Adding GeoJSON features (Project Area)...');
                 L.geoJSON(mapData.features, {
                     style: {
                         color: '#00ffff',
@@ -750,9 +753,10 @@ async function initializeMap(mapData) {
                     }
                 }).addTo(map);
                 
-                console.log('Map loaded successfully');
+                console.log('✓ Map rendered with project area boundary');
                 resolve();
             } catch (error) {
+                console.error('Error initializing map:', error);
                 reject(error);
             }
         }
