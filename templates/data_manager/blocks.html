@@ -309,7 +309,7 @@ function renderTable() {
     blocksData.forEach(item => {
         const row = tbody.insertRow();
         
-        // SVG Preview
+        // SVG Preview Cell
         const svgCell = row.insertCell();
         const svgPreview = document.createElement('div');
         svgPreview.className = 'svg-preview';
@@ -333,20 +333,38 @@ function renderTable() {
         }
         svgCell.appendChild(svgPreview);
         
-        // Rest of the cells
-        row.innerHTML += `
-            <td><strong>${escapeHtml(item.block_name || '')}</strong></td>
-            <td>${escapeHtml(item.category || '')}</td>
-            <td>${escapeHtml(item.description || '')}</td>
-            <td>
-                <button onclick="editBlock('${item.block_id}')" class="btn btn-secondary btn-sm" title="Edit">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button onclick="deleteBlock('${item.block_id}', '${escapeHtml(item.block_name)}')" class="btn btn-danger btn-sm" title="Delete">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        `;
+        // Block Name Cell
+        const nameCell = row.insertCell();
+        const nameStrong = document.createElement('strong');
+        nameStrong.textContent = item.block_name || '';
+        nameCell.appendChild(nameStrong);
+        
+        // Category Cell
+        const catCell = row.insertCell();
+        catCell.textContent = item.category || '';
+        
+        // Description Cell
+        const descCell = row.insertCell();
+        descCell.textContent = item.description || '';
+        
+        // Actions Cell
+        const actionsCell = row.insertCell();
+        
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-secondary btn-sm';
+        editBtn.title = 'Edit';
+        editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+        editBtn.onclick = () => editBlock(item.block_id);
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-danger btn-sm';
+        deleteBtn.title = 'Delete';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+        deleteBtn.onclick = () => deleteBlock(item.block_id, item.block_name);
+        
+        actionsCell.appendChild(editBtn);
+        actionsCell.appendChild(document.createTextNode(' '));
+        actionsCell.appendChild(deleteBtn);
     });
 }
 
