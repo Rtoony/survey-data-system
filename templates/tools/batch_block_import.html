@@ -574,18 +574,28 @@ document.getElementById('selectAllBtn').addEventListener('click', () => {
     extractedBlocks.forEach((block, i) => {
         block.action = block.exists ? 'update' : 'import';
         const select = document.querySelector(`.action-select[data-index="${i}"]`);
-        if (select) select.value = block.action;
+        const card = document.querySelector(`.block-card[data-index="${i}"]`);
+        if (select) {
+            select.value = block.action;
+        }
+        if (card) {
+            updateCardSelection(card, block.action);
+        }
     });
-    renderBlockPreview();
 });
 
 document.getElementById('deselectAllBtn').addEventListener('click', () => {
     extractedBlocks.forEach((block, i) => {
         block.action = 'skip';
         const select = document.querySelector(`.action-select[data-index="${i}"]`);
-        if (select) select.value = 'skip';
+        const card = document.querySelector(`.block-card[data-index="${i}"]`);
+        if (select) {
+            select.value = 'skip';
+        }
+        if (card) {
+            updateCardSelection(card, 'skip');
+        }
     });
-    renderBlockPreview();
 });
 
 // Import blocks
