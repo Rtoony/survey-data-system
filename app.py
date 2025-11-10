@@ -2667,6 +2667,92 @@ def get_project_compliance(project_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/project-compliance/<project_id>/conformance-details', methods=['GET'])
+def get_project_conformance_details(project_id):
+    """Get detailed conformance tracking data for a project (sheet notes only for now)"""
+    try:
+        # Get conformance status rollup
+        conformance_rollup_query = """
+            SELECT 
+                cs.status_code,
+                cs.status_name,
+                cs.color_hex,
+                COUNT(psn.conformance_status_id) as count
+            FROM conformance_statuses cs
+            LEFT JOIN (
+                SELECT psn.conformance_status_id
+                FROM project_sheet_notes psn
+                JOIN sheet_note_sets sns ON psn.set_id = sns.set_id
+                WHERE sns.project_id = %s::uuid
+            ) psn ON cs.status_id = psn.conformance_status_id
+            WHERE cs.is_active = TRUE
+            GROUP BY cs.status_id, cs.status_code, cs.status_name, cs.color_hex, cs.sort_order
+            ORDER BY cs.sort_order
+        """
+        conformance_statuses = execute_query(conformance_rollup_query, (project_id,))
+        
+        # Get deviation categories breakdown
+        deviation_categories_query = """
+            SELECT 
+                dc.category_code,
+                dc.category_name,
+                COUNT(psn.deviation_category_id) as count,
+                ARRAY_AGG(psn.display_code ORDER BY psn.display_code) FILTER (WHERE psn.display_code IS NOT NULL) as sample_codes
+            FROM deviation_categories dc
+            LEFT JOIN (
+                SELECT psn.deviation_category_id, psn.display_code
+                FROM project_sheet_notes psn
+                JOIN sheet_note_sets sns ON psn.set_id = sns.set_id
+                WHERE sns.project_id = %s::uuid
+            ) psn ON dc.category_id = psn.deviation_category_id
+            WHERE dc.is_active = TRUE
+            GROUP BY dc.category_id, dc.category_code, dc.category_name, dc.sort_order
+            HAVING COUNT(psn.deviation_category_id) > 0
+            ORDER BY dc.sort_order
+        """
+        deviation_categories = execute_query(deviation_categories_query, (project_id,))
+        
+        # Get standardization candidates (custom notes used multiple times or nominated)
+        standardization_candidates_query = """
+            SELECT 
+                psn.project_note_id,
+                psn.custom_title,
+                psn.display_code,
+                psn.usage_count,
+                sns.set_name,
+                ss.status_name as standardization_status
+            FROM project_sheet_notes psn
+            JOIN sheet_note_sets sns ON psn.set_id = sns.set_id
+            LEFT JOIN standardization_statuses ss ON psn.standardization_status_id = ss.status_id
+            WHERE sns.project_id = %s::uuid
+              AND psn.source_type = 'custom'
+              AND (psn.usage_count > 2 OR ss.status_code IN ('NOMINATED', 'UNDER_REVIEW', 'APPROVED'))
+            ORDER BY psn.usage_count DESC, psn.custom_title
+            LIMIT 20
+        """
+        standardization_candidates = execute_query(standardization_candidates_query, (project_id,))
+        
+        # Calculate summary metrics
+        total_notes = sum(status['count'] for status in conformance_statuses)
+        total_with_deviations = sum(cat['count'] for cat in deviation_categories)
+        
+        full_compliance_count = next((s['count'] for s in conformance_statuses if s['status_code'] == 'FULL_COMPLIANCE'), 0)
+        conformance_percentage = (full_compliance_count / total_notes * 100) if total_notes > 0 else 0
+        
+        return jsonify({
+            'summary': {
+                'total_notes': total_notes,
+                'total_with_deviations': total_with_deviations,
+                'conformance_percentage': conformance_percentage,
+                'candidates_count': len(standardization_candidates)
+            },
+            'conformance_statuses': conformance_statuses,
+            'deviation_categories': deviation_categories,
+            'standardization_candidates': standardization_candidates
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ============================================================================
 # SHEET SETS MANAGER API ENDPOINTS
 # ============================================================================
