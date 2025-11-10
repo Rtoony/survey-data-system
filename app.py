@@ -110,6 +110,11 @@ def projects_page():
     """Projects manager page"""
     return render_template('projects.html')
 
+@app.route('/projects/<project_id>')
+def project_overview(project_id):
+    """Project Overview dashboard page"""
+    return render_template('project_overview.html', project_id=project_id)
+
 @app.route('/drawings')
 def drawings_page():
     """Drawings manager page"""
@@ -451,6 +456,22 @@ def delete_project(project_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/projects/<project_id>')
+def get_project(project_id):
+    """Get a single project by ID"""
+    try:
+        query = """
+            SELECT * FROM projects WHERE project_id = %s
+        """
+        result = execute_query(query, (project_id,))
+        
+        if not result:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/projects/<project_id>/drawings')
 def get_project_drawings(project_id):
     """Get all drawings for a specific project"""
@@ -514,6 +535,123 @@ def update_project(project_id):
                     'project_number': result[3],
                     'updated_at': result[4].isoformat() if result[4] else None
                 })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/map-summary')
+def get_project_map_summary(project_id):
+    """Get project spatial extent and simplified geometries for map display"""
+    try:
+        # First, check if project exists
+        project_check = execute_query(
+            "SELECT project_id, project_name FROM projects WHERE project_id = %s",
+            (project_id,)
+        )
+        if not project_check:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        # Calculate bounding box from all drawing entities associated with this project
+        # Handle both SRID 2226 and SRID 0 geometries
+        extent_query = """
+            SELECT 
+                ST_XMin(extent_geom) as min_x,
+                ST_YMin(extent_geom) as min_y,
+                ST_XMax(extent_geom) as max_x,
+                ST_YMax(extent_geom) as max_y,
+                ST_AsGeoJSON(extent_geom)::json as bbox_geojson
+            FROM (
+                SELECT ST_Extent(
+                    CASE 
+                        WHEN ST_SRID(de.geometry) = 0 THEN ST_Transform(ST_SetSRID(de.geometry, 2226), 4326)
+                        WHEN ST_SRID(de.geometry) = 2226 THEN ST_Transform(de.geometry, 4326)
+                        ELSE ST_Transform(de.geometry, 4326)
+                    END
+                ) as extent_geom
+                FROM drawing_entities de
+                JOIN drawings d ON de.drawing_id = d.drawing_id
+                WHERE d.project_id = %s
+                  AND de.geometry IS NOT NULL
+            ) sub
+        """
+        extent_result = execute_query(extent_query, (project_id,))
+        
+        # If no geometries found, return placeholder response
+        if not extent_result or not extent_result[0]['min_x']:
+            return jsonify({
+                'project_id': project_id,
+                'project_name': project_check[0]['project_name'],
+                'has_spatial_data': False,
+                'message': 'No spatial data available for this project yet',
+                'bbox': None,
+                'features': []
+            })
+        
+        extent = extent_result[0]
+        
+        # Get simplified geometries for map display (limit to 100 features for performance)
+        # Handle SRID 0 by setting it to 2226
+        features_query = """
+            SELECT 
+                de.entity_id,
+                COALESCE(l.layer_name, 'Unknown') as layer_name,
+                de.entity_type,
+                ST_AsGeoJSON(
+                    ST_Transform(
+                        ST_Simplify(
+                            CASE 
+                                WHEN ST_SRID(de.geometry) = 0 THEN ST_SetSRID(de.geometry, 2226)
+                                ELSE de.geometry
+                            END,
+                            1.0
+                        ),
+                        4326
+                    )
+                )::json as geometry
+            FROM drawing_entities de
+            JOIN drawings d ON de.drawing_id = d.drawing_id
+            LEFT JOIN layers l ON de.layer_id = l.layer_id
+            WHERE d.project_id = %s
+              AND de.geometry IS NOT NULL
+            ORDER BY ST_Area(
+                CASE 
+                    WHEN ST_SRID(de.geometry) = 0 THEN ST_SetSRID(de.geometry, 2226)
+                    ELSE de.geometry
+                END
+            ) DESC
+            LIMIT 100
+        """
+        features = execute_query(features_query, (project_id,))
+        
+        # Build GeoJSON feature collection
+        geojson_features = []
+        for feat in features:
+            geojson_features.append({
+                'type': 'Feature',
+                'properties': {
+                    'entity_id': str(feat['entity_id']),
+                    'layer_name': feat['layer_name'],
+                    'entity_type': feat['entity_type']
+                },
+                'geometry': feat['geometry']
+            })
+        
+        return jsonify({
+            'project_id': project_id,
+            'project_name': project_check[0]['project_name'],
+            'has_spatial_data': True,
+            'bbox': {
+                'min_x': float(extent['min_x']),
+                'min_y': float(extent['min_y']),
+                'max_x': float(extent['max_x']),
+                'max_y': float(extent['max_y'])
+            },
+            'features': {
+                'type': 'FeatureCollection',
+                'features': geojson_features
+            },
+            'feature_count': len(features)
+        })
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

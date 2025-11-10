@@ -1,0 +1,699 @@
+{% extends "base.html" %}
+
+{% block title %}Project Overview{% endblock %}
+
+{% block content %}
+<style>
+.mc-hero-section {
+    display: grid;
+    grid-template-columns: 60% 40%;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.mc-map-container {
+    background: linear-gradient(135deg, #1a2332 0%, #0d1117 100%);
+    border: 2px solid var(--accent-cyan);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 50px rgba(0,255,255,0.3);
+    height: 320px;
+    position: relative;
+}
+
+#projectMap {
+    width: 100%;
+    height: 100%;
+}
+
+.mc-map-overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(10, 14, 39, 0.9);
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--accent-cyan);
+    z-index: 1000;
+}
+
+.mc-map-overlay h4 {
+    margin: 0 0 5px 0;
+    color: var(--accent-cyan);
+    font-size: 14px;
+}
+
+.mc-map-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    height: 100%;
+    color: var(--text-dim);
+}
+
+.mc-map-placeholder i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.mc-info-card {
+    background: linear-gradient(135deg, #1a2332 0%, #0d1117 100%);
+    border: 2px solid var(--accent-cyan);
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 10px 50px rgba(0,255,255,0.3);
+}
+
+.mc-info-card h2 {
+    color: var(--accent-cyan);
+    margin: 0 0 20px 0;
+    font-size: 24px;
+}
+
+.mc-form-group {
+    margin-bottom: 20px;
+}
+
+.mc-form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--accent-cyan);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.mc-form-group input,
+.mc-form-group textarea {
+    width: 100%;
+    padding: 12px 15px;
+    background: rgba(0,0,0,0.3);
+    border: 2px solid rgba(0,255,255,0.3);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+.mc-form-group input:focus,
+.mc-form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 15px rgba(0,255,255,0.3);
+}
+
+.mc-form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.mc-tabs {
+    background: linear-gradient(135deg, #1a2332 0%, #0d1117 100%);
+    border: 2px solid var(--accent-cyan);
+    border-radius: 12px;
+    box-shadow: 0 10px 50px rgba(0,255,255,0.3);
+}
+
+.mc-tab-header {
+    display: flex;
+    border-bottom: 2px solid rgba(0,255,255,0.2);
+    overflow-x: auto;
+}
+
+.mc-tab-button {
+    padding: 15px 25px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+    white-space: nowrap;
+    position: relative;
+}
+
+.mc-tab-button:hover {
+    color: var(--accent-cyan);
+    background: rgba(0,255,255,0.1);
+}
+
+.mc-tab-button.active {
+    color: var(--accent-cyan);
+    background: rgba(0,255,255,0.15);
+}
+
+.mc-tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent-cyan);
+}
+
+.mc-tab-content {
+    padding: 30px;
+    display: none;
+}
+
+.mc-tab-content.active {
+    display: block;
+}
+
+.mc-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.mc-stat-box {
+    background: rgba(0,255,255,0.1);
+    border: 1px solid rgba(0,255,255,0.3);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.mc-stat-value {
+    font-size: 32px;
+    font-weight: bold;
+    color: var(--accent-cyan);
+    font-family: 'Orbitron', sans-serif;
+}
+
+.mc-stat-label {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-top: 5px;
+}
+
+.mc-ref-section {
+    margin-bottom: 25px;
+}
+
+.mc-ref-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.mc-ref-header h3 {
+    color: var(--accent-cyan);
+    margin: 0;
+    font-size: 18px;
+}
+
+.mc-ref-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.mc-ref-badge {
+    background: rgba(0,255,255,0.15);
+    border: 1px solid rgba(0,255,255,0.3);
+    border-radius: 20px;
+    padding: 8px 15px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.mc-ref-badge.primary {
+    border-color: var(--accent-magenta);
+    background: rgba(255,0,255,0.15);
+}
+
+.mc-ref-badge i {
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+}
+
+.mc-ref-badge i:hover {
+    opacity: 1;
+}
+
+.mc-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+}
+
+.mc-empty-state i {
+    font-size: 48px;
+    opacity: 0.5;
+    margin-bottom: 15px;
+}
+
+@media (max-width: 1024px) {
+    .mc-hero-section {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<div id="loading" style="text-align: center; padding: 3rem;">
+    <div class="spinner" style="margin: 0 auto;"></div>
+    <p class="loading-text">Loading project overview...</p>
+</div>
+
+<div id="mainContent" style="display: none;">
+    <div class="mc-hero-section">
+        <div class="mc-map-container">
+            <div id="mapPlaceholder" class="mc-map-placeholder">
+                <i class="fas fa-map-marked-alt"></i>
+                <p>Loading project area map...</p>
+            </div>
+            <div id="projectMap" style="display: none;"></div>
+        </div>
+        
+        <div class="mc-info-card">
+            <h2><i class="fas fa-info-circle"></i> Project Information</h2>
+            <form id="projectInfoForm">
+                <div class="mc-form-group">
+                    <label for="projectName">Project Name <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="projectName" required>
+                </div>
+                <div class="mc-form-group">
+                    <label for="projectNumber">Project Number</label>
+                    <input type="text" id="projectNumber">
+                </div>
+                <div class="mc-form-group">
+                    <label for="clientName">Client Name</label>
+                    <input type="text" id="clientName">
+                </div>
+                <div class="mc-form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="mc-tabs">
+        <div class="mc-tab-header">
+            <button class="mc-tab-button active" data-tab="overview">
+                <i class="fas fa-chart-line"></i> Overview
+            </button>
+            <button class="mc-tab-button" data-tab="drawings">
+                <i class="fas fa-file-image"></i> Drawings
+            </button>
+            <button class="mc-tab-button" data-tab="reference-data">
+                <i class="fas fa-database"></i> Reference Data
+            </button>
+            <button class="mc-tab-button" data-tab="compliance">
+                <i class="fas fa-check-circle"></i> Compliance
+            </button>
+            <button class="mc-tab-button" data-tab="standards">
+                <i class="fas fa-ruler-combined"></i> Standards
+            </button>
+        </div>
+
+        <div class="mc-tab-content active" id="tab-overview">
+            <h2 style="color: var(--accent-cyan); margin: 0 0 20px 0;">
+                <i class="fas fa-chart-bar"></i> Project Metrics
+            </h2>
+            <div class="mc-stat-grid" id="statsGrid">
+                <div class="mc-stat-box">
+                    <div class="mc-stat-value" id="drawingCount">-</div>
+                    <div class="mc-stat-label">Drawings</div>
+                </div>
+                <div class="mc-stat-box">
+                    <div class="mc-stat-value" id="entityCount">-</div>
+                    <div class="mc-stat-label">Entities</div>
+                </div>
+                <div class="mc-stat-box">
+                    <div class="mc-stat-value" id="complianceScore">-%</div>
+                    <div class="mc-stat-label">Compliance</div>
+                </div>
+                <div class="mc-stat-box">
+                    <div class="mc-stat-value" id="standardsCount">-</div>
+                    <div class="mc-stat-label">Standards</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mc-tab-content" id="tab-drawings">
+            <h2 style="color: var(--accent-cyan); margin: 0 0 20px 0;">
+                <i class="fas fa-file-image"></i> Associated Drawings
+            </h2>
+            <div id="drawingsList"></div>
+        </div>
+
+        <div class="mc-tab-content" id="tab-reference-data">
+            <h2 style="color: var(--accent-cyan); margin: 0 0 30px 0;">
+                <i class="fas fa-database"></i> Reference Data Mappings
+            </h2>
+            
+            <div class="mc-ref-section">
+                <div class="mc-ref-header">
+                    <h3><i class="fas fa-building"></i> Clients</h3>
+                    <button class="btn btn-primary btn-sm" onclick="openAttachModal('clients')">
+                        <i class="fas fa-plus"></i> Attach Client
+                    </button>
+                </div>
+                <div class="mc-ref-list" id="clientsList">
+                    <div class="mc-empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No clients attached to this project</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mc-ref-section">
+                <div class="mc-ref-header">
+                    <h3><i class="fas fa-truck"></i> Vendors</h3>
+                    <button class="btn btn-primary btn-sm" onclick="openAttachModal('vendors')">
+                        <i class="fas fa-plus"></i> Attach Vendor
+                    </button>
+                </div>
+                <div class="mc-ref-list" id="vendorsList">
+                    <div class="mc-empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No vendors attached to this project</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mc-ref-section">
+                <div class="mc-ref-header">
+                    <h3><i class="fas fa-landmark"></i> Municipalities</h3>
+                    <button class="btn btn-primary btn-sm" onclick="openAttachModal('municipalities')">
+                        <i class="fas fa-plus"></i> Attach Municipality
+                    </button>
+                </div>
+                <div class="mc-ref-list" id="municipalitiesList">
+                    <div class="mc-empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No municipalities attached to this project</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mc-ref-section">
+                <div class="mc-ref-header">
+                    <h3><i class="fas fa-globe"></i> Coordinate Systems</h3>
+                    <button class="btn btn-primary btn-sm" onclick="openAttachModal('coordinate-systems')">
+                        <i class="fas fa-plus"></i> Attach Coordinate System
+                    </button>
+                </div>
+                <div class="mc-ref-list" id="coordinateSystemsList">
+                    <div class="mc-empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No coordinate systems attached to this project</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mc-ref-section">
+                <div class="mc-ref-header">
+                    <h3><i class="fas fa-map-pin"></i> Survey Point Descriptions</h3>
+                    <button class="btn btn-primary btn-sm" onclick="openAttachModal('survey-points')">
+                        <i class="fas fa-plus"></i> Attach Survey Point
+                    </button>
+                </div>
+                <div class="mc-ref-list" id="surveyPointsList">
+                    <div class="mc-empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No survey point descriptions attached to this project</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mc-ref-section">
+                <div class="mc-ref-header">
+                    <h3><i class="fas fa-layer-group"></i> GIS Data Layers</h3>
+                    <button class="btn btn-primary btn-sm" onclick="openAttachModal('gis-layers')">
+                        <i class="fas fa-plus"></i> Attach GIS Layer
+                    </button>
+                </div>
+                <div class="mc-ref-list" id="gisLayersList">
+                    <div class="mc-empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No GIS layers attached to this project</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mc-tab-content" id="tab-compliance">
+            <h2 style="color: var(--accent-cyan); margin: 0 0 20px 0;">
+                <i class="fas fa-check-circle"></i> Compliance Status
+            </h2>
+            <div class="mc-empty-state">
+                <i class="fas fa-chart-pie"></i>
+                <p>Compliance tracking coming soon</p>
+                <a href="/project-compliance" class="btn btn-primary" style="margin-top: 20px;">
+                    <i class="fas fa-external-link-alt"></i> View Full Compliance Dashboard
+                </a>
+            </div>
+        </div>
+
+        <div class="mc-tab-content" id="tab-standards">
+            <h2 style="color: var(--accent-cyan); margin: 0 0 20px 0;">
+                <i class="fas fa-ruler-combined"></i> Assigned Standards
+            </h2>
+            <div class="mc-empty-state">
+                <i class="fas fa-link"></i>
+                <p>Standards assignment coming soon</p>
+                <a href="/project-standards-assignment" class="btn btn-primary" style="margin-top: 20px;">
+                    <i class="fas fa-external-link-alt"></i> Manage Standards Assignment
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const projectId = '{{ project_id }}';
+let map = null;
+let projectData = null;
+
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+async function loadProjectData() {
+    try {
+        const response = await fetch(`/api/projects/${projectId}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        projectData = data;
+        
+        document.getElementById('projectName').value = data.project_name || '';
+        document.getElementById('projectNumber').value = data.project_number || '';
+        document.getElementById('clientName').value = data.client_name || '';
+        document.getElementById('description').value = data.description || '';
+        
+    } catch (error) {
+        console.error('Error loading project:', error);
+        alert(`Failed to load project: ${error.message}`);
+    }
+}
+
+async function loadMapSummary() {
+    try {
+        const response = await fetch(`/api/projects/${projectId}/map-summary`);
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        if (!data.has_spatial_data) {
+            document.getElementById('mapPlaceholder').innerHTML = `
+                <i class="fas fa-map-marked-alt"></i>
+                <p>${data.message}</p>
+                <p style="font-size: 12px; margin-top: 10px;">Add drawings with spatial entities to see the project area</p>
+            `;
+            return;
+        }
+        
+        document.getElementById('mapPlaceholder').style.display = 'none';
+        document.getElementById('projectMap').style.display = 'block';
+        
+        map = L.map('projectMap', {
+            zoomControl: false,
+            dragging: false,
+            touchZoom: false,
+            doubleClickZoom: false,
+            scrollWheelZoom: false,
+            boxZoom: false,
+            keyboard: false
+        });
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        
+        const bounds = [
+            [data.bbox.min_y, data.bbox.min_x],
+            [data.bbox.max_y, data.bbox.max_x]
+        ];
+        
+        map.fitBounds(bounds);
+        
+        L.geoJSON(data.features, {
+            style: {
+                color: '#00ffff',
+                weight: 2,
+                opacity: 0.8,
+                fillOpacity: 0.2
+            }
+        }).addTo(map);
+        
+    } catch (error) {
+        console.error('Error loading map:', error);
+        document.getElementById('mapPlaceholder').innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>Error loading map: ${error.message}</p>
+        `;
+    }
+}
+
+async function loadDrawings() {
+    try {
+        const response = await fetch(`/api/projects/${projectId}/drawings`);
+        const data = await response.json();
+        
+        const drawingsDiv = document.getElementById('drawingsList');
+        const drawingCount = document.getElementById('drawingCount');
+        
+        drawingCount.textContent = data.drawings.length;
+        
+        if (data.drawings.length === 0) {
+            drawingsDiv.innerHTML = `
+                <div class="mc-empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>No drawings associated with this project</p>
+                </div>
+            `;
+            return;
+        }
+        
+        drawingsDiv.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Drawing Name</th>
+                        <th>Drawing Number</th>
+                        <th>Type</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.drawings.map(d => `
+                        <tr>
+                            <td><strong>${d.drawing_name || '-'}</strong></td>
+                            <td>${d.drawing_number || '-'}</td>
+                            <td>${d.drawing_type || '-'}</td>
+                            <td>${formatDate(d.created_at)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (error) {
+        console.error('Error loading drawings:', error);
+    }
+}
+
+document.getElementById('projectInfoForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const data = {
+        project_name: document.getElementById('projectName').value,
+        project_number: document.getElementById('projectNumber').value || null,
+        client_name: document.getElementById('clientName').value || null,
+        description: document.getElementById('description').value || null
+    };
+    
+    try {
+        const response = await fetch(`/api/projects/${projectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showToast('Project updated successfully', 'success');
+        } else {
+            const error = await response.json();
+            showToast(`Error: ${error.error}`, 'error');
+        }
+    } catch (error) {
+        showToast(`Error: ${error.message}`, 'error');
+    }
+});
+
+document.querySelectorAll('.mc-tab-button').forEach(button => {
+    button.addEventListener('click', () => {
+        document.querySelectorAll('.mc-tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.mc-tab-content').forEach(c => c.classList.remove('active'));
+        
+        button.classList.add('active');
+        document.getElementById(`tab-${button.dataset.tab}`).classList.add('active');
+    });
+});
+
+function openAttachModal(type) {
+    showToast('Attachment functionality coming soon', 'info');
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.right = '20px';
+    toast.style.padding = '15px 20px';
+    toast.style.background = type === 'success' ? 'rgba(0,255,136,0.2)' : type === 'error' ? 'rgba(255,107,107,0.2)' : 'rgba(0,255,255,0.2)';
+    toast.style.border = type === 'success' ? '1px solid #00ff88' : type === 'error' ? '1px solid #ff6b6b' : '1px solid #00ffff';
+    toast.style.borderRadius = '8px';
+    toast.style.zIndex = '10000';
+    toast.style.color = '#fff';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+async function init() {
+    await loadProjectData();
+    await loadMapSummary();
+    await loadDrawings();
+    
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+}
+
+init();
+</script>
+{% endblock %}
