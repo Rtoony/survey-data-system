@@ -1892,6 +1892,119 @@ def export_blocks_csv():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/batch-block-import/extract-from-dxf', methods=['POST'])
+def extract_blocks_from_dxf():
+    """Extract block definitions from uploaded DXF files"""
+    try:
+        if 'files[]' not in request.files:
+            return jsonify({'error': 'No files provided'}), 400
+        
+        files = request.files.getlist('files[]')
+        if not files or len(files) == 0:
+            return jsonify({'error': 'No files selected'}), 400
+        
+        import ezdxf
+        from batch_block_extractor import BatchBlockExtractor
+        
+        extractor = BatchBlockExtractor(DB_CONFIG)
+        extracted_blocks = []
+        errors = []
+        
+        for file in files:
+            if file.filename == '':
+                continue
+                
+            if not file.filename.lower().endswith('.dxf'):
+                errors.append(f"{file.filename}: Not a DXF file")
+                continue
+            
+            try:
+                temp_path = os.path.join(tempfile.gettempdir(), secure_filename(file.filename))
+                file.save(temp_path)
+                
+                blocks = extractor.extract_blocks_from_file(temp_path, file.filename)
+                extracted_blocks.extend(blocks)
+                
+                os.remove(temp_path)
+                
+            except Exception as e:
+                errors.append(f"{file.filename}: {str(e)}")
+        
+        return jsonify({
+            'blocks': extracted_blocks,
+            'total_files': len(files),
+            'total_blocks': len(extracted_blocks),
+            'errors': errors
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch-block-import/save-blocks', methods=['POST'])
+def save_extracted_blocks():
+    """Save extracted blocks to the database"""
+    try:
+        data = request.get_json()
+        blocks = data.get('blocks', [])
+        
+        if not blocks:
+            return jsonify({'error': 'No blocks provided'}), 400
+        
+        imported_count = 0
+        updated_count = 0
+        skipped_count = 0
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                for block in blocks:
+                    action = block.get('action', 'skip')
+                    if action == 'skip':
+                        skipped_count += 1
+                        continue
+                    
+                    block_name = block.get('name')
+                    category = block.get('category', '')
+                    description = block.get('description', '')
+                    svg_content = block.get('svg_preview', '')
+                    
+                    cur.execute("""
+                        SELECT block_id FROM block_definitions
+                        WHERE LOWER(block_name) = LOWER(%s)
+                    """, (block_name,))
+                    
+                    existing = cur.fetchone()
+                    
+                    if action == 'update' and existing:
+                        cur.execute("""
+                            UPDATE block_definitions
+                            SET category = %s, description = %s, svg_content = %s,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE block_id = %s
+                        """, (category, description, svg_content, existing[0]))
+                        updated_count += 1
+                        
+                    elif action == 'import' and not existing:
+                        cur.execute("""
+                            INSERT INTO block_definitions 
+                            (block_name, category, description, svg_content, is_active)
+                            VALUES (%s, %s, %s, %s, TRUE)
+                        """, (block_name, category, description, svg_content))
+                        imported_count += 1
+                    else:
+                        skipped_count += 1
+                
+                conn.commit()
+        
+        cache.clear()
+        return jsonify({
+            'imported': imported_count,
+            'updated': updated_count,
+            'skipped': skipped_count
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ============================================================================
 # DETAILS MANAGER ROUTES
 # ============================================================================
