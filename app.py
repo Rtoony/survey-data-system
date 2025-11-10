@@ -1717,7 +1717,8 @@ def get_blocks():
     """Get all blocks"""
     try:
         query = """
-            SELECT block_id, block_name, block_type, category, description
+            SELECT block_id, block_name, block_type, category, description,
+                   svg_content, preview_image_path
             FROM block_definitions
             ORDER BY category, block_name
         """

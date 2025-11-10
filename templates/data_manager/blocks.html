@@ -59,6 +59,22 @@
     </div>
 </div>
 
+<!-- Preview Modal -->
+<div id="previewModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2 id="previewModalTitle">Block Preview</h2>
+            <span class="close" onclick="closePreviewModal()">&times;</span>
+        </div>
+        <div style="padding: 20px;">
+            <div id="previewModalContent" style="background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.3); border-radius: 8px; padding: 20px; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+            </div>
+            <div id="previewModalInfo" style="margin-top: 15px; padding: 15px; background: rgba(0,255,255,0.05); border-radius: 8px;">
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Add/Edit Modal -->
 <div id="blockModal" class="modal">
     <div class="modal-content">
@@ -277,6 +293,15 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function sanitizeSVG(svgContent) {
+    // Basic sanitization: remove script tags and event handlers
+    if (!svgContent) return '';
+    return svgContent
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
+        .replace(/on\w+\s*=\s*'[^']*'/gi, '');
+}
+
 function renderTable() {
     const tbody = document.getElementById('blocksTableBody');
     tbody.innerHTML = '';
@@ -288,11 +313,23 @@ function renderTable() {
         const svgCell = row.insertCell();
         const svgPreview = document.createElement('div');
         svgPreview.className = 'svg-preview';
+        svgPreview.style.cursor = 'pointer';
+        svgPreview.title = 'Click to enlarge';
         
         if (item.svg_content) {
-            svgPreview.innerHTML = item.svg_content;
+            svgPreview.innerHTML = sanitizeSVG(item.svg_content);
+            svgPreview.onclick = () => openPreviewModal(item);
+        } else if (item.preview_image_path) {
+            const img = document.createElement('img');
+            img.src = item.preview_image_path;
+            img.style.maxWidth = '50px';
+            img.style.maxHeight = '50px';
+            img.onerror = () => { svgPreview.innerHTML = '<div class="no-preview">Image Error</div>'; };
+            svgPreview.appendChild(img);
+            svgPreview.onclick = () => openPreviewModal(item);
         } else {
-            svgPreview.innerHTML = '<div class="no-preview">No SVG</div>';
+            svgPreview.innerHTML = '<div class="no-preview">No Preview</div>';
+            svgPreview.style.cursor = 'default';
         }
         svgCell.appendChild(svgPreview);
         
@@ -311,6 +348,44 @@ function renderTable() {
             </td>
         `;
     });
+}
+
+function openPreviewModal(block) {
+    document.getElementById('previewModalTitle').textContent = block.block_name || 'Block Preview';
+    
+    const contentDiv = document.getElementById('previewModalContent');
+    contentDiv.innerHTML = '';
+    
+    if (block.svg_content) {
+        contentDiv.innerHTML = sanitizeSVG(block.svg_content);
+        const svgEl = contentDiv.querySelector('svg');
+        if (svgEl) {
+            svgEl.style.maxWidth = '100%';
+            svgEl.style.maxHeight = '400px';
+        }
+    } else if (block.preview_image_path) {
+        const img = document.createElement('img');
+        img.src = block.preview_image_path;
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '400px';
+        img.onerror = () => { contentDiv.innerHTML = '<div class="no-preview">Failed to load image</div>'; };
+        contentDiv.appendChild(img);
+    } else {
+        contentDiv.innerHTML = '<div class="no-preview">No preview available</div>';
+    }
+    
+    const infoDiv = document.getElementById('previewModalInfo');
+    infoDiv.innerHTML = `
+        <div><strong>Block Name:</strong> ${escapeHtml(block.block_name || 'N/A')}</div>
+        <div><strong>Category:</strong> ${escapeHtml(block.category || 'N/A')}</div>
+        <div><strong>Description:</strong> ${escapeHtml(block.description || 'No description')}</div>
+    `;
+    
+    document.getElementById('previewModal').style.display = 'block';
+}
+
+function closePreviewModal() {
+    document.getElementById('previewModal').style.display = 'none';
 }
 
 function filterTable() {
@@ -445,11 +520,16 @@ async function exportCSV() {
 // Load blocks on page load
 document.addEventListener('DOMContentLoaded', loadBlocks);
 
-// Close modal when clicking outside
+// Close modals when clicking outside
 window.onclick = function(event) {
-    const modal = document.getElementById('blockModal');
-    if (event.target == modal) {
+    const blockModal = document.getElementById('blockModal');
+    const previewModal = document.getElementById('previewModal');
+    
+    if (event.target == blockModal) {
         closeModal();
+    }
+    if (event.target == previewModal) {
+        closePreviewModal();
     }
 }
 </script>
