@@ -371,6 +371,7 @@
 let selectedFiles = [];
 let extractedBlocks = [];
 let existingBlocks = new Set();
+let validCategories = [];
 
 // Drag and drop handlers
 const dropZone = document.getElementById('dropZone');
@@ -453,6 +454,7 @@ document.getElementById('extractBtn').addEventListener('click', async () => {
         }
         
         extractedBlocks = data.blocks;
+        validCategories = data.valid_categories || [];
         
         // Check which blocks already exist
         await checkExistingBlocks();
@@ -501,13 +503,13 @@ function renderBlockPreview() {
     document.getElementById('newBlocks').textContent = `${newCount} new`;
     document.getElementById('existingBlocks').textContent = `${existingCount} existing`;
     
-    // Populate category filter
-    const categories = [...new Set(extractedBlocks.map(b => b.category))];
+    // Populate category filter with valid CAD Layer Vocabulary categories
     const categoryFilter = document.getElementById('categoryFilter');
-    categories.forEach(cat => {
+    categoryFilter.innerHTML = '<option value="">All Categories</option>';
+    validCategories.forEach(cat => {
         const option = document.createElement('option');
-        option.value = cat;
-        option.textContent = cat;
+        option.value = cat.code;
+        option.textContent = `${cat.code} - ${cat.full_name}`;
         categoryFilter.appendChild(option);
     });
     
@@ -543,7 +545,14 @@ function createBlockCard(block, index) {
                     <option value="update" ${block.exists ? 'selected' : ''}>Update</option>
                     <option value="skip" ${block.exists ? 'selected' : ''}>Skip</option>
                 </select>
-                <input type="text" class="category-input" value="${block.category}" data-index="${index}" placeholder="Category">
+                <select class="category-select mc-select" data-index="${index}">
+                    <option value="" ${!block.category ? 'selected' : ''}>-- Select Category --</option>
+                    ${validCategories.map(cat => `
+                        <option value="${cat.code}" ${block.category === cat.code ? 'selected' : ''}>
+                            ${cat.code} - ${cat.full_name}
+                        </option>
+                    `).join('')}
+                </select>
             </div>
         </div>
     `;
@@ -554,7 +563,7 @@ function createBlockCard(block, index) {
         updateCardSelection(card, e.target.value);
     });
     
-    card.querySelector('.category-input').addEventListener('change', (e) => {
+    card.querySelector('.category-select').addEventListener('change', (e) => {
         extractedBlocks[index].category = e.target.value;
     });
     

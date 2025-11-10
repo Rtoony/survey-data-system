@@ -10,6 +10,8 @@ import io
 import base64
 from typing import List, Dict, Optional
 import re
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 
 class BatchBlockExtractor:
@@ -18,6 +20,34 @@ class BatchBlockExtractor:
     def __init__(self, db_config: Dict):
         """Initialize extractor with database configuration"""
         self.db_config = db_config
+        self.valid_categories = self._load_valid_categories()
+    
+    def _load_valid_categories(self) -> List[Dict]:
+        """Load valid categories from the category_codes table"""
+        try:
+            conn = psycopg2.connect(**self.db_config)
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            
+            cur.execute("""
+                SELECT DISTINCT code, full_name, description 
+                FROM category_codes 
+                WHERE is_active = true 
+                ORDER BY code
+            """)
+            
+            categories = [dict(row) for row in cur.fetchall()]
+            cur.close()
+            conn.close()
+            
+            return categories
+            
+        except Exception as e:
+            print(f"Failed to load categories from database: {str(e)}")
+            return []
+    
+    def get_valid_categories(self) -> List[Dict]:
+        """Return the list of valid categories for the frontend"""
+        return self.valid_categories
     
     def extract_blocks_from_file(self, file_path: str, source_filename: str) -> List[Dict]:
         """
@@ -71,40 +101,53 @@ class BatchBlockExtractor:
     
     def _guess_category(self, block_name: str) -> str:
         """
-        Guess block category based on naming conventions.
+        Guess block category based on naming conventions using valid CAD standards.
         
         Args:
             block_name: Name of the block
             
         Returns:
-            Suggested category string
+            Suggested category code from category_codes table
         """
+        if not self.valid_categories:
+            return ''
+        
         name_upper = block_name.upper()
         
-        # Common CAD block naming patterns
-        if any(x in name_upper for x in ['TITLE', 'BORDER', 'SHEET']):
-            return 'Title Blocks'
-        elif any(x in name_upper for x in ['NORTH', 'ARROW', 'SCALE']):
-            return 'Symbols'
-        elif any(x in name_upper for x in ['TREE', 'PLANT', 'SHRUB', 'LANDSCAPE']):
-            return 'Landscape'
-        elif any(x in name_upper for x in ['VEHICLE', 'CAR', 'TRUCK', 'AUTO']):
-            return 'Vehicles'
-        elif any(x in name_upper for x in ['PERSON', 'PEOPLE', 'HUMAN']):
-            return 'People'
-        elif any(x in name_upper for x in ['FURNITURE', 'CHAIR', 'DESK', 'TABLE']):
-            return 'Furniture'
-        elif any(x in name_upper for x in ['UTIL', 'PIPE', 'VALVE', 'MANHOLE', 'MH']):
-            return 'Utilities'
-        elif any(x in name_upper for x in ['DETAIL', 'DTL']):
-            return 'Details'
-        elif any(x in name_upper for x in ['NOTE', 'CALLOUT', 'LABEL']):
-            return 'Annotations'
-        elif re.match(r'^[A-Z]{1,4}-[A-Z]{3,6}', block_name):
-            # Discipline-based naming (e.g., C-UTIL, E-LGHT)
-            return 'Discipline Symbols'
-        else:
-            return 'Uncategorized'
+        # Define keyword mappings to category codes based on CAD Layer Vocabulary
+        category_patterns = {
+            'UTIL': ['UTIL', 'PIPE', 'VALVE', 'MANHOLE', 'MH', 'SEWER', 'WATER', 'GAS', 'ELECTRIC'],
+            'TREE': ['TREE', 'PALM'],
+            'SHRU': ['SHRUB', 'PLANT', 'BUSH'],
+            'TURF': ['TURF', 'LAWN', 'GRASS'],
+            'HARD': ['PAVE', 'WALK', 'SIDEWALK', 'PLAZA'],
+            'ROAD': ['ROAD', 'STREET', 'CURB'],
+            'PAVE': ['PARKING', 'DRIVEWAY'],
+            'STOR': ['STORM', 'DRAIN', 'BMP', 'SWALE'],
+            'POND': ['POND', 'BASIN', 'DETENTION', 'RETENTION'],
+            'GRAD': ['GRAD', 'SLOPE', 'CONTOUR'],
+            'WALL': ['WALL', 'RETAINING'],
+            'BLDG': ['BLDG', 'BUILDING', 'STRUCTURE'],
+            'FENCE': ['FENCE', 'GATE', 'BARRIER'],
+            'SIGN': ['SIGN', 'SIGNAGE'],
+            'TOPO': ['TOPO', 'SURVEY', 'SHOT'],
+            'CTRL': ['CTRL', 'CONTROL', 'BENCHMARK', 'MONUMENT'],
+            'BNDY': ['BNDY', 'BOUNDARY', 'PROPERTY'],
+            'DEMO': ['DEMO', 'DEMOLITION', 'REMOVE'],
+            'EROS': ['EROS', 'EROSION', 'SWPPP'],
+            'ADA': ['ADA', 'ACCESSIBLE', 'RAMP'],
+            'IRIG': ['IRIG', 'IRRIGATION', 'SPRINKLER']
+        }
+        
+        # Check each pattern
+        for category_code, keywords in category_patterns.items():
+            if any(keyword in name_upper for keyword in keywords):
+                # Verify this category exists in our loaded categories
+                if any(cat['code'] == category_code for cat in self.valid_categories):
+                    return category_code
+        
+        # If no match found, return empty string to force manual selection
+        return ''
     
     def _generate_description(self, block) -> str:
         """

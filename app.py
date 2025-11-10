@@ -1940,7 +1940,8 @@ def extract_blocks_from_dxf():
             'blocks': extracted_blocks,
             'total_files': len(files),
             'total_blocks': len(extracted_blocks),
-            'errors': errors
+            'errors': errors,
+            'valid_categories': extractor.get_valid_categories()
         })
         
     except Exception as e:
