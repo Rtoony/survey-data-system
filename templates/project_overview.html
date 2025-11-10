@@ -4,7 +4,6 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='lib/leaflet/leaflet.css') }}">
-<script src="{{ url_for('static', filename='lib/leaflet/leaflet.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -34,6 +33,9 @@
 }
 
 #projectMap {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     z-index: 100 !important;
@@ -70,11 +72,15 @@
 }
 
 .mc-map-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    height: 100%;
     color: var(--text-dim);
 }
 
@@ -697,8 +703,13 @@ async function loadMapSummary() {
 }
 
 async function initializeMap(mapData) {
+    if (typeof L === 'undefined') {
+        console.error('Leaflet library not available - waiting for it to load...');
+        setTimeout(() => initializeMap(mapData), 100);
+        return;
+    }
+    
     try {
-        console.log(`✓ Leaflet loaded! Initializing map...`);
         document.getElementById('mapPlaceholder').style.display = 'none';
         document.getElementById('projectMap').style.display = 'block';
         
@@ -1249,11 +1260,18 @@ function handleInitError(error) {
         `;
     }
 }
+</script>
+{% endblock %}
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+{% block scripts %}
+<script src="{{ url_for('static', filename='lib/leaflet/leaflet.js') }}"></script>
+<script>
+    console.log('Leaflet loaded in scripts block - L is:', typeof L !== 'undefined' ? 'DEFINED (version ' + L.version + ')' : 'UNDEFINED');
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 </script>
 {% endblock %}
