@@ -651,6 +651,28 @@ function SheetNoteApp() {
         setShowAssignStandardModal(true);
     };
     
+    const handleDeleteNote = async (noteId, noteTitle) => {
+        if (!confirm(`Are you sure you want to delete "${noteTitle}"? This cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/project-sheet-notes/${noteId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                loadProjectNotes(selectedSetId);
+                setSelectedProjectNoteId(null);
+            } else {
+                const error = await response.json();
+                alert('Failed to delete note: ' + (error.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Failed to delete note: ' + err.message);
+        }
+    };
+    
     return (
         <div>
             <TopBar 
@@ -680,6 +702,7 @@ function SheetNoteApp() {
                     onNotesChange={() => loadProjectNotes(selectedSetId)}
                     onAddNote={handleAddNote}
                     onTrackDeviation={handleOpenTrackDeviation}
+                    onDeleteNote={handleDeleteNote}
                 />
                 
                 <AssignmentsPanel 
@@ -869,7 +892,7 @@ function ConformanceBadge({ status, color }) {
 }
 
 // Project Notes Panel (Center)
-function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, selectedSetId, onSelectNote, onNotesChange, onAddNote, onTrackDeviation }) {
+function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, selectedSetId, onSelectNote, onNotesChange, onAddNote, onTrackDeviation, onDeleteNote }) {
     return (
         <div className="panel">
             <div className="panel-header">
@@ -922,6 +945,13 @@ function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, selectedSetId,
                                 title="Track conformance deviation"
                             >
                                 <i className="fas fa-chart-line"></i> Track Deviation
+                            </button>
+                            <button 
+                                className="btn btn-danger btn-xs"
+                                onClick={() => onDeleteNote(note.project_note_id, note.custom_title || note.standard_title || 'Untitled')}
+                                title="Delete this note"
+                            >
+                                <i className="fas fa-trash"></i> Delete
                             </button>
                         </div>
                     </div>
