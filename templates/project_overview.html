@@ -267,12 +267,12 @@
 }
 </style>
 
-<div id="loading" style="text-align: center; padding: 3rem;">
+<div id="loading" style="display: none; text-align: center; padding: 3rem;">
     <div class="spinner" style="margin: 0 auto;"></div>
     <p class="loading-text" id="loadingStatus">Initializing...</p>
 </div>
 
-<div id="mainContent" style="display: none;">
+<div id="mainContent">
     <div class="mc-hero-section">
         <div class="mc-map-container">
             <div id="mapPlaceholder" class="mc-map-placeholder">
@@ -1164,65 +1164,62 @@ function updateStatus(message) {
 }
 
 function init() {
-    updateStatus('Starting initialization...');
-    console.log('Init function called');
+    console.log('Init function called - showing UI immediately');
     
-    const projectPromise = loadProjectData().then(() => console.log('Project data loaded'));
-    const drawingsPromise = loadDrawings().then(() => console.log('Drawings loaded'));
-    const refDataPromise = loadReferenceData().then(() => console.log('Reference data loaded'));
-    const statsPromise = loadStatistics().then(() => console.log('Statistics loaded'));
+    const loading = document.getElementById('loading');
+    const mainContent = document.getElementById('mainContent');
     
-    Promise.all([
-        projectPromise,
-        drawingsPromise,
-        refDataPromise,
-        statsPromise
-    ])
-        .then(() => {
-            console.log('All promises resolved!');
-            updateStatus('Loading complete!');
-            const loading = document.getElementById('loading');
-            const mainContent = document.getElementById('mainContent');
-            
-            console.log('Loading div:', loading);
-            console.log('Main content div:', mainContent);
-            console.log('Main content children:', mainContent ? mainContent.children.length : 'null');
-            
-            if (loading) loading.style.display = 'none';
-            if (mainContent) {
-                mainContent.style.display = 'block';
-                mainContent.style.opacity = '1';
-                mainContent.style.visibility = 'visible';
-            }
-            
-            console.log('UI should be visible now');
-            
-            updateStatus('Loading map in background...');
-            loadMapSummary().catch(err => {
-                console.error('Map loading error:', err);
-                const placeholder = document.getElementById('mapPlaceholder');
-                if (placeholder) {
-                    placeholder.innerHTML = `
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>Map temporarily unavailable</p>
-                        <p style="font-size: 10px;">Project data loaded successfully</p>
-                    `;
-                }
-            });
-        })
-        .catch(error => {
-            console.error('Initialization error:', error);
-            const loading = document.getElementById('loading');
-            if (loading) {
-                loading.innerHTML = `
-                    <div style="color: #ff6b6b;">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>Error loading project overview</p>
-                        <p style="font-size: 12px; margin-top: 10px;">${error.message}</p>
-                    </div>
+    if (loading) loading.style.display = 'none';
+    if (mainContent) {
+        mainContent.style.display = 'block';
+        mainContent.style.opacity = '1';
+        mainContent.style.visibility = 'visible';
+    }
+    
+    console.log('UI visible - loading data in background');
+    
+    loadProjectData()
+        .then(() => console.log('✓ Project data loaded'))
+        .catch(err => console.error('✗ Project data error:', err));
+    
+    loadDrawings()
+        .then(() => console.log('✓ Drawings loaded'))
+        .catch(err => console.error('✗ Drawings error:', err));
+    
+    loadReferenceData()
+        .then(() => console.log('✓ Reference data loaded'))
+        .catch(err => console.error('✗ Reference data error:', err));
+    
+    loadStatistics()
+        .then(() => console.log('✓ Statistics loaded'))
+        .catch(err => console.error('✗ Statistics error:', err));
+    
+    loadMapSummary()
+        .then(() => console.log('✓ Map loaded'))
+        .catch(err => {
+            console.error('✗ Map error:', err);
+            const placeholder = document.getElementById('mapPlaceholder');
+            if (placeholder) {
+                placeholder.innerHTML = `
+                    <i class="fas fa-map-marked-alt"></i>
+                    <p>Map data unavailable</p>
                 `;
             }
         });
+}
+
+function handleInitError(error) {
+    console.error('Critical initialization error:', error);
+    const loading = document.getElementById('loading');
+    if (loading) {
+        loading.innerHTML = `
+            <div style="color: #ff6b6b;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Error loading project overview</p>
+                <p style="font-size: 12px; margin-top: 10px;">${error.message}</p>
+            </div>
+        `;
+    }
 }
 
 if (document.readyState === 'loading') {
