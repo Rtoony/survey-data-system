@@ -1036,7 +1036,7 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
             const statusesData = await statusesRes.json();
             
             setDeviationCategories(categoriesData.categories || []);
-            setConformanceStatuses(statusesData.statuses || []);
+            setConformanceStatuses(statusesData.conformance_statuses || []);
         } catch (err) {
             setError('Failed to load form data');
         }
@@ -1091,7 +1091,9 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
                         >
                             <option value="">Select category...</option>
                             {deviationCategories.map(cat => (
-                                <option key={cat} value={cat}>{cat}</option>
+                                <option key={cat.category_id} value={cat.category_code}>
+                                    {cat.category_name}
+                                </option>
                             ))}
                         </select>
                     </div>
@@ -1115,7 +1117,9 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
                         >
                             <option value="">Select status...</option>
                             {conformanceStatuses.map(status => (
-                                <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
+                                <option key={status.status_id} value={status.status_code}>
+                                    {status.status_name}
+                                </option>
                             ))}
                         </select>
                     </div>
