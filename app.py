@@ -2754,7 +2754,7 @@ def get_project_conformance_details(project_id):
         
         # Source type counts
         standard_count = next((s['count'] for s in source_types if s['source_type'] == 'standard'), 0)
-        modified_count = next((s['count'] for s in source_types if s['source_type'] == 'modified'), 0)
+        modified_count = next((s['count'] for s in source_types if s['source_type'] == 'modified_standard'), 0)
         custom_count = next((s['count'] for s in source_types if s['source_type'] == 'custom'), 0)
         
         return jsonify({
@@ -7953,7 +7953,7 @@ def get_sheet_note_legend():
 def validate_project_note_membership(cur, project_note_id, set_id=None, project_id=None):
     """
     Validate that a project note exists and optionally belongs to a specific set and/or project.
-    Returns dict with {set_id, project_id} if valid, raises ValueError if invalid.
+    Returns dict with note details if valid, raises ValueError if invalid.
     
     Args:
         cur: Database cursor
@@ -7962,13 +7962,13 @@ def validate_project_note_membership(cur, project_note_id, set_id=None, project_
         project_id: Optional UUID of the project to validate membership
     
     Returns:
-        dict: {'set_id': UUID, 'project_id': UUID}
+        dict: {'set_id': UUID, 'project_id': UUID, 'source_type': str, 'standard_note_id': UUID}
     
     Raises:
         ValueError: If note doesn't exist or doesn't match set/project
     """
     query = """
-        SELECT psn.set_id, sns.project_id
+        SELECT psn.set_id, sns.project_id, psn.source_type, psn.standard_note_id, psn.display_code
         FROM project_sheet_notes psn
         JOIN sheet_note_sets sns ON psn.set_id = sns.set_id
         WHERE psn.project_note_id = %s::uuid
@@ -7988,7 +7988,13 @@ def validate_project_note_membership(cur, project_note_id, set_id=None, project_
     if project_id and note_project_id != project_id:
         raise ValueError(f'Project note {project_note_id} does not belong to project {project_id}')
     
-    return {'set_id': note_set_id, 'project_id': note_project_id}
+    return {
+        'set_id': note_set_id, 
+        'project_id': note_project_id,
+        'source_type': result['source_type'],
+        'standard_note_id': result['standard_note_id'],
+        'display_code': result['display_code']
+    }
 
 def validate_set_membership(cur, set_id, project_id=None):
     """
@@ -8308,7 +8314,7 @@ def create_modified_copy(project_note_id):
                      deviation_category_id, deviation_reason, conformance_status_id,
                      standardization_status_id, standardization_note,
                      first_used_at, last_used_at, usage_count)
-                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s, %s, %s, 'modified', TRUE, %s,
+                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s, %s, %s, 'modified_standard', TRUE, %s,
                             %s::uuid, %s, %s::uuid, %s::uuid, %s,
                             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
                     RETURNING *

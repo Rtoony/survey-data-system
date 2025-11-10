@@ -868,11 +868,11 @@ function getConformanceColor(status) {
 
 // Helper function to get source type badge
 function SourceTypeBadge({ sourceType }) {
-    if (sourceType === 'STANDARD') {
+    if (sourceType === 'standard') {
         return <span className="source-badge source-badge-standard"><i className="fas fa-check"></i> Standard</span>;
-    } else if (sourceType === 'CUSTOM') {
+    } else if (sourceType === 'custom') {
         return <span className="source-badge source-badge-custom"><i className="fas fa-exclamation-triangle"></i> Custom</span>;
-    } else if (sourceType === 'MODIFIED') {
+    } else if (sourceType === 'modified_standard') {
         return <span className="source-badge source-badge-modified"><i className="fas fa-tilde"></i> Modified</span>;
     }
     return null;
@@ -931,7 +931,7 @@ function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, selectedSetId,
                             <div className="note-preview">
                                 {(note.custom_text || note.standard_text || '').substring(0, 100)}...
                             </div>
-                            {note.source_type === 'modified' && note.standard_title && (
+                            {note.source_type === 'modified_standard' && note.standard_title && (
                                 <div style={{
                                     fontSize: '0.75rem',
                                     color: 'var(--cyan)',

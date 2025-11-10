@@ -26,7 +26,8 @@ class TestStandardProtection:
         print("\n=== Setting up test data ===")
         
         # Get a project to work with
-        projects = self._get("/api/projects")
+        response = self._get("/api/projects")
+        projects = response.get('projects', []) if response else []
         if projects and len(projects) > 0:
             self.test_project_id = projects[0]['project_id']
             print(f"✓ Using existing project: {self.test_project_id}")
@@ -35,7 +36,8 @@ class TestStandardProtection:
             return False
         
         # Get or create a sheet note set
-        sets = self._get(f"/api/data-manager/sheet-sets")
+        response = self._get(f"/api/data-manager/sheet-sets")
+        sets = response.get('sheet_sets', []) if response else []
         project_sets = [s for s in sets if s.get('project_id') == self.test_project_id]
         
         if project_sets:
@@ -46,14 +48,14 @@ class TestStandardProtection:
             return False
         
         # Find a standard note to test with
-        notes = self._get(f"/api/project-sheet-notes")
-        standard_notes = [n for n in notes 
-                         if n.get('source_type') == 'standard' 
-                         and n.get('set_id') == self.test_set_id]
+        response = self._get(f"/api/project-sheet-notes?set_id={self.test_set_id}")
+        notes = response.get('notes', []) if response else []
+        standard_notes = [n for n in notes if n.get('source_type') == 'standard']
         
         if standard_notes:
             self.test_standard_note_id = standard_notes[0]['project_note_id']
             print(f"✓ Using existing standard note: {self.test_standard_note_id}")
+            print(f"  Display code: {standard_notes[0].get('display_code')}")
         else:
             print("⚠ No standard notes found. Test will be limited.")
             return False
@@ -95,9 +97,9 @@ class TestStandardProtection:
             else:
                 print(f"✗ Display code missing -M suffix: {result.get('display_code')}")
             
-            # Verify source_type is 'modified'
-            if result.get('source_type') == 'modified':
-                print("✓ Source type is 'modified'")
+            # Verify source_type is 'modified_standard'
+            if result.get('source_type') == 'modified_standard':
+                print("✓ Source type is 'modified_standard'")
             else:
                 print(f"✗ Source type is incorrect: {result.get('source_type')}")
             
