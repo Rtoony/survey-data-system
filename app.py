@@ -7457,12 +7457,27 @@ def get_project_sheet_notes():
                 psn.is_modified,
                 psn.sort_order,
                 psn.usage_count,
+                psn.source_type,
+                psn.deviation_reason,
+                psn.standardization_note,
+                psn.first_used_at,
+                psn.last_used_at,
                 sn.note_title as standard_title,
                 sn.note_text as standard_text,
                 sn.note_category,
-                sn.discipline
+                sn.discipline,
+                dc.category_code as deviation_category_code,
+                dc.category_name as deviation_category_name,
+                cs.status_code as conformance_status_code,
+                cs.status_name as conformance_status_name,
+                cs.color_hex as conformance_color,
+                ss.status_code as standardization_status_code,
+                ss.status_name as standardization_status_name
             FROM project_sheet_notes psn
             LEFT JOIN standard_notes sn ON psn.standard_note_id = sn.note_id
+            LEFT JOIN deviation_categories dc ON psn.deviation_category_id = dc.category_id
+            LEFT JOIN conformance_statuses cs ON psn.conformance_status_id = cs.status_id
+            LEFT JOIN standardization_statuses ss ON psn.standardization_status_id = ss.status_id
             WHERE psn.set_id = %s::uuid
             ORDER BY psn.sort_order, psn.display_code
         """
@@ -7500,15 +7515,34 @@ def create_project_sheet_note():
         
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Get next sort order
                 cur.execute('SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order FROM project_sheet_notes WHERE set_id = %s::uuid', (set_id,))
                 next_sort_order = cur.fetchone()['next_order']
                 
+                # Get conformance status based on whether it's custom or standard
+                if is_custom:
+                    cur.execute("SELECT status_id FROM conformance_statuses WHERE status_code = 'NON_STANDARD'")
+                    conformance_status = cur.fetchone()
+                else:
+                    cur.execute("SELECT status_id FROM conformance_statuses WHERE status_code = 'FULL_COMPLIANCE'")
+                    conformance_status = cur.fetchone()
+                
+                # Get standardization status for not nominated
+                cur.execute("SELECT status_id FROM standardization_statuses WHERE status_code = 'NOT_NOMINATED'")
+                standardization_status = cur.fetchone()
+                
                 cur.execute("""
                     INSERT INTO project_sheet_notes 
-                    (project_note_id, set_id, standard_note_id, display_code, custom_title, custom_text, sort_order)
-                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s)
-                    RETURNING project_note_id, set_id, standard_note_id, display_code, custom_title, custom_text, is_modified, sort_order, usage_count
-                """, (project_note_id, set_id, standard_note_id, display_code, custom_title, custom_text, next_sort_order))
+                    (project_note_id, set_id, standard_note_id, standard_reference_id, display_code, custom_title, custom_text, 
+                     source_type, sort_order, conformance_status_id, standardization_status_id,
+                     first_used_at, last_used_at, usage_count)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s::uuid, %s::uuid, 
+                            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
+                    RETURNING project_note_id, set_id, standard_note_id, display_code, custom_title, custom_text, 
+                              is_modified, sort_order, usage_count, source_type
+                """, (project_note_id, set_id, standard_note_id, standard_note_id, display_code, custom_title, custom_text,
+                      'custom' if is_custom else 'standard', next_sort_order, conformance_status['status_id'], 
+                      standardization_status['status_id']))
                 
                 new_note = dict(cur.fetchone())
                 conn.commit()
@@ -7764,6 +7798,198 @@ def get_sheet_note_legend():
             'legend': legend_items,
             'total_notes': len(legend_items)
         })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ==========================
+# CONFORMANCE TRACKING API
+# ==========================
+
+@app.route('/api/conformance/deviation-categories', methods=['GET'])
+def get_deviation_categories():
+    """Get all deviation categories"""
+    try:
+        query = """
+            SELECT category_id, category_code, category_name, description, sort_order
+            FROM deviation_categories
+            WHERE is_active = TRUE
+            ORDER BY sort_order, category_name
+        """
+        categories = execute_query(query)
+        return jsonify({'categories': categories})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/conformance/statuses', methods=['GET'])
+def get_conformance_statuses():
+    """Get all conformance and standardization statuses"""
+    try:
+        conformance_query = """
+            SELECT status_id, status_code, status_name, description, color_hex, sort_order
+            FROM conformance_statuses
+            WHERE is_active = TRUE
+            ORDER BY sort_order, status_name
+        """
+        standardization_query = """
+            SELECT status_id, status_code, status_name, description, workflow_order
+            FROM standardization_statuses
+            WHERE is_active = TRUE
+            ORDER BY workflow_order, status_name
+        """
+        conformance_statuses = execute_query(conformance_query)
+        standardization_statuses = execute_query(standardization_query)
+        
+        return jsonify({
+            'conformance_statuses': conformance_statuses,
+            'standardization_statuses': standardization_statuses
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-sheet-notes/<project_note_id>/conformance', methods=['PATCH'])
+def update_note_conformance(project_note_id):
+    """Update conformance tracking for a project sheet note"""
+    try:
+        data = request.get_json()
+        
+        deviation_category_id = data.get('deviation_category_id')
+        deviation_reason = data.get('deviation_reason')
+        conformance_status_id = data.get('conformance_status_id')
+        standardization_status_id = data.get('standardization_status_id')
+        standardization_note = data.get('standardization_note')
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Validate foreign key references
+                if deviation_category_id:
+                    cur.execute('SELECT 1 FROM deviation_categories WHERE category_id = %s::uuid', (deviation_category_id,))
+                    if not cur.fetchone():
+                        return jsonify({'error': 'Invalid deviation_category_id'}), 400
+                
+                if conformance_status_id:
+                    cur.execute('SELECT 1 FROM conformance_statuses WHERE status_id = %s::uuid', (conformance_status_id,))
+                    if not cur.fetchone():
+                        return jsonify({'error': 'Invalid conformance_status_id'}), 400
+                
+                if standardization_status_id:
+                    cur.execute('SELECT 1 FROM standardization_statuses WHERE status_id = %s::uuid', (standardization_status_id,))
+                    if not cur.fetchone():
+                        return jsonify({'error': 'Invalid standardization_status_id'}), 400
+                
+                update_parts = []
+                params = []
+                
+                if deviation_category_id is not None:
+                    update_parts.append('deviation_category_id = %s::uuid')
+                    params.append(deviation_category_id)
+                
+                if deviation_reason is not None:
+                    update_parts.append('deviation_reason = %s')
+                    params.append(deviation_reason)
+                
+                if conformance_status_id is not None:
+                    update_parts.append('conformance_status_id = %s::uuid')
+                    params.append(conformance_status_id)
+                
+                if standardization_status_id is not None:
+                    update_parts.append('standardization_status_id = %s::uuid')
+                    params.append(standardization_status_id)
+                
+                if standardization_note is not None:
+                    update_parts.append('standardization_note = %s')
+                    params.append(standardization_note)
+                
+                if not update_parts:
+                    return jsonify({'error': 'No fields to update'}), 400
+                
+                update_parts.append('updated_at = CURRENT_TIMESTAMP')
+                params.append(project_note_id)
+                
+                query = f"""
+                    UPDATE project_sheet_notes
+                    SET {', '.join(update_parts)}
+                    WHERE project_note_id = %s::uuid
+                    RETURNING *
+                """
+                
+                cur.execute(query, params)
+                updated_note = cur.fetchone()
+                
+                if not updated_note:
+                    return jsonify({'error': 'Note not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'note': dict(updated_note)})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-sheet-notes/assign-standard', methods=['POST'])
+def assign_standard_note():
+    """Assign a standard note to a project note set"""
+    try:
+        data = request.get_json()
+        
+        set_id = data.get('set_id')
+        standard_note_id = data.get('standard_note_id')
+        display_code = data.get('display_code')
+        
+        if not set_id or not standard_note_id or not display_code:
+            return jsonify({'error': 'set_id, standard_note_id, and display_code are required'}), 400
+        
+        project_note_id = str(uuid.uuid4())
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Validate set exists
+                cur.execute('SELECT 1 FROM sheet_note_sets WHERE set_id = %s::uuid', (set_id,))
+                if not cur.fetchone():
+                    return jsonify({'error': 'Invalid set_id'}), 400
+                
+                # Validate standard note exists
+                cur.execute('SELECT 1 FROM standard_notes WHERE note_id = %s::uuid', (standard_note_id,))
+                if not cur.fetchone():
+                    return jsonify({'error': 'Invalid standard_note_id'}), 400
+                
+                # Check for duplicate display code in this set
+                cur.execute('SELECT 1 FROM project_sheet_notes WHERE set_id = %s::uuid AND display_code = %s', (set_id, display_code))
+                if cur.fetchone():
+                    return jsonify({'error': f'Display code {display_code} already exists in this set'}), 400
+                
+                # Get next sort order
+                cur.execute('SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order FROM project_sheet_notes WHERE set_id = %s::uuid', (set_id,))
+                next_sort_order = cur.fetchone()['next_order']
+                
+                # Get conformance status for full compliance
+                cur.execute("SELECT status_id FROM conformance_statuses WHERE status_code = 'FULL_COMPLIANCE'")
+                conformance_status = cur.fetchone()
+                
+                # Get standardization status for not nominated
+                cur.execute("SELECT status_id FROM standardization_statuses WHERE status_code = 'NOT_NOMINATED'")
+                standardization_status = cur.fetchone()
+                
+                # Create project note from standard
+                query = """
+                    INSERT INTO project_sheet_notes 
+                    (project_note_id, set_id, standard_note_id, standard_reference_id, display_code, 
+                     source_type, is_modified, sort_order, conformance_status_id, standardization_status_id,
+                     first_used_at, last_used_at, usage_count)
+                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s, 'standard', FALSE, %s, %s::uuid, %s::uuid,
+                            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
+                    RETURNING *
+                """
+                
+                cur.execute(query, (
+                    project_note_id, set_id, standard_note_id, standard_note_id, display_code,
+                    next_sort_order, conformance_status['status_id'], standardization_status['status_id']
+                ))
+                
+                new_note = cur.fetchone()
+                conn.commit()
+                cache.clear()
+                return jsonify({'note': dict(new_note)}), 201
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
