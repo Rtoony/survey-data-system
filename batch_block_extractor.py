@@ -3,6 +3,9 @@ Batch Block Extractor
 Extracts block definitions from DXF files and generates SVG previews
 """
 
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend for web server environment
+
 import ezdxf
 from ezdxf.addons.drawing import RenderContext, Frontend
 from ezdxf.addons.drawing.matplotlib import MatplotlibBackend

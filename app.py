@@ -3,7 +3,7 @@ ACAD-GIS Schema Explorer & Data Manager
 A companion tool for viewing and managing your Supabase database
 """
 
-from flask import Flask, render_template, jsonify, request, send_file, make_response, redirect
+from flask import Flask, render_template, jsonify, request, send_file, make_response, redirect, url_for
 from flask_cors import CORS
 from flask_caching import Cache
 import psycopg2
@@ -164,10 +164,15 @@ def data_manager_disciplines():
     """Disciplines data manager page"""
     return render_template('data_manager/disciplines.html')
 
-@app.route('/tools/batch-block-import')
-def batch_block_import_tool():
-    """Batch Block Import Tool"""
+@app.route('/tools/batch-cad-import')
+def batch_cad_import_tool():
+    """Unified Batch CAD Import Tool (Blocks, Details, Hatches, Linetypes)"""
     return render_template('tools/batch_block_import.html')
+
+@app.route('/tools/batch-block-import')
+def batch_block_import_tool_redirect():
+    """Legacy redirect - Batch Block Import Tool"""
+    return redirect(url_for('batch_cad_import_tool'))
 
 @app.route('/project-standards-assignment')
 def project_standards_assignment():
@@ -2011,6 +2016,304 @@ def save_extracted_blocks():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# UNIFIED BATCH CAD IMPORT ROUTES (Blocks, Details, Hatches, Linetypes)
+# ============================================================================
+
+@app.route('/api/batch-cad-import/extract', methods=['POST'])
+def extract_cad_elements():
+    """Extract CAD elements (blocks, details, hatches, linetypes) from uploaded DXF files"""
+    try:
+        import_type = request.form.get('import_type', 'blocks')
+        
+        if 'files[]' not in request.files:
+            return jsonify({'error': 'No files provided'}), 400
+        
+        files = request.files.getlist('files[]')
+        if not files or len(files) == 0:
+            return jsonify({'error': 'No files selected'}), 400
+        
+        from batch_cad_extractor import BatchCADExtractor
+        
+        extractor = BatchCADExtractor(DB_CONFIG)
+        extracted_elements = []
+        errors = []
+        
+        for file in files:
+            if file.filename == '':
+                continue
+                
+            if not file.filename.lower().endswith('.dxf'):
+                errors.append(f"{file.filename}: Not a DXF file")
+                continue
+            
+            try:
+                temp_path = os.path.join(tempfile.gettempdir(), secure_filename(file.filename))
+                file.save(temp_path)
+                
+                elements = extractor.extract_from_file(temp_path, file.filename, import_type)
+                extracted_elements.extend(elements)
+                
+                os.remove(temp_path)
+                
+            except Exception as e:
+                errors.append(f"{file.filename}: {str(e)}")
+        
+        metadata = extractor.get_metadata(import_type)
+        
+        return jsonify({
+            'elements': extracted_elements,
+            'total_files': len(files),
+            'total_elements': len(extracted_elements),
+            'errors': errors,
+            'import_type': import_type,
+            'metadata': metadata
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch-cad-import/save', methods=['POST'])
+def save_cad_elements():
+    """Save extracted CAD elements to appropriate database tables"""
+    try:
+        data = request.get_json()
+        import_type = data.get('import_type', 'blocks')
+        elements = data.get('elements', [])
+        
+        if not elements:
+            return jsonify({'error': 'No elements provided'}), 400
+        
+        # Dispatch to appropriate save handler
+        save_handlers = {
+            'blocks': _save_blocks,
+            'details': _save_details,
+            'hatches': _save_hatches,
+            'linetypes': _save_linetypes
+        }
+        
+        if import_type not in save_handlers:
+            return jsonify({'error': f'Invalid import type: {import_type}'}), 400
+        
+        result = save_handlers[import_type](elements)
+        cache.clear()
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def _save_blocks(elements):
+    """Save blocks to block_definitions table"""
+    imported_count = 0
+    updated_count = 0
+    skipped_count = 0
+    
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            for elem in elements:
+                action = elem.get('action', 'skip')
+                if action == 'skip':
+                    skipped_count += 1
+                    continue
+                
+                name = elem.get('name')
+                category = elem.get('category', '')
+                description = elem.get('description', '')
+                svg_content = elem.get('svg_preview', '')
+                
+                cur.execute("""
+                    SELECT block_id FROM block_definitions
+                    WHERE LOWER(block_name) = LOWER(%s)
+                """, (name,))
+                
+                existing = cur.fetchone()
+                
+                if action == 'update' and existing:
+                    cur.execute("""
+                        UPDATE block_definitions
+                        SET category = %s, description = %s, svg_content = %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE block_id = %s
+                    """, (category, description, svg_content, existing[0]))
+                    updated_count += 1
+                    
+                elif action == 'import' and not existing:
+                    cur.execute("""
+                        INSERT INTO block_definitions 
+                        (block_name, category, description, svg_content, is_active)
+                        VALUES (%s, %s, %s, %s, TRUE)
+                    """, (name, category, description, svg_content))
+                    imported_count += 1
+                else:
+                    skipped_count += 1
+            
+            conn.commit()
+    
+    return {
+        'imported': imported_count,
+        'updated': updated_count,
+        'skipped': skipped_count
+    }
+
+def _save_details(elements):
+    """Save details to detail_standards table"""
+    imported_count = 0
+    updated_count = 0
+    skipped_count = 0
+    
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            for elem in elements:
+                action = elem.get('action', 'skip')
+                if action == 'skip':
+                    skipped_count += 1
+                    continue
+                
+                name = elem.get('name')
+                detail_category = elem.get('detail_category', '')
+                discipline = elem.get('discipline', '')
+                description = elem.get('description', '')
+                svg_content = elem.get('svg_preview', '')
+                
+                cur.execute("""
+                    SELECT detail_id FROM detail_standards
+                    WHERE LOWER(detail_number) = LOWER(%s)
+                """, (name,))
+                
+                existing = cur.fetchone()
+                
+                if action == 'update' and existing:
+                    cur.execute("""
+                        UPDATE detail_standards
+                        SET detail_category = %s, discipline = %s, 
+                            description = %s, svg_content = %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE detail_id = %s
+                    """, (detail_category, discipline, description, svg_content, existing[0]))
+                    updated_count += 1
+                    
+                elif action == 'import' and not existing:
+                    cur.execute("""
+                        INSERT INTO detail_standards 
+                        (detail_number, detail_category, discipline, description, svg_content)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (name, detail_category, discipline, description, svg_content))
+                    imported_count += 1
+                else:
+                    skipped_count += 1
+            
+            conn.commit()
+    
+    return {
+        'imported': imported_count,
+        'updated': updated_count,
+        'skipped': skipped_count
+    }
+
+def _save_hatches(elements):
+    """Save hatches to hatch_patterns table"""
+    imported_count = 0
+    updated_count = 0
+    skipped_count = 0
+    
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            for elem in elements:
+                action = elem.get('action', 'skip')
+                if action == 'skip':
+                    skipped_count += 1
+                    continue
+                
+                name = elem.get('name')
+                pattern_type = elem.get('pattern_type', 'User-defined')
+                description = elem.get('description', '')
+                
+                cur.execute("""
+                    SELECT hatch_id FROM hatch_patterns
+                    WHERE LOWER(pattern_name) = LOWER(%s)
+                """, (name,))
+                
+                existing = cur.fetchone()
+                
+                if action == 'update' and existing:
+                    cur.execute("""
+                        UPDATE hatch_patterns
+                        SET pattern_type = %s, description = %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE hatch_id = %s
+                    """, (pattern_type, description, existing[0]))
+                    updated_count += 1
+                    
+                elif action == 'import' and not existing:
+                    cur.execute("""
+                        INSERT INTO hatch_patterns 
+                        (pattern_name, pattern_type, description, is_active)
+                        VALUES (%s, %s, %s, TRUE)
+                    """, (name, pattern_type, description))
+                    imported_count += 1
+                else:
+                    skipped_count += 1
+            
+            conn.commit()
+    
+    return {
+        'imported': imported_count,
+        'updated': updated_count,
+        'skipped': skipped_count
+    }
+
+def _save_linetypes(elements):
+    """Save linetypes to linetypes table"""
+    imported_count = 0
+    updated_count = 0
+    skipped_count = 0
+    
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            for elem in elements:
+                action = elem.get('action', 'skip')
+                if action == 'skip':
+                    skipped_count += 1
+                    continue
+                
+                name = elem.get('name')
+                description = elem.get('description', '')
+                pattern_definition = elem.get('pattern_definition', '')
+                
+                cur.execute("""
+                    SELECT linetype_id FROM linetypes
+                    WHERE LOWER(linetype_name) = LOWER(%s)
+                """, (name,))
+                
+                existing = cur.fetchone()
+                
+                if action == 'update' and existing:
+                    cur.execute("""
+                        UPDATE linetypes
+                        SET description = %s, pattern_definition = %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE linetype_id = %s
+                    """, (description, pattern_definition, existing[0]))
+                    updated_count += 1
+                    
+                elif action == 'import' and not existing:
+                    cur.execute("""
+                        INSERT INTO linetypes 
+                        (linetype_name, description, pattern_definition, is_active)
+                        VALUES (%s, %s, %s, TRUE)
+                    """, (name, description, pattern_definition))
+                    imported_count += 1
+                else:
+                    skipped_count += 1
+            
+            conn.commit()
+    
+    return {
+        'imported': imported_count,
+        'updated': updated_count,
+        'skipped': skipped_count
+    }
 
 # ============================================================================
 # DETAILS MANAGER ROUTES
