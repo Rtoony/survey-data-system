@@ -6793,6 +6793,16 @@ def architecture():
     """Render the System Architecture diagram page"""
     return render_template('architecture.html')
 
+@app.route('/digital-twin')
+def digital_twin():
+    """Render the Digital Twin concept page"""
+    return render_template('digital_twin.html')
+
+@app.route('/evolution')
+def evolution():
+    """Render the Evolution timeline page"""
+    return render_template('evolution.html')
+
 @app.route('/api/schema/relationships', methods=['GET'])
 def get_schema_relationships():
     """Get table relationships and metadata for visualization"""

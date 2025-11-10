@@ -1,0 +1,916 @@
+{% extends "base.html" %}
+
+{% block title %}Evolution - ACAD-GIS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-history"></i> Evolution of CAD/GIS Systems</h1>
+            <p class="subtitle">Four generations of progress—from file cabinet to design copilot</p>
+        </div>
+    </div>
+
+    <!-- Hero Statement -->
+    <div class="card" style="background: linear-gradient(135deg, rgba(0,255,255,0.15) 0%, rgba(0,100,255,0.1) 100%); border: 2px solid var(--accent-cyan); margin-bottom: 30px;">
+        <div class="card-body" style="padding: 40px; text-align: center;">
+            <h2 style="color: var(--accent-cyan); font-size: 28px; margin: 0 0 20px 0;">
+                <i class="fas fa-rocket"></i> From Storage to Intelligence
+            </h2>
+            <p style="font-size: 18px; line-height: 1.8; color: var(--text-primary); max-width: 1000px; margin: 0 auto;">
+                CAD systems have evolved through four distinct generations over 30 years. Each generation added new capabilities, 
+                but <strong style="color: var(--accent-cyan);">Generation 4</strong> represents a fundamental shift—
+                from passive storage to <strong style="color: var(--accent-cyan);">active intelligence</strong> 
+                that understands, validates, and guides your design work.
+            </p>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-container">
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+        <div class="progress-labels">
+            <div class="progress-label">1990s</div>
+            <div class="progress-label">2000s</div>
+            <div class="progress-label">2010s</div>
+            <div class="progress-label" style="color: var(--accent-cyan); font-weight: bold;">2020s+</div>
+        </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="timeline-container">
+        
+        <!-- Generation 1: File Cabinet Era -->
+        <div class="timeline-card gen-1">
+            <div class="gen-badge" style="background: linear-gradient(135deg, #607d8b 0%, #455a64 100%);">
+                GEN 1
+            </div>
+            <div class="timeline-content">
+                <div class="timeline-header">
+                    <h2><i class="fas fa-folder-open"></i> File Cabinet Era</h2>
+                    <div class="timeline-years">1990s - 2000s</div>
+                </div>
+                
+                <div class="timeline-role">
+                    <strong>Role:</strong> Storage
+                </div>
+
+                <div class="timeline-description">
+                    <p>CAD files stored in network folders. The only organization was file naming conventions and folder structures. 
+                    Data locked in proprietary binary formats—impossible to query without opening in CAD software.</p>
+                </div>
+
+                <div class="capabilities-section">
+                    <h4><i class="fas fa-check-circle"></i> What It Could Do</h4>
+                    <ul>
+                        <li>Store DXF/DWG files on network drives</li>
+                        <li>Basic file naming conventions (ProjectName_Sheet01_Rev2.dwg)</li>
+                        <li>Folder organization by project/discipline</li>
+                        <li>Xref management for referenced drawings</li>
+                    </ul>
+                </div>
+
+                <div class="limitations-section">
+                    <h4><i class="fas fa-times-circle"></i> Limitations</h4>
+                    <ul>
+                        <li>File locking prevented simultaneous editing</li>
+                        <li>No searchability across drawings</li>
+                        <li>Email attachments: "final_final_v3.dwg"</li>
+                        <li>No insight into drawing content without opening</li>
+                        <li>Standards documented in PDF manuals</li>
+                    </ul>
+                </div>
+
+                <div class="metrics-section">
+                    <div class="metric">
+                        <div class="metric-value">2-4 hours</div>
+                        <div class="metric-label">To find all fire hydrants in 50 drawings</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">Manual</div>
+                        <div class="metric-label">Standards compliance checking</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline-arrow"><i class="fas fa-arrow-right"></i></div>
+
+        <!-- Generation 2: Cloud Storage Era -->
+        <div class="timeline-card gen-2">
+            <div class="gen-badge" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);">
+                GEN 2
+            </div>
+            <div class="timeline-content">
+                <div class="timeline-header">
+                    <h2><i class="fas fa-cloud"></i> Cloud Storage Era</h2>
+                    <div class="timeline-years">2000s - 2010s</div>
+                </div>
+                
+                <div class="timeline-role">
+                    <strong>Role:</strong> Organization
+                </div>
+
+                <div class="timeline-description">
+                    <p>Files moved to cloud storage (Dropbox, SharePoint, BIM 360). Searchable file names and metadata, 
+                    version control, and basic collaboration features. Still file-centric, but better organized.</p>
+                </div>
+
+                <div class="capabilities-section">
+                    <h4><i class="fas fa-check-circle"></i> What It Added</h4>
+                    <ul>
+                        <li>Cloud access from anywhere</li>
+                        <li>Automatic version history and backups</li>
+                        <li>Searchable file names and metadata</li>
+                        <li>Better collaboration (check-in/check-out)</li>
+                        <li>Mobile viewing via apps</li>
+                    </ul>
+                </div>
+
+                <div class="limitations-section">
+                    <h4><i class="fas fa-times-circle"></i> Still Limited By</h4>
+                    <ul>
+                        <li>Data still locked in binary files</li>
+                        <li>No cross-file queries or analytics</li>
+                        <li>No understanding of drawing content</li>
+                        <li>Manual standards compliance</li>
+                        <li>GIS separate from CAD (data duplication)</li>
+                    </ul>
+                </div>
+
+                <div class="metrics-section">
+                    <div class="metric">
+                        <div class="metric-value">1-2 hours</div>
+                        <div class="metric-label">Search improved but still file-by-file</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">Better</div>
+                        <div class="metric-label">Collaboration, but no intelligence</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline-arrow"><i class="fas fa-arrow-right"></i></div>
+
+        <!-- Generation 3: Database Era -->
+        <div class="timeline-card gen-3">
+            <div class="gen-badge" style="background: linear-gradient(135deg, #ffd700 0%, #f59f00 100%);">
+                GEN 3
+            </div>
+            <div class="timeline-content">
+                <div class="timeline-header">
+                    <h2><i class="fas fa-database"></i> Database Era</h2>
+                    <div class="timeline-years">2010s - 2020s</div>
+                </div>
+                
+                <div class="timeline-role">
+                    <strong>Role:</strong> Queryable Intelligence
+                </div>
+
+                <div class="timeline-description">
+                    <p>CAD data extracted into databases (PostGIS, SQL Server). Entities became queryable records with spatial indexes. 
+                    Finally possible to ask questions across all drawings without opening them.</p>
+                </div>
+
+                <div class="capabilities-section">
+                    <h4><i class="fas fa-check-circle"></i> Breakthrough Capabilities</h4>
+                    <ul>
+                        <li>SQL queries across all drawings</li>
+                        <li>PostGIS spatial analysis (ST_Within, ST_Distance)</li>
+                        <li>Relationship mapping (projects → drawings → entities)</li>
+                        <li>CAD + GIS fusion (single source of truth)</li>
+                        <li>Automated standards validation at import</li>
+                        <li>Real-time analytics and dashboards</li>
+                    </ul>
+                </div>
+
+                <div class="limitations-section">
+                    <h4><i class="fas fa-times-circle"></i> Still Lacked</h4>
+                    <ul>
+                        <li>Semantic understanding (just coordinates, not meaning)</li>
+                        <li>No AI or machine learning</li>
+                        <li>Limited relationship discovery</li>
+                        <li>Manual quality assessment</li>
+                        <li>No design assistance or guidance</li>
+                    </ul>
+                </div>
+
+                <div class="metrics-section">
+                    <div class="metric">
+                        <div class="metric-value">3 seconds</div>
+                        <div class="metric-label">SQL query across 50 drawings</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">Automated</div>
+                        <div class="metric-label">Standards validation</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline-arrow"><i class="fas fa-arrow-right"></i></div>
+
+        <!-- Generation 4: AI Copilot Era -->
+        <div class="timeline-card gen-4 you-are-here">
+            <div class="gen-badge" style="background: linear-gradient(135deg, var(--accent-cyan) 0%, #00bcd4 100%);">
+                GEN 4
+            </div>
+            <div class="you-are-here-marker">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>YOU ARE HERE</span>
+            </div>
+            <div class="timeline-content">
+                <div class="timeline-header">
+                    <h2><i class="fas fa-brain"></i> AI Copilot Era</h2>
+                    <div class="timeline-years">2020s - Present</div>
+                </div>
+                
+                <div class="timeline-role" style="color: var(--accent-cyan);">
+                    <strong>Role:</strong> Design Collaboration Partner
+                </div>
+
+                <div class="timeline-description">
+                    <p>AI-first architecture with semantic understanding via embeddings, GraphRAG for relationship intelligence, 
+                    specialized design assistants, automated quality scoring, and proactive guidance. 
+                    The system doesn't just store—it <strong style="color: var(--accent-cyan);">understands, validates, and assists</strong>.</p>
+                </div>
+
+                <div class="capabilities-section ai-capabilities">
+                    <h4><i class="fas fa-rocket"></i> Revolutionary Capabilities</h4>
+                    <ul>
+                        <li><strong>Semantic Understanding:</strong> Vector embeddings (1536D) know that "bioretention" relates to "rain gardens" and "infiltration"</li>
+                        <li><strong>GraphRAG:</strong> Multi-hop queries like "What materials are needed for details in Building A?"</li>
+                        <li><strong>Quality Scoring:</strong> Automatic health metrics (12+ factors) for every entity</li>
+                        <li><strong>Specialized Assistants:</strong> Gravity/Pressure Network Managers with engineering intelligence</li>
+                        <li><strong>Relationship Discovery:</strong> AI suggests missing connections and validates topology</li>
+                        <li><strong>Hybrid Search:</strong> Combines spatial + semantic + full-text queries</li>
+                        <li><strong>Proactive Guidance:</strong> Standards validation, design suggestions, compliance alerts</li>
+                        <li><strong>Project Orchestration:</strong> Complete lifecycle management with 5-tab dashboards</li>
+                    </ul>
+                </div>
+
+                <div class="no-limitations">
+                    <h4><i class="fas fa-star"></i> The Fundamental Shift</h4>
+                    <p>This isn't incremental improvement—it's a paradigm change. The system becomes a <strong>design partner</strong> that:</p>
+                    <ul>
+                        <li>Understands what your entities mean (not just where they are)</li>
+                        <li>Validates your design against rules automatically</li>
+                        <li>Suggests improvements based on similar projects</li>
+                        <li>Guides you toward compliance before issues arise</li>
+                        <li>Learns and improves with every use</li>
+                    </ul>
+                </div>
+
+                <div class="metrics-section ai-metrics">
+                    <div class="metric highlight">
+                        <div class="metric-value">0.3 sec</div>
+                        <div class="metric-label">AI semantic search + topology validation</div>
+                    </div>
+                    <div class="metric highlight">
+                        <div class="metric-value">Intelligent</div>
+                        <div class="metric-label">Design assistance with GraphRAG</div>
+                    </div>
+                    <div class="metric highlight">
+                        <div class="metric-value">87%</div>
+                        <div class="metric-label">Automatic quality scoring</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Capability Growth Chart -->
+    <div class="card" style="margin-top: 40px; margin-bottom: 30px;">
+        <div class="card-header">
+            <h2><i class="fas fa-chart-line"></i> Capability Growth Across Generations</h2>
+        </div>
+        <div class="card-body">
+            <div class="capability-comparison">
+                
+                <div class="capability-row">
+                    <div class="capability-name">Search & Query Power</div>
+                    <div class="capability-bars">
+                        <div class="capability-bar gen-1-bar" style="width: 10%;">10%</div>
+                        <div class="capability-bar gen-2-bar" style="width: 30%;">30%</div>
+                        <div class="capability-bar gen-3-bar" style="width: 70%;">70%</div>
+                        <div class="capability-bar gen-4-bar" style="width: 100%;">100%</div>
+                    </div>
+                </div>
+
+                <div class="capability-row">
+                    <div class="capability-name">Standards Enforcement</div>
+                    <div class="capability-bars">
+                        <div class="capability-bar gen-1-bar" style="width: 5%;">5%</div>
+                        <div class="capability-bar gen-2-bar" style="width: 15%;">15%</div>
+                        <div class="capability-bar gen-3-bar" style="width: 60%;">60%</div>
+                        <div class="capability-bar gen-4-bar" style="width: 100%;">100%</div>
+                    </div>
+                </div>
+
+                <div class="capability-row">
+                    <div class="capability-name">Semantic Understanding</div>
+                    <div class="capability-bars">
+                        <div class="capability-bar gen-1-bar" style="width: 0%;">0%</div>
+                        <div class="capability-bar gen-2-bar" style="width: 0%;">0%</div>
+                        <div class="capability-bar gen-3-bar" style="width: 0%;">0%</div>
+                        <div class="capability-bar gen-4-bar" style="width: 100%;">100%</div>
+                    </div>
+                </div>
+
+                <div class="capability-row">
+                    <div class="capability-name">Relationship Intelligence</div>
+                    <div class="capability-bars">
+                        <div class="capability-bar gen-1-bar" style="width: 0%;">0%</div>
+                        <div class="capability-bar gen-2-bar" style="width: 5%;">5%</div>
+                        <div class="capability-bar gen-3-bar" style="width: 40%;">40%</div>
+                        <div class="capability-bar gen-4-bar" style="width: 100%;">100%</div>
+                    </div>
+                </div>
+
+                <div class="capability-row">
+                    <div class="capability-name">Design Assistance</div>
+                    <div class="capability-bars">
+                        <div class="capability-bar gen-1-bar" style="width: 0%;">0%</div>
+                        <div class="capability-bar gen-2-bar" style="width: 0%;">0%</div>
+                        <div class="capability-bar gen-3-bar" style="width: 10%;">10%</div>
+                        <div class="capability-bar gen-4-bar" style="width: 100%;">100%</div>
+                    </div>
+                </div>
+
+                <div class="capability-row">
+                    <div class="capability-name">Collaboration</div>
+                    <div class="capability-bars">
+                        <div class="capability-bar gen-1-bar" style="width: 20%;">20%</div>
+                        <div class="capability-bar gen-2-bar" style="width: 60%;">60%</div>
+                        <div class="capability-bar gen-3-bar" style="width: 80%;">80%</div>
+                        <div class="capability-bar gen-4-bar" style="width: 100%;">100%</div>
+                    </div>
+                </div>
+
+                <div class="capability-row">
+                    <div class="capability-name">Data Quality Insights</div>
+                    <div class="capability-bars">
+                        <div class="capability-bar gen-1-bar" style="width: 0%;">0%</div>
+                        <div class="capability-bar gen-2-bar" style="width: 10%;">10%</div>
+                        <div class="capability-bar gen-3-bar" style="width: 50%;">50%</div>
+                        <div class="capability-bar gen-4-bar" style="width: 100%;">100%</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="generation-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #607d8b;"></div>
+                    <span>Gen 1: File Cabinet</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff9800;"></div>
+                    <span>Gen 2: Cloud Storage</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffd700;"></div>
+                    <span>Gen 3: Database</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-cyan);"></div>
+                    <span>Gen 4: AI Copilot (You Are Here)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Business Impact -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-chart-bar"></i> Business Impact Across Generations</h2>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                
+                <div class="impact-card">
+                    <h3 style="color: #607d8b;">Gen 1: Survival</h3>
+                    <div class="impact-metrics">
+                        <div class="impact-metric">
+                            <span class="impact-label">Time to Find Data:</span>
+                            <span class="impact-value bad">Hours/Days</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">Quality Control:</span>
+                            <span class="impact-value bad">Manual</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">RFIs per Project:</span>
+                            <span class="impact-value bad">30-50</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">Standards Compliance:</span>
+                            <span class="impact-value bad">~60%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="impact-card">
+                    <h3 style="color: #ff9800;">Gen 2: Improvement</h3>
+                    <div class="impact-metrics">
+                        <div class="impact-metric">
+                            <span class="impact-label">Time to Find Data:</span>
+                            <span class="impact-value okay">30-60 min</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">Quality Control:</span>
+                            <span class="impact-value okay">Semi-Manual</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">RFIs per Project:</span>
+                            <span class="impact-value okay">20-30</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">Standards Compliance:</span>
+                            <span class="impact-value okay">~70%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="impact-card">
+                    <h3 style="color: #ffd700;">Gen 3: Transformation</h3>
+                    <div class="impact-metrics">
+                        <div class="impact-metric">
+                            <span class="impact-label">Time to Find Data:</span>
+                            <span class="impact-value good">Seconds</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">Quality Control:</span>
+                            <span class="impact-value good">Automated</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">RFIs per Project:</span>
+                            <span class="impact-value good">10-15</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">Standards Compliance:</span>
+                            <span class="impact-value good">~85%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="impact-card highlight">
+                    <h3 style="color: var(--accent-cyan);">Gen 4: Revolution</h3>
+                    <div class="impact-metrics">
+                        <div class="impact-metric">
+                            <span class="impact-label">Time to Find Data:</span>
+                            <span class="impact-value excellent">Instant + AI</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">Quality Control:</span>
+                            <span class="impact-value excellent">AI-Driven</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">RFIs per Project:</span>
+                            <span class="impact-value excellent">5-8</span>
+                        </div>
+                        <div class="impact-metric">
+                            <span class="impact-label">Standards Compliance:</span>
+                            <span class="impact-value excellent">95%+</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.progress-container {
+    margin: 30px 0 50px 0;
+    padding: 20px;
+}
+
+.progress-bar {
+    height: 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #607d8b 0%, #ff9800 33%, #ffd700 66%, var(--accent-cyan) 100%);
+    animation: progress-glow 3s ease-in-out infinite;
+}
+
+@keyframes progress-glow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.progress-label {
+    font-size: 13px;
+    color: var(--text-dim);
+}
+
+.timeline-container {
+    display: flex;
+    align-items: stretch;
+    gap: 20px;
+    margin: 30px 0;
+    overflow-x: auto;
+    padding: 20px 0 40px 0;
+}
+
+.timeline-card {
+    min-width: 400px;
+    max-width: 450px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 30px;
+    border: 2px solid rgba(255,255,255,0.1);
+    position: relative;
+    transition: all 0.4s;
+    flex-shrink: 0;
+}
+
+.timeline-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 50px rgba(0,255,255,0.3);
+}
+
+.gen-4 {
+    border: 3px solid var(--accent-cyan);
+    box-shadow: 0 0 30px rgba(0,255,255,0.5);
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 30px rgba(0,255,255,0.5); }
+    50% { box-shadow: 0 0 50px rgba(0,255,255,0.8), 0 0 80px rgba(0,255,255,0.4); }
+}
+
+.gen-badge {
+    position: absolute;
+    top: -15px;
+    left: 30px;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 14px;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.you-are-here-marker {
+    position: absolute;
+    top: -50px;
+    right: 30px;
+    background: var(--accent-cyan);
+    color: #0a1628;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 20px rgba(0,255,255,0.6);
+    animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+.timeline-header h2 {
+    color: var(--accent-cyan);
+    font-size: 22px;
+    margin: 0 0 5px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.timeline-years {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+.timeline-role {
+    background: rgba(0,255,255,0.1);
+    padding: 10px;
+    border-left: 3px solid var(--accent-cyan);
+    border-radius: 4px;
+    margin: 15px 0;
+    font-size: 14px;
+}
+
+.timeline-description {
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.7;
+    margin: 15px 0;
+}
+
+.capabilities-section,
+.limitations-section,
+.no-limitations {
+    margin: 20px 0;
+}
+
+.capabilities-section h4,
+.limitations-section h4,
+.no-limitations h4 {
+    color: var(--accent-cyan);
+    font-size: 16px;
+    margin: 0 0 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.capabilities-section ul,
+.limitations-section ul,
+.no-limitations ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.capabilities-section li,
+.limitations-section li,
+.no-limitations li {
+    padding: 6px 0 6px 20px;
+    position: relative;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-dim);
+}
+
+.capabilities-section li:before {
+    content: "\f00c";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    left: 0;
+    color: #51cf66;
+    font-size: 11px;
+}
+
+.limitations-section li:before {
+    content: "\f00d";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    left: 0;
+    color: #ff6b6b;
+    font-size: 11px;
+}
+
+.no-limitations li:before {
+    content: "\f005";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    left: 0;
+    color: var(--accent-cyan);
+    font-size: 11px;
+}
+
+.ai-capabilities li strong {
+    color: var(--accent-cyan);
+}
+
+.no-limitations p {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin: 10px 0;
+    line-height: 1.7;
+}
+
+.no-limitations p strong {
+    color: var(--accent-cyan);
+}
+
+.metrics-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.metric {
+    text-align: center;
+    padding: 15px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.metric.highlight {
+    border-color: var(--accent-cyan);
+    background: rgba(0,255,255,0.1);
+}
+
+.metric-value {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--accent-cyan);
+    margin-bottom: 8px;
+}
+
+.metric-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.4;
+}
+
+.timeline-arrow {
+    display: flex;
+    align-items: center;
+    font-size: 32px;
+    color: var(--accent-cyan);
+    flex-shrink: 0;
+    animation: slide-arrow 2s ease-in-out infinite;
+}
+
+@keyframes slide-arrow {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(10px); }
+}
+
+.capability-comparison {
+    display: grid;
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.capability-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 20px;
+    align-items: center;
+}
+
+.capability-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.capability-bars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.capability-bar {
+    height: 30px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: white;
+    transition: all 0.3s;
+}
+
+.capability-bar:hover {
+    transform: scaleY(1.2);
+}
+
+.gen-1-bar {
+    background: linear-gradient(135deg, #607d8b 0%, #455a64 100%);
+}
+
+.gen-2-bar {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+}
+
+.gen-3-bar {
+    background: linear-gradient(135deg, #ffd700 0%, #f59f00 100%);
+}
+
+.gen-4-bar {
+    background: linear-gradient(135deg, var(--accent-cyan) 0%, #00bcd4 100%);
+    box-shadow: 0 0 15px rgba(0,255,255,0.5);
+}
+
+.generation-legend {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 30px;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+}
+
+.legend-item span {
+    font-size: 14px;
+    color: var(--text-dim);
+}
+
+.impact-card {
+    padding: 25px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.impact-card.highlight {
+    border: 2px solid var(--accent-cyan);
+    background: rgba(0,255,255,0.05);
+}
+
+.impact-card h3 {
+    font-size: 18px;
+    margin: 0 0 20px 0;
+}
+
+.impact-metrics {
+    display: grid;
+    gap: 12px;
+}
+
+.impact-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+}
+
+.impact-label {
+    font-size: 13px;
+    color: var(--text-dim);
+}
+
+.impact-value {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.impact-value.bad {
+    color: #ff6b6b;
+}
+
+.impact-value.okay {
+    color: #ff9800;
+}
+
+.impact-value.good {
+    color: #ffd700;
+}
+
+.impact-value.excellent {
+    color: var(--accent-cyan);
+}
+
+@media (max-width: 1400px) {
+    .timeline-card {
+        min-width: 350px;
+    }
+    
+    .capability-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .timeline-arrow {
+        transform: rotate(90deg);
+        padding: 20px 0;
+    }
+}
+</style>
+
+{% endblock %}

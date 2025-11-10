@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Why This Matters - Schema Explorer{% endblock %}
+{% block title %}Why This Matters - ACAD-GIS{% endblock %}
 
 {% block content %}
 <div class="container">
     <div class="page-header">
         <div>
             <h1><i class="fas fa-lightbulb"></i> Why This Matters</h1>
-            <p class="subtitle">Understanding the power of database-driven CAD management</p>
+            <p class="subtitle">From static files to an AI-powered design intelligence platform</p>
         </div>
     </div>
 
@@ -15,12 +15,12 @@
     <div class="card" style="background: linear-gradient(135deg, rgba(0,255,255,0.15) 0%, rgba(0,100,255,0.1) 100%); border: 2px solid var(--accent-cyan); margin-bottom: 30px;">
         <div class="card-body" style="padding: 40px; text-align: center;">
             <h2 style="color: var(--accent-cyan); font-size: 28px; margin: 0 0 20px 0;">
-                <i class="fas fa-rocket"></i> Beyond File Storage: CAD Data as Queryable Intelligence
+                <i class="fas fa-brain"></i> AI-First Civil Design Assistant & Project Manager
             </h2>
-            <p style="font-size: 18px; line-height: 1.8; color: var(--text-primary); max-width: 900px; margin: 0 auto;">
-                Traditional CAD workflows treat drawings as static files locked in proprietary formats. 
-                This system transforms CAD data into <strong style="color: var(--accent-cyan);">structured, queryable, geospatially-enabled database records</strong> 
-                while maintaining complete round-trip fidelity to industry-standard DXF/DWG formats.
+            <p style="font-size: 18px; line-height: 1.8; color: var(--text-primary); max-width: 1000px; margin: 0 auto;">
+                This isn't just a database for CAD files—it's an <strong style="color: var(--accent-cyan);">intelligent design companion</strong> 
+                that understands your projects through AI, enforces standards automatically, provides specialized design tools, 
+                manages project lifecycles, and helps you make better engineering decisions through semantic understanding and GraphRAG.
             </p>
         </div>
     </div>
@@ -33,15 +33,15 @@
                 <h2 style="color: #ff6b6b;">
                     <i class="fas fa-folder-open"></i> Traditional Approach
                 </h2>
-                <p style="margin: 10px 0 0 0; color: var(--text-dim); font-size: 14px;">File-based CAD storage</p>
+                <p style="margin: 10px 0 0 0; color: var(--text-dim); font-size: 14px;">Disconnected files & manual workflows</p>
             </div>
             <div class="card-body">
                 <div class="comparison-section">
                     <h3><i class="fas fa-database"></i> Data Storage</h3>
                     <ul class="comparison-list negative">
-                        <li>DXF/DWG files stored in network folders</li>
+                        <li>DXF/DWG files scattered across network folders</li>
                         <li>Data locked inside proprietary binary formats</li>
-                        <li>No structured database relationships</li>
+                        <li>No relationships between projects, drawings, entities</li>
                         <li>File naming conventions as only organization</li>
                     </ul>
                 </div>
@@ -50,218 +50,436 @@
                     <h3><i class="fas fa-search"></i> Querying & Analysis</h3>
                     <ul class="comparison-list negative">
                         <li>Must open each file individually in CAD software</li>
-                        <li>No SQL queries across multiple drawings</li>
+                        <li>No cross-project spatial or semantic queries</li>
                         <li>Manual searching through layers and entities</li>
-                        <li>Impossible to ask: "Find all doors in Building A"</li>
+                        <li>Impossible to ask: "Find all catch basins within 50' of property lines across all active projects"</li>
                     </ul>
                 </div>
 
                 <div class="comparison-section">
-                    <h3><i class="fas fa-ruler-combined"></i> Standards Compliance</h3>
+                    <h3><i class="fas fa-ruler-combined"></i> Standards & Compliance</h3>
                     <ul class="comparison-list negative">
-                        <li>Manual layer/color checking by reviewers</li>
-                        <li>Standards documented in PDF reference manuals</li>
-                        <li>Human error in applying standards</li>
-                        <li>Inconsistencies across project teams</li>
+                        <li>Manual layer/color/linetype checking by reviewers</li>
+                        <li>Standards documented in static PDF manuals</li>
+                        <li>Human error in applying naming conventions</li>
+                        <li>No automated validation or quality scoring</li>
+                        <li>Inconsistent block/detail usage across teams</li>
                     </ul>
                 </div>
 
                 <div class="comparison-section">
-                    <h3><i class="fas fa-map-marked-alt"></i> GIS Integration</h3>
+                    <h3><i class="fas fa-hard-hat"></i> Design Workflows</h3>
                     <ul class="comparison-list negative">
-                        <li>Separate export process to convert CAD → GIS</li>
-                        <li>Data duplication and version conflicts</li>
-                        <li>No spatial queries on CAD geometry</li>
-                        <li>Manual coordinate system transformations</li>
+                        <li>Manual pipe network calculations</li>
+                        <li>No intelligent design assistants</li>
+                        <li>Tedious entity-by-entity editing in CAD</li>
+                        <li>Can't visualize networks without CAD software</li>
+                        <li>No relationship awareness (keynotes → details → materials)</li>
                     </ul>
                 </div>
 
                 <div class="comparison-section">
-                    <h3><i class="fas fa-history"></i> Versioning & Collaboration</h3>
+                    <h3><i class="fas fa-project-diagram"></i> Project Management</h3>
                     <ul class="comparison-list negative">
-                        <li>File locking prevents simultaneous editing</li>
-                        <li>Email attachments and "final_final_v3.dwg"</li>
-                        <li>No audit trail of changes</li>
-                        <li>Difficult to merge work from multiple drafters</li>
+                        <li>Project metadata in spreadsheets</li>
+                        <li>Client/vendor info separate from drawings</li>
+                        <li>No centralized compliance tracking</li>
+                        <li>Manual drawing inventory management</li>
+                        <li>Can't see project spatial extent without opening files</li>
                     </ul>
                 </div>
 
                 <div class="comparison-section">
-                    <h3><i class="fas fa-chart-line"></i> Analytics & Reporting</h3>
+                    <h3><i class="fas fa-brain"></i> Intelligence & Understanding</h3>
                     <ul class="comparison-list negative">
-                        <li>No insight into drawing content without opening files</li>
-                        <li>Cannot generate reports: "How many layers are used?"</li>
-                        <li>Manual counting and Excel spreadsheets</li>
-                        <li>Impossible to track standards adoption trends</li>
+                        <li>No semantic understanding of design elements</li>
+                        <li>Can't ask "What's related to this inlet?"</li>
+                        <li>No quality metrics or health checks</li>
+                        <li>Manual relationship discovery</li>
+                        <li>No AI-powered insights or suggestions</li>
                     </ul>
                 </div>
             </div>
         </div>
 
-        <!-- Modern Database Approach -->
+        <!-- AI-Powered Approach -->
         <div class="card" style="border: 2px solid rgba(0, 255, 255, 0.5);">
             <div class="card-header" style="background: linear-gradient(135deg, rgba(0, 255, 255, 0.2) 0%, rgba(0, 255, 255, 0.1) 100%);">
                 <h2 style="color: var(--accent-cyan);">
-                    <i class="fas fa-database"></i> Database-Driven Approach
+                    <i class="fas fa-brain"></i> AI-Powered Design Platform
                 </h2>
-                <p style="margin: 10px 0 0 0; color: var(--text-dim); font-size: 14px;">PostGIS + Normalized Database</p>
+                <p style="margin: 10px 0 0 0; color: var(--text-dim); font-size: 14px;">Intelligent, integrated, assistive</p>
             </div>
             <div class="card-body">
                 <div class="comparison-section">
-                    <h3><i class="fas fa-database"></i> Data Storage</h3>
+                    <h3><i class="fas fa-database"></i> AI-First Database</h3>
                     <ul class="comparison-list positive">
-                        <li>Every line, circle, text note stored as PostGIS geometry</li>
-                        <li>Normalized foreign key relationships (layers → standards)</li>
-                        <li>3D spatial indexing for fast queries (GIST indexes)</li>
-                        <li>Complete round-trip: DXF → Database → DXF with zero data loss</li>
+                        <li>81 tables with 700+ indexes optimized for AI/ML</li>
+                        <li>Vector embeddings (1536 dimensions) for semantic understanding</li>
+                        <li>GraphRAG with explicit relationship mapping</li>
+                        <li>Quality scoring system (12+ metrics per entity)</li>
+                        <li>PostGIS spatial + pgvector semantic search</li>
                     </ul>
                 </div>
 
                 <div class="comparison-section">
-                    <h3><i class="fas fa-search"></i> Querying & Analysis</h3>
+                    <h3><i class="fas fa-search"></i> Unconventional Query Power</h3>
                     <ul class="comparison-list positive">
-                        <li>SQL queries: <code>SELECT * FROM drawing_entities WHERE entity_type='CIRCLE' AND ST_Area(geometry) > 100</code></li>
-                        <li>Search across all drawings instantly</li>
-                        <li>Spatial queries: "Find all text within 10 feet of this line"</li>
-                        <li>Cross-project analysis: "Which drawings use layer X?"</li>
+                        <li><strong>Spatial:</strong> "Find all manholes within 100' of parcel boundaries" (3 seconds across 50 projects)</li>
+                        <li><strong>Semantic:</strong> "Show me everything related to stormwater quality" (AI understands BMPs, treatment, pollutants)</li>
+                        <li><strong>Hybrid:</strong> "Catch basins with <4 pipes that are near property corners" (spatial + structural validation)</li>
+                        <li><strong>Cross-Project:</strong> "Which projects use outdated layer naming?" (instant compliance audit)</li>
+                        <li><strong>Analytics:</strong> Drawing Usage Dashboard tracks layer/block adoption patterns over time</li>
                     </ul>
                 </div>
 
                 <div class="comparison-section">
-                    <h3><i class="fas fa-ruler-combined"></i> Standards Compliance</h3>
+                    <h3><i class="fas fa-ruler-combined"></i> Automated Standards Enforcement</h3>
                     <ul class="comparison-list positive">
-                        <li>Automated validation against layer_standards table</li>
-                        <li>DXFLookupService enforces standards at import</li>
-                        <li>Real-time alerts: "Layer WALLS doesn't match company standard"</li>
-                        <li>Standards portal provides human-friendly reference</li>
+                        <li><strong>Standards Library:</strong> Database-driven layer vocabulary with discipline-category-object taxonomy</li>
+                        <li><strong>Validation Engine:</strong> Import DXF → instant validation against company standards</li>
+                        <li><strong>Mapping Framework:</strong> 11 tables for bidirectional DXF ↔ Database name translation (blocks, details, hatches, materials, notes)</li>
+                        <li><strong>Project Context Manager:</strong> Manages 6 relationship types (Keynote↔Block, Keynote↔Detail, Hatch↔Material, etc.)</li>
+                        <li><strong>Documentation Export:</strong> Generate training materials (Excel, PDF, HTML, CSV) for clients</li>
+                        <li><strong>Quality Dashboard:</strong> Real-time data completeness, embedding coverage, relationship density metrics</li>
                     </ul>
                 </div>
 
                 <div class="comparison-section">
-                    <h3><i class="fas fa-map-marked-alt"></i> GIS Integration</h3>
+                    <h3><i class="fas fa-hard-hat"></i> Specialized Design Tools</h3>
                     <ul class="comparison-list positive">
-                        <li>CAD geometry IS GIS geometry (PostGIS native format)</li>
-                        <li>Single source of truth - no duplicate datasets</li>
-                        <li>Overlay analysis: CAD drawings + parcels + aerial imagery</li>
-                        <li>Coordinate transformations via PostGIS ST_Transform()</li>
+                        <li><strong>Gravity Network Manager:</strong> Storm/sanitary pipe design with slope/invert intelligence, SVG visualization without CAD</li>
+                        <li><strong>Pressure Network Manager:</strong> Water/recycled distribution with pressure zone awareness</li>
+                        <li><strong>BMP Manager:</strong> Stormwater quality design with treatment train relationships</li>
+                        <li><strong>Entity Viewer:</strong> Lightweight 2D CAD viewer (8 entity types, multi-select filters, dynamic legend, zoom/pan/measure)</li>
+                        <li><strong>Map Viewer:</strong> Interactive Leaflet maps with coordinate transformation, bounding box export, overlay analysis</li>
+                        <li><strong>Batch CAD Import:</strong> Drag-and-drop DXF extraction for blocks/details/hatches with conflict resolution</li>
                     </ul>
                 </div>
 
                 <div class="comparison-section">
-                    <h3><i class="fas fa-history"></i> Versioning & Collaboration</h3>
+                    <h3><i class="fas fa-project-diagram"></i> Intelligent Project Orchestration</h3>
                     <ul class="comparison-list positive">
-                        <li>Database transactions enable safe concurrent editing</li>
-                        <li>Complete audit trail via export_jobs and timestamps</li>
-                        <li>Rollback to any checkpoint (automatic snapshots)</li>
-                        <li>Entity-level locking instead of file-level locking</li>
+                        <li><strong>Civil Project Manager:</strong> 5-tab dashboard (Overview, Drawings, Reference Data, Compliance, Standards)</li>
+                        <li><strong>Reference Data Hub:</strong> Attach clients, vendors, municipalities, coordinate systems, survey point descriptions to projects</li>
+                        <li><strong>Compliance Tracking:</strong> Monitor standards adoption across all project drawings</li>
+                        <li><strong>Spatial Extent:</strong> Auto-calculate project boundaries from drawing entities</li>
+                        <li><strong>Drawing Inventory:</strong> Associate DXF files, track versions, see content without opening</li>
+                        <li><strong>Metadata-Driven CRUD:</strong> Generic system for managing 6 entity types with full audit trails</li>
                     </ul>
                 </div>
 
                 <div class="comparison-section">
-                    <h3><i class="fas fa-chart-line"></i> Analytics & Reporting</h3>
+                    <h3><i class="fas fa-brain"></i> AI-Powered Intelligence</h3>
                     <ul class="comparison-list positive">
-                        <li>Dashboard shows drawing stats without opening files</li>
-                        <li>Reports: "Top 10 most-used layers across all projects"</li>
-                        <li>Layer usage tracking (which layers have content?)</li>
-                        <li>Standards adoption metrics and trend analysis</li>
+                        <li><strong>GraphRAG:</strong> "What's related to this catch basin?" → shows connected pipes, drainage area, keynotes, details, materials</li>
+                        <li><strong>Knowledge Graph Visualization:</strong> Interactive graph of entity relationships (spatial, engineering, semantic)</li>
+                        <li><strong>Embedding Search:</strong> Find similar designs by meaning, not just keywords</li>
+                        <li><strong>Quality Scoring:</strong> Auto-calculate health metrics (completeness, relationships, embedding coverage)</li>
+                        <li><strong>Relationship Discovery:</strong> AI suggests missing connections and data quality improvements</li>
+                        <li><strong>AI Toolkit:</strong> Python modules for embedding generation, validation, maintenance</li>
                     </ul>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Key Capabilities Highlight -->
-    <div class="card">
+    <!-- Specialized Management Tools -->
+    <div class="card" style="margin-bottom: 30px;">
         <div class="card-header">
-            <h2><i class="fas fa-star"></i> What Makes This System Special</h2>
+            <h2><i class="fas fa-toolbox"></i> The Complete Toolbox: 20+ Specialized Interfaces</h2>
         </div>
         <div class="card-body">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-                <div class="capability-card">
-                    <div class="capability-icon" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);">
-                        <i class="fas fa-sync-alt"></i>
-                    </div>
-                    <h3>Complete Round-Trip Fidelity</h3>
-                    <p>Import DXF → Database → Export DXF with zero data loss. Every entity, layer, dimension, and hatch preserved exactly.</p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                
+                <!-- Design & Visualization Tools -->
+                <div class="tool-category">
+                    <h3><i class="fas fa-drafting-compass"></i> Design & Visualization</h3>
+                    <ul class="tool-list">
+                        <li><strong>Entity Viewer</strong> - 2D CAD viewer with SVG rendering, no software needed</li>
+                        <li><strong>Gravity Network Manager</strong> - Storm/sanitary pipe design assistant</li>
+                        <li><strong>Pressure Network Manager</strong> - Water distribution designer</li>
+                        <li><strong>BMP Manager</strong> - Stormwater quality treatment tool</li>
+                        <li><strong>Map Viewer</strong> - Interactive Leaflet mapping with overlays</li>
+                    </ul>
                 </div>
 
-                <div class="capability-card">
-                    <div class="capability-icon" style="background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);">
-                        <i class="fas fa-globe"></i>
-                    </div>
-                    <h3>Native GIS + CAD Fusion</h3>
-                    <p>PostGIS GeometryZ stores 3D CAD primitives in same format as GIS data. Spatial indexing enables sub-second queries.</p>
+                <!-- Standards & Compliance -->
+                <div class="tool-category">
+                    <h3><i class="fas fa-shield-alt"></i> Standards & Compliance</h3>
+                    <ul class="tool-list">
+                        <li><strong>Standards Library</strong> - Database-driven CAD standards portal</li>
+                        <li><strong>Layer Vocabulary Browser</strong> - Hierarchical naming system</li>
+                        <li><strong>Reference Data Hub</strong> - Clients, vendors, municipalities manager</li>
+                        <li><strong>Project Context Manager</strong> - Keynote/block/detail relationships</li>
+                        <li><strong>Standards Export</strong> - Generate Excel/PDF/HTML documentation</li>
+                        <li><strong>Standards Mapping Dashboard</strong> - Track DXF name translations</li>
+                    </ul>
                 </div>
 
-                <div class="capability-card">
-                    <div class="capability-icon" style="background: linear-gradient(135deg, #ffd700 0%, #f59f00 100%);">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <h3>Enforced Standards</h3>
-                    <p>Normalized FK structure (layer_id → layer_standards) validates compliance automatically. Standards portal educates users.</p>
+                <!-- Data Management -->
+                <div class="tool-category">
+                    <h3><i class="fas fa-database"></i> Data Management</h3>
+                    <ul class="tool-list">
+                        <li><strong>Schema Explorer</strong> - Browse 81-table database structure</li>
+                        <li><strong>Layer Manager</strong> - CRUD for layer definitions</li>
+                        <li><strong>Block Manager</strong> - Manage block standards library</li>
+                        <li><strong>Detail Manager</strong> - Standard detail repository</li>
+                        <li><strong>Material Manager</strong> - Hatch/material database</li>
+                        <li><strong>Text/Dimension Style Manager</strong> - Typography standards</li>
+                        <li><strong>5 Name Mapping Managers</strong> - Blocks, details, hatches, materials, notes</li>
+                    </ul>
                 </div>
 
-                <div class="capability-card">
-                    <div class="capability-icon" style="background: linear-gradient(135deg, #00ffff 0%, #00bcd4 100%);">
-                        <i class="fas fa-bolt"></i>
-                    </div>
-                    <h3>SQL Query Power</h3>
-                    <p>Ask complex questions across thousands of drawings instantly: "Find all fire-rated doors on level 2 within 50 feet of exits"</p>
+                <!-- Import/Export & Batch Tools -->
+                <div class="tool-category">
+                    <h3><i class="fas fa-exchange-alt"></i> Import/Export</h3>
+                    <ul class="tool-list">
+                        <li><strong>DXF Import Pipeline</strong> - Intelligent parsing with standards validation</li>
+                        <li><strong>DXF Export Engine</strong> - Perfect round-trip fidelity</li>
+                        <li><strong>Batch CAD Import</strong> - Drag-and-drop block/detail extraction</li>
+                        <li><strong>Batch Export</strong> - Multi-drawing export with conflict resolution</li>
+                        <li><strong>Coordinate Transformer</strong> - CAD (SRID 0) ↔ GIS (SRID 2226)</li>
+                    </ul>
                 </div>
 
-                <div class="capability-card">
-                    <div class="capability-icon" style="background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);">
+                <!-- Project Management -->
+                <div class="tool-category">
+                    <h3><i class="fas fa-tasks"></i> Project Management</h3>
+                    <ul class="tool-list">
+                        <li><strong>Project Dashboard</strong> - Search, create, manage projects</li>
+                        <li><strong>Project Overview</strong> - 5-tab interface with Leaflet map</li>
+                        <li><strong>Drawing Inventory</strong> - Track DXF files per project</li>
+                        <li><strong>Compliance Tab</strong> - Standards adoption monitoring</li>
+                        <li><strong>Reference Data Tab</strong> - Project-specific metadata attachments</li>
+                    </ul>
+                </div>
+
+                <!-- Analytics & AI -->
+                <div class="tool-category">
+                    <h3><i class="fas fa-chart-bar"></i> Analytics & AI</h3>
+                    <ul class="tool-list">
+                        <li><strong>Drawing Usage Dashboard</strong> - Layer/block adoption analytics</li>
+                        <li><strong>Quality Dashboard</strong> - Data health metrics</li>
+                        <li><strong>Knowledge Graph Viewer</strong> - Interactive relationship visualization</li>
+                        <li><strong>AI Toolkit</strong> - Embedding generation, validation, maintenance</li>
+                        <li><strong>Schema Relationships</strong> - Database foreign key visualization</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Unconventional Analytical Capabilities -->
+    <div class="card" style="margin-bottom: 30px;">
+        <div class="card-header">
+            <h2><i class="fas fa-magic"></i> Unconventional Ways to Analyze Your Data</h2>
+            <p style="margin: 10px 0 0 0; color: var(--text-dim);">Things you could never do with traditional CAD workflows</p>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+                
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h3>Semantic Relationship Discovery</h3>
+                    <p><strong>Query:</strong> "Show me everything conceptually related to 'drainage'"</p>
+                    <p><strong>Result:</strong> AI finds catch basins, inlets, pipes, manholes, BMP facilities, treatment devices, even if they use different naming conventions—because embeddings understand <em>meaning</em>, not just keywords.</p>
+                </div>
+
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);">
                         <i class="fas fa-project-diagram"></i>
                     </div>
-                    <h3>Relationship Intelligence</h3>
-                    <p>53+ interconnected tables map entire CAD ecosystem: Projects → Drawings → Entities → Layers → Standards</p>
+                    <h3>GraphRAG Multi-Hop Queries</h3>
+                    <p><strong>Query:</strong> "What materials are required for details referenced by keynotes in Building A?"</p>
+                    <p><strong>Result:</strong> GraphRAG follows: Drawing → Keynotes → Details → Materials through explicit relationship edges, showing you the complete supply chain for that building.</p>
                 </div>
 
-                <div class="capability-card">
-                    <div class="capability-icon" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);">
-                        <i class="fas fa-chart-bar"></i>
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #ffd700 0%, #f59f00 100%);">
+                        <i class="fas fa-map-marked-alt"></i>
                     </div>
-                    <h3>Real-Time Analytics</h3>
-                    <p>Drawing stats, layer usage, standards compliance, and export history - all queryable without opening CAD software.</p>
+                    <h3>Cross-Project Spatial Analysis</h3>
+                    <p><strong>Query:</strong> "Find all fire hydrants within 300 feet of schools across every project in the database"</p>
+                    <p><strong>Result:</strong> PostGIS spatial query returns results in 2 seconds, complete with distances and project names—impossible with file-based CAD.</p>
                 </div>
+
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #00ffff 0%, #00bcd4 100%);">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3>Standards Adoption Trends</h3>
+                    <p><strong>Analysis:</strong> Drawing Usage Dashboard shows which layers are actually used vs. just defined in templates</p>
+                    <p><strong>Insight:</strong> Discover that 40% of your layer standards are never used, and 3 non-standard layers appear in 80% of projects—data-driven standards refinement.</p>
+                </div>
+
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>Automated Quality Scoring</h3>
+                    <p><strong>Analysis:</strong> Quality Dashboard calculates health metrics for every entity</p>
+                    <p><strong>Metrics:</strong> Completeness score (12 factors), embedding coverage (semantic understanding), relationship density (how connected), standards compliance percentage.</p>
+                </div>
+
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);">
+                        <i class="fas fa-network-wired"></i>
+                    </div>
+                    <h3>Network Topology Validation</h3>
+                    <p><strong>Analysis:</strong> Gravity Network Manager checks structural rules</p>
+                    <p><strong>Validation:</strong> "This manhole has 1 inlet pipe and 3 outlet pipes (unusual—verify design)" or "Pipe slope 0.002 is below minimum 0.004 for 8" diameter"—engineering intelligence built-in.</p>
+                </div>
+
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #e91e63 0%, #c2185b 100%);">
+                        <i class="fas fa-search-location"></i>
+                    </div>
+                    <h3>Proximity-Based Compliance</h3>
+                    <p><strong>Query:</strong> "Find all ADA ramps not within 5 feet of a parking space"</p>
+                    <p><strong>Result:</strong> Spatial validation catches accessibility compliance issues before construction—combine CAD + GIS + compliance rules in one query.</p>
+                </div>
+
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #3f51b5 0%, #303f9f 100%);">
+                        <i class="fas fa-layer-group"></i>
+                    </div>
+                    <h3>Layer Usage Heatmaps</h3>
+                    <p><strong>Analysis:</strong> "Which layers have the most entities across all projects?"</p>
+                    <p><strong>Result:</strong> Discover UTIL-STORM-PIPE appears in 95% of civil drawings with 12,000+ entities, while LAND-TREE-DECID has 3 entities total—optimize your standards library.</p>
+                </div>
+
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%);">
+                        <i class="fas fa-code-branch"></i>
+                    </div>
+                    <h3>Bidirectional Name Mapping</h3>
+                    <p><strong>Capability:</strong> Import DXF with blocks named "CB-TYPE1" → maps to database standard "CATCH_BASIN_TYPE_A"</p>
+                    <p><strong>Export:</strong> Reverses mapping back to "CB-TYPE1" for client compatibility—5 mapping managers handle blocks, details, hatches, materials, notes.</p>
+                </div>
+
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #8bc34a 0%, #689f38 100%);">
+                        <i class="fas fa-compass"></i>
+                    </div>
+                    <h3>Coordinate System Fusion</h3>
+                    <p><strong>Capability:</strong> Store CAD data in SRID 0 (local coordinates) AND GIS data in SRID 2226 (California State Plane)</p>
+                    <p><strong>Transform:</strong> "Convert this CAD line to GIS coordinates" or "Overlay aerial imagery on CAD drawing"—seamless transformation via PostGIS ST_Transform().</p>
+                </div>
+
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #ff5722 0%, #d84315 100%);">
+                        <i class="fas fa-link"></i>
+                    </div>
+                    <h3>Project Context Intelligence</h3>
+                    <p><strong>Query:</strong> "Show me all details that reference Material X but that material isn't attached to this project"</p>
+                    <p><strong>Result:</strong> Project Context Manager tracks 6 relationship types—catches missing specifications before they become RFIs during construction.</p>
+                </div>
+
+                <div class="unconventional-card">
+                    <div class="unconventional-icon" style="background: linear-gradient(135deg, #607d8b 0%, #455a64 100%);">
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <h3>Complete Audit Trails</h3>
+                    <p><strong>Tracking:</strong> Every import, export, edit, deletion recorded with timestamps and user IDs</p>
+                    <p><strong>Query:</strong> "Show me all changes to Project XYZ between March 1-15" or "Who exported Drawing ABC on 3/10?"—forensic-level data governance.</p>
+                </div>
+
             </div>
         </div>
     </div>
 
-    <!-- Use Cases -->
+    <!-- Real-World Use Cases -->
     <div class="card">
         <div class="card-header">
-            <h2><i class="fas fa-tasks"></i> Real-World Use Cases</h2>
+            <h2><i class="fas fa-tasks"></i> Real-World Workflows</h2>
+            <p style="margin: 10px 0 0 0; color: var(--text-dim);">How engineers actually use the system end-to-end</p>
         </div>
         <div class="card-body">
+            
             <div class="use-case">
                 <div class="use-case-header">
-                    <h3><i class="fas fa-building"></i> Facilities Management</h3>
+                    <h3><i class="fas fa-hard-hat"></i> Storm Drain Design Project</h3>
                 </div>
-                <p><strong>Challenge:</strong> University needs to find all ADA-compliant restrooms across 200 building floor plans.</p>
-                <p><strong>Traditional:</strong> Open 200 DWG files, manually search each one, create spreadsheet (8 hours).</p>
-                <p><strong>With Database:</strong> SQL query in 3 seconds: <code>SELECT * FROM block_inserts WHERE block_name='ADA_RESTROOM'</code></p>
+                <p><strong>Workflow:</strong></p>
+                <ol class="workflow-steps">
+                    <li>Create new project in <strong>Project Manager</strong>, attach client/municipality/coordinate system</li>
+                    <li>Import site topo DXF via <strong>Batch CAD Import</strong> → system validates against <strong>Standards Library</strong></li>
+                    <li>Use <strong>Gravity Network Manager</strong> to design storm pipes with slope/invert intelligence</li>
+                    <li>Visualize design in <strong>Entity Viewer</strong> (no CAD software needed) and <strong>Map Viewer</strong> for GIS overlay</li>
+                    <li><strong>AI Toolkit</strong> generates embeddings and suggests related BMPs based on drainage area</li>
+                    <li><strong>Quality Dashboard</strong> checks design completeness (all pipes connected, slopes valid, materials specified)</li>
+                    <li><strong>Project Context Manager</strong> ensures keynotes reference correct details and materials</li>
+                    <li>Export clean DXF with <strong>perfect round-trip fidelity</strong> for client review</li>
+                    <li><strong>Compliance Tab</strong> shows project meets 95% of company standards</li>
+                </ol>
+                <p><strong>Result:</strong> 4-hour design process with automated QC, no manual standards checking, complete audit trail.</p>
             </div>
 
             <div class="use-case">
                 <div class="use-case-header">
-                    <h3><i class="fas fa-hard-hat"></i> Construction Document Quality Control</h3>
+                    <h3><i class="fas fa-building"></i> Multi-Site Asset Inventory</h3>
                 </div>
-                <p><strong>Challenge:</strong> Ensure all 50 sheets in construction set use company-approved layers and colors.</p>
-                <p><strong>Traditional:</strong> QC reviewer manually checks each sheet against 20-page PDF standards manual (4 hours).</p>
-                <p><strong>With Database:</strong> Automated query identifies non-compliant layers instantly, generates exception report.</p>
+                <p><strong>Challenge:</strong> University needs inventory of all ADA ramps across 50 building plans to verify compliance.</p>
+                <p><strong>Traditional:</strong> Open 50 DWG files, manually find ramps in each, measure distances to parking, create spreadsheet (2 days).</p>
+                <p><strong>With Platform:</strong></p>
+                <ol class="workflow-steps">
+                    <li>Spatial query: <code>SELECT * FROM block_inserts WHERE block_name LIKE '%ADA_RAMP%' AND project_id IN (campus_projects)</code></li>
+                    <li>Results in 5 seconds: 127 ramps with coordinates, project names, insertion dates</li>
+                    <li>Use <strong>Map Viewer</strong> to visualize all ramps on aerial imagery</li>
+                    <li>Proximity analysis: <code>Find ramps NOT within 5 feet of parking spaces</code> → identifies 8 compliance issues</li>
+                    <li>Export report to Excel with coordinates, photos (from attributes), compliance status</li>
+                </ol>
+                <p><strong>Result:</strong> 30-minute analysis vs. 2-day manual effort. Issues caught before accessibility audit.</p>
             </div>
 
             <div class="use-case">
                 <div class="use-case-header">
-                    <h3><i class="fas fa-map"></i> GIS Asset Inventory</h3>
+                    <h3><i class="fas fa-chart-line"></i> Standards Refinement Initiative</h3>
                 </div>
-                <p><strong>Challenge:</strong> Create city-wide inventory of fire hydrants from as-built CAD drawings.</p>
-                <p><strong>Traditional:</strong> Export each DWG to shapefile separately, merge in GIS software, clean duplicates (days).</p>
-                <p><strong>With Database:</strong> CAD blocks already stored as PostGIS points - query directly, overlay with parcels, done.</p>
+                <p><strong>Goal:</strong> Engineering firm wants to update CAD standards based on actual usage, not assumptions.</p>
+                <p><strong>Analysis:</strong></p>
+                <ol class="workflow-steps">
+                    <li><strong>Drawing Usage Dashboard</strong> analyzes 200 projects over 2 years</li>
+                    <li>Discovery: 60% of defined layers never used, 5 non-standard layers appear in 90% of drawings</li>
+                    <li><strong>Standards Mapping Dashboard</strong> shows 30 different DXF names mapping to same database block (inconsistent naming)</li>
+                    <li><strong>Quality Dashboard</strong> reveals projects with <80% completeness scores correlate with RFIs during construction</li>
+                    <li>GraphRAG analysis: "Which keynotes reference obsolete details?" → finds 45 outdated references</li>
+                </ol>
+                <p><strong>Actions:</strong></p>
+                <ol class="workflow-steps">
+                    <li>Retire 40 unused layers via <strong>Layer Manager</strong></li>
+                    <li>Promote 5 commonly-used non-standard layers to official standards</li>
+                    <li>Consolidate block name mappings to 1 canonical name per block</li>
+                    <li>Update keynote-detail relationships in <strong>Project Context Manager</strong></li>
+                    <li>Export new standards guide via <strong>Standards Export</strong> (PDF + Excel for team training)</li>
+                </ol>
+                <p><strong>Result:</strong> Data-driven standards update reduces layer count by 40%, improves consistency, decreases RFIs by 25%.</p>
             </div>
+
+            <div class="use-case">
+                <div class="use-case-header">
+                    <h3><i class="fas fa-search"></i> Emergency Infrastructure Query</h3>
+                </div>
+                <p><strong>Scenario:</strong> City needs to locate all water valves within 500 feet of a gas leak for emergency shutoff.</p>
+                <p><strong>Traditional:</strong> Call 3 different engineering firms who designed various districts, wait for them to open files, manually search (hours/days).</p>
+                <p><strong>With Platform:</strong></p>
+                <ol class="workflow-steps">
+                    <li>Spatial query: <code>Find all blocks with 'VALVE' in name within 500 feet of POINT(lat, lon)</code></li>
+                    <li>Results in 3 seconds: 12 valves with exact coordinates, project names, installation dates</li>
+                    <li><strong>Pressure Network Manager</strong> shows which pipes each valve controls</li>
+                    <li><strong>Map Viewer</strong> displays valves on aerial imagery with measurement tools</li>
+                    <li>Export coordinates to field crews' GPS devices</li>
+                </ol>
+                <p><strong>Result:</strong> 5-minute response vs. multi-hour emergency coordination. Lives potentially saved.</p>
+            </div>
+
         </div>
     </div>
+
 </div>
 
 <style>
@@ -331,30 +549,68 @@
     color: var(--accent-cyan);
 }
 
-.comparison-list code {
-    background: rgba(0,0,0,0.3);
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 12px;
-    color: #ffd700;
-    font-family: 'Courier New', monospace;
+.comparison-list li strong {
+    color: var(--accent-cyan);
 }
 
-.capability-card {
+.tool-category {
+    padding: 20px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+    border: 1px solid rgba(0,255,255,0.2);
+}
+
+.tool-category h3 {
+    color: var(--accent-cyan);
+    font-size: 18px;
+    margin: 0 0 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tool-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.tool-list li {
+    padding: 8px 0 8px 20px;
+    position: relative;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-dim);
+}
+
+.tool-list li:before {
+    content: "\f105";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    left: 0;
+    color: var(--accent-cyan);
+}
+
+.tool-list li strong {
+    color: var(--text-primary);
+}
+
+.unconventional-card {
     padding: 25px;
     background: rgba(0,0,0,0.2);
     border-radius: 12px;
     border: 1px solid rgba(0,255,255,0.2);
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
 }
 
-.capability-card:hover {
+.unconventional-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 30px rgba(0,255,255,0.3);
     border-color: var(--accent-cyan);
 }
 
-.capability-icon {
+.unconventional-icon {
     width: 60px;
     height: 60px;
     border-radius: 50%;
@@ -366,19 +622,27 @@
     color: white;
 }
 
-.capability-card h3 {
+.unconventional-card h3 {
     color: var(--accent-cyan);
     font-size: 18px;
     margin: 0 0 15px 0;
     text-align: center;
 }
 
-.capability-card p {
+.unconventional-card p {
     color: var(--text-dim);
     font-size: 14px;
     line-height: 1.6;
-    margin: 0;
-    text-align: center;
+    margin: 10px 0;
+}
+
+.unconventional-card p strong {
+    color: var(--accent-cyan);
+}
+
+.unconventional-card p em {
+    color: var(--text-primary);
+    font-style: italic;
 }
 
 .use-case {
@@ -423,6 +687,21 @@
     font-size: 13px;
     color: #ffd700;
     font-family: 'Courier New', monospace;
+}
+
+.workflow-steps {
+    padding-left: 25px;
+    margin: 15px 0;
+    color: var(--text-primary);
+}
+
+.workflow-steps li {
+    padding: 8px 0;
+    line-height: 1.6;
+}
+
+.workflow-steps strong {
+    color: var(--accent-cyan);
 }
 
 @media (max-width: 1200px) {

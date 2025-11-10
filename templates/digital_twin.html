@@ -1,0 +1,771 @@
+{% extends "base.html" %}
+
+{% block title %}Digital Twin - ACAD-GIS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-clone"></i> The Digital Twin</h1>
+            <p class="subtitle">Creating a living, intelligent replica of your civil infrastructure</p>
+        </div>
+    </div>
+
+    <!-- Hero Statement -->
+    <div class="card" style="background: linear-gradient(135deg, rgba(0,255,255,0.15) 0%, rgba(0,100,255,0.1) 100%); border: 2px solid var(--accent-cyan); margin-bottom: 30px;">
+        <div class="card-body" style="padding: 40px; text-align: center;">
+            <h2 style="color: var(--accent-cyan); font-size: 28px; margin: 0 0 20px 0;">
+                <i class="fas fa-brain"></i> Not Just Storage—A Living Intelligence
+            </h2>
+            <p style="font-size: 18px; line-height: 1.8; color: var(--text-primary); max-width: 1000px; margin: 0 auto;">
+                Traditional CAD systems treat drawings like <strong style="color: #ff6b6b;">static photographs</strong>—frozen in time, 
+                unable to understand themselves. ACAD-GIS creates a <strong style="color: var(--accent-cyan);">living digital twin</strong>—
+                a holographic replica that knows what it is, understands relationships, validates itself, and guides design decisions.
+            </p>
+        </div>
+    </div>
+
+    <!-- Static vs Living Comparison -->
+    <div class="card" style="margin-bottom: 30px;">
+        <div class="card-header">
+            <h2><i class="fas fa-exchange-alt"></i> From Static Files to Living Twin</h2>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;">
+                
+                <!-- Static Blueprint -->
+                <div class="comparison-side">
+                    <div class="comparison-visual static-visual">
+                        <i class="fas fa-file-alt"></i>
+                        <div class="visual-overlay">STATIC</div>
+                    </div>
+                    <h3 style="color: #ff6b6b; text-align: center; margin: 20px 0 15px 0;">
+                        <i class="fas fa-image"></i> Traditional CAD: Static Photograph
+                    </h3>
+                    <ul class="comparison-features">
+                        <li><i class="fas fa-times-circle"></i> Locked in proprietary format</li>
+                        <li><i class="fas fa-times-circle"></i> No self-awareness or context</li>
+                        <li><i class="fas fa-times-circle"></i> Can't answer questions about itself</li>
+                        <li><i class="fas fa-times-circle"></i> No understanding of relationships</li>
+                        <li><i class="fas fa-times-circle"></i> Requires human to open and interpret</li>
+                        <li><i class="fas fa-times-circle"></i> Static snapshot in time</li>
+                    </ul>
+                </div>
+
+                <!-- Living Twin -->
+                <div class="comparison-side">
+                    <div class="comparison-visual living-visual">
+                        <i class="fas fa-brain"></i>
+                        <div class="pulse-ring"></div>
+                        <div class="pulse-ring delay-1"></div>
+                        <div class="pulse-ring delay-2"></div>
+                        <div class="visual-overlay">LIVING</div>
+                    </div>
+                    <h3 style="color: var(--accent-cyan); text-align: center; margin: 20px 0 15px 0;">
+                        <i class="fas fa-heartbeat"></i> ACAD-GIS: Living Digital Twin
+                    </h3>
+                    <ul class="comparison-features positive">
+                        <li><i class="fas fa-check-circle"></i> Queryable database intelligence</li>
+                        <li><i class="fas fa-check-circle"></i> Self-aware with semantic understanding</li>
+                        <li><i class="fas fa-check-circle"></i> Answers complex queries instantly</li>
+                        <li><i class="fas fa-check-circle"></i> Knows all relationships (GraphRAG)</li>
+                        <li><i class="fas fa-check-circle"></i> Validates and guides automatically</li>
+                        <li><i class="fas fa-check-circle"></i> Continuously learning and evolving</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- The Six Senses -->
+    <div class="card" style="margin-bottom: 30px;">
+        <div class="card-header">
+            <h2><i class="fas fa-eye"></i> The Digital Twin's Six Senses</h2>
+            <p style="margin: 10px 0 0 0; color: var(--text-dim);">Click each sense to explore its capabilities</p>
+        </div>
+        <div class="card-body">
+            <div class="senses-grid">
+                
+                <!-- Sense 1: Memory -->
+                <div class="sense-card" data-sense="memory">
+                    <div class="sense-icon" style="background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <h3>Memory</h3>
+                    <p class="sense-tagline">Complete recall of every entity, relationship, and change</p>
+                    <div class="sense-details">
+                        <ul>
+                            <li><strong>81 tables</strong> storing every line, circle, text, block, dimension</li>
+                            <li><strong>Complete audit trail</strong> with created_at/updated_at timestamps</li>
+                            <li><strong>Import/export history</strong> tracked in export_jobs and import_jobs tables</li>
+                            <li><strong>Change detection</strong> shows what's new, modified, or deleted</li>
+                            <li><strong>Forensic queries:</strong> "Show me all changes to Project X between March 1-15"</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Sense 2: Understanding -->
+                <div class="sense-card" data-sense="understanding">
+                    <div class="sense-icon" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h3>Understanding</h3>
+                    <p class="sense-tagline">AI embeddings create semantic comprehension</p>
+                    <div class="sense-details">
+                        <ul>
+                            <li><strong>Vector embeddings (1536D)</strong> encode meaning of every entity</li>
+                            <li><strong>Semantic search:</strong> "Find anything related to stormwater quality" understands BMPs, treatment, pollutants</li>
+                            <li><strong>Similarity detection:</strong> "Show me designs similar to this catch basin"</li>
+                            <li><strong>Context awareness:</strong> AI knows a manhole is part of a gravity network, connects to pipes, has an invert elevation</li>
+                            <li><strong>Entity registry</strong> provides unified identity across all systems</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Sense 3: Rules -->
+                <div class="sense-card" data-sense="rules">
+                    <div class="sense-icon" style="background: linear-gradient(135deg, #ffd700 0%, #f59f00 100%);">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>Rules</h3>
+                    <p class="sense-tagline">Built-in DNA ensures standards compliance</p>
+                    <div class="sense-details">
+                        <ul>
+                            <li><strong>Standards Library:</strong> 17 tables defining layer/block/detail/material standards</li>
+                            <li><strong>Automatic validation:</strong> Import DXF → instant compliance check against company standards</li>
+                            <li><strong>Quality scoring:</strong> 12+ metrics calculate health of every entity</li>
+                            <li><strong>Engineering rules:</strong> "Pipe slope must be ≥0.004 for 8" diameter" enforced automatically</li>
+                            <li><strong>Violation alerts:</strong> "Layer WALLS doesn't match standard—should be ARCH-WALL-EXIST-EXIST-2D"</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Sense 4: Spatial Senses -->
+                <div class="sense-card" data-sense="spatial">
+                    <div class="sense-icon" style="background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <h3>Spatial Senses</h3>
+                    <p class="sense-tagline">PostGIS-powered awareness of geometry and location</p>
+                    <div class="sense-details">
+                        <ul>
+                            <li><strong>Spatial indexing (GIST):</strong> Query millions of entities in milliseconds</li>
+                            <li><strong>Proximity queries:</strong> "Find all fire hydrants within 300' of schools"</li>
+                            <li><strong>Containment:</strong> "Which parcels contain storm drainage BMPs?"</li>
+                            <li><strong>Topology:</strong> "Are these pipes connected?" or "Does this area drain to that outlet?"</li>
+                            <li><strong>Coordinate fusion:</strong> Seamless transformation between CAD (SRID 0) and GIS (SRID 2226)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Sense 5: Assistants -->
+                <div class="sense-card" data-sense="assistants">
+                    <div class="sense-icon" style="background: linear-gradient(135deg, var(--accent-cyan) 0%, #00bcd4 100%);">
+                        <i class="fas fa-user-friends"></i>
+                    </div>
+                    <h3>Specialized Assistants</h3>
+                    <p class="sense-tagline">Tools that understand your design domain</p>
+                    <div class="sense-details">
+                        <ul>
+                            <li><strong>Gravity Network Manager:</strong> Knows pipe slopes, inverts, flow direction—validates hydraulic design</li>
+                            <li><strong>Pressure Network Manager:</strong> Understands pressure zones, valve isolation, water distribution</li>
+                            <li><strong>BMP Manager:</strong> Tracks stormwater quality treatment trains and pollutant removal</li>
+                            <li><strong>Entity Viewer:</strong> Renders CAD entities without CAD software (SVG visualization)</li>
+                            <li><strong>Map Viewer:</strong> Overlays CAD + GIS + aerial imagery for spatial context</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Sense 6: Relationship Intelligence -->
+                <div class="sense-card" data-sense="relationships">
+                    <div class="sense-icon" style="background: linear-gradient(135deg, #e91e63 0%, #c2185b 100%);">
+                        <i class="fas fa-project-diagram"></i>
+                    </div>
+                    <h3>Relationship Intelligence</h3>
+                    <p class="sense-tagline">GraphRAG maps the web of connections</p>
+                    <div class="sense-details">
+                        <ul>
+                            <li><strong>Explicit edges:</strong> entity_relationships table stores spatial, engineering, and semantic connections</li>
+                            <li><strong>Multi-hop queries:</strong> "What materials are needed for details referenced by keynotes in Building A?"</li>
+                            <li><strong>Network topology:</strong> "This manhole connects to which pipes?" (upstream/downstream awareness)</li>
+                            <li><strong>Project context:</strong> 6 relationship types link keynotes, blocks, details, materials, specifications</li>
+                            <li><strong>Knowledge Graph Visualization:</strong> Interactive graph shows how everything connects</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Real-Time Query Examples -->
+    <div class="card" style="margin-bottom: 30px;">
+        <div class="card-header">
+            <h2><i class="fas fa-comments"></i> Ask the Digital Twin</h2>
+            <p style="margin: 10px 0 0 0; color: var(--text-dim);">See how the living twin answers complex questions instantly</p>
+        </div>
+        <div class="card-body">
+            <div class="query-examples">
+                
+                <div class="query-card">
+                    <div class="query-question">
+                        <i class="fas fa-question-circle"></i>
+                        <span>"Show me all catch basins with fewer than 4 connected pipes—possible design issues"</span>
+                    </div>
+                    <div class="query-response">
+                        <div class="query-type"><i class="fas fa-network-wired"></i> Topology + Validation Query</div>
+                        <div class="query-result">
+                            <strong>Response in 0.3 seconds:</strong> Found 12 catch basins across 8 projects with unusual pipe counts:
+                            <ul>
+                                <li>CB-101 in Project "Downtown Plaza": 1 inlet, 0 outlets ⚠️</li>
+                                <li>CB-205 in Project "Main Street": 2 inlets, 1 outlet ⚠️</li>
+                                <li>CB-412 in Project "Park Redevelopment": 3 inlets, 3 outlets ✓ (flagged for review)</li>
+                            </ul>
+                            <em>Gravity Network Manager displays these on map with color-coded warnings</em>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="query-card">
+                    <div class="query-question">
+                        <i class="fas fa-question-circle"></i>
+                        <span>"Find designs semantically similar to 'bioretention with underdrain' across all projects"</span>
+                    </div>
+                    <div class="query-response">
+                        <div class="query-type"><i class="fas fa-brain"></i> Semantic (Embedding) Search</div>
+                        <div class="query-result">
+                            <strong>AI Understanding:</strong> Vector embeddings understand "bioretention" relates to: rain gardens, vegetated swales, infiltration basins, BMP facilities, stormwater quality treatment
+                            <ul>
+                                <li>Found 8 BMP facilities with semantic similarity >0.85</li>
+                                <li>Includes designs named: "Rain Garden Type A", "Vegetated Swale w/ Perforated Pipe", "Infiltration Basin - Planted"</li>
+                                <li>All semantically similar despite different naming conventions</li>
+                            </ul>
+                            <em>Traditional keyword search would have missed 6 of these—AI understands meaning</em>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="query-card">
+                    <div class="query-question">
+                        <i class="fas fa-question-circle"></i>
+                        <span>"What materials are required for all details referenced by keynotes in Project XYZ?"</span>
+                    </div>
+                    <div class="query-response">
+                        <div class="query-type"><i class="fas fa-project-diagram"></i> GraphRAG Multi-Hop Query</div>
+                        <div class="query-result">
+                            <strong>Following relationship edges:</strong>
+                            <ol>
+                                <li>Project XYZ → Keynotes (found 45 keynotes)</li>
+                                <li>Keynotes → Details (following keynote_detail_mapping: found 23 unique details)</li>
+                                <li>Details → Materials (following detail-material relationships: found 67 materials)</li>
+                            </ol>
+                            <strong>Result:</strong> Complete bill of materials for Project XYZ construction:
+                            <ul>
+                                <li>Concrete (4000 psi) - 12 details require this</li>
+                                <li>Asphalt (AC Paving) - 8 details</li>
+                                <li>Rebar (#4) - 15 details</li>
+                                <li>+ 64 more materials...</li>
+                            </ul>
+                            <em>Project Context Manager ensures no missing specifications before construction</em>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="query-card">
+                    <div class="query-question">
+                        <i class="fas fa-question-circle"></i>
+                        <span>"Are there ADA ramps not within 5 feet of accessible parking spaces?"</span>
+                    </div>
+                    <div class="query-response">
+                        <div class="query-type"><i class="fas fa-map-marked-alt"></i> Spatial Compliance Query</div>
+                        <div class="query-result">
+                            <strong>PostGIS spatial analysis:</strong>
+                            <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 4px; font-size: 12px; overflow-x: auto;">
+SELECT r.*, ST_Distance(r.geometry, p.geometry) as distance_ft
+FROM block_inserts r
+JOIN block_inserts p ON ST_DWithin(r.geometry, p.geometry, 5.0) = FALSE
+WHERE r.block_name LIKE '%ADA_RAMP%'
+  AND p.block_name LIKE '%PARKING_ADA%'</pre>
+                            <strong>Found:</strong> 3 ADA ramps exceeding 5-foot distance requirement:
+                            <ul>
+                                <li>Ramp at Building C entrance: 7.2 feet from nearest parking (violation)</li>
+                                <li>Ramp at North entry: 12.5 feet from parking (violation)</li>
+                                <li>Ramp at East courtyard: 6.1 feet from parking (minor violation)</li>
+                            </ul>
+                            <em>Compliance issues caught in design phase, not during inspection</em>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="query-card">
+                    <div class="query-question">
+                        <i class="fas fa-question-circle"></i>
+                        <span>"Show me the complete history of changes to Drawing ABC-001 in the last 30 days"</span>
+                    </div>
+                    <div class="query-response">
+                        <div class="query-type"><i class="fas fa-history"></i> Temporal Memory Query</div>
+                        <div class="query-result">
+                            <strong>Audit trail from change_history table:</strong>
+                            <ul>
+                                <li><strong>March 15, 10:23 AM:</strong> User: john.doe - Added 23 entities to layer UTIL-STORM-PIPE</li>
+                                <li><strong>March 18, 2:15 PM:</strong> User: jane.smith - Modified 8 pipe inverts (elevation changes)</li>
+                                <li><strong>March 20, 9:45 AM:</strong> User: john.doe - Deleted 3 catch basins, added 5 new manholes</li>
+                                <li><strong>March 22, 4:30 PM:</strong> User: mike.johnson - Exported DXF (export_jobs.job_id = 1247)</li>
+                                <li><strong>March 25, 11:00 AM:</strong> User: jane.smith - Imported revised topo (import_jobs.job_id = 892)</li>
+                            </ul>
+                            <strong>Summary:</strong> 87 total changes, 4 users, 3 import/export events
+                            <em>Complete forensic reconstruction of design evolution</em>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- What Makes It Alive -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-heartbeat"></i> What Makes the Twin "Alive"?</h2>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                
+                <div class="alive-card">
+                    <h3><i class="fas fa-sync-alt"></i> Continuous Learning</h3>
+                    <p>Every import, export, query, and modification teaches the system:</p>
+                    <ul>
+                        <li>Embeddings regenerate when entities change</li>
+                        <li>Quality scores update automatically</li>
+                        <li>Relationship discovery finds new connections</li>
+                        <li>Usage analytics track adoption patterns</li>
+                    </ul>
+                </div>
+
+                <div class="alive-card">
+                    <h3><i class="fas fa-comments"></i> Self-Awareness</h3>
+                    <p>The twin can introspect and report on its own state:</p>
+                    <ul>
+                        <li>"How complete is my data?" → Quality Dashboard shows 87% completeness</li>
+                        <li>"What am I missing?" → Identifies orphaned entities, broken relationships</li>
+                        <li>"Am I healthy?" → Validation results highlight issues</li>
+                        <li>"How am I being used?" → Drawing Usage Dashboard shows patterns</li>
+                    </ul>
+                </div>
+
+                <div class="alive-card">
+                    <h3><i class="fas fa-robot"></i> Proactive Guidance</h3>
+                    <p>The twin doesn't wait to be asked—it guides you:</p>
+                    <ul>
+                        <li>Standards validation at import (not after the fact)</li>
+                        <li>Suggests related entities based on embeddings</li>
+                        <li>Alerts on topology violations (disconnected pipes)</li>
+                        <li>Recommends missing relationships (detail without material)</li>
+                    </ul>
+                </div>
+
+                <div class="alive-card">
+                    <h3><i class="fas fa-exchange-alt"></i> Bidirectional Sync</h3>
+                    <p>Changes flow both ways seamlessly:</p>
+                    <ul>
+                        <li>Import DXF → Twin updates → New embeddings generated</li>
+                        <li>Edit in database → Export DXF → Perfect fidelity</li>
+                        <li>Use Network Manager → Database updates → CAD file regenerates</li>
+                        <li>Zero data loss in any direction</li>
+                    </ul>
+                </div>
+
+                <div class="alive-card">
+                    <h3><i class="fas fa-fingerprint"></i> Contextual Identity</h3>
+                    <p>Every entity knows what it is and where it belongs:</p>
+                    <ul>
+                        <li>Unified entity registry provides canonical ID</li>
+                        <li>Project associations track ownership</li>
+                        <li>Layer/block/detail standards define type</li>
+                        <li>Relationships define purpose and function</li>
+                    </ul>
+                </div>
+
+                <div class="alive-card">
+                    <h3><i class="fas fa-chart-line"></i> Evolution Over Time</h3>
+                    <p>The twin grows more intelligent with use:</p>
+                    <ul>
+                        <li>More projects → Better semantic understanding</li>
+                        <li>More relationships → Richer GraphRAG queries</li>
+                        <li>More usage data → Optimized standards library</li>
+                        <li>More validations → Improved quality rules</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.comparison-side {
+    text-align: center;
+}
+
+.comparison-visual {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 80px;
+    position: relative;
+}
+
+.static-visual {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.2) 0%, rgba(100, 100, 100, 0.2) 100%);
+    border: 3px solid #ff6b6b;
+    color: #ff6b6b;
+}
+
+.living-visual {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.2) 0%, rgba(0, 100, 255, 0.2) 100%);
+    border: 3px solid var(--accent-cyan);
+    color: var(--accent-cyan);
+    animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(0,255,255,0.5); }
+    50% { box-shadow: 0 0 40px rgba(0,255,255,0.8), 0 0 60px rgba(0,255,255,0.4); }
+}
+
+.pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 3px solid var(--accent-cyan);
+    border-radius: 50%;
+    animation: pulse-ring 2s ease-out infinite;
+    opacity: 0;
+}
+
+.pulse-ring.delay-1 {
+    animation-delay: 0.66s;
+}
+
+.pulse-ring.delay-2 {
+    animation-delay: 1.33s;
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+}
+
+.visual-overlay {
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    padding: 6px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.comparison-features {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+}
+
+.comparison-features li {
+    padding: 10px 10px 10px 35px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    background: rgba(220, 53, 69, 0.1);
+    border-left: 3px solid #ff6b6b;
+    position: relative;
+    font-size: 14px;
+}
+
+.comparison-features.positive li {
+    background: rgba(0, 255, 255, 0.1);
+    border-left-color: var(--accent-cyan);
+}
+
+.comparison-features li i {
+    position: absolute;
+    left: 10px;
+    top: 12px;
+}
+
+.comparison-features li i.fa-times-circle {
+    color: #ff6b6b;
+}
+
+.comparison-features.positive li i.fa-check-circle {
+    color: var(--accent-cyan);
+}
+
+.senses-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 25px;
+    margin: 20px 0;
+}
+
+.sense-card {
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 25px;
+    border: 2px solid rgba(0,255,255,0.2);
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.sense-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0,255,255,0.4);
+    border-color: var(--accent-cyan);
+}
+
+.sense-card.active {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 15px 40px rgba(0,255,255,0.6);
+}
+
+.sense-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 32px;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.sense-card h3 {
+    color: var(--accent-cyan);
+    font-size: 22px;
+    margin: 0 0 10px 0;
+    text-align: center;
+}
+
+.sense-tagline {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 15px;
+    font-style: italic;
+}
+
+.sense-details {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out;
+    margin-top: 15px;
+}
+
+.sense-card.active .sense-details {
+    max-height: 500px;
+}
+
+.sense-details ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sense-details li {
+    padding: 8px 0 8px 20px;
+    position: relative;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-dim);
+}
+
+.sense-details li:before {
+    content: "\f105";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    left: 0;
+    color: var(--accent-cyan);
+}
+
+.sense-details strong {
+    color: var(--text-primary);
+}
+
+.query-examples {
+    display: grid;
+    gap: 25px;
+}
+
+.query-card {
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+    padding: 25px;
+    border: 1px solid rgba(0,255,255,0.2);
+}
+
+.query-question {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: rgba(0,255,255,0.1);
+    border-left: 4px solid var(--accent-cyan);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.query-question i {
+    font-size: 24px;
+    color: var(--accent-cyan);
+    flex-shrink: 0;
+}
+
+.query-question span {
+    font-size: 16px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.query-type {
+    display: inline-block;
+    background: rgba(0,255,255,0.2);
+    color: var(--accent-cyan);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.query-type i {
+    margin-right: 6px;
+}
+
+.query-result {
+    color: var(--text-primary);
+    line-height: 1.7;
+    font-size: 14px;
+}
+
+.query-result strong {
+    color: var(--accent-cyan);
+}
+
+.query-result ul, .query-result ol {
+    margin: 10px 0;
+    padding-left: 25px;
+}
+
+.query-result li {
+    padding: 5px 0;
+    color: var(--text-dim);
+}
+
+.query-result em {
+    display: block;
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(0,255,255,0.05);
+    border-left: 3px solid var(--accent-cyan);
+    font-style: italic;
+    color: var(--accent-cyan);
+}
+
+.alive-card {
+    padding: 25px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+    border: 1px solid rgba(0,255,255,0.2);
+}
+
+.alive-card h3 {
+    color: var(--accent-cyan);
+    font-size: 18px;
+    margin: 0 0 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.alive-card p {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+.alive-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.alive-card li {
+    padding: 6px 0 6px 20px;
+    position: relative;
+    font-size: 14px;
+    color: var(--text-dim);
+}
+
+.alive-card li:before {
+    content: "\f00c";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    left: 0;
+    color: var(--accent-cyan);
+    font-size: 12px;
+}
+
+@media (max-width: 1024px) {
+    .senses-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+</style>
+
+<script>
+// Interactive sense cards
+document.addEventListener('DOMContentLoaded', function() {
+    const senseCards = document.querySelectorAll('.sense-card');
+    
+    senseCards.forEach(card => {
+        card.addEventListener('click', function() {
+            // Toggle active state
+            const wasActive = this.classList.contains('active');
+            
+            // Close all cards
+            senseCards.forEach(c => c.classList.remove('active'));
+            
+            // If it wasn't active, activate it
+            if (!wasActive) {
+                this.classList.add('active');
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}
