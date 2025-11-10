@@ -159,10 +159,11 @@ class BatchBlockExtractor:
             # Insert the block at origin
             temp_msp.add_blockref(block.name, (0, 0))
             
-            # Create figure and render using matplotlib backend
-            fig = plt.figure(figsize=(4, 4))
+            # Create figure with dark gray background
+            fig = plt.figure(figsize=(4, 4), facecolor='#2a2a2a')
             ax = fig.add_axes([0, 0, 1, 1])
             ax.set_aspect('equal')
+            ax.set_facecolor('#2a2a2a')
             
             ctx = RenderContext(temp_doc)
             out = MatplotlibBackend(ax)
