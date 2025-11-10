@@ -956,12 +956,32 @@ const ENTITY_TYPE_CONFIG = {
 };
 
 async function loadReferenceData() {
-    for (const [key, config] of Object.entries(ENTITY_TYPE_CONFIG)) {
+    const listIdMap = {
+        'clients': 'clientsList',
+        'vendors': 'vendorsList',
+        'municipalities': 'municipalitiesList',
+        'coordinate-systems': 'coordinateSystemsList',
+        'survey-points': 'surveyPointsList',
+        'gis-layers': 'gisLayersList'
+    };
+    
+    const loadPromises = Object.entries(ENTITY_TYPE_CONFIG).map(async ([key, config]) => {
         try {
+            console.log(`Loading ${key}...`);
             const response = await fetch(`/api/projects/${projectId}/${config.apiType}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
             const data = await response.json();
             
-            const listElement = document.getElementById(`${key.replace(/-/g, '')}List`);
+            const listElement = document.getElementById(listIdMap[key]);
+            if (!listElement) {
+                console.error(`List element not found for key: ${key}, looking for ID: ${listIdMap[key]}`);
+                return;
+            }
+            
             if (data.entities && data.entities.length > 0) {
                 listElement.innerHTML = data.entities.map(entity => config.renderCard(entity)).join('');
             } else {
@@ -972,10 +992,14 @@ async function loadReferenceData() {
                     </div>
                 `;
             }
+            console.log(`Loaded ${key} successfully`);
         } catch (error) {
             console.error(`Error loading ${config.displayName}:`, error);
         }
-    }
+    });
+    
+    await Promise.all(loadPromises);
+    console.log('All reference data loaded');
 }
 
 async function openAttachModal(type) {
@@ -1141,14 +1165,21 @@ function updateStatus(message) {
 
 function init() {
     updateStatus('Starting initialization...');
+    console.log('Init function called');
+    
+    const projectPromise = loadProjectData().then(() => console.log('Project data loaded'));
+    const drawingsPromise = loadDrawings().then(() => console.log('Drawings loaded'));
+    const refDataPromise = loadReferenceData().then(() => console.log('Reference data loaded'));
+    const statsPromise = loadStatistics().then(() => console.log('Statistics loaded'));
     
     Promise.all([
-        loadProjectData(),
-        loadDrawings(),
-        loadReferenceData(),
-        loadStatistics()
+        projectPromise,
+        drawingsPromise,
+        refDataPromise,
+        statsPromise
     ])
         .then(() => {
+            console.log('All promises resolved!');
             updateStatus('Loading complete!');
             const loading = document.getElementById('loading');
             const mainContent = document.getElementById('mainContent');
