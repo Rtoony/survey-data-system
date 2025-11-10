@@ -338,15 +338,45 @@
                 </div>
                 <div class="mc-stat-box">
                     <div class="mc-stat-value" id="entityCount">-</div>
-                    <div class="mc-stat-label">Entities</div>
+                    <div class="mc-stat-label">CAD Entities</div>
                 </div>
                 <div class="mc-stat-box">
-                    <div class="mc-stat-value" id="complianceScore">-%</div>
-                    <div class="mc-stat-label">Compliance</div>
+                    <div class="mc-stat-value" id="refDataCount">-</div>
+                    <div class="mc-stat-label">Reference Data</div>
                 </div>
                 <div class="mc-stat-box">
-                    <div class="mc-stat-value" id="standardsCount">-</div>
-                    <div class="mc-stat-label">Standards</div>
+                    <div class="mc-stat-value" id="spatialStatus">-</div>
+                    <div class="mc-stat-label">Spatial Data</div>
+                </div>
+            </div>
+            
+            <h3 style="color: var(--accent-cyan); margin: 30px 0 15px 0;">
+                <i class="fas fa-database"></i> Attached Reference Data Breakdown
+            </h3>
+            <div class="mc-stat-grid" id="refDataBreakdown" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                <div class="mc-stat-box">
+                    <div class="mc-stat-value" style="font-size: 24px;" id="clientsCount">-</div>
+                    <div class="mc-stat-label">Clients</div>
+                </div>
+                <div class="mc-stat-box">
+                    <div class="mc-stat-value" style="font-size: 24px;" id="vendorsCount">-</div>
+                    <div class="mc-stat-label">Vendors</div>
+                </div>
+                <div class="mc-stat-box">
+                    <div class="mc-stat-value" style="font-size: 24px;" id="municipalitiesCount">-</div>
+                    <div class="mc-stat-label">Municipalities</div>
+                </div>
+                <div class="mc-stat-box">
+                    <div class="mc-stat-value" style="font-size: 24px;" id="coordinateSystemsCount">-</div>
+                    <div class="mc-stat-label">Coord Systems</div>
+                </div>
+                <div class="mc-stat-box">
+                    <div class="mc-stat-value" style="font-size: 24px;" id="surveyPointDescriptionsCount">-</div>
+                    <div class="mc-stat-label">Survey Points</div>
+                </div>
+                <div class="mc-stat-box">
+                    <div class="mc-stat-value" style="font-size: 24px;" id="gisLayersCount">-</div>
+                    <div class="mc-stat-label">GIS Layers</div>
                 </div>
             </div>
         </div>
@@ -564,6 +594,36 @@ async function loadProjectData() {
     } catch (error) {
         console.error('Error loading project:', error);
         alert(`Failed to load project: ${error.message}`);
+    }
+}
+
+async function loadStatistics() {
+    try {
+        const response = await fetch(`/api/projects/${projectId}/statistics`);
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        document.getElementById('drawingCount').textContent = data.drawing_count || 0;
+        document.getElementById('entityCount').textContent = data.entity_count?.toLocaleString() || 0;
+        document.getElementById('refDataCount').textContent = data.total_reference_data || 0;
+        document.getElementById('spatialStatus').innerHTML = data.has_spatial_data 
+            ? '<i class="fas fa-check-circle" style="color: var(--accent-green);"></i>' 
+            : '<i class="fas fa-times-circle" style="color: var(--text-dim);"></i>';
+        
+        if (data.reference_data_counts) {
+            document.getElementById('clientsCount').textContent = data.reference_data_counts.clients || 0;
+            document.getElementById('vendorsCount').textContent = data.reference_data_counts.vendors || 0;
+            document.getElementById('municipalitiesCount').textContent = data.reference_data_counts.municipalities || 0;
+            document.getElementById('coordinateSystemsCount').textContent = data.reference_data_counts.coordinate_systems || 0;
+            document.getElementById('surveyPointDescriptionsCount').textContent = data.reference_data_counts.survey_point_descriptions || 0;
+            document.getElementById('gisLayersCount').textContent = data.reference_data_counts.gis_layers || 0;
+        }
+        
+    } catch (error) {
+        console.error('Error loading statistics:', error);
     }
 }
 
@@ -1085,7 +1145,8 @@ function init() {
     Promise.all([
         loadProjectData(),
         loadDrawings(),
-        loadReferenceData()
+        loadReferenceData(),
+        loadStatistics()
     ])
         .then(() => {
             updateStatus('Loading complete!');

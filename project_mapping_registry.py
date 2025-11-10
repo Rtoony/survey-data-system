@@ -159,50 +159,50 @@ PROJECT_MAPPING_REGISTRY = {
     'coordinate_systems': {
         'table_name': 'project_coordinate_systems',
         'mapping_id_column': 'mapping_id',
-        'entity_id_column': 'coordinate_system_id',
+        'entity_id_column': 'system_id',
         'entity_table': 'coordinate_systems',
-        'entity_pk': 'coordinate_system_id',
+        'entity_pk': 'system_id',
         'display_name': 'Coordinate System',
         'display_name_plural': 'Coordinate Systems',
-        'display_fields': ['coordinate_system_name', 'epsg_code', 'datum', 'units'],
+        'display_fields': ['system_name', 'epsg_code', 'datum', 'units'],
         'list_query': """
             SELECT 
                 pcs.mapping_id,
-                pcs.coordinate_system_id,
-                cs.coordinate_system_name,
+                pcs.system_id,
+                cs.system_name,
                 cs.epsg_code,
                 cs.datum,
-                cs.projection_type,
                 cs.units,
-                cs.zone_name,
+                cs.zone_number,
+                cs.region,
                 pcs.is_primary,
                 pcs.relationship_notes,
                 pcs.display_order,
                 pcs.created_at,
                 pcs.updated_at
             FROM project_coordinate_systems pcs
-            JOIN coordinate_systems cs ON pcs.coordinate_system_id = cs.coordinate_system_id
+            JOIN coordinate_systems cs ON pcs.system_id = cs.system_id
             WHERE pcs.project_id = %s
               AND pcs.is_active = true
-            ORDER BY pcs.is_primary DESC, pcs.display_order, cs.coordinate_system_name
+            ORDER BY pcs.is_primary DESC, pcs.display_order, cs.system_name
         """,
         'available_query': """
             SELECT 
-                coordinate_system_id,
-                coordinate_system_name,
+                system_id,
+                system_name,
                 epsg_code,
                 datum,
-                projection_type,
                 units,
-                zone_name
+                zone_number,
+                region
             FROM coordinate_systems
             WHERE is_active = true
-              AND coordinate_system_id NOT IN (
-                  SELECT coordinate_system_id 
+              AND system_id NOT IN (
+                  SELECT system_id 
                   FROM project_coordinate_systems 
                   WHERE project_id = %s AND is_active = true
               )
-            ORDER BY coordinate_system_name
+            ORDER BY system_name
         """
     },
     

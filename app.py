@@ -627,6 +627,111 @@ def get_project_map_summary(project_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/projects/<project_id>/statistics')
+def get_project_statistics(project_id):
+    """Get project statistics and KPIs"""
+    try:
+        # Verify project exists
+        project_check = execute_query(
+            "SELECT project_id, project_name FROM projects WHERE project_id = %s",
+            (project_id,)
+        )
+        if not project_check:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        # Get drawing count
+        drawing_count_query = """
+            SELECT COUNT(*) as count FROM drawings WHERE project_id = %s
+        """
+        drawing_count = execute_query(drawing_count_query, (project_id,))[0]['count']
+        
+        # Get total entity count across all drawing entities
+        entity_count_query = """
+            SELECT COUNT(*) as count 
+            FROM drawing_entities de
+            JOIN drawings d ON de.drawing_id = d.drawing_id
+            WHERE d.project_id = %s
+        """
+        entity_count = execute_query(entity_count_query, (project_id,))[0]['count']
+        
+        # Get reference data counts using efficient COUNT queries (not full entity loads)
+        # Single query with UNION ALL for all mapping tables
+        # NOTE: Only counts ACTIVE attachments (is_active = true) to reflect current project state.
+        # Inactive/soft-deleted attachments are excluded from dashboard KPIs.
+        reference_counts_query = """
+            SELECT 'clients' as entity_type, COUNT(*) as count
+            FROM project_clients WHERE project_id = %s AND is_active = true
+            UNION ALL
+            SELECT 'vendors', COUNT(*)
+            FROM project_vendors WHERE project_id = %s AND is_active = true
+            UNION ALL
+            SELECT 'municipalities', COUNT(*)
+            FROM project_municipalities WHERE project_id = %s AND is_active = true
+            UNION ALL
+            SELECT 'coordinate_systems', COUNT(*)
+            FROM project_coordinate_systems WHERE project_id = %s AND is_active = true
+            UNION ALL
+            SELECT 'survey_point_descriptions', COUNT(*)
+            FROM project_survey_point_descriptions WHERE project_id = %s AND is_active = true
+            UNION ALL
+            SELECT 'gis_layers', COUNT(*)
+            FROM project_gis_layers WHERE project_id = %s AND is_active = true
+        """
+        
+        counts_result = execute_query(reference_counts_query, 
+                                     (project_id, project_id, project_id, 
+                                      project_id, project_id, project_id))
+        
+        reference_data_counts = {row['entity_type']: row['count'] for row in counts_result}
+        
+        # Get spatial extent
+        has_spatial_data = False
+        bbox = None
+        extent_query = """
+            SELECT 
+                ST_XMin(extent_geom) as min_x,
+                ST_YMin(extent_geom) as min_y,
+                ST_XMax(extent_geom) as max_x,
+                ST_YMax(extent_geom) as max_y
+            FROM (
+                SELECT ST_Extent(
+                    CASE 
+                        WHEN ST_SRID(de.geometry) = 0 THEN ST_Transform(ST_SetSRID(de.geometry, 2226), 4326)
+                        WHEN ST_SRID(de.geometry) = 2226 THEN ST_Transform(de.geometry, 4326)
+                        ELSE ST_Transform(de.geometry, 4326)
+                    END
+                ) as extent_geom
+                FROM drawing_entities de
+                JOIN drawings d ON de.drawing_id = d.drawing_id
+                WHERE d.project_id = %s
+                  AND de.geometry IS NOT NULL
+            ) sub
+        """
+        extent_result = execute_query(extent_query, (project_id,))
+        
+        if extent_result and extent_result[0]['min_x']:
+            has_spatial_data = True
+            bbox = {
+                'min_x': float(extent_result[0]['min_x']),
+                'min_y': float(extent_result[0]['min_y']),
+                'max_x': float(extent_result[0]['max_x']),
+                'max_y': float(extent_result[0]['max_y'])
+            }
+        
+        return jsonify({
+            'project_id': project_id,
+            'project_name': project_check[0]['project_name'],
+            'drawing_count': drawing_count,
+            'entity_count': entity_count,
+            'reference_data_counts': reference_data_counts,
+            'total_reference_data': sum(reference_data_counts.values()),
+            'has_spatial_data': has_spatial_data,
+            'bbox': bbox
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ============================================================================
 # PROJECT MAPPING API ENDPOINTS (Generic Entity Attachments)
 # ============================================================================
