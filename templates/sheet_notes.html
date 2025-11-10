@@ -336,6 +336,93 @@ textarea.form-control {
     font-size: 0.75rem;
     color: var(--cyan);
 }
+
+.conformance-badges {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+.source-badge-standard {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid #00ff88;
+}
+
+.source-badge-custom {
+    background: rgba(255, 170, 0, 0.2);
+    color: #ffaa00;
+    border: 1px solid #ffaa00;
+}
+
+.source-badge-modified {
+    background: rgba(255, 102, 0, 0.2);
+    color: #ff6600;
+    border: 1px solid #ff6600;
+}
+
+.conformance-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+.note-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.btn-xs {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+}
+
+.modal-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0, 255, 255, 0.2);
+}
+
+.alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.alert-success {
+    background: rgba(0, 255, 136, 0.2);
+    border: 1px solid #00ff88;
+    color: #00ff88;
+}
+
+.alert-error {
+    background: rgba(255, 68, 68, 0.2);
+    border: 1px solid #ff4444;
+    color: #ff4444;
+}
 </style>
 
 <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -361,6 +448,11 @@ function SheetNoteApp() {
     const [selectedProjectNoteId, setSelectedProjectNoteId] = useState(null);
     const [assignments, setAssignments] = useState([]);
     const [stats, setStats] = useState({ totalSets: 0, totalNotes: 0, totalAssignments: 0 });
+    
+    // Conformance tracking state
+    const [showTrackDeviationModal, setShowTrackDeviationModal] = useState(false);
+    const [showAssignStandardModal, setShowAssignStandardModal] = useState(false);
+    const [deviationNoteId, setDeviationNoteId] = useState(null);
     
     // Load projects on mount
     useEffect(() => {
@@ -550,6 +642,15 @@ function SheetNoteApp() {
         );
     }
     
+    const handleOpenTrackDeviation = (noteId) => {
+        setDeviationNoteId(noteId);
+        setShowTrackDeviationModal(true);
+    };
+    
+    const handleOpenAssignStandard = () => {
+        setShowAssignStandardModal(true);
+    };
+    
     return (
         <div>
             <TopBar 
@@ -561,6 +662,7 @@ function SheetNoteApp() {
                 onSetChange={setSelectedSetId}
                 stats={stats}
                 onCreateSet={handleCreateNoteSet}
+                onAssignStandard={handleOpenAssignStandard}
             />
             
             <div className="three-panel-layout">
@@ -577,6 +679,7 @@ function SheetNoteApp() {
                     onSelectNote={setSelectedProjectNoteId}
                     onNotesChange={() => loadProjectNotes(selectedSetId)}
                     onAddNote={handleAddNote}
+                    onTrackDeviation={handleOpenTrackDeviation}
                 />
                 
                 <AssignmentsPanel 
@@ -585,12 +688,38 @@ function SheetNoteApp() {
                     onAssignmentsChange={() => loadAssignments(selectedProjectNoteId)}
                 />
             </div>
+            
+            {showTrackDeviationModal && (
+                <TrackDeviationModal 
+                    noteId={deviationNoteId}
+                    onClose={() => {
+                        setShowTrackDeviationModal(false);
+                        setDeviationNoteId(null);
+                    }}
+                    onSuccess={() => {
+                        setShowTrackDeviationModal(false);
+                        setDeviationNoteId(null);
+                        loadProjectNotes(selectedSetId);
+                    }}
+                />
+            )}
+            
+            {showAssignStandardModal && (
+                <AssignStandardModal 
+                    setId={selectedSetId}
+                    onClose={() => setShowAssignStandardModal(false)}
+                    onSuccess={() => {
+                        setShowAssignStandardModal(false);
+                        loadProjectNotes(selectedSetId);
+                    }}
+                />
+            )}
         </div>
     );
 }
 
 // Top Bar Component
-function TopBar({ projects, selectedProjectId, onProjectChange, sets, selectedSetId, onSetChange, stats, onCreateSet }) {
+function TopBar({ projects, selectedProjectId, onProjectChange, sets, selectedSetId, onSetChange, stats, onCreateSet, onAssignStandard }) {
     return (
         <div className="top-bar">
             <div className="top-bar-left">
@@ -628,6 +757,11 @@ function TopBar({ projects, selectedProjectId, onProjectChange, sets, selectedSe
                         <button className="btn btn-sm btn-primary" onClick={onCreateSet}>
                             <i className="fas fa-plus"></i> Create Note Set
                         </button>
+                        {selectedSetId && (
+                            <button className="btn btn-sm btn-secondary" onClick={onAssignStandard}>
+                                <i className="fas fa-link"></i> Assign Standard
+                            </button>
+                        )}
                     </>
                 )}
             </div>
@@ -698,8 +832,44 @@ function StandardNotesPanel({ standardNotes, selectedSetId, onAddToSet }) {
     );
 }
 
+// Helper function to get conformance badge color
+function getConformanceColor(status) {
+    const colors = {
+        'FULL_COMPLIANCE': '#00ff88',
+        'MINOR_DEVIATION': '#ffaa00',
+        'MAJOR_DEVIATION': '#ff6600',
+        'NON_STANDARD': '#ff00ff'
+    };
+    return colors[status] || '#8892b0';
+}
+
+// Helper function to get source type badge
+function SourceTypeBadge({ sourceType }) {
+    if (sourceType === 'STANDARD') {
+        return <span className="source-badge source-badge-standard"><i className="fas fa-check"></i> Standard</span>;
+    } else if (sourceType === 'CUSTOM') {
+        return <span className="source-badge source-badge-custom"><i className="fas fa-exclamation-triangle"></i> Custom</span>;
+    } else if (sourceType === 'MODIFIED') {
+        return <span className="source-badge source-badge-modified"><i className="fas fa-tilde"></i> Modified</span>;
+    }
+    return null;
+}
+
+// Helper function to get conformance status badge
+function ConformanceBadge({ status, color }) {
+    if (!status) return null;
+    const bgColor = color || getConformanceColor(status);
+    const style = {
+        backgroundColor: `${bgColor}20`,
+        borderColor: bgColor,
+        color: bgColor,
+        border: `1px solid ${bgColor}`
+    };
+    return <span className="conformance-badge" style={style}>{status.replace(/_/g, ' ')}</span>;
+}
+
 // Project Notes Panel (Center)
-function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, selectedSetId, onSelectNote, onNotesChange, onAddNote }) {
+function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, selectedSetId, onSelectNote, onNotesChange, onAddNote, onTrackDeviation }) {
     return (
         <div className="panel">
             <div className="panel-header">
@@ -724,21 +894,35 @@ function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, selectedSetId,
                     <div 
                         key={note.project_note_id} 
                         className={`note-item ${selectedProjectNoteId === note.project_note_id ? 'selected' : ''}`}
-                        onClick={() => onSelectNote(note.project_note_id)}
                     >
-                        <div>
-                            <span className="note-code">{note.display_code}</span>
-                            <span className="note-title">
-                                {note.custom_title || note.standard_title || 'Untitled'}
-                            </span>
-                            {!note.standard_note_id && <span className="badge badge-custom">Custom</span>}
-                            {note.is_modified && <span className="badge badge-modified">Modified</span>}
-                            <span className="usage-count">
-                                <i className="fas fa-file"></i> {note.usage_count || 0}
-                            </span>
+                        <div onClick={() => onSelectNote(note.project_note_id)} style={{cursor: 'pointer'}}>
+                            <div>
+                                <span className="note-code">{note.display_code}</span>
+                                <span className="note-title">
+                                    {note.custom_title || note.standard_title || 'Untitled'}
+                                </span>
+                                <span className="usage-count">
+                                    <i className="fas fa-file"></i> {note.usage_count || 0}
+                                </span>
+                            </div>
+                            <div className="note-preview">
+                                {(note.custom_text || note.standard_text || '').substring(0, 100)}...
+                            </div>
                         </div>
-                        <div className="note-preview">
-                            {(note.custom_text || note.standard_text || '').substring(0, 100)}...
+                        
+                        <div className="conformance-badges">
+                            <SourceTypeBadge sourceType={note.source_type} />
+                            <ConformanceBadge status={note.conformance_status} color={note.conformance_color} />
+                        </div>
+                        
+                        <div className="note-actions" onClick={(e) => e.stopPropagation()}>
+                            <button 
+                                className="btn btn-secondary btn-xs"
+                                onClick={() => onTrackDeviation(note.project_note_id)}
+                                title="Track conformance deviation"
+                            >
+                                <i className="fas fa-chart-line"></i> Track Deviation
+                            </button>
                         </div>
                     </div>
                 ))
@@ -789,6 +973,279 @@ function AssignmentsPanel({ assignments, selectedProjectNoteId, onAssignmentsCha
                     </div>
                 ))
             )}
+        </div>
+    );
+}
+
+// Track Deviation Modal Component
+function TrackDeviationModal({ noteId, onClose, onSuccess }) {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [deviationCategories, setDeviationCategories] = useState([]);
+    const [conformanceStatuses, setConformanceStatuses] = useState([]);
+    const [formData, setFormData] = useState({
+        deviation_category: '',
+        deviation_reason: '',
+        conformance_status: '',
+        standardization_status: '',
+        standardization_note: ''
+    });
+    
+    useEffect(() => {
+        loadDropdownData();
+    }, []);
+    
+    const loadDropdownData = async () => {
+        try {
+            const [categoriesRes, statusesRes] = await Promise.all([
+                fetch('/api/conformance/deviation-categories'),
+                fetch('/api/conformance/statuses')
+            ]);
+            
+            const categoriesData = await categoriesRes.json();
+            const statusesData = await statusesRes.json();
+            
+            setDeviationCategories(categoriesData.categories || []);
+            setConformanceStatuses(statusesData.statuses || []);
+        } catch (err) {
+            setError('Failed to load form data');
+        }
+    };
+    
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+        
+        try {
+            const response = await fetch(`/api/project-sheet-notes/${noteId}/conformance`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(formData)
+            });
+            
+            if (response.ok) {
+                onSuccess();
+            } else {
+                const data = await response.json();
+                setError(data.error || 'Failed to update conformance');
+            }
+        } catch (err) {
+            setError('Failed to update conformance: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    return (
+        <div className="modal" onClick={onClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h3 className="modal-title"><i className="fas fa-chart-line"></i> Track Deviation</h3>
+                    <button className="modal-close" onClick={onClose}>&times;</button>
+                </div>
+                
+                {error && (
+                    <div className="alert alert-error">
+                        <i className="fas fa-exclamation-circle"></i> {error}
+                    </div>
+                )}
+                
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label className="form-label">Deviation Category</label>
+                        <select 
+                            className="form-control"
+                            value={formData.deviation_category}
+                            onChange={(e) => setFormData({...formData, deviation_category: e.target.value})}
+                        >
+                            <option value="">Select category...</option>
+                            {deviationCategories.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    <div className="form-group">
+                        <label className="form-label">Deviation Reason</label>
+                        <textarea 
+                            className="form-control"
+                            value={formData.deviation_reason}
+                            onChange={(e) => setFormData({...formData, deviation_reason: e.target.value})}
+                            placeholder="Describe the reason for this deviation..."
+                        />
+                    </div>
+                    
+                    <div className="form-group">
+                        <label className="form-label">Conformance Status</label>
+                        <select 
+                            className="form-control"
+                            value={formData.conformance_status}
+                            onChange={(e) => setFormData({...formData, conformance_status: e.target.value})}
+                        >
+                            <option value="">Select status...</option>
+                            {conformanceStatuses.map(status => (
+                                <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    <div className="form-group">
+                        <label className="form-label">Standardization Status</label>
+                        <select 
+                            className="form-control"
+                            value={formData.standardization_status}
+                            onChange={(e) => setFormData({...formData, standardization_status: e.target.value})}
+                        >
+                            <option value="">Select status...</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="COMPLETED">Completed</option>
+                            <option value="DEFERRED">Deferred</option>
+                            <option value="NOT_REQUIRED">Not Required</option>
+                        </select>
+                    </div>
+                    
+                    <div className="form-group">
+                        <label className="form-label">Standardization Note</label>
+                        <textarea 
+                            className="form-control"
+                            value={formData.standardization_note}
+                            onChange={(e) => setFormData({...formData, standardization_note: e.target.value})}
+                            placeholder="Add notes about standardization efforts..."
+                        />
+                    </div>
+                    
+                    <div className="modal-footer">
+                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                            Cancel
+                        </button>
+                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                            {loading ? 'Saving...' : 'Save Conformance Data'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// Assign Standard Modal Component
+function AssignStandardModal({ setId, onClose, onSuccess }) {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [standardNotes, setStandardNotes] = useState([]);
+    const [formData, setFormData] = useState({
+        standard_note_id: '',
+        display_code: ''
+    });
+    
+    useEffect(() => {
+        loadStandardNotes();
+    }, []);
+    
+    const loadStandardNotes = async () => {
+        try {
+            const response = await fetch('/api/standards/notes');
+            const data = await response.json();
+            setStandardNotes(data.notes || []);
+        } catch (err) {
+            setError('Failed to load standard notes');
+        }
+    };
+    
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        if (!formData.standard_note_id || !formData.display_code) {
+            setError('Please fill in all required fields');
+            return;
+        }
+        
+        setLoading(true);
+        setError(null);
+        
+        try {
+            const response = await fetch('/api/project-sheet-notes/assign-standard', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    set_id: setId,
+                    standard_note_id: formData.standard_note_id,
+                    display_code: formData.display_code
+                })
+            });
+            
+            if (response.ok) {
+                onSuccess();
+            } else {
+                const data = await response.json();
+                setError(data.error || 'Failed to assign standard note');
+            }
+        } catch (err) {
+            setError('Failed to assign standard note: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    return (
+        <div className="modal" onClick={onClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h3 className="modal-title"><i className="fas fa-link"></i> Assign Standard Note</h3>
+                    <button className="modal-close" onClick={onClose}>&times;</button>
+                </div>
+                
+                {error && (
+                    <div className="alert alert-error">
+                        <i className="fas fa-exclamation-circle"></i> {error}
+                    </div>
+                )}
+                
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label className="form-label">Standard Note *</label>
+                        <select 
+                            className="form-control"
+                            value={formData.standard_note_id}
+                            onChange={(e) => setFormData({...formData, standard_note_id: e.target.value})}
+                            required
+                        >
+                            <option value="">Select a standard note...</option>
+                            {standardNotes.map(note => (
+                                <option key={note.note_id} value={note.note_id}>
+                                    {note.note_category ? `[${note.note_category}] ` : ''}{note.note_title || 'Untitled'}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    <div className="form-group">
+                        <label className="form-label">Display Code *</label>
+                        <input 
+                            type="text"
+                            className="form-control"
+                            value={formData.display_code}
+                            onChange={(e) => setFormData({...formData, display_code: e.target.value})}
+                            placeholder="e.g., GN-1, SS-2, etc."
+                            required
+                        />
+                        <small style={{color: 'var(--gray)', fontSize: '0.85rem', marginTop: '4px', display: 'block'}}>
+                            Enter the code that will appear on drawings (e.g., GN-1, SS-2)
+                        </small>
+                    </div>
+                    
+                    <div className="modal-footer">
+                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                            Cancel
+                        </button>
+                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                            {loading ? 'Assigning...' : 'Assign Standard Note'}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }
