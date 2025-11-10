@@ -2,6 +2,11 @@
 
 {% block title %}Project Overview{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+
 {% block content %}
 <style>
 .mc-hero-section {
@@ -264,7 +269,7 @@
 
 <div id="loading" style="text-align: center; padding: 3rem;">
     <div class="spinner" style="margin: 0 auto;"></div>
-    <p class="loading-text">Loading project overview...</p>
+    <p class="loading-text" id="loadingStatus">Initializing...</p>
 </div>
 
 <div id="mainContent" style="display: none;">
@@ -477,9 +482,6 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <script>
 const projectId = '{{ project_id }}';
 let map = null;
@@ -521,14 +523,30 @@ async function loadProjectData() {
 
 async function loadMapSummary() {
     try {
-        const response = await fetch(`/api/projects/${projectId}/map-summary`);
-        const data = await response.json();
+        console.log('Fetching map summary...');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const response = await fetch(`/api/projects/${projectId}/map-summary`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers.get('content-type'));
+        
+        const text = await response.text();
+        console.log('Response length:', text.length);
+        
+        const data = JSON.parse(text);
+        console.log('Map summary data parsed successfully');
         
         if (data.error) {
             throw new Error(data.error);
         }
         
         if (!data.has_spatial_data) {
+            console.log('No spatial data available');
             document.getElementById('mapPlaceholder').innerHTML = `
                 <i class="fas fa-map-marked-alt"></i>
                 <p>${data.message}</p>
@@ -537,9 +555,20 @@ async function loadMapSummary() {
             return;
         }
         
+        if (typeof L === 'undefined') {
+            console.error('Leaflet not loaded yet');
+            document.getElementById('mapPlaceholder').innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Error: Map library not loaded</p>
+            `;
+            return;
+        }
+        
+        console.log('Initializing map...');
         document.getElementById('mapPlaceholder').style.display = 'none';
         document.getElementById('projectMap').style.display = 'block';
         
+        console.log('Creating Leaflet map...');
         map = L.map('projectMap', {
             zoomControl: false,
             dragging: false,
@@ -550,10 +579,12 @@ async function loadMapSummary() {
             keyboard: false
         });
         
+        console.log('Adding tile layer...');
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
         
+        console.log('Setting bounds:', data.bbox);
         const bounds = [
             [data.bbox.min_y, data.bbox.min_x],
             [data.bbox.max_y, data.bbox.max_x]
@@ -561,6 +592,7 @@ async function loadMapSummary() {
         
         map.fitBounds(bounds);
         
+        console.log('Adding GeoJSON features...');
         L.geoJSON(data.features, {
             style: {
                 color: '#00ffff',
@@ -570,6 +602,7 @@ async function loadMapSummary() {
             }
         }).addTo(map);
         
+        console.log('Map loaded successfully');
     } catch (error) {
         console.error('Error loading map:', error);
         document.getElementById('mapPlaceholder').innerHTML = `
@@ -685,15 +718,69 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 3000);
 }
 
-async function init() {
-    await loadProjectData();
-    await loadMapSummary();
-    await loadDrawings();
-    
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('mainContent').style.display = 'block';
+function updateStatus(message) {
+    const statusEl = document.getElementById('loadingStatus');
+    if (statusEl) statusEl.textContent = message;
+    console.log(message);
 }
 
-init();
+function init() {
+    updateStatus('Starting initialization...');
+    
+    Promise.all([
+        loadProjectData(),
+        loadDrawings()
+    ])
+        .then(() => {
+            updateStatus('Loading complete!');
+            const loading = document.getElementById('loading');
+            const mainContent = document.getElementById('mainContent');
+            
+            console.log('Loading div:', loading);
+            console.log('Main content div:', mainContent);
+            console.log('Main content children:', mainContent ? mainContent.children.length : 'null');
+            
+            if (loading) loading.style.display = 'none';
+            if (mainContent) {
+                mainContent.style.display = 'block';
+                mainContent.style.opacity = '1';
+                mainContent.style.visibility = 'visible';
+            }
+            
+            console.log('UI should be visible now');
+            
+            updateStatus('Loading map in background...');
+            loadMapSummary().catch(err => {
+                console.error('Map loading error:', err);
+                const placeholder = document.getElementById('mapPlaceholder');
+                if (placeholder) {
+                    placeholder.innerHTML = `
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Map temporarily unavailable</p>
+                        <p style="font-size: 10px;">Project data loaded successfully</p>
+                    `;
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Initialization error:', error);
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.innerHTML = `
+                    <div style="color: #ff6b6b;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Error loading project overview</p>
+                        <p style="font-size: 12px; margin-top: 10px;">${error.message}</p>
+                    </div>
+                `;
+            }
+        });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
 </script>
 {% endblock %}
