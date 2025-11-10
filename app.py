@@ -27,6 +27,9 @@ from openpyxl.styles import Font, PatternFill
 import zipfile
 import tempfile
 from weasyprint import HTML, CSS
+from services.project_mapping_service import ProjectMappingService
+from project_mapping_registry import get_supported_entity_types
+from database import get_db, execute_query, DB_CONFIG
 
 # Load environment variables (works with both .env file and Replit secrets)
 load_dotenv()
@@ -51,17 +54,6 @@ app.config['CACHE_TYPE'] = 'SimpleCache'  # In-memory cache
 app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes default
 cache = Cache(app)
 
-# Database configuration
-DB_CONFIG = {
-    'host': os.getenv('PGHOST') or os.getenv('DB_HOST'),
-    'port': os.getenv('PGPORT') or os.getenv('DB_PORT', '5432'),
-    'database': os.getenv('PGDATABASE') or os.getenv('DB_NAME', 'postgres'),
-    'user': os.getenv('PGUSER') or os.getenv('DB_USER', 'postgres'),
-    'password': os.getenv('PGPASSWORD') or os.getenv('DB_PASSWORD'),
-    'sslmode': 'require',
-    'connect_timeout': 10
-}
-
 # Debug: Check if DB credentials are available
 print("=" * 50)
 print("Database Configuration Status:")
@@ -70,26 +62,6 @@ print(f"DB_USER: {'SET' if DB_CONFIG['user'] else 'MISSING'}")
 print(f"DB_NAME: {'SET' if DB_CONFIG['database'] else 'MISSING'}")
 print(f"DB_PASSWORD: {'SET' if DB_CONFIG['password'] else 'MISSING'}")
 print("=" * 50)
-
-@contextmanager
-def get_db():
-    """Get database connection with autocommit enabled"""
-    conn = psycopg2.connect(**DB_CONFIG)
-    conn.autocommit = True
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-def execute_query(query, params=None):
-    """Execute query and return results"""
-    with get_db() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(query, params or ())
-            try:
-                return [dict(row) for row in cur.fetchall()]
-            except:
-                return []
 
 # ============================================
 # PAGES
@@ -654,6 +626,108 @@ def get_project_map_summary(project_id):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# PROJECT MAPPING API ENDPOINTS (Generic Entity Attachments)
+# ============================================================================
+
+@app.route('/api/projects/<project_id>/<entity_type>', methods=['GET'])
+def list_project_entities(project_id, entity_type):
+    """List all entities of a type attached to a project"""
+    try:
+        service = ProjectMappingService(entity_type)
+        entities = service.list_attached(project_id)
+        return jsonify({
+            'entity_type': entity_type,
+            'count': len(entities),
+            'entities': entities
+        })
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/<entity_type>/available', methods=['GET'])
+def list_available_entities(project_id, entity_type):
+    """List all entities of a type available to attach (not already attached)"""
+    try:
+        service = ProjectMappingService(entity_type)
+        entities = service.list_available(project_id)
+        return jsonify({
+            'entity_type': entity_type,
+            'count': len(entities),
+            'entities': entities
+        })
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/<entity_type>', methods=['POST'])
+def attach_entity_to_project(project_id, entity_type):
+    """Attach an entity to a project"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+        
+        entity_id = data.get('entity_id')
+        if not entity_id:
+            return jsonify({'error': 'entity_id is required'}), 400
+        
+        service = ProjectMappingService(entity_type)
+        result = service.attach(
+            project_id=project_id,
+            entity_id=entity_id,
+            is_primary=data.get('is_primary', False),
+            relationship_notes=data.get('relationship_notes'),
+            display_order=data.get('display_order')
+        )
+        
+        return jsonify(result), 201
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/<entity_type>/<int:mapping_id>', methods=['PUT'])
+def update_project_entity_mapping(project_id, entity_type, mapping_id):
+    """Update a project-entity mapping (primary status, notes, order)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+        
+        service = ProjectMappingService(entity_type)
+        result = service.update(
+            project_id=project_id,
+            mapping_id=mapping_id,
+            is_primary=data.get('is_primary'),
+            relationship_notes=data.get('relationship_notes'),
+            display_order=data.get('display_order')
+        )
+        
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/<entity_type>/<int:mapping_id>', methods=['DELETE'])
+def detach_entity_from_project(project_id, entity_type, mapping_id):
+    """Detach an entity from a project (soft delete)"""
+    try:
+        service = ProjectMappingService(entity_type)
+        result = service.detach(project_id, mapping_id)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# DRAWINGS API ENDPOINTS
+# ============================================================================
 
 @app.route('/api/drawings')
 def get_drawings():
