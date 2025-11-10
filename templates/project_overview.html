@@ -11,9 +11,16 @@
 <style>
 .mc-hero-section {
     display: grid;
-    grid-template-columns: 60% 40%;
+    grid-template-columns: 1fr 500px;
     gap: 20px;
     margin-bottom: 30px;
+    max-width: 1800px;
+}
+
+@media (max-width: 1200px) {
+    .mc-hero-section {
+        grid-template-columns: 60% 40%;
+    }
 }
 
 .mc-map-container {
@@ -22,13 +29,27 @@
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 10px 50px rgba(0,255,255,0.3);
-    height: 320px;
+    height: 500px;
     position: relative;
 }
 
 #projectMap {
     width: 100%;
     height: 100%;
+    z-index: 100 !important;
+}
+
+.leaflet-container {
+    background: #ddd !important;
+    z-index: 100 !important;
+}
+
+.leaflet-tile-pane {
+    z-index: 200 !important;
+}
+
+.leaflet-map-pane {
+    z-index: 100 !important;
 }
 
 .mc-map-overlay {
@@ -119,6 +140,7 @@
     border: 2px solid var(--accent-cyan);
     border-radius: 12px;
     box-shadow: 0 10px 50px rgba(0,255,255,0.3);
+    max-width: 1800px;
 }
 
 .mc-tab-header {
@@ -172,9 +194,10 @@
 
 .mc-stat-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 280px));
     gap: 20px;
     margin-bottom: 20px;
+    max-width: 1400px;
 }
 
 .mc-stat-box {
@@ -661,54 +684,9 @@ async function loadMapSummary() {
             return;
         }
         
-        if (typeof L === 'undefined') {
-            console.error('Leaflet not loaded yet');
-            document.getElementById('mapPlaceholder').innerHTML = `
-                <i class="fas fa-exclamation-triangle"></i>
-                <p>Error: Map library not loaded</p>
-            `;
-            return;
-        }
+        await initializeMap(data);
         
-        console.log('Initializing map...');
-        document.getElementById('mapPlaceholder').style.display = 'none';
-        document.getElementById('projectMap').style.display = 'block';
-        
-        console.log('Creating Leaflet map...');
-        map = L.map('projectMap', {
-            zoomControl: false,
-            dragging: false,
-            touchZoom: false,
-            doubleClickZoom: false,
-            scrollWheelZoom: false,
-            boxZoom: false,
-            keyboard: false
-        });
-        
-        console.log('Adding tile layer...');
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-        
-        console.log('Setting bounds:', data.bbox);
-        const bounds = [
-            [data.bbox.min_y, data.bbox.min_x],
-            [data.bbox.max_y, data.bbox.max_x]
-        ];
-        
-        map.fitBounds(bounds);
-        
-        console.log('Adding GeoJSON features...');
-        L.geoJSON(data.features, {
-            style: {
-                color: '#00ffff',
-                weight: 2,
-                opacity: 0.8,
-                fillOpacity: 0.2
-            }
-        }).addTo(map);
-        
-        console.log('Map loaded successfully');
+        console.log('✓ Map loaded');
     } catch (error) {
         console.error('Error loading map:', error);
         document.getElementById('mapPlaceholder').innerHTML = `
@@ -716,6 +694,71 @@ async function loadMapSummary() {
             <p>Error loading map: ${error.message}</p>
         `;
     }
+}
+
+async function initializeMap(mapData) {
+    return new Promise((resolve, reject) => {
+        function tryInitMap(attempts = 0) {
+            if (typeof L === 'undefined') {
+                if (attempts < 20) {
+                    console.log(`Waiting for Leaflet... attempt ${attempts + 1}`);
+                    setTimeout(() => tryInitMap(attempts + 1), 100);
+                } else {
+                    reject(new Error('Leaflet library failed to load'));
+                }
+                return;
+            }
+            
+            try {
+                console.log('Initializing map...');
+                document.getElementById('mapPlaceholder').style.display = 'none';
+                document.getElementById('projectMap').style.display = 'block';
+                
+                console.log('Creating Leaflet map...');
+                map = L.map('projectMap', {
+                    zoomControl: true,
+                    dragging: true,
+                    touchZoom: true,
+                    doubleClickZoom: true,
+                    scrollWheelZoom: true,
+                    boxZoom: false,
+                    keyboard: false
+                });
+                
+                console.log('Adding tile layer...');
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(map);
+                
+                console.log('Setting bounds:', mapData.bbox);
+                const bounds = [
+                    [mapData.bbox.min_y, mapData.bbox.min_x],
+                    [mapData.bbox.max_y, mapData.bbox.max_x]
+                ];
+                
+                map.fitBounds(bounds, { padding: [50, 50] });
+                
+                console.log('Adding GeoJSON features (Project Area)...');
+                L.geoJSON(mapData.features, {
+                    style: {
+                        color: '#00ffff',
+                        weight: 3,
+                        opacity: 0.9,
+                        fillColor: '#00ffff',
+                        fillOpacity: 0.15
+                    }
+                }).addTo(map);
+                
+                console.log('Map loaded successfully');
+                resolve();
+            } catch (error) {
+                reject(error);
+            }
+        }
+        
+        tryInitMap();
+    });
 }
 
 async function loadDrawings() {
