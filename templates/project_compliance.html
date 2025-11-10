@@ -90,6 +90,89 @@
             <p>No deviations found - Project is fully compliant!</p>
         </div>
     </div>
+
+    <!-- Conformance Tracking Section -->
+    <div id="conformanceSection" style="display: none; margin-top: 30px;">
+        <div style="border-top: 2px solid var(--border-color); padding-top: 30px;">
+            <h2 class="orbitron" style="margin-bottom: 20px;">
+                <i class="fas fa-clipboard-check neon-cyan"></i> Conformance Tracking
+            </h2>
+
+            <!-- Conformance Summary Cards -->
+            <div class="stats-grid" style="margin-bottom: 20px;">
+                <div class="stat-card">
+                    <div class="stat-value" id="conformanceTotalNotes">-</div>
+                    <div class="stat-label">Total Notes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="conformancePercent">-</div>
+                    <div class="stat-label">Conformance Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="conformanceDeviations">-</div>
+                    <div class="stat-label">Total Deviations</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="conformanceCandidates">-</div>
+                    <div class="stat-label">Standardization Candidates</div>
+                </div>
+            </div>
+
+            <!-- Conformance Status Breakdown -->
+            <div class="panel" style="margin-bottom: 20px;">
+                <h3 class="orbitron"><i class="fas fa-chart-bar"></i> Conformance Status Breakdown</h3>
+                <div id="conformanceStatusLoading" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin"></i> Loading conformance status...
+                </div>
+                <div id="conformanceStatusGrid" style="display: none; margin-top: 20px;"></div>
+                <div id="conformanceStatusEmpty" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
+                    No conformance data available
+                </div>
+            </div>
+
+            <!-- Deviation Categories Analysis -->
+            <div class="panel" style="margin-bottom: 20px;">
+                <h3 class="orbitron"><i class="fas fa-tags"></i> Deviation Categories Analysis</h3>
+                <div id="deviationCategoriesLoading" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin"></i> Loading deviation categories...
+                </div>
+                <div id="deviationCategoriesGrid" style="display: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 20px;"></div>
+                <div id="deviationCategoriesEmpty" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <i class="fas fa-check-circle" style="font-size: 3em; color: var(--neon-green); opacity: 0.5; margin-bottom: 15px;"></i>
+                    <p>No deviation categories found</p>
+                </div>
+            </div>
+
+            <!-- Standardization Candidates -->
+            <div class="panel">
+                <h3 class="orbitron"><i class="fas fa-star"></i> Standardization Candidates</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9em;">
+                    Custom notes with high reuse counts that could be promoted to standard notes
+                </p>
+                <div id="standardizationCandidatesLoading" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin"></i> Loading candidates...
+                </div>
+                <div id="standardizationCandidatesTable" style="display: none;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Display Code</th>
+                                <th>Custom Title</th>
+                                <th>Set Name</th>
+                                <th>Usage Count</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="standardizationCandidatesBody"></tbody>
+                    </table>
+                </div>
+                <div id="standardizationCandidatesEmpty" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <i class="fas fa-info-circle" style="font-size: 3em; opacity: 0.3; margin-bottom: 15px;"></i>
+                    <p>No standardization candidates found</p>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -210,6 +293,137 @@
     box-shadow: 0 0 20px rgba(0, 200, 255, 0.5);
     transform: translateY(-2px);
 }
+
+/* Conformance Tracking Styles */
+.conformance-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.conformance-status-card {
+    background: rgba(0, 20, 40, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.conformance-status-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.conformance-status-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+    margin-bottom: 10px;
+    border: 2px solid;
+}
+
+.conformance-count {
+    font-size: 2em;
+    font-weight: 700;
+    margin: 10px 0;
+}
+
+.conformance-percentage {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+
+.deviation-category-card {
+    background: rgba(0, 20, 40, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    transition: all 0.3s ease;
+}
+
+.deviation-category-card:hover {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 15px rgba(0, 200, 255, 0.2);
+}
+
+.deviation-category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.deviation-category-name {
+    font-weight: 600;
+    font-size: 1em;
+    color: var(--neon-cyan);
+}
+
+.deviation-count-badge {
+    background: rgba(255, 100, 100, 0.2);
+    color: #ff6464;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+.sample-codes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.code-chip {
+    background: rgba(0, 200, 255, 0.15);
+    color: var(--neon-cyan);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-family: 'Courier New', monospace;
+    border: 1px solid rgba(0, 200, 255, 0.3);
+}
+
+.high-usage-row {
+    background: rgba(255, 200, 0, 0.05) !important;
+    border-left: 3px solid var(--neon-yellow);
+}
+
+.usage-count-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.usage-high {
+    background: rgba(255, 200, 0, 0.2);
+    color: var(--neon-yellow);
+}
+
+.usage-medium {
+    background: rgba(0, 200, 255, 0.2);
+    color: var(--neon-cyan);
+}
+
+.usage-low {
+    background: rgba(100, 100, 100, 0.2);
+    color: var(--text-secondary);
+}
+
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
 </style>
 
 <script>
@@ -288,6 +502,8 @@ function displayCompliance(data) {
     
     displayCategories(data.by_category || []);
     displayDeviations(data.deviations || []);
+    
+    loadConformanceDetails(currentProjectId);
 }
 
 function displayCategories(categories) {
@@ -366,6 +582,168 @@ function displayDeviations(deviations) {
     document.getElementById('deviationsTable').style.display = 'block';
 }
 
+async function loadConformanceDetails(projectId) {
+    if (!projectId) {
+        return;
+    }
+    
+    showConformanceLoading();
+    
+    try {
+        const response = await fetch(`/api/project-compliance/${projectId}/conformance-details`);
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Conformance error:', data.error);
+            hideConformanceSection();
+            return;
+        }
+        
+        displayConformanceSummary(data.summary);
+        displayConformanceStatuses(data.conformance_statuses);
+        displayDeviationCategories(data.deviation_categories);
+        displayStandardizationCandidates(data.standardization_candidates);
+        
+        document.getElementById('conformanceSection').style.display = 'block';
+    } catch (error) {
+        console.error('Failed to load conformance details:', error);
+        hideConformanceSection();
+    }
+}
+
+function displayConformanceSummary(summary) {
+    document.getElementById('conformanceTotalNotes').textContent = summary.total_notes || 0;
+    document.getElementById('conformanceDeviations').textContent = summary.total_with_deviations || 0;
+    document.getElementById('conformanceCandidates').textContent = summary.candidates_count || 0;
+    
+    const conformancePercent = summary.conformance_percentage || 0;
+    const percentEl = document.getElementById('conformancePercent');
+    percentEl.textContent = conformancePercent.toFixed(1) + '%';
+    
+    if (conformancePercent >= 90) {
+        percentEl.style.color = 'var(--neon-green)';
+    } else if (conformancePercent >= 70) {
+        percentEl.style.color = 'var(--neon-yellow)';
+    } else {
+        percentEl.style.color = '#ff5555';
+    }
+}
+
+function displayConformanceStatuses(statuses) {
+    document.getElementById('conformanceStatusLoading').style.display = 'none';
+    
+    if (!statuses || statuses.length === 0) {
+        document.getElementById('conformanceStatusEmpty').style.display = 'block';
+        return;
+    }
+    
+    const totalCount = statuses.reduce((sum, s) => sum + (s.count || 0), 0);
+    
+    const grid = document.getElementById('conformanceStatusGrid');
+    grid.className = 'conformance-status-grid';
+    grid.style.display = 'grid';
+    
+    grid.innerHTML = statuses.map(status => {
+        const count = status.count || 0;
+        const percentage = totalCount > 0 ? (count / totalCount * 100).toFixed(1) : 0;
+        const color = status.color_hex || '#888888';
+        
+        return `
+            <div class="conformance-status-card">
+                <div class="conformance-status-badge" style="background-color: ${color}20; color: ${color}; border-color: ${color};">
+                    ${status.status_name}
+                </div>
+                <div class="conformance-count" style="color: ${color};">${count}</div>
+                <div class="conformance-percentage">${percentage}% of total</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function displayDeviationCategories(categories) {
+    document.getElementById('deviationCategoriesLoading').style.display = 'none';
+    
+    if (!categories || categories.length === 0) {
+        document.getElementById('deviationCategoriesEmpty').style.display = 'block';
+        return;
+    }
+    
+    const grid = document.getElementById('deviationCategoriesGrid');
+    grid.style.display = 'grid';
+    
+    grid.innerHTML = categories.map(cat => {
+        const sampleCodesHtml = cat.sample_codes && cat.sample_codes.length > 0 
+            ? `<div class="sample-codes">
+                ${cat.sample_codes.slice(0, 5).map(code => 
+                    `<span class="code-chip">${code}</span>`
+                ).join('')}
+                ${cat.sample_codes.length > 5 ? `<span style="color: var(--text-secondary); font-size: 0.8em;">+${cat.sample_codes.length - 5} more</span>` : ''}
+               </div>`
+            : '';
+        
+        return `
+            <div class="deviation-category-card">
+                <div class="deviation-category-header">
+                    <span class="deviation-category-name">${cat.category_name}</span>
+                    <span class="deviation-count-badge">${cat.count}</span>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 8px;">
+                    ${cat.category_code}
+                </div>
+                ${sampleCodesHtml}
+            </div>
+        `;
+    }).join('');
+}
+
+function displayStandardizationCandidates(candidates) {
+    document.getElementById('standardizationCandidatesLoading').style.display = 'none';
+    
+    if (!candidates || candidates.length === 0) {
+        document.getElementById('standardizationCandidatesEmpty').style.display = 'block';
+        return;
+    }
+    
+    const tbody = document.getElementById('standardizationCandidatesBody');
+    tbody.innerHTML = candidates.map(candidate => {
+        const usageCount = candidate.usage_count || 0;
+        let usageClass = 'usage-low';
+        if (usageCount >= 10) usageClass = 'usage-high';
+        else if (usageCount >= 5) usageClass = 'usage-medium';
+        
+        const rowClass = usageCount >= 10 ? 'high-usage-row' : '';
+        
+        return `
+            <tr class="${rowClass}">
+                <td><code style="color: var(--neon-cyan);">${candidate.display_code || '-'}</code></td>
+                <td><strong>${candidate.custom_title || 'Untitled'}</strong></td>
+                <td>${candidate.set_name || '-'}</td>
+                <td><span class="usage-count-badge ${usageClass}">${usageCount} uses</span></td>
+                <td><span class="status-badge" style="background: rgba(0, 200, 255, 0.2); color: var(--neon-cyan);">${candidate.standardization_status || 'Pending'}</span></td>
+            </tr>
+        `;
+    }).join('');
+    
+    document.getElementById('standardizationCandidatesTable').style.display = 'block';
+}
+
+function showConformanceLoading() {
+    document.getElementById('conformanceSection').style.display = 'block';
+    document.getElementById('conformanceStatusLoading').style.display = 'block';
+    document.getElementById('conformanceStatusGrid').style.display = 'none';
+    document.getElementById('conformanceStatusEmpty').style.display = 'none';
+    document.getElementById('deviationCategoriesLoading').style.display = 'block';
+    document.getElementById('deviationCategoriesGrid').style.display = 'none';
+    document.getElementById('deviationCategoriesEmpty').style.display = 'none';
+    document.getElementById('standardizationCandidatesLoading').style.display = 'block';
+    document.getElementById('standardizationCandidatesTable').style.display = 'none';
+    document.getElementById('standardizationCandidatesEmpty').style.display = 'none';
+}
+
+function hideConformanceSection() {
+    document.getElementById('conformanceSection').style.display = 'none';
+}
+
 function showEmptyState() {
     hideAllStates();
     document.getElementById('emptyState').style.display = 'block';
@@ -380,6 +758,7 @@ function hideAllStates() {
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('noStandardsState').style.display = 'none';
     document.getElementById('dashboardContent').style.display = 'none';
+    document.getElementById('conformanceSection').style.display = 'none';
 }
 
 function showLoading() {
