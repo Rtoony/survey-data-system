@@ -144,7 +144,9 @@ class BatchBlockExtractor:
             SVG string or empty string if generation fails
         """
         try:
-            # Create a temporary modelspace with just this block as an insert
+            import matplotlib.pyplot as plt
+            
+            # Create a temporary document with just this block
             temp_doc = ezdxf.new()
             temp_msp = temp_doc.modelspace()
             
@@ -157,21 +159,25 @@ class BatchBlockExtractor:
             # Insert the block at origin
             temp_msp.add_blockref(block.name, (0, 0))
             
-            # Render to SVG using matplotlib backend
-            fig = MatplotlibBackend.config(
-                color_mode='color',
-                lineweight_scaling=0.5,
-                max_flattening_distance=0.01
-            ).configure(temp_doc)
+            # Create figure and render using matplotlib backend
+            fig = plt.figure(figsize=(4, 4))
+            ax = fig.add_axes([0, 0, 1, 1])
+            ax.set_aspect('equal')
+            
+            ctx = RenderContext(temp_doc)
+            out = MatplotlibBackend(ax)
+            Frontend(ctx, out).draw_layout(temp_msp, finalize=True)
+            
+            # Remove axes
+            ax.axis('off')
             
             # Convert figure to SVG
             svg_buffer = io.StringIO()
-            fig.savefig(svg_buffer, format='svg', bbox_inches='tight')
+            fig.savefig(svg_buffer, format='svg', bbox_inches='tight', pad_inches=0.1)
             svg_content = svg_buffer.getvalue()
             svg_buffer.close()
             
             # Clean up matplotlib figure
-            import matplotlib.pyplot as plt
             plt.close(fig)
             
             return svg_content
