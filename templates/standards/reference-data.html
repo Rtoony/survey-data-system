@@ -14,6 +14,7 @@
         <div class="tab" data-tab="municipalities">Municipalities</div>
         <div class="tab" data-tab="coordinate-systems">Coordinate Systems</div>
         <div class="tab" data-tab="survey-points">Survey Point Descriptions</div>
+        <div class="tab" data-tab="gis-layers">GIS Data Layers</div>
     </div>
     
     <div class="tab-content active" id="entity-registry">
@@ -103,6 +104,21 @@
                 Manage standard survey point description codes and categories.
             </p>
             <div id="surveyPointsContainer"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="gis-layers">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-layer-group"></i> GIS Data Layers</h2>
+                <button class="btn btn-add" onclick="openAddGISLayerModal()">
+                    <i class="fas fa-plus"></i> Add New Layer
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage GIS data layers from external services with server links and configuration.
+            </p>
+            <div id="gisLayersContainer"></div>
         </div>
     </div>
 </div>
@@ -488,6 +504,141 @@
     </div>
 </div>
 
+<div id="gisLayerModal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+            <h3 id="gisLayerModalTitle">Add New GIS Data Layer</h3>
+            <button class="close-btn" onclick="closeGISLayerModal()">&times;</button>
+        </div>
+        <form id="gisLayerForm" onsubmit="handleGISLayerSubmit(event)">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h4 style="color: var(--primary); margin-bottom: 15px; font-size: 14px;">Basic Information</h4>
+                    <div class="form-group">
+                        <label>Service ID <span style="color: #ff4444;">*</span></label>
+                        <input type="text" name="service_id" required placeholder="e.g., sonoma_parcels_public">
+                        <div class="help-text">Unique identifier for this layer service</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Layer Name <span style="color: #ff4444;">*</span></label>
+                        <input type="text" name="name" required placeholder="e.g., Parcels Public">
+                    </div>
+                    <div class="form-group">
+                        <label>Jurisdiction</label>
+                        <input type="text" name="jurisdiction" placeholder="e.g., SonomaCounty">
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select name="category">
+                            <option value="">Select Category</option>
+                            <option value="Parcels">Parcels</option>
+                            <option value="Boundaries">Boundaries</option>
+                            <option value="Roads">Roads</option>
+                            <option value="Drainage">Drainage</option>
+                            <option value="Addresses">Addresses</option>
+                            <option value="Structures">Structures</option>
+                            <option value="Facilities">Facilities</option>
+                            <option value="Parks">Parks</option>
+                            <option value="Imagery">Imagery</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>REST URL <span style="color: #ff4444;">*</span></label>
+                        <textarea name="rest_url" required placeholder="https://..." rows="3"></textarea>
+                        <div class="help-text">ArcGIS REST service URL</div>
+                    </div>
+                </div>
+                <div>
+                    <h4 style="color: var(--primary); margin-bottom: 15px; font-size: 14px;">Configuration</h4>
+                    <div class="form-group">
+                        <label>Layer Index</label>
+                        <input type="number" name="layer" placeholder="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Behavior</label>
+                        <select name="behavior">
+                            <option value="">Select Behavior</option>
+                            <option value="dynamic">Dynamic</option>
+                            <option value="static">Static</option>
+                            <option value="tile">Tile</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Coordinate System (WKID)</label>
+                        <input type="number" name="cs_wkid" placeholder="2226">
+                    </div>
+                    <div class="form-group">
+                        <label>Query Where Clause</label>
+                        <input type="text" name="query_where" placeholder="1=1">
+                    </div>
+                    <div class="form-group">
+                        <label>Extent Mode</label>
+                        <select name="extent_mode">
+                            <option value="">Select Extent Mode</option>
+                            <option value="project_area">Project Area</option>
+                            <option value="full">Full</option>
+                            <option value="viewport">Viewport</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                <div>
+                    <h4 style="color: var(--primary); margin-bottom: 15px; font-size: 14px;">Display Settings</h4>
+                    <div class="form-group">
+                        <label>Label Field</label>
+                        <input type="text" name="label_field" placeholder="e.g., APN">
+                    </div>
+                    <div class="form-group">
+                        <label>Label Format</label>
+                        <input type="text" name="label_format" placeholder="e.g., APN {APN}">
+                    </div>
+                    <div class="form-group">
+                        <label>Symbol Preset</label>
+                        <input type="text" name="sym_preset" placeholder="e.g., BGD_Parcels">
+                    </div>
+                    <div class="form-group">
+                        <label>Block Name</label>
+                        <input type="text" name="block_name" placeholder="CAD block reference">
+                    </div>
+                </div>
+                <div>
+                    <h4 style="color: var(--primary); margin-bottom: 15px; font-size: 14px;">Scale & Status</h4>
+                    <div class="form-group">
+                        <label>Min Scale</label>
+                        <input type="number" name="min_scale" placeholder="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Max Scale</label>
+                        <input type="number" name="max_scale" placeholder="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="status">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="testing">Testing</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Verified</label>
+                        <input type="date" name="last_verified">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 20px;">
+                <label>Notes</label>
+                <textarea name="notes" placeholder="Additional notes about this layer..." rows="3"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeGISLayerModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="confirmModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -513,6 +664,7 @@
     let municipalities = [];
     let coordinateSystems = [];
     let surveyPoints = [];
+    let gisLayers = [];
     
     let currentEdit = {
         id: null,
@@ -551,6 +703,9 @@
                     break;
                 case 'survey-points':
                     if (surveyPoints.length === 0) loadSurveyPoints();
+                    break;
+                case 'gis-layers':
+                    if (gisLayers.length === 0) loadGISLayers();
                     break;
             }
         });
@@ -1153,6 +1308,178 @@
         currentEdit = { id: null, data: null, type: null };
     }
     
+    // ===== GIS DATA LAYERS FUNCTIONS =====
+    
+    async function loadGISLayers() {
+        try {
+            const response = await fetch('/api/gis-data-layers');
+            const data = await response.json();
+            gisLayers = data.gis_data_layers || [];
+            renderGISLayers();
+        } catch (error) {
+            console.error('Error loading GIS layers:', error);
+            showToast('Failed to load GIS layers', 'error');
+        }
+    }
+    
+    function renderGISLayers() {
+        const container = document.getElementById('gisLayersContainer');
+        
+        if (gisLayers.length === 0) {
+            container.innerHTML = `
+                <div class="placeholder-message">
+                    <i class="fas fa-layer-group"></i>
+                    <h3>No GIS layers configured yet</h3>
+                    <p>Click "Add New Layer" to register your first GIS data layer.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const html = `
+            <div class="entity-grid">
+                ${gisLayers.map(layer => `
+                    <div class="entity-card">
+                        <div class="entity-card-header">
+                            <h3>${layer.name}</h3>
+                            <div class="entity-card-actions">
+                                <button class="btn-icon" onclick="openEditGISLayerModal(${layer.layer_id})" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn-icon" onclick="openDeleteModal(${layer.layer_id}, '${layer.name.replace(/'/g, "\\'")}', 'gis-layer')" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="entity-card-body">
+                            <div class="info-item">
+                                <span class="label"><i class="fas fa-tag"></i> Service ID:</span>
+                                <span class="value">${layer.service_id || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label"><i class="fas fa-map-marker-alt"></i> Jurisdiction:</span>
+                                <span class="value">${layer.jurisdiction || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label"><i class="fas fa-folder"></i> Category:</span>
+                                <span class="value">${layer.category || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label"><i class="fas fa-link"></i> Server URL:</span>
+                                <span class="value" style="font-size: 11px; word-break: break-all;">${layer.rest_url ? layer.rest_url.substring(0, 60) + '...' : 'N/A'}</span>
+                            </div>
+                            ${layer.status ? `<div class="info-item">
+                                <span class="label"><i class="fas fa-circle"></i> Status:</span>
+                                <span class="value"><span class="mc-badge mc-badge-${layer.status === 'active' ? 'success' : 'warning'}">${layer.status}</span></span>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    }
+    
+    function openAddGISLayerModal() {
+        currentEdit = { id: null, data: null, type: 'gis-layer' };
+        document.getElementById('gisLayerModalTitle').textContent = 'Add New GIS Data Layer';
+        document.getElementById('gisLayerForm').reset();
+        document.getElementById('gisLayerModal').classList.add('active');
+    }
+    
+    function openEditGISLayerModal(layerId) {
+        const layer = gisLayers.find(l => l.layer_id === layerId);
+        if (!layer) return;
+        
+        currentEdit = { id: layerId, data: layer, type: 'gis-layer' };
+        document.getElementById('gisLayerModalTitle').textContent = 'Edit GIS Data Layer';
+        
+        const form = document.getElementById('gisLayerForm');
+        form.service_id.value = layer.service_id || '';
+        form.name.value = layer.name || '';
+        form.jurisdiction.value = layer.jurisdiction || '';
+        form.category.value = layer.category || '';
+        form.rest_url.value = layer.rest_url || '';
+        form.layer.value = layer.layer !== null && layer.layer !== undefined ? layer.layer : '';
+        form.behavior.value = layer.behavior || '';
+        form.cs_wkid.value = layer.cs_wkid || '';
+        form.query_where.value = layer.query_where || '';
+        form.extent_mode.value = layer.extent_mode || '';
+        form.label_field.value = layer.label_field || '';
+        form.label_format.value = layer.label_format || '';
+        form.sym_preset.value = layer.sym_preset || '';
+        form.block_name.value = layer.block_name || '';
+        form.min_scale.value = layer.min_scale || 0;
+        form.max_scale.value = layer.max_scale || 0;
+        form.status.value = layer.status || 'active';
+        form.last_verified.value = layer.last_verified || '';
+        form.notes.value = layer.notes || '';
+        
+        document.getElementById('gisLayerModal').classList.add('active');
+    }
+    
+    function closeGISLayerModal() {
+        document.getElementById('gisLayerModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    async function handleGISLayerSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const layerData = {
+            service_id: formData.get('service_id'),
+            name: formData.get('name'),
+            jurisdiction: formData.get('jurisdiction'),
+            category: formData.get('category'),
+            rest_url: formData.get('rest_url'),
+            layer: formData.get('layer') ? parseInt(formData.get('layer')) : null,
+            behavior: formData.get('behavior'),
+            cs_wkid: formData.get('cs_wkid') ? parseInt(formData.get('cs_wkid')) : null,
+            query_where: formData.get('query_where'),
+            extent_mode: formData.get('extent_mode'),
+            label_field: formData.get('label_field'),
+            label_format: formData.get('label_format'),
+            sym_preset: formData.get('sym_preset'),
+            block_name: formData.get('block_name'),
+            min_scale: formData.get('min_scale') ? parseInt(formData.get('min_scale')) : 0,
+            max_scale: formData.get('max_scale') ? parseInt(formData.get('max_scale')) : 0,
+            status: formData.get('status') || 'active',
+            last_verified: formData.get('last_verified') || null,
+            notes: formData.get('notes')
+        };
+        
+        try {
+            let response;
+            if (currentEdit.id) {
+                response = await fetch(`/api/gis-data-layers/${currentEdit.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(layerData)
+                });
+            } else {
+                response = await fetch('/api/gis-data-layers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(layerData)
+                });
+            }
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message, 'success');
+                closeGISLayerModal();
+                loadGISLayers();
+            } else {
+                showToast(result.error || 'Failed to save GIS layer', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving GIS layer:', error);
+            showToast('Failed to save GIS layer', 'error');
+        }
+    }
+    
     function openDeleteModal(id, name, type) {
         deleteTarget = { id, name, type };
         document.getElementById('confirmMessage').textContent = `Are you sure you want to delete "${name}"?`;
@@ -1620,6 +1947,10 @@
             case 'survey-point':
                 endpoint = `/api/survey-point-descriptions/${id}`;
                 reloadFunction = loadSurveyPoints;
+                break;
+            case 'gis-layer':
+                endpoint = `/api/gis-data-layers/${id}`;
+                reloadFunction = loadGISLayers;
                 break;
             default:
                 showToast('Unknown item type', 'error');

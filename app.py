@@ -12790,6 +12790,170 @@ def delete_survey_point_description(description_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== GIS DATA LAYERS API =====
+
+@app.route('/api/gis-data-layers')
+def get_gis_data_layers():
+    """Get all GIS data layers"""
+    try:
+        query = """
+            SELECT layer_id, service_id, name, jurisdiction, category, rest_url, layer, behavior,
+                   cs_wkid, query_where, extent_mode, label_field, label_format, sym_preset, block_name,
+                   min_scale, max_scale, status, last_verified, notes, is_active, tags, attributes
+            FROM gis_data_layers
+            WHERE is_active = TRUE
+            ORDER BY jurisdiction, category, name
+        """
+        layers = execute_query(query)
+        return jsonify({'gis_data_layers': layers})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gis-data-layers/<int:layer_id>')
+def get_gis_data_layer_detail(layer_id):
+    """Get a specific GIS data layer"""
+    try:
+        query = """
+            SELECT layer_id, service_id, name, jurisdiction, category, rest_url, layer, behavior,
+                   cs_wkid, query_where, extent_mode, label_field, label_format, sym_preset, block_name,
+                   min_scale, max_scale, status, last_verified, notes, is_active, tags, attributes
+            FROM gis_data_layers
+            WHERE layer_id = %s
+        """
+        result = execute_query(query, (layer_id,))
+        
+        if not result:
+            return jsonify({'error': 'GIS data layer not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gis-data-layers', methods=['POST'])
+def create_gis_data_layer():
+    """Create a new GIS data layer"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('service_id') or not data.get('name') or not data.get('rest_url'):
+            return jsonify({'error': 'service_id, name, and rest_url are required'}), 400
+        
+        check_query = "SELECT layer_id FROM gis_data_layers WHERE service_id = %s"
+        existing = execute_query(check_query, (data['service_id'].strip(),))
+        if existing:
+            return jsonify({'error': f'Service ID {data["service_id"]} already exists'}), 409
+        
+        query = """
+            INSERT INTO gis_data_layers (service_id, name, jurisdiction, category, rest_url, layer, behavior,
+                                        cs_wkid, query_where, extent_mode, label_field, label_format, sym_preset,
+                                        block_name, min_scale, max_scale, status, last_verified, notes, tags, attributes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING layer_id
+        """
+        result = execute_query(query, (
+            data['service_id'].strip(),
+            data['name'].strip(),
+            (data.get('jurisdiction') or '').strip() or None,
+            (data.get('category') or '').strip() or None,
+            data['rest_url'].strip(),
+            data.get('layer'),
+            (data.get('behavior') or '').strip() or None,
+            data.get('cs_wkid'),
+            (data.get('query_where') or '').strip() or None,
+            (data.get('extent_mode') or '').strip() or None,
+            (data.get('label_field') or '').strip() or None,
+            (data.get('label_format') or '').strip() or None,
+            (data.get('sym_preset') or '').strip() or None,
+            (data.get('block_name') or '').strip() or None,
+            data.get('min_scale', 0),
+            data.get('max_scale', 0),
+            (data.get('status') or 'active').strip(),
+            data.get('last_verified'),
+            (data.get('notes') or '').strip() or None,
+            data.get('tags', []),
+            data.get('attributes')
+        ))
+        
+        return jsonify({
+            'layer_id': result[0]['layer_id'],
+            'message': f'GIS data layer {data["name"]} created successfully'
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gis-data-layers/<int:layer_id>', methods=['PUT'])
+def update_gis_data_layer(layer_id):
+    """Update a GIS data layer"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('service_id') or not data.get('name') or not data.get('rest_url'):
+            return jsonify({'error': 'service_id, name, and rest_url are required'}), 400
+        
+        check_query = """
+            SELECT layer_id FROM gis_data_layers 
+            WHERE service_id = %s AND layer_id != %s
+        """
+        existing = execute_query(check_query, (data['service_id'].strip(), layer_id))
+        if existing:
+            return jsonify({'error': f'Service ID {data["service_id"]} already exists'}), 409
+        
+        query = """
+            UPDATE gis_data_layers 
+            SET service_id = %s, name = %s, jurisdiction = %s, category = %s, rest_url = %s, layer = %s,
+                behavior = %s, cs_wkid = %s, query_where = %s, extent_mode = %s, label_field = %s,
+                label_format = %s, sym_preset = %s, block_name = %s, min_scale = %s, max_scale = %s,
+                status = %s, last_verified = %s, notes = %s, tags = %s, attributes = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE layer_id = %s
+            RETURNING layer_id
+        """
+        result = execute_query(query, (
+            data['service_id'].strip(),
+            data['name'].strip(),
+            (data.get('jurisdiction') or '').strip() or None,
+            (data.get('category') or '').strip() or None,
+            data['rest_url'].strip(),
+            data.get('layer'),
+            (data.get('behavior') or '').strip() or None,
+            data.get('cs_wkid'),
+            (data.get('query_where') or '').strip() or None,
+            (data.get('extent_mode') or '').strip() or None,
+            (data.get('label_field') or '').strip() or None,
+            (data.get('label_format') or '').strip() or None,
+            (data.get('sym_preset') or '').strip() or None,
+            (data.get('block_name') or '').strip() or None,
+            data.get('min_scale', 0),
+            data.get('max_scale', 0),
+            (data.get('status') or 'active').strip(),
+            data.get('last_verified'),
+            (data.get('notes') or '').strip() or None,
+            data.get('tags', []),
+            data.get('attributes'),
+            layer_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'GIS data layer not found'}), 404
+        
+        return jsonify({'message': f'GIS data layer updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gis-data-layers/<int:layer_id>', methods=['DELETE'])
+def delete_gis_data_layer(layer_id):
+    """Delete a GIS data layer (soft delete)"""
+    try:
+        query = "UPDATE gis_data_layers SET is_active = FALSE WHERE layer_id = %s RETURNING layer_id"
+        result = execute_query(query, (layer_id,))
+        
+        if not result:
+            return jsonify({'error': 'GIS data layer not found'}), 404
+        
+        return jsonify({'message': 'GIS data layer deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/vocabulary/attributes')
 def get_attributes():
     """Get all attribute codes"""
