@@ -8328,6 +8328,25 @@ def create_modified_copy(project_note_id):
                     std_status_id, standardization_note
                 ))
                 
+                # Fetch the created note with all related data (codes, names, etc.)
+                cur.execute("""
+                    SELECT 
+                        psn.*,
+                        sn.note_title as standard_title,
+                        dc.category_code as deviation_category,
+                        dc.category_name as deviation_category_name,
+                        cs.status_code as conformance_status,
+                        cs.status_name as conformance_status_name,
+                        ss.status_code as standardization_status,
+                        ss.status_name as standardization_status_name
+                    FROM project_sheet_notes psn
+                    LEFT JOIN standard_notes sn ON psn.standard_note_id = sn.note_id
+                    LEFT JOIN deviation_categories dc ON psn.deviation_category_id = dc.category_id
+                    LEFT JOIN conformance_statuses cs ON psn.conformance_status_id = cs.status_id
+                    LEFT JOIN standardization_statuses ss ON psn.standardization_status_id = ss.status_id
+                    WHERE psn.project_note_id = %s::uuid
+                """, (new_note_id,))
+                
                 new_note = cur.fetchone()
                 conn.commit()
                 cache.clear()

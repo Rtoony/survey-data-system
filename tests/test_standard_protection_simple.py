@@ -27,9 +27,11 @@ def test_standard_protection_workflow():
     if response.status_code == 200:
         data = response.json()
         original_note = data.get('note', {})
+        standard_library_note_id = original_note.get('standard_note_id')
         print(f"✓ Found standard note: {STANDARD_NOTE_ID}")
         print(f"  Display code: {original_note.get('display_code')}")
         print(f"  Source type: {original_note.get('source_type')}")
+        print(f"  Standard library note ID: {standard_library_note_id}")
         print(f"  Title: {original_note.get('custom_title') or original_note.get('note_title') or '(no title)'}")
     else:
         print(f"✗ Failed to get standard note: {response.status_code}")
@@ -79,11 +81,11 @@ def test_standard_protection_workflow():
         else:
             print(f"  ✗ Source type incorrect: {modified_note.get('source_type')}")
         
-        if modified_note.get('standard_note_id') == STANDARD_NOTE_ID:
-            print("  ✓ Links back to original standard")
+        if modified_note.get('standard_note_id') == standard_library_note_id:
+            print("  ✓ Links back to original standard library note")
             checks_passed += 1
         else:
-            print(f"  ✗ Standard note ID link incorrect")
+            print(f"  ✗ Standard note ID link incorrect: expected {standard_library_note_id}, got {modified_note.get('standard_note_id')}")
         
         if modified_note.get('deviation_category') == 'MATERIAL_AVAILABILITY':
             print("  ✓ Deviation category saved")
