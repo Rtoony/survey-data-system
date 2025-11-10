@@ -1,0 +1,647 @@
+{% extends 'base.html' %}
+
+{% block title %}Batch Block Import{% endblock %}
+
+{% block content %}
+<div class="mc-page">
+    <div class="mc-header">
+        <h1>🔧 Batch Block Import Tool</h1>
+        <p>Extract block definitions from multiple DXF files and import to standards library</p>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="mc-card" id="uploadSection">
+        <h2>Step 1: Upload DXF Files</h2>
+        <div class="upload-zone" id="dropZone">
+            <div class="upload-icon">📁</div>
+            <p class="upload-text">Drag & drop DXF files here</p>
+            <p class="upload-subtext">or</p>
+            <button class="mc-btn-primary" onclick="document.getElementById('fileInput').click()">
+                Browse Files
+            </button>
+            <input type="file" id="fileInput" multiple accept=".dxf" style="display:none;">
+            <p class="upload-hint">Supports multiple DXF files</p>
+        </div>
+        
+        <div id="fileList" class="file-list" style="display:none;">
+            <h3>Selected Files</h3>
+            <ul id="fileItems"></ul>
+            <button class="mc-btn-primary" id="extractBtn">
+                Extract Blocks
+            </button>
+        </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div class="mc-card" id="progressSection" style="display:none;">
+        <h2>Extracting Blocks...</h2>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p id="progressText">Processing files...</p>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="mc-card" id="previewSection" style="display:none;">
+        <div class="preview-header">
+            <h2>Step 2: Review Extracted Blocks</h2>
+            <div class="preview-stats">
+                <span id="totalBlocks" class="stat-badge">0 blocks found</span>
+                <span id="newBlocks" class="stat-badge stat-new">0 new</span>
+                <span id="existingBlocks" class="stat-badge stat-existing">0 existing</span>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="preview-filters">
+            <input type="text" id="searchFilter" placeholder="Search blocks..." class="mc-input">
+            <select id="categoryFilter" class="mc-select">
+                <option value="">All Categories</option>
+            </select>
+            <select id="actionFilter" class="mc-select">
+                <option value="">All Actions</option>
+                <option value="import">Import New</option>
+                <option value="update">Update Existing</option>
+                <option value="skip">Skip</option>
+            </select>
+        </div>
+
+        <!-- Block Grid -->
+        <div id="blockGrid" class="block-grid"></div>
+
+        <!-- Import Actions -->
+        <div class="import-actions">
+            <button class="mc-btn-secondary" id="selectAllBtn">Select All</button>
+            <button class="mc-btn-secondary" id="deselectAllBtn">Deselect All</button>
+            <button class="mc-btn-primary" id="importBtn">
+                Import Selected Blocks
+            </button>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="mc-card" id="resultsSection" style="display:none;">
+        <h2>✅ Import Complete</h2>
+        <div class="results-summary">
+            <div class="result-item">
+                <span class="result-label">Imported:</span>
+                <span class="result-value" id="importedCount">0</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Updated:</span>
+                <span class="result-value" id="updatedCount">0</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Skipped:</span>
+                <span class="result-value" id="skippedCount">0</span>
+            </div>
+        </div>
+        <button class="mc-btn-primary" onclick="location.reload()">
+            Import More Blocks
+        </button>
+        <a href="/data-manager/blocks" class="mc-btn-secondary">
+            View Block Library
+        </a>
+    </div>
+</div>
+
+<style>
+/* Upload Zone */
+.upload-zone {
+    border: 3px dashed var(--mc-cyan);
+    border-radius: 8px;
+    padding: 3rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: rgba(0, 255, 255, 0.05);
+}
+
+.upload-zone.drag-over {
+    background: rgba(0, 255, 255, 0.15);
+    border-color: var(--mc-magenta);
+    transform: scale(1.02);
+}
+
+.upload-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.upload-text {
+    font-size: 1.25rem;
+    color: var(--mc-cyan);
+    margin-bottom: 0.5rem;
+}
+
+.upload-subtext {
+    color: var(--mc-text-muted);
+    margin: 1rem 0;
+}
+
+.upload-hint {
+    color: var(--mc-text-muted);
+    font-size: 0.875rem;
+    margin-top: 1rem;
+}
+
+/* File List */
+.file-list {
+    margin-top: 2rem;
+}
+
+.file-list h3 {
+    color: var(--mc-cyan);
+    margin-bottom: 1rem;
+}
+
+.file-list ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 1.5rem;
+}
+
+.file-list li {
+    padding: 0.75rem;
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid var(--mc-border);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.file-list li::before {
+    content: '📄';
+}
+
+/* Progress Bar */
+.progress-bar {
+    width: 100%;
+    height: 30px;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--mc-cyan);
+    border-radius: 15px;
+    overflow: hidden;
+    margin: 1.5rem 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--mc-cyan), var(--mc-accent));
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+#progressText {
+    text-align: center;
+    color: var(--mc-text-muted);
+}
+
+/* Preview Section */
+.preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.preview-stats {
+    display: flex;
+    gap: 1rem;
+}
+
+.stat-badge {
+    padding: 0.5rem 1rem;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--mc-cyan);
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.stat-new {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: var(--mc-accent);
+    color: var(--mc-accent);
+}
+
+.stat-existing {
+    background: rgba(255, 170, 0, 0.1);
+    border-color: #ffaa00;
+    color: #ffaa00;
+}
+
+/* Filters */
+.preview-filters {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+/* Block Grid */
+.block-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.block-card {
+    background: rgba(0, 255, 255, 0.03);
+    border: 2px solid var(--mc-border);
+    border-radius: 8px;
+    padding: 1rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.block-card:hover {
+    border-color: var(--mc-cyan);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 255, 255, 0.2);
+}
+
+.block-card.selected {
+    border-color: var(--mc-accent);
+    background: rgba(0, 255, 136, 0.05);
+}
+
+.block-card.existing {
+    border-color: #ffaa00;
+}
+
+.block-preview {
+    width: 100%;
+    height: 150px;
+    background: #0a0a0a;
+    border: 1px solid var(--mc-border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.block-preview svg {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.block-info h3 {
+    color: var(--mc-cyan);
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    word-break: break-word;
+}
+
+.block-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--mc-text-muted);
+    margin-bottom: 0.75rem;
+}
+
+.block-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.block-actions select {
+    flex: 1;
+    padding: 0.5rem;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--mc-border);
+    color: var(--mc-cyan);
+    border-radius: 4px;
+}
+
+.block-actions input {
+    flex: 2;
+    padding: 0.5rem;
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid var(--mc-border);
+    color: var(--mc-text);
+    border-radius: 4px;
+}
+
+/* Import Actions */
+.import-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--mc-border);
+}
+
+/* Results */
+.results-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.result-item {
+    text-align: center;
+    padding: 1.5rem;
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid var(--mc-border);
+    border-radius: 8px;
+}
+
+.result-label {
+    display: block;
+    color: var(--mc-text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.result-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--mc-cyan);
+}
+</style>
+
+<script>
+let selectedFiles = [];
+let extractedBlocks = [];
+let existingBlocks = new Set();
+
+// Drag and drop handlers
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, preventDefaults, false);
+});
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
+});
+
+dropZone.addEventListener('drop', handleDrop, false);
+fileInput.addEventListener('change', handleFileSelect, false);
+
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles(files);
+}
+
+function handleFileSelect(e) {
+    handleFiles(e.target.files);
+}
+
+function handleFiles(files) {
+    selectedFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.dxf'));
+    
+    if (selectedFiles.length === 0) {
+        alert('Please select DXF files');
+        return;
+    }
+    
+    // Show file list
+    const fileList = document.getElementById('fileList');
+    const fileItems = document.getElementById('fileItems');
+    fileItems.innerHTML = '';
+    
+    selectedFiles.forEach(file => {
+        const li = document.createElement('li');
+        li.textContent = file.name;
+        fileItems.appendChild(li);
+    });
+    
+    fileList.style.display = 'block';
+}
+
+// Extract blocks
+document.getElementById('extractBtn').addEventListener('click', async () => {
+    document.getElementById('uploadSection').style.display = 'none';
+    document.getElementById('progressSection').style.display = 'block';
+    
+    const formData = new FormData();
+    selectedFiles.forEach(file => {
+        formData.append('files[]', file);
+    });
+    
+    try {
+        const response = await fetch('/api/batch-block-import/extract-from-dxf', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error: ' + data.error);
+            location.reload();
+            return;
+        }
+        
+        extractedBlocks = data.blocks;
+        
+        // Check which blocks already exist
+        await checkExistingBlocks();
+        
+        // Show preview
+        document.getElementById('progressSection').style.display = 'none';
+        renderBlockPreview();
+        
+    } catch (error) {
+        alert('Error extracting blocks: ' + error.message);
+        location.reload();
+    }
+});
+
+async function checkExistingBlocks() {
+    try {
+        const response = await fetch('/api/data-manager/blocks');
+        const data = await response.json();
+        
+        data.blocks.forEach(block => {
+            existingBlocks.add(block.block_name.toLowerCase());
+        });
+        
+        // Mark blocks as existing
+        extractedBlocks.forEach(block => {
+            if (existingBlocks.has(block.name.toLowerCase())) {
+                block.exists = true;
+                block.action = 'skip';
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error checking existing blocks:', error);
+    }
+}
+
+function renderBlockPreview() {
+    const grid = document.getElementById('blockGrid');
+    grid.innerHTML = '';
+    
+    // Update stats
+    const newCount = extractedBlocks.filter(b => !b.exists).length;
+    const existingCount = extractedBlocks.filter(b => b.exists).length;
+    
+    document.getElementById('totalBlocks').textContent = `${extractedBlocks.length} blocks found`;
+    document.getElementById('newBlocks').textContent = `${newCount} new`;
+    document.getElementById('existingBlocks').textContent = `${existingCount} existing`;
+    
+    // Populate category filter
+    const categories = [...new Set(extractedBlocks.map(b => b.category))];
+    const categoryFilter = document.getElementById('categoryFilter');
+    categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat;
+        categoryFilter.appendChild(option);
+    });
+    
+    // Render blocks
+    extractedBlocks.forEach((block, index) => {
+        const card = createBlockCard(block, index);
+        grid.appendChild(card);
+    });
+    
+    document.getElementById('previewSection').style.display = 'block';
+}
+
+function createBlockCard(block, index) {
+    const card = document.createElement('div');
+    card.className = 'block-card';
+    if (block.exists) card.classList.add('existing');
+    card.dataset.index = index;
+    
+    card.innerHTML = `
+        <div class="block-preview">
+            ${block.svg_preview}
+        </div>
+        <div class="block-info">
+            <h3>${block.name}</h3>
+            <div class="block-meta">
+                <span>📂 ${block.category}</span>
+                <span>📄 ${block.source_file}</span>
+                <span>${block.exists ? '⚠️ Already exists' : '✨ New block'}</span>
+            </div>
+            <div class="block-actions">
+                <select class="action-select" data-index="${index}">
+                    <option value="import" ${!block.exists ? 'selected' : ''}>Import</option>
+                    <option value="update" ${block.exists ? 'selected' : ''}>Update</option>
+                    <option value="skip" ${block.exists ? 'selected' : ''}>Skip</option>
+                </select>
+                <input type="text" class="category-input" value="${block.category}" data-index="${index}" placeholder="Category">
+            </div>
+        </div>
+    `;
+    
+    // Event listeners
+    card.querySelector('.action-select').addEventListener('change', (e) => {
+        extractedBlocks[index].action = e.target.value;
+        updateCardSelection(card, e.target.value);
+    });
+    
+    card.querySelector('.category-input').addEventListener('change', (e) => {
+        extractedBlocks[index].category = e.target.value;
+    });
+    
+    return card;
+}
+
+function updateCardSelection(card, action) {
+    if (action === 'skip') {
+        card.classList.remove('selected');
+    } else {
+        card.classList.add('selected');
+    }
+}
+
+// Select/Deselect all
+document.getElementById('selectAllBtn').addEventListener('click', () => {
+    extractedBlocks.forEach((block, i) => {
+        block.action = block.exists ? 'update' : 'import';
+        const select = document.querySelector(`.action-select[data-index="${i}"]`);
+        if (select) select.value = block.action;
+    });
+    renderBlockPreview();
+});
+
+document.getElementById('deselectAllBtn').addEventListener('click', () => {
+    extractedBlocks.forEach((block, i) => {
+        block.action = 'skip';
+        const select = document.querySelector(`.action-select[data-index="${i}"]`);
+        if (select) select.value = 'skip';
+    });
+    renderBlockPreview();
+});
+
+// Import blocks
+document.getElementById('importBtn').addEventListener('click', async () => {
+    const blocksToImport = extractedBlocks.filter(b => b.action !== 'skip');
+    
+    if (blocksToImport.length === 0) {
+        alert('No blocks selected for import');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/batch-block-import/save-blocks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({blocks: extractedBlocks})
+        });
+        
+        const result = await response.json();
+        
+        // Show results
+        document.getElementById('previewSection').style.display = 'none';
+        document.getElementById('importedCount').textContent = result.imported;
+        document.getElementById('updatedCount').textContent = result.updated;
+        document.getElementById('skippedCount').textContent = result.skipped;
+        document.getElementById('resultsSection').style.display = 'block';
+        
+    } catch (error) {
+        alert('Error importing blocks: ' + error.message);
+    }
+});
+
+// Search and filter
+document.getElementById('searchFilter').addEventListener('input', filterBlocks);
+document.getElementById('categoryFilter').addEventListener('change', filterBlocks);
+document.getElementById('actionFilter').addEventListener('change', filterBlocks);
+
+function filterBlocks() {
+    const search = document.getElementById('searchFilter').value.toLowerCase();
+    const category = document.getElementById('categoryFilter').value;
+    const action = document.getElementById('actionFilter').value;
+    
+    const cards = document.querySelectorAll('.block-card');
+    cards.forEach((card, i) => {
+        const block = extractedBlocks[i];
+        const matchesSearch = block.name.toLowerCase().includes(search);
+        const matchesCategory = !category || block.category === category;
+        const matchesAction = !action || block.action === action;
+        
+        if (matchesSearch && matchesCategory && matchesAction) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+</script>
+
+{% endblock %}

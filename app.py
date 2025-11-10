@@ -164,6 +164,11 @@ def data_manager_disciplines():
     """Disciplines data manager page"""
     return render_template('data_manager/disciplines.html')
 
+@app.route('/tools/batch-block-import')
+def batch_block_import_tool():
+    """Batch Block Import Tool"""
+    return render_template('tools/batch_block_import.html')
+
 @app.route('/project-standards-assignment')
 def project_standards_assignment():
     """Project Standards Assignment page"""
