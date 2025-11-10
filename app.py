@@ -2732,6 +2732,19 @@ def get_project_conformance_details(project_id):
         """
         standardization_candidates = execute_query(standardization_candidates_query, (project_id,))
         
+        # Get source type breakdown
+        source_type_breakdown_query = """
+            SELECT 
+                psn.source_type,
+                COUNT(*) as count
+            FROM project_sheet_notes psn
+            JOIN sheet_note_sets sns ON psn.set_id = sns.set_id
+            WHERE sns.project_id = %s::uuid
+            GROUP BY psn.source_type
+            ORDER BY psn.source_type
+        """
+        source_types = execute_query(source_type_breakdown_query, (project_id,))
+        
         # Calculate summary metrics
         total_notes = sum(status['count'] for status in conformance_statuses)
         total_with_deviations = sum(cat['count'] for cat in deviation_categories)
@@ -2739,16 +2752,25 @@ def get_project_conformance_details(project_id):
         full_compliance_count = next((s['count'] for s in conformance_statuses if s['status_code'] == 'FULL_COMPLIANCE'), 0)
         conformance_percentage = (full_compliance_count / total_notes * 100) if total_notes > 0 else 0
         
+        # Source type counts
+        standard_count = next((s['count'] for s in source_types if s['source_type'] == 'standard'), 0)
+        modified_count = next((s['count'] for s in source_types if s['source_type'] == 'modified'), 0)
+        custom_count = next((s['count'] for s in source_types if s['source_type'] == 'custom'), 0)
+        
         return jsonify({
             'summary': {
                 'total_notes': total_notes,
                 'total_with_deviations': total_with_deviations,
                 'conformance_percentage': conformance_percentage,
-                'candidates_count': len(standardization_candidates)
+                'candidates_count': len(standardization_candidates),
+                'standard_count': standard_count,
+                'modified_count': modified_count,
+                'custom_count': custom_count
             },
             'conformance_statuses': conformance_statuses,
             'deviation_categories': deviation_categories,
-            'standardization_candidates': standardization_candidates
+            'standardization_candidates': standardization_candidates,
+            'source_types': source_types
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -7574,6 +7596,42 @@ def get_project_sheet_notes():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/project-sheet-notes/<project_note_id>', methods=['GET'])
+def get_project_sheet_note(project_note_id):
+    """Get a single project sheet note by ID"""
+    try:
+        query = """
+            SELECT 
+                psn.*,
+                sn.note_title as standard_title,
+                sn.note_text as standard_text,
+                sn.note_category,
+                sn.discipline,
+                dc.category_code as deviation_category_code,
+                dc.category_name as deviation_category_name,
+                cs.status_code as conformance_status_code,
+                cs.status_name as conformance_status_name,
+                cs.color_hex as conformance_color,
+                ss.status_code as standardization_status_code,
+                ss.status_name as standardization_status_name
+            FROM project_sheet_notes psn
+            LEFT JOIN standard_notes sn ON psn.standard_note_id = sn.note_id
+            LEFT JOIN deviation_categories dc ON psn.deviation_category_id = dc.category_id
+            LEFT JOIN conformance_statuses cs ON psn.conformance_status_id = cs.status_id
+            LEFT JOIN standardization_statuses ss ON psn.standardization_status_id = ss.status_id
+            WHERE psn.project_note_id = %s::uuid
+        """
+        
+        notes = execute_query(query, (project_note_id,))
+        
+        if not notes:
+            return jsonify({'error': 'Note not found'}), 404
+        
+        return jsonify({'note': notes[0]})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/project-sheet-notes', methods=['POST'])
 def create_project_sheet_note():
     """Create a new project sheet note"""
@@ -8153,6 +8211,124 @@ def assign_standard_note():
                 cache.clear()
                 return jsonify({'note': dict(new_note)}), 201
     
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-sheet-notes/<project_note_id>/create-modified-copy', methods=['POST'])
+def create_modified_copy(project_note_id):
+    """Create a modified copy of a standard note with deviation tracking"""
+    try:
+        data = request.get_json()
+        
+        deviation_category = data.get('deviation_category')
+        deviation_reason = data.get('deviation_reason')
+        conformance_status = data.get('conformance_status')
+        standardization_status = data.get('standardization_status')
+        standardization_note = data.get('standardization_note')
+        custom_title = data.get('custom_title')
+        custom_text = data.get('custom_text')
+        
+        if not deviation_category or not deviation_reason or not conformance_status:
+            return jsonify({'error': 'deviation_category, deviation_reason, and conformance_status are required'}), 400
+        
+        new_note_id = str(uuid.uuid4())
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Validate original note exists and get its data
+                try:
+                    note_info = validate_project_note_membership(cur, project_note_id)
+                except ValueError as e:
+                    return jsonify({'error': str(e)}), 404
+                
+                # Verify it's a standard note (source_type = 'standard')
+                if note_info['source_type'] != 'standard':
+                    return jsonify({'error': 'Can only create modified copies from standard notes'}), 400
+                
+                # Get the standard note data
+                cur.execute("""
+                    SELECT note_title, note_text 
+                    FROM standard_notes 
+                    WHERE note_id = %s::uuid
+                """, (note_info['standard_note_id'],))
+                standard_data = cur.fetchone()
+                
+                if not standard_data:
+                    return jsonify({'error': 'Standard note not found'}), 404
+                
+                # Get deviation category ID
+                cur.execute("SELECT category_id FROM deviation_categories WHERE category_code = %s", (deviation_category,))
+                category = cur.fetchone()
+                if not category:
+                    return jsonify({'error': 'Invalid deviation_category'}), 400
+                
+                # Get conformance status ID
+                cur.execute("SELECT status_id FROM conformance_statuses WHERE status_code = %s", (conformance_status,))
+                status = cur.fetchone()
+                if not status:
+                    return jsonify({'error': 'Invalid conformance_status'}), 400
+                
+                # Get standardization status ID
+                if standardization_status:
+                    cur.execute("SELECT status_id FROM standardization_statuses WHERE status_code = %s", (standardization_status,))
+                    std_status = cur.fetchone()
+                    std_status_id = std_status['status_id'] if std_status else None
+                else:
+                    # Default to NOT_NOMINATED
+                    cur.execute("SELECT status_id FROM standardization_statuses WHERE status_code = 'NOT_NOMINATED'")
+                    std_status_id = cur.fetchone()['status_id']
+                
+                # Get next sort order in the set
+                cur.execute('SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order FROM project_sheet_notes WHERE set_id = %s::uuid', (note_info['set_id'],))
+                next_sort_order = cur.fetchone()['next_order']
+                
+                # Generate new display code (original code + -M suffix)
+                base_code = note_info['display_code']
+                new_display_code = f"{base_code}-M"
+                
+                # Check if display code already exists, increment if needed
+                counter = 1
+                while True:
+                    cur.execute('SELECT 1 FROM project_sheet_notes WHERE set_id = %s::uuid AND display_code = %s', 
+                               (note_info['set_id'], new_display_code))
+                    if not cur.fetchone():
+                        break
+                    counter += 1
+                    new_display_code = f"{base_code}-M{counter}"
+                
+                # Use provided custom title/text or copy from standard
+                final_title = custom_title if custom_title else standard_data['note_title']
+                final_text = custom_text if custom_text else standard_data['note_text']
+                
+                # Create the modified copy
+                query = """
+                    INSERT INTO project_sheet_notes 
+                    (project_note_id, set_id, standard_note_id, standard_reference_id, display_code,
+                     custom_title, custom_text, source_type, is_modified, sort_order,
+                     deviation_category_id, deviation_reason, conformance_status_id,
+                     standardization_status_id, standardization_note,
+                     first_used_at, last_used_at, usage_count)
+                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s, %s, %s, 'modified', TRUE, %s,
+                            %s::uuid, %s, %s::uuid, %s::uuid, %s,
+                            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
+                    RETURNING *
+                """
+                
+                cur.execute(query, (
+                    new_note_id, note_info['set_id'], note_info['standard_note_id'], 
+                    note_info['standard_note_id'], new_display_code,
+                    final_title, final_text, next_sort_order,
+                    category['category_id'], deviation_reason, status['status_id'],
+                    std_status_id, standardization_note
+                ))
+                
+                new_note = cur.fetchone()
+                conn.commit()
+                cache.clear()
+                return jsonify({'note': dict(new_note), 'message': 'Modified copy created successfully'}), 201
+    
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

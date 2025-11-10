@@ -931,6 +931,16 @@ function ProjectNotesPanel({ projectNotes, selectedProjectNoteId, selectedSetId,
                             <div className="note-preview">
                                 {(note.custom_text || note.standard_text || '').substring(0, 100)}...
                             </div>
+                            {note.source_type === 'modified' && note.standard_title && (
+                                <div style={{
+                                    fontSize: '0.75rem',
+                                    color: 'var(--cyan)',
+                                    marginTop: '4px',
+                                    fontStyle: 'italic'
+                                }}>
+                                    <i className="fas fa-link"></i> Modified from: {note.standard_title}
+                                </div>
+                            )}
                         </div>
                         
                         <div className="conformance-badges">
@@ -1009,10 +1019,12 @@ function AssignmentsPanel({ assignments, selectedProjectNoteId, onAssignmentsCha
 
 // Track Deviation Modal Component
 function TrackDeviationModal({ noteId, onClose, onSuccess }) {
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [noteData, setNoteData] = useState(null);
     const [deviationCategories, setDeviationCategories] = useState([]);
     const [conformanceStatuses, setConformanceStatuses] = useState([]);
+    const [showConfirmation, setShowConfirmation] = useState(false);
     const [formData, setFormData] = useState({
         deviation_category: '',
         deviation_reason: '',
@@ -1022,8 +1034,27 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
     });
     
     useEffect(() => {
+        loadNoteData();
         loadDropdownData();
     }, []);
+    
+    const loadNoteData = async () => {
+        try {
+            // Fetch the note data to check if it's a standard
+            const response = await fetch(`/api/project-sheet-notes/${noteId}`);
+            const data = await response.json();
+            setNoteData(data.note);
+            
+            // If it's a standard note, show confirmation dialog
+            if (data.note && data.note.source_type === 'standard') {
+                setShowConfirmation(true);
+            }
+            setLoading(false);
+        } catch (err) {
+            setError('Failed to load note data');
+            setLoading(false);
+        }
+    };
     
     const loadDropdownData = async () => {
         try {
@@ -1042,7 +1073,32 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
         }
     };
     
-    const handleSubmit = async (e) => {
+    const handleCreateModifiedCopy = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+        
+        try {
+            const response = await fetch(`/api/project-sheet-notes/${noteId}/create-modified-copy`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(formData)
+            });
+            
+            if (response.ok) {
+                onSuccess();
+            } else {
+                const data = await response.json();
+                setError(data.error || 'Failed to create modified copy');
+            }
+        } catch (err) {
+            setError('Failed to create modified copy: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleUpdateConformance = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
@@ -1067,11 +1123,26 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
         }
     };
     
+    if (loading) {
+        return (
+            <div className="modal" onClick={onClose}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                    <div className="loading-message">
+                        <i className="fas fa-spinner fa-spin"></i> Loading...
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    
     return (
         <div className="modal" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h3 className="modal-title"><i className="fas fa-chart-line"></i> Track Deviation</h3>
+                    <h3 className="modal-title">
+                        <i className="fas fa-chart-line"></i> 
+                        {showConfirmation ? ' Create Modified Copy' : ' Track Deviation'}
+                    </h3>
                     <button className="modal-close" onClick={onClose}>&times;</button>
                 </div>
                 
@@ -1081,13 +1152,25 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
                     </div>
                 )}
                 
-                <form onSubmit={handleSubmit}>
+                {showConfirmation && noteData && (
+                    <div className="alert alert-warning" style={{marginBottom: '20px'}}>
+                        <i className="fas fa-exclamation-triangle"></i>
+                        <strong>This is a standard note.</strong>
+                        <p style={{marginTop: '8px', marginBottom: 0}}>
+                            You cannot modify standards directly. Instead, you'll create a modified copy of 
+                            "{noteData.standard_title}" with your deviation details. The original standard will remain unchanged.
+                        </p>
+                    </div>
+                )}
+                
+                <form onSubmit={showConfirmation ? handleCreateModifiedCopy : handleUpdateConformance}>
                     <div className="form-group">
-                        <label className="form-label">Deviation Category</label>
+                        <label className="form-label">Deviation Category *</label>
                         <select 
                             className="form-control"
                             value={formData.deviation_category}
                             onChange={(e) => setFormData({...formData, deviation_category: e.target.value})}
+                            required
                         >
                             <option value="">Select category...</option>
                             {deviationCategories.map(cat => (
@@ -1099,21 +1182,24 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
                     </div>
                     
                     <div className="form-group">
-                        <label className="form-label">Deviation Reason</label>
+                        <label className="form-label">Deviation Reason *</label>
                         <textarea 
                             className="form-control"
                             value={formData.deviation_reason}
                             onChange={(e) => setFormData({...formData, deviation_reason: e.target.value})}
                             placeholder="Describe the reason for this deviation..."
+                            required
+                            rows="3"
                         />
                     </div>
                     
                     <div className="form-group">
-                        <label className="form-label">Conformance Status</label>
+                        <label className="form-label">Conformance Status *</label>
                         <select 
                             className="form-control"
                             value={formData.conformance_status}
                             onChange={(e) => setFormData({...formData, conformance_status: e.target.value})}
+                            required
                         >
                             <option value="">Select status...</option>
                             {conformanceStatuses.map(status => (
@@ -1132,11 +1218,13 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
                             onChange={(e) => setFormData({...formData, standardization_status: e.target.value})}
                         >
                             <option value="">Select status...</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="IN_PROGRESS">In Progress</option>
-                            <option value="COMPLETED">Completed</option>
+                            <option value="NOT_NOMINATED">Not Nominated</option>
+                            <option value="NOMINATED">Nominated</option>
+                            <option value="UNDER_REVIEW">Under Review</option>
+                            <option value="APPROVED">Approved</option>
+                            <option value="STANDARDIZED">Standardized</option>
+                            <option value="REJECTED">Rejected</option>
                             <option value="DEFERRED">Deferred</option>
-                            <option value="NOT_REQUIRED">Not Required</option>
                         </select>
                     </div>
                     
@@ -1147,6 +1235,7 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
                             value={formData.standardization_note}
                             onChange={(e) => setFormData({...formData, standardization_note: e.target.value})}
                             placeholder="Add notes about standardization efforts..."
+                            rows="2"
                         />
                     </div>
                     
@@ -1155,7 +1244,7 @@ function TrackDeviationModal({ noteId, onClose, onSuccess }) {
                             Cancel
                         </button>
                         <button type="submit" className="btn btn-primary" disabled={loading}>
-                            {loading ? 'Saving...' : 'Save Conformance Data'}
+                            {loading ? 'Processing...' : (showConfirmation ? 'Create Modified Copy' : 'Save Deviation')}
                         </button>
                     </div>
                 </form>
