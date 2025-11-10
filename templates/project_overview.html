@@ -697,68 +697,53 @@ async function loadMapSummary() {
 }
 
 async function initializeMap(mapData) {
-    return new Promise((resolve, reject) => {
-        function tryInitMap(attempts = 0) {
-            if (typeof L === 'undefined') {
-                if (attempts < 30) {
-                    if (attempts % 5 === 0) {
-                        console.log(`Waiting for Leaflet library... attempt ${attempts + 1}`);
-                    }
-                    setTimeout(() => tryInitMap(attempts + 1), 150);
-                } else {
-                    console.error('Failed to load Leaflet after 30 attempts');
-                    reject(new Error('Leaflet library failed to load after 4.5 seconds'));
-                }
-                return;
-            }
-            
-            try {
-                console.log(`✓ Leaflet loaded! Initializing map...`);
-                document.getElementById('mapPlaceholder').style.display = 'none';
-                document.getElementById('projectMap').style.display = 'block';
-                
-                map = L.map('projectMap', {
-                    zoomControl: true,
-                    dragging: true,
-                    touchZoom: true,
-                    doubleClickZoom: true,
-                    scrollWheelZoom: true,
-                    boxZoom: false,
-                    keyboard: false
-                });
-                
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap',
-                    maxZoom: 19
-                }).addTo(map);
-                
-                const bounds = [
-                    [mapData.bbox.min_y, mapData.bbox.min_x],
-                    [mapData.bbox.max_y, mapData.bbox.max_x]
-                ];
-                
-                map.fitBounds(bounds, { padding: [50, 50] });
-                
-                L.geoJSON(mapData.features, {
-                    style: {
-                        color: '#00ffff',
-                        weight: 3,
-                        opacity: 0.9,
-                        fillColor: '#00ffff',
-                        fillOpacity: 0.15
-                    }
-                }).addTo(map);
-                
-                console.log('✓ Map rendered with project area boundary');
-                resolve();
-            } catch (error) {
-                console.error('Error initializing map:', error);
-                reject(error);
-            }
-        }
+    try {
+        console.log(`✓ Leaflet loaded! Initializing map...`);
+        document.getElementById('mapPlaceholder').style.display = 'none';
+        document.getElementById('projectMap').style.display = 'block';
         
-        tryInitMap();
-    });
+        map = L.map('projectMap', {
+            zoomControl: true,
+            dragging: true,
+            touchZoom: true,
+            doubleClickZoom: true,
+            scrollWheelZoom: true,
+            boxZoom: false,
+            keyboard: false
+        });
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap',
+            maxZoom: 19
+        }).addTo(map);
+        
+        const bounds = [
+            [mapData.bbox.min_y, mapData.bbox.min_x],
+            [mapData.bbox.max_y, mapData.bbox.max_x]
+        ];
+        
+        map.fitBounds(bounds, { padding: [50, 50] });
+        
+        L.geoJSON(mapData.features, {
+            style: {
+                color: '#00ffff',
+                weight: 3,
+                opacity: 0.9,
+                fillColor: '#00ffff',
+                fillOpacity: 0.15
+            }
+        }).addTo(map);
+        
+        console.log('✓ Map rendered with project area boundary');
+    } catch (error) {
+        console.error('Error initializing map:', error);
+        document.getElementById('mapPlaceholder').innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>Error rendering map: ${error.message}</p>
+        `;
+        document.getElementById('mapPlaceholder').style.display = 'flex';
+        document.getElementById('projectMap').style.display = 'none';
+    }
 }
 
 async function loadDrawings() {
