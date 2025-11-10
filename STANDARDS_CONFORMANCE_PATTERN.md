@@ -371,11 +371,14 @@ def update_block_conformance(block_id):
 
 ## Production Hardening Considerations
 
-### Additional Validation Needed
-1. **Project-scoped checks** - Ensure conformance updates only affect elements in the user's project
-2. **Set-scoped checks** - Validate elements belong to the correct set before updates
-3. **Permission checks** - Verify user has permission to modify conformance tracking
-4. **Audit logging** - Track who made conformance status changes and when
+### Additional Validation Needed (Requires Authentication)
+1. **User authentication** - Implement user login/session management
+2. **Project ownership** - Associate users with projects they can access
+3. **Permission checks** - Verify user has permission to modify conformance tracking for their assigned projects
+4. **Project-scoped API calls** - Add project_id to all API requests, validate against user's assigned projects
+5. **Audit logging** - Track who made conformance status changes and when
+
+**Current State:** Validation helpers (`validate_project_note_membership`, `validate_set_membership`) verify that notes/sets exist and return their project context, but without authentication there's no way to determine "which project the user should be accessing" to compare against.
 
 ### Performance Optimizations
 1. **Indexed queries** - Add indexes on conformance_status_id, standardization_status_id
@@ -419,10 +422,11 @@ def update_block_conformance(block_id):
 - Conformance tracking fields in `project_sheet_notes`
 
 ### ⚠️ Known Gaps (Production Hardening Required)
-- **Project-scoped validation**: API endpoints do not verify elements belong to correct project/set
-- **Cross-project contamination**: Possible to reference elements from other projects
-- **Display code uniqueness**: Not enforced during standard assignment
-- See "Production Hardening Considerations" section for details
+- **Authentication/Authorization**: No user authentication system exists, so API cannot determine "which project the user should access"
+- **Project-scoped validation**: Validation helpers verify notes/sets exist and return project context, but endpoints don't compare against expected project_id (no way to determine expected project without auth)
+- **Cross-project access**: Without authentication, any client can access any project's notes/sets if they know the UUIDs
+- **Display code uniqueness**: Enforced per-set but not validated during assignment edge cases
+- See "Production Hardening Considerations" section for authentication integration requirements
 
 ### 🔨 Ready to Implement
 - UI components (conformance badges, modals, dashboard)

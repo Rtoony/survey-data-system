@@ -7806,6 +7806,76 @@ def get_sheet_note_legend():
 # CONFORMANCE TRACKING API
 # ==========================
 
+def validate_project_note_membership(cur, project_note_id, set_id=None, project_id=None):
+    """
+    Validate that a project note exists and optionally belongs to a specific set and/or project.
+    Returns dict with {set_id, project_id} if valid, raises ValueError if invalid.
+    
+    Args:
+        cur: Database cursor
+        project_note_id: UUID of the project note
+        set_id: Optional UUID of the set to validate membership
+        project_id: Optional UUID of the project to validate membership
+    
+    Returns:
+        dict: {'set_id': UUID, 'project_id': UUID}
+    
+    Raises:
+        ValueError: If note doesn't exist or doesn't match set/project
+    """
+    query = """
+        SELECT psn.set_id, sns.project_id
+        FROM project_sheet_notes psn
+        JOIN sheet_note_sets sns ON psn.set_id = sns.set_id
+        WHERE psn.project_note_id = %s::uuid
+    """
+    cur.execute(query, (project_note_id,))
+    result = cur.fetchone()
+    
+    if not result:
+        raise ValueError(f'Project note {project_note_id} not found')
+    
+    note_set_id = result['set_id']
+    note_project_id = result['project_id']
+    
+    if set_id and note_set_id != set_id:
+        raise ValueError(f'Project note {project_note_id} does not belong to set {set_id}')
+    
+    if project_id and note_project_id != project_id:
+        raise ValueError(f'Project note {project_note_id} does not belong to project {project_id}')
+    
+    return {'set_id': note_set_id, 'project_id': note_project_id}
+
+def validate_set_membership(cur, set_id, project_id=None):
+    """
+    Validate that a sheet note set exists and optionally belongs to a specific project.
+    Returns dict with {set_id, project_id} if valid, raises ValueError if invalid.
+    
+    Args:
+        cur: Database cursor
+        set_id: UUID of the sheet note set
+        project_id: Optional UUID of the project to validate membership
+    
+    Returns:
+        dict: {'set_id': UUID, 'project_id': UUID}
+    
+    Raises:
+        ValueError: If set doesn't exist or doesn't match project
+    """
+    query = "SELECT set_id, project_id FROM sheet_note_sets WHERE set_id = %s::uuid"
+    cur.execute(query, (set_id,))
+    result = cur.fetchone()
+    
+    if not result:
+        raise ValueError(f'Sheet note set {set_id} not found')
+    
+    set_project_id = result['project_id']
+    
+    if project_id and set_project_id != project_id:
+        raise ValueError(f'Sheet note set {set_id} does not belong to project {project_id}')
+    
+    return {'set_id': result['set_id'], 'project_id': set_project_id}
+
 @app.route('/api/conformance/deviation-categories', methods=['GET'])
 def get_deviation_categories():
     """Get all deviation categories"""
@@ -7861,21 +7931,27 @@ def update_note_conformance(project_note_id):
         
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Validate project note exists and get its project context
+                try:
+                    note_info = validate_project_note_membership(cur, project_note_id)
+                except ValueError as e:
+                    return jsonify({'error': str(e)}), 404
+                
                 # Validate foreign key references
                 if deviation_category_id:
-                    cur.execute('SELECT 1 FROM deviation_categories WHERE category_id = %s::uuid', (deviation_category_id,))
+                    cur.execute('SELECT 1 FROM deviation_categories WHERE category_id = %s::uuid AND is_active = TRUE', (deviation_category_id,))
                     if not cur.fetchone():
-                        return jsonify({'error': 'Invalid deviation_category_id'}), 400
+                        return jsonify({'error': 'Invalid or inactive deviation_category_id'}), 400
                 
                 if conformance_status_id:
-                    cur.execute('SELECT 1 FROM conformance_statuses WHERE status_id = %s::uuid', (conformance_status_id,))
+                    cur.execute('SELECT 1 FROM conformance_statuses WHERE status_id = %s::uuid AND is_active = TRUE', (conformance_status_id,))
                     if not cur.fetchone():
-                        return jsonify({'error': 'Invalid conformance_status_id'}), 400
+                        return jsonify({'error': 'Invalid or inactive conformance_status_id'}), 400
                 
                 if standardization_status_id:
-                    cur.execute('SELECT 1 FROM standardization_statuses WHERE status_id = %s::uuid', (standardization_status_id,))
+                    cur.execute('SELECT 1 FROM standardization_statuses WHERE status_id = %s::uuid AND is_active = TRUE', (standardization_status_id,))
                     if not cur.fetchone():
-                        return jsonify({'error': 'Invalid standardization_status_id'}), 400
+                        return jsonify({'error': 'Invalid or inactive standardization_status_id'}), 400
                 
                 update_parts = []
                 params = []
@@ -7916,13 +7992,12 @@ def update_note_conformance(project_note_id):
                 cur.execute(query, params)
                 updated_note = cur.fetchone()
                 
-                if not updated_note:
-                    return jsonify({'error': 'Note not found'}), 404
-                
                 conn.commit()
                 cache.clear()
                 return jsonify({'note': dict(updated_note)})
     
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -7943,10 +8018,11 @@ def assign_standard_note():
         
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                # Validate set exists
-                cur.execute('SELECT 1 FROM sheet_note_sets WHERE set_id = %s::uuid', (set_id,))
-                if not cur.fetchone():
-                    return jsonify({'error': 'Invalid set_id'}), 400
+                # Validate set exists and get its project context
+                try:
+                    set_info = validate_set_membership(cur, set_id)
+                except ValueError as e:
+                    return jsonify({'error': str(e)}), 404
                 
                 # Validate standard note exists
                 cur.execute('SELECT 1 FROM standard_notes WHERE note_id = %s::uuid', (standard_note_id,))
