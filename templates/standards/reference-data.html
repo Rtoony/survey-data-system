@@ -9,11 +9,11 @@
     
     <div class="tabs">
         <div class="tab active" data-tab="entity-registry">Entity Registry</div>
-        <div class="tab disabled" data-tab="clients">Clients</div>
-        <div class="tab disabled" data-tab="vendors">Vendors</div>
-        <div class="tab disabled" data-tab="municipalities">Municipalities</div>
-        <div class="tab disabled" data-tab="coordinate-systems">Coordinate Systems</div>
-        <div class="tab disabled" data-tab="survey-points">Survey Point Descriptions</div>
+        <div class="tab" data-tab="clients">Clients</div>
+        <div class="tab" data-tab="vendors">Vendors</div>
+        <div class="tab" data-tab="municipalities">Municipalities</div>
+        <div class="tab" data-tab="coordinate-systems">Coordinate Systems</div>
+        <div class="tab" data-tab="survey-points">Survey Point Descriptions</div>
     </div>
     
     <div class="tab-content active" id="entity-registry">
@@ -32,42 +32,77 @@
     </div>
     
     <div class="tab-content" id="clients">
-        <div class="placeholder-message">
-            <i class="fas fa-briefcase"></i>
-            <h2>Client Management</h2>
-            <p>Coming Soon</p>
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-briefcase"></i> Clients</h2>
+                <button class="btn btn-add" onclick="openAddClientModal()">
+                    <i class="fas fa-plus"></i> Add New Client
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage client organizations and contact information.
+            </p>
+            <div id="clientsContainer"></div>
         </div>
     </div>
     
     <div class="tab-content" id="vendors">
-        <div class="placeholder-message">
-            <i class="fas fa-truck"></i>
-            <h2>Vendor Management</h2>
-            <p>Coming Soon</p>
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-truck"></i> Vendors</h2>
+                <button class="btn btn-add" onclick="openAddVendorModal()">
+                    <i class="fas fa-plus"></i> Add New Vendor
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage vendor companies, specialties, and certifications.
+            </p>
+            <div id="vendorsContainer"></div>
         </div>
     </div>
     
     <div class="tab-content" id="municipalities">
-        <div class="placeholder-message">
-            <i class="fas fa-city"></i>
-            <h2>Municipality Management</h2>
-            <p>Coming Soon</p>
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-city"></i> Municipalities</h2>
+                <button class="btn btn-add" onclick="openAddMunicipalityModal()">
+                    <i class="fas fa-plus"></i> Add New Municipality
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage municipalities, contacts, and CAD standards requirements.
+            </p>
+            <div id="municipalitiesContainer"></div>
         </div>
     </div>
     
     <div class="tab-content" id="coordinate-systems">
-        <div class="placeholder-message">
-            <i class="fas fa-globe"></i>
-            <h2>Coordinate Systems</h2>
-            <p>Coming Soon</p>
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-globe"></i> Coordinate Systems</h2>
+                <button class="btn btn-add" onclick="openAddCoordinateSystemModal()">
+                    <i class="fas fa-plus"></i> Add New Coordinate System
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage coordinate reference systems and projections.
+            </p>
+            <div id="coordinateSystemsContainer"></div>
         </div>
     </div>
     
     <div class="tab-content" id="survey-points">
-        <div class="placeholder-message">
-            <i class="fas fa-map-pin"></i>
-            <h2>Survey Point Descriptions</h2>
-            <p>Coming Soon</p>
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-map-pin"></i> Survey Point Descriptions</h2>
+                <button class="btn btn-add" onclick="openAddSurveyPointModal()">
+                    <i class="fas fa-plus"></i> Add New Description
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage standard survey point description codes and categories.
+            </p>
+            <div id="surveyPointsContainer"></div>
         </div>
     </div>
 </div>
@@ -127,6 +162,332 @@
     </div>
 </div>
 
+<div id="clientModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="clientModalTitle">Add New Client</h3>
+            <button class="close-btn" onclick="closeClientModal()">&times;</button>
+        </div>
+        <form id="clientForm" onsubmit="handleClientSubmit(event)">
+            <div class="form-group">
+                <label>Client Name <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="client_name" required placeholder="e.g., Acme Corporation">
+            </div>
+            <div class="form-group">
+                <label>Short Name</label>
+                <input type="text" name="short_name" placeholder="e.g., ACME">
+                <div class="help-text">Abbreviated name for reports and labels</div>
+            </div>
+            <div class="form-group">
+                <label>Contact Name</label>
+                <input type="text" name="contact_name" placeholder="John Doe">
+            </div>
+            <div class="form-group">
+                <label>Contact Email</label>
+                <input type="email" name="contact_email" placeholder="john@example.com">
+            </div>
+            <div class="form-group">
+                <label>Contact Phone</label>
+                <input type="tel" name="contact_phone" placeholder="(555) 123-4567">
+            </div>
+            <div class="form-group">
+                <label>Address</label>
+                <input type="text" name="address" placeholder="123 Main Street">
+            </div>
+            <div class="form-group">
+                <label>City</label>
+                <input type="text" name="city" placeholder="Springfield">
+            </div>
+            <div class="form-group">
+                <label>State</label>
+                <input type="text" name="state" placeholder="IL">
+            </div>
+            <div class="form-group">
+                <label>Zip Code</label>
+                <input type="text" name="zip_code" placeholder="12345">
+            </div>
+            <div class="form-group">
+                <label>Website</label>
+                <input type="url" name="website" placeholder="https://example.com">
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" placeholder="Additional notes about this client..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeClientModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="vendorModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="vendorModalTitle">Add New Vendor</h3>
+            <button class="close-btn" onclick="closeVendorModal()">&times;</button>
+        </div>
+        <form id="vendorForm" onsubmit="handleVendorSubmit(event)">
+            <div class="form-group">
+                <label>Vendor Name <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="vendor_name" required placeholder="e.g., ABC Utility Supply">
+            </div>
+            <div class="form-group">
+                <label>Vendor Type</label>
+                <select name="vendor_type">
+                    <option value="">Select Type</option>
+                    <option value="Manufacturer">Manufacturer</option>
+                    <option value="Distributor">Distributor</option>
+                    <option value="Contractor">Contractor</option>
+                    <option value="Consultant">Consultant</option>
+                    <option value="Service Provider">Service Provider</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Specialty</label>
+                <input type="text" name="specialty" placeholder="e.g., Water Infrastructure">
+                <div class="help-text">Primary area of specialization</div>
+            </div>
+            <div class="form-group">
+                <label>Contact Name</label>
+                <input type="text" name="contact_name" placeholder="Jane Smith">
+            </div>
+            <div class="form-group">
+                <label>Contact Email</label>
+                <input type="email" name="contact_email" placeholder="jane@vendor.com">
+            </div>
+            <div class="form-group">
+                <label>Contact Phone</label>
+                <input type="tel" name="contact_phone" placeholder="(555) 987-6543">
+            </div>
+            <div class="form-group">
+                <label>Address</label>
+                <input type="text" name="address" placeholder="456 Industry Blvd">
+            </div>
+            <div class="form-group">
+                <label>City</label>
+                <input type="text" name="city" placeholder="Chicago">
+            </div>
+            <div class="form-group">
+                <label>State</label>
+                <input type="text" name="state" placeholder="IL">
+            </div>
+            <div class="form-group">
+                <label>Zip Code</label>
+                <input type="text" name="zip_code" placeholder="60601">
+            </div>
+            <div class="form-group">
+                <label>Website</label>
+                <input type="url" name="website" placeholder="https://vendor.com">
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" placeholder="Additional notes about this vendor..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeVendorModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="municipalityModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="municipalityModalTitle">Add New Municipality</h3>
+            <button class="close-btn" onclick="closeMunicipalityModal()">&times;</button>
+        </div>
+        <form id="municipalityForm" onsubmit="handleMunicipalitySubmit(event)">
+            <div class="form-group">
+                <label>Municipality Name <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="municipality_name" required placeholder="e.g., City of Springfield">
+            </div>
+            <div class="form-group">
+                <label>Type</label>
+                <select name="municipality_type">
+                    <option value="">Select Type</option>
+                    <option value="City">City</option>
+                    <option value="Town">Town</option>
+                    <option value="Village">Village</option>
+                    <option value="County">County</option>
+                    <option value="Township">Township</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>County</label>
+                <input type="text" name="county" placeholder="Sangamon County">
+            </div>
+            <div class="form-group">
+                <label>State <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="state" required placeholder="IL">
+            </div>
+            <div class="form-group">
+                <label>FIPS Code</label>
+                <input type="text" name="fips_code" placeholder="17167">
+                <div class="help-text">Federal Information Processing Standards code</div>
+            </div>
+            <div class="form-group">
+                <label>Contact Department</label>
+                <input type="text" name="contact_department" placeholder="e.g., Engineering Department">
+            </div>
+            <div class="form-group">
+                <label>Contact Name</label>
+                <input type="text" name="contact_name" placeholder="City Engineer">
+            </div>
+            <div class="form-group">
+                <label>Contact Email</label>
+                <input type="email" name="contact_email" placeholder="engineering@city.gov">
+            </div>
+            <div class="form-group">
+                <label>Contact Phone</label>
+                <input type="tel" name="contact_phone" placeholder="(555) 555-1234">
+            </div>
+            <div class="form-group">
+                <label>Address</label>
+                <input type="text" name="address" placeholder="City Hall, 1 Municipal Drive">
+            </div>
+            <div class="form-group">
+                <label>Website</label>
+                <input type="url" name="website" placeholder="https://springfield.gov">
+            </div>
+            <div class="form-group">
+                <label>Permit Portal URL</label>
+                <input type="url" name="permit_portal_url" placeholder="https://permits.springfield.gov">
+            </div>
+            <div class="form-group">
+                <label>CAD Standards URL</label>
+                <input type="url" name="cad_standards_url" placeholder="https://springfield.gov/standards">
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" placeholder="Additional notes about this municipality..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeMunicipalityModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="coordinateSystemModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="coordinateSystemModalTitle">Add New Coordinate System</h3>
+            <button class="close-btn" onclick="closeCoordinateSystemModal()">&times;</button>
+        </div>
+        <form id="coordinateSystemForm" onsubmit="handleCoordinateSystemSubmit(event)">
+            <div class="form-group">
+                <label>System Name <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="system_name" required placeholder="e.g., NAD83 Illinois State Plane East">
+            </div>
+            <div class="form-group">
+                <label>EPSG Code <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="epsg_code" required placeholder="e.g., EPSG:3435">
+                <div class="help-text">EPSG identifier for this coordinate system</div>
+            </div>
+            <div class="form-group">
+                <label>Region</label>
+                <input type="text" name="region" placeholder="e.g., Illinois - East">
+            </div>
+            <div class="form-group">
+                <label>Datum</label>
+                <input type="text" name="datum" placeholder="e.g., NAD83">
+            </div>
+            <div class="form-group">
+                <label>Units</label>
+                <select name="units">
+                    <option value="">Select Units</option>
+                    <option value="US Survey Feet">US Survey Feet</option>
+                    <option value="International Feet">International Feet</option>
+                    <option value="Meters">Meters</option>
+                    <option value="Degrees">Degrees</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Zone Number</label>
+                <input type="number" name="zone_number" placeholder="e.g., 16">
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" placeholder="Additional notes about this coordinate system..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeCoordinateSystemModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="surveyPointModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="surveyPointModalTitle">Add New Survey Point Description</h3>
+            <button class="close-btn" onclick="closeSurveyPointModal()">&times;</button>
+        </div>
+        <form id="surveyPointForm" onsubmit="handleSurveyPointSubmit(event)">
+            <div class="form-group">
+                <label>Code <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="code" required placeholder="e.g., IP" maxlength="10" style="text-transform: uppercase;">
+                <div class="help-text">Short code for this point type (will be converted to uppercase)</div>
+            </div>
+            <div class="form-group">
+                <label>Description <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="description" required placeholder="e.g., Iron Pin">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select name="category">
+                    <option value="">Select Category</option>
+                    <option value="Control">Control</option>
+                    <option value="Boundary">Boundary</option>
+                    <option value="Topographic">Topographic</option>
+                    <option value="Utility">Utility</option>
+                    <option value="Structure">Structure</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Discipline</label>
+                <select name="discipline">
+                    <option value="">Select Discipline</option>
+                    <option value="Survey">Survey</option>
+                    <option value="Civil">Civil</option>
+                    <option value="Utilities">Utilities</option>
+                    <option value="General">General</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Symbol Reference</label>
+                <input type="text" name="symbol_reference" placeholder="e.g., SYM-001">
+                <div class="help-text">CAD symbol or block reference</div>
+            </div>
+            <div class="form-group">
+                <label>Layer Suggestion</label>
+                <input type="text" name="layer_suggestion" placeholder="e.g., V-NODE-CTRL">
+                <div class="help-text">Recommended layer name for this point type</div>
+            </div>
+            <div class="form-group">
+                <label>Sort Order</label>
+                <input type="number" name="sort_order" min="0" placeholder="100">
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" placeholder="Additional notes about this point description..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeSurveyPointModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="confirmModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -134,7 +495,7 @@
             <button class="close-btn" onclick="closeConfirmModal()">&times;</button>
         </div>
         <div class="confirm-dialog">
-            <p id="confirmMessage">Are you sure you want to delete this entity?</p>
+            <p id="confirmMessage">Are you sure you want to delete this item?</p>
             <div class="confirm-actions">
                 <button class="btn btn-cancel" onclick="closeConfirmModal()">Cancel</button>
                 <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
@@ -147,16 +508,25 @@
 {% block scripts %}
 <script>
     let entities = [];
+    let clients = [];
+    let vendors = [];
+    let municipalities = [];
+    let coordinateSystems = [];
+    let surveyPoints = [];
+    
     let currentEdit = {
         id: null,
-        data: null
-    };
-    let deleteTarget = {
-        id: null,
-        name: null
+        data: null,
+        type: null
     };
     
-    document.querySelectorAll('.tab:not(.disabled)').forEach(tab => {
+    let deleteTarget = {
+        id: null,
+        name: null,
+        type: null
+    };
+    
+    document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
             const tabName = tab.dataset.tab;
             
@@ -165,6 +535,24 @@
             
             tab.classList.add('active');
             document.getElementById(tabName).classList.add('active');
+            
+            switch(tabName) {
+                case 'clients':
+                    if (clients.length === 0) loadClients();
+                    break;
+                case 'vendors':
+                    if (vendors.length === 0) loadVendors();
+                    break;
+                case 'municipalities':
+                    if (municipalities.length === 0) loadMunicipalities();
+                    break;
+                case 'coordinate-systems':
+                    if (coordinateSystems.length === 0) loadCoordinateSystems();
+                    break;
+                case 'survey-points':
+                    if (surveyPoints.length === 0) loadSurveyPoints();
+                    break;
+            }
         });
     });
     
@@ -239,7 +627,7 @@
                     <button class="icon-btn" onclick='openEditEntityModal(${entity.registry_id}, ${JSON.stringify(entity)})' title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="icon-btn delete" onclick='openDeleteModal(${entity.registry_id}, "${entity.display_name}")' title="Delete">
+                    <button class="icon-btn delete" onclick='openDeleteModal(${entity.registry_id}, "${entity.display_name}", "entity")' title="Delete">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -247,8 +635,340 @@
         `;
     }
     
+    async function loadClients() {
+        try {
+            const response = await fetch('/api/clients');
+            const data = await response.json();
+            clients = data.clients || [];
+            renderClients();
+        } catch (error) {
+            console.error('Error loading clients:', error);
+            showToast('Failed to load clients', 'error');
+        }
+    }
+    
+    function renderClients() {
+        const container = document.getElementById('clientsContainer');
+        
+        if (clients.length === 0) {
+            container.innerHTML = `
+                <div class="placeholder-message">
+                    <i class="fas fa-briefcase"></i>
+                    <h3>No clients yet</h3>
+                    <p>Click "Add New Client" to register your first client.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const html = `
+            <div class="grid">
+                ${clients.map(client => `
+                    <div class="entity-item">
+                        <div class="entity-header">
+                            <div style="display: flex; align-items: start;">
+                                <i class="fas fa-briefcase entity-icon"></i>
+                                <div class="entity-title">
+                                    <div class="entity-name">${client.client_name}</div>
+                                    ${client.short_name ? `<div class="entity-table">${client.short_name}</div>` : ''}
+                                    ${client.contact_name ? `<div style="font-size: 0.85em; color: var(--muted); margin-top: 4px;"><i class="fas fa-user"></i> ${client.contact_name}</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        ${client.contact_email || client.contact_phone || client.city ? `
+                            <div class="entity-desc">
+                                ${client.contact_email ? `<div><i class="fas fa-envelope"></i> ${client.contact_email}</div>` : ''}
+                                ${client.contact_phone ? `<div><i class="fas fa-phone"></i> ${client.contact_phone}</div>` : ''}
+                                ${client.city && client.state ? `<div><i class="fas fa-map-marker-alt"></i> ${client.city}, ${client.state}</div>` : ''}
+                            </div>
+                        ` : ''}
+                        <div class="item-actions">
+                            <button class="icon-btn" onclick='openEditClientModal(${client.client_id}, ${JSON.stringify(client).replace(/'/g, "&apos;")})' title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="icon-btn delete" onclick='openDeleteModal(${client.client_id}, "${client.client_name}", "client")' title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    }
+    
+    async function loadVendors() {
+        try {
+            const response = await fetch('/api/vendors');
+            const data = await response.json();
+            vendors = data.vendors || [];
+            renderVendors();
+        } catch (error) {
+            console.error('Error loading vendors:', error);
+            showToast('Failed to load vendors', 'error');
+        }
+    }
+    
+    function renderVendors() {
+        const container = document.getElementById('vendorsContainer');
+        
+        if (vendors.length === 0) {
+            container.innerHTML = `
+                <div class="placeholder-message">
+                    <i class="fas fa-truck"></i>
+                    <h3>No vendors yet</h3>
+                    <p>Click "Add New Vendor" to register your first vendor.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const html = `
+            <div class="grid">
+                ${vendors.map(vendor => `
+                    <div class="entity-item">
+                        <div class="entity-header">
+                            <div style="display: flex; align-items: start;">
+                                <i class="fas fa-truck entity-icon"></i>
+                                <div class="entity-title">
+                                    <div class="entity-name">${vendor.vendor_name}</div>
+                                    ${vendor.vendor_type ? `<span class="entity-category">${vendor.vendor_type}</span>` : ''}
+                                    ${vendor.specialty ? `<div style="font-size: 0.85em; color: var(--muted); margin-top: 4px;">${vendor.specialty}</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        ${vendor.contact_email || vendor.contact_phone || vendor.city ? `
+                            <div class="entity-desc">
+                                ${vendor.contact_name ? `<div><i class="fas fa-user"></i> ${vendor.contact_name}</div>` : ''}
+                                ${vendor.contact_email ? `<div><i class="fas fa-envelope"></i> ${vendor.contact_email}</div>` : ''}
+                                ${vendor.contact_phone ? `<div><i class="fas fa-phone"></i> ${vendor.contact_phone}</div>` : ''}
+                                ${vendor.city && vendor.state ? `<div><i class="fas fa-map-marker-alt"></i> ${vendor.city}, ${vendor.state}</div>` : ''}
+                            </div>
+                        ` : ''}
+                        <div class="item-actions">
+                            <button class="icon-btn" onclick='openEditVendorModal(${vendor.vendor_id}, ${JSON.stringify(vendor).replace(/'/g, "&apos;")})' title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="icon-btn delete" onclick='openDeleteModal(${vendor.vendor_id}, "${vendor.vendor_name}", "vendor")' title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    }
+    
+    async function loadMunicipalities() {
+        try {
+            const response = await fetch('/api/municipalities');
+            const data = await response.json();
+            municipalities = data.municipalities || [];
+            renderMunicipalities();
+        } catch (error) {
+            console.error('Error loading municipalities:', error);
+            showToast('Failed to load municipalities', 'error');
+        }
+    }
+    
+    function renderMunicipalities() {
+        const container = document.getElementById('municipalitiesContainer');
+        
+        if (municipalities.length === 0) {
+            container.innerHTML = `
+                <div class="placeholder-message">
+                    <i class="fas fa-city"></i>
+                    <h3>No municipalities yet</h3>
+                    <p>Click "Add New Municipality" to register your first municipality.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const html = `
+            <div class="grid">
+                ${municipalities.map(muni => `
+                    <div class="entity-item">
+                        <div class="entity-header">
+                            <div style="display: flex; align-items: start;">
+                                <i class="fas fa-city entity-icon"></i>
+                                <div class="entity-title">
+                                    <div class="entity-name">${muni.municipality_name}</div>
+                                    ${muni.municipality_type ? `<span class="entity-category">${muni.municipality_type}</span>` : ''}
+                                    <div style="font-size: 0.85em; color: var(--muted); margin-top: 4px;">
+                                        ${muni.county ? muni.county + ', ' : ''}${muni.state}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        ${muni.contact_email || muni.contact_phone || muni.contact_department ? `
+                            <div class="entity-desc">
+                                ${muni.contact_department ? `<div><i class="fas fa-building"></i> ${muni.contact_department}</div>` : ''}
+                                ${muni.contact_email ? `<div><i class="fas fa-envelope"></i> ${muni.contact_email}</div>` : ''}
+                                ${muni.contact_phone ? `<div><i class="fas fa-phone"></i> ${muni.contact_phone}</div>` : ''}
+                            </div>
+                        ` : ''}
+                        <div class="item-actions">
+                            <button class="icon-btn" onclick='openEditMunicipalityModal(${muni.municipality_id}, ${JSON.stringify(muni).replace(/'/g, "&apos;")})' title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="icon-btn delete" onclick='openDeleteModal(${muni.municipality_id}, "${muni.municipality_name}", "municipality")' title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    }
+    
+    async function loadCoordinateSystems() {
+        try {
+            const response = await fetch('/api/coordinate-systems');
+            const data = await response.json();
+            coordinateSystems = data.coordinate_systems || [];
+            renderCoordinateSystems();
+        } catch (error) {
+            console.error('Error loading coordinate systems:', error);
+            showToast('Failed to load coordinate systems', 'error');
+        }
+    }
+    
+    function renderCoordinateSystems() {
+        const container = document.getElementById('coordinateSystemsContainer');
+        
+        if (coordinateSystems.length === 0) {
+            container.innerHTML = `
+                <div class="placeholder-message">
+                    <i class="fas fa-globe"></i>
+                    <h3>No coordinate systems yet</h3>
+                    <p>Click "Add New Coordinate System" to register your first coordinate system.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const html = `
+            <div class="grid">
+                ${coordinateSystems.map(sys => `
+                    <div class="entity-item">
+                        <div class="entity-header">
+                            <div style="display: flex; align-items: start;">
+                                <i class="fas fa-globe entity-icon"></i>
+                                <div class="entity-title">
+                                    <div class="entity-name">${sys.system_name}</div>
+                                    <div class="entity-table">${sys.epsg_code}</div>
+                                    ${sys.region ? `<div style="font-size: 0.85em; color: var(--muted); margin-top: 4px;">${sys.region}</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="entity-desc">
+                            ${sys.datum ? `<div><strong>Datum:</strong> ${sys.datum}</div>` : ''}
+                            ${sys.units ? `<div><strong>Units:</strong> ${sys.units}</div>` : ''}
+                            ${sys.zone_number ? `<div><strong>Zone:</strong> ${sys.zone_number}</div>` : ''}
+                        </div>
+                        <div class="item-actions">
+                            <button class="icon-btn" onclick='openEditCoordinateSystemModal("${sys.system_id}", ${JSON.stringify(sys).replace(/'/g, "&apos;")})' title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="icon-btn delete" onclick='openDeleteModal("${sys.system_id}", "${sys.system_name}", "coordinate-system")' title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    }
+    
+    async function loadSurveyPoints() {
+        try {
+            const response = await fetch('/api/survey-point-descriptions');
+            const data = await response.json();
+            surveyPoints = data.survey_point_descriptions || [];
+            renderSurveyPoints();
+        } catch (error) {
+            console.error('Error loading survey points:', error);
+            showToast('Failed to load survey points', 'error');
+        }
+    }
+    
+    function renderSurveyPoints() {
+        const container = document.getElementById('surveyPointsContainer');
+        
+        if (surveyPoints.length === 0) {
+            container.innerHTML = `
+                <div class="placeholder-message">
+                    <i class="fas fa-map-pin"></i>
+                    <h3>No survey point descriptions yet</h3>
+                    <p>Click "Add New Description" to create your first survey point description.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const grouped = surveyPoints.reduce((acc, point) => {
+            const category = point.category || 'Uncategorized';
+            if (!acc[category]) acc[category] = [];
+            acc[category].push(point);
+            return acc;
+        }, {});
+        
+        Object.values(grouped).forEach(group => {
+            group.sort((a, b) => (a.sort_order || 999) - (b.sort_order || 999));
+        });
+        
+        const html = Object.entries(grouped).map(([category, items]) => `
+            <div class="category-section">
+                <div class="category-header">
+                    <span class="category-title">${category}</span>
+                    <span class="category-count">(${items.length} ${items.length === 1 ? 'description' : 'descriptions'})</span>
+                </div>
+                <div class="grid">
+                    ${items.map(point => `
+                        <div class="entity-item">
+                            <div class="entity-header">
+                                <div style="display: flex; align-items: start;">
+                                    <i class="fas fa-map-pin entity-icon"></i>
+                                    <div class="entity-title">
+                                        <div class="entity-name">${point.description}</div>
+                                        <div class="entity-table">Code: ${point.code}</div>
+                                        ${point.discipline ? `<span class="entity-category">${point.discipline}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            ${point.layer_suggestion || point.symbol_reference ? `
+                                <div class="entity-desc">
+                                    ${point.layer_suggestion ? `<div><strong>Layer:</strong> ${point.layer_suggestion}</div>` : ''}
+                                    ${point.symbol_reference ? `<div><strong>Symbol:</strong> ${point.symbol_reference}</div>` : ''}
+                                </div>
+                            ` : ''}
+                            <div class="item-actions">
+                                <button class="icon-btn" onclick='openEditSurveyPointModal(${point.description_id}, ${JSON.stringify(point).replace(/'/g, "&apos;")})' title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="icon-btn delete" onclick='openDeleteModal(${point.description_id}, "${point.code} - ${point.description}", "survey-point")' title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = html;
+    }
+    
     function openAddEntityModal() {
-        currentEdit = { id: null, data: null };
+        currentEdit = { id: null, data: null, type: 'entity' };
         document.getElementById('entityModalTitle').textContent = 'Add New Entity';
         document.getElementById('entityForm').reset();
         document.getElementById('tableValidation').innerHTML = '';
@@ -256,7 +976,7 @@
     }
     
     function openEditEntityModal(id, data) {
-        currentEdit = { id, data };
+        currentEdit = { id, data, type: 'entity' };
         document.getElementById('entityModalTitle').textContent = 'Edit Entity';
         
         const form = document.getElementById('entityForm');
@@ -273,18 +993,175 @@
     
     function closeEntityModal() {
         document.getElementById('entityModal').classList.remove('active');
-        currentEdit = { id: null, data: null };
+        currentEdit = { id: null, data: null, type: null };
     }
     
-    function openDeleteModal(id, name) {
-        deleteTarget = { id, name };
+    function openAddClientModal() {
+        currentEdit = { id: null, data: null, type: 'client' };
+        document.getElementById('clientModalTitle').textContent = 'Add New Client';
+        document.getElementById('clientForm').reset();
+        document.getElementById('clientModal').classList.add('active');
+    }
+    
+    function openEditClientModal(id, data) {
+        currentEdit = { id, data, type: 'client' };
+        document.getElementById('clientModalTitle').textContent = 'Edit Client';
+        
+        const form = document.getElementById('clientForm');
+        form.client_name.value = data.client_name || '';
+        form.short_name.value = data.short_name || '';
+        form.contact_name.value = data.contact_name || '';
+        form.contact_email.value = data.contact_email || '';
+        form.contact_phone.value = data.contact_phone || '';
+        form.address.value = data.address || '';
+        form.city.value = data.city || '';
+        form.state.value = data.state || '';
+        form.zip_code.value = data.zip_code || '';
+        form.website.value = data.website || '';
+        form.notes.value = data.notes || '';
+        
+        document.getElementById('clientModal').classList.add('active');
+    }
+    
+    function closeClientModal() {
+        document.getElementById('clientModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    function openAddVendorModal() {
+        currentEdit = { id: null, data: null, type: 'vendor' };
+        document.getElementById('vendorModalTitle').textContent = 'Add New Vendor';
+        document.getElementById('vendorForm').reset();
+        document.getElementById('vendorModal').classList.add('active');
+    }
+    
+    function openEditVendorModal(id, data) {
+        currentEdit = { id, data, type: 'vendor' };
+        document.getElementById('vendorModalTitle').textContent = 'Edit Vendor';
+        
+        const form = document.getElementById('vendorForm');
+        form.vendor_name.value = data.vendor_name || '';
+        form.vendor_type.value = data.vendor_type || '';
+        form.specialty.value = data.specialty || '';
+        form.contact_name.value = data.contact_name || '';
+        form.contact_email.value = data.contact_email || '';
+        form.contact_phone.value = data.contact_phone || '';
+        form.address.value = data.address || '';
+        form.city.value = data.city || '';
+        form.state.value = data.state || '';
+        form.zip_code.value = data.zip_code || '';
+        form.website.value = data.website || '';
+        form.notes.value = data.notes || '';
+        
+        document.getElementById('vendorModal').classList.add('active');
+    }
+    
+    function closeVendorModal() {
+        document.getElementById('vendorModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    function openAddMunicipalityModal() {
+        currentEdit = { id: null, data: null, type: 'municipality' };
+        document.getElementById('municipalityModalTitle').textContent = 'Add New Municipality';
+        document.getElementById('municipalityForm').reset();
+        document.getElementById('municipalityModal').classList.add('active');
+    }
+    
+    function openEditMunicipalityModal(id, data) {
+        currentEdit = { id, data, type: 'municipality' };
+        document.getElementById('municipalityModalTitle').textContent = 'Edit Municipality';
+        
+        const form = document.getElementById('municipalityForm');
+        form.municipality_name.value = data.municipality_name || '';
+        form.municipality_type.value = data.municipality_type || '';
+        form.county.value = data.county || '';
+        form.state.value = data.state || '';
+        form.fips_code.value = data.fips_code || '';
+        form.contact_department.value = data.contact_department || '';
+        form.contact_name.value = data.contact_name || '';
+        form.contact_email.value = data.contact_email || '';
+        form.contact_phone.value = data.contact_phone || '';
+        form.address.value = data.address || '';
+        form.website.value = data.website || '';
+        form.permit_portal_url.value = data.permit_portal_url || '';
+        form.cad_standards_url.value = data.cad_standards_url || '';
+        form.notes.value = data.notes || '';
+        
+        document.getElementById('municipalityModal').classList.add('active');
+    }
+    
+    function closeMunicipalityModal() {
+        document.getElementById('municipalityModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    function openAddCoordinateSystemModal() {
+        currentEdit = { id: null, data: null, type: 'coordinate-system' };
+        document.getElementById('coordinateSystemModalTitle').textContent = 'Add New Coordinate System';
+        document.getElementById('coordinateSystemForm').reset();
+        document.getElementById('coordinateSystemModal').classList.add('active');
+    }
+    
+    function openEditCoordinateSystemModal(id, data) {
+        currentEdit = { id, data, type: 'coordinate-system' };
+        document.getElementById('coordinateSystemModalTitle').textContent = 'Edit Coordinate System';
+        
+        const form = document.getElementById('coordinateSystemForm');
+        form.system_name.value = data.system_name || '';
+        form.epsg_code.value = data.epsg_code || '';
+        form.region.value = data.region || '';
+        form.datum.value = data.datum || '';
+        form.units.value = data.units || '';
+        form.zone_number.value = data.zone_number || '';
+        form.notes.value = data.notes || '';
+        
+        document.getElementById('coordinateSystemModal').classList.add('active');
+    }
+    
+    function closeCoordinateSystemModal() {
+        document.getElementById('coordinateSystemModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    function openAddSurveyPointModal() {
+        currentEdit = { id: null, data: null, type: 'survey-point' };
+        document.getElementById('surveyPointModalTitle').textContent = 'Add New Survey Point Description';
+        document.getElementById('surveyPointForm').reset();
+        document.getElementById('surveyPointModal').classList.add('active');
+    }
+    
+    function openEditSurveyPointModal(id, data) {
+        currentEdit = { id, data, type: 'survey-point' };
+        document.getElementById('surveyPointModalTitle').textContent = 'Edit Survey Point Description';
+        
+        const form = document.getElementById('surveyPointForm');
+        form.code.value = data.code || '';
+        form.description.value = data.description || '';
+        form.category.value = data.category || '';
+        form.discipline.value = data.discipline || '';
+        form.symbol_reference.value = data.symbol_reference || '';
+        form.layer_suggestion.value = data.layer_suggestion || '';
+        form.sort_order.value = data.sort_order || '';
+        form.notes.value = data.notes || '';
+        
+        document.getElementById('surveyPointModal').classList.add('active');
+    }
+    
+    function closeSurveyPointModal() {
+        document.getElementById('surveyPointModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    function openDeleteModal(id, name, type) {
+        deleteTarget = { id, name, type };
         document.getElementById('confirmMessage').textContent = `Are you sure you want to delete "${name}"?`;
         document.getElementById('confirmModal').classList.add('active');
     }
     
     function closeConfirmModal() {
         document.getElementById('confirmModal').classList.remove('active');
-        deleteTarget = { id: null, name: null };
+        deleteTarget = { id: null, name: null, type: null };
     }
     
     async function validateTableName() {
@@ -361,6 +1238,94 @@
         }
     }
     
+    async function handleClientSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+        
+        try {
+            if (currentEdit.id) {
+                await updateClient(currentEdit.id, data);
+            } else {
+                await createClient(data);
+            }
+        } catch (error) {
+            console.error('Error submitting client:', error);
+        }
+    }
+    
+    async function handleVendorSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+        
+        try {
+            if (currentEdit.id) {
+                await updateVendor(currentEdit.id, data);
+            } else {
+                await createVendor(data);
+            }
+        } catch (error) {
+            console.error('Error submitting vendor:', error);
+        }
+    }
+    
+    async function handleMunicipalitySubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+        
+        try {
+            if (currentEdit.id) {
+                await updateMunicipality(currentEdit.id, data);
+            } else {
+                await createMunicipality(data);
+            }
+        } catch (error) {
+            console.error('Error submitting municipality:', error);
+        }
+    }
+    
+    async function handleCoordinateSystemSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+        
+        if (data.zone_number) {
+            data.zone_number = parseInt(data.zone_number);
+        }
+        
+        try {
+            if (currentEdit.id) {
+                await updateCoordinateSystem(currentEdit.id, data);
+            } else {
+                await createCoordinateSystem(data);
+            }
+        } catch (error) {
+            console.error('Error submitting coordinate system:', error);
+        }
+    }
+    
+    async function handleSurveyPointSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+        
+        if (data.sort_order) {
+            data.sort_order = parseInt(data.sort_order);
+        }
+        
+        try {
+            if (currentEdit.id) {
+                await updateSurveyPoint(currentEdit.id, data);
+            } else {
+                await createSurveyPoint(data);
+            }
+        } catch (error) {
+            console.error('Error submitting survey point:', error);
+        }
+    }
+    
     async function createEntity(data) {
         try {
             const response = await fetch('/api/entity-registry', {
@@ -405,25 +1370,278 @@
         }
     }
     
+    async function createClient(data) {
+        try {
+            const response = await fetch('/api/clients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Client created successfully', 'success');
+                closeClientModal();
+                await loadClients();
+            } else {
+                showToast(result.error || 'Failed to create client', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create client', 'error');
+        }
+    }
+    
+    async function updateClient(id, data) {
+        try {
+            const response = await fetch(`/api/clients/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Client updated successfully', 'success');
+                closeClientModal();
+                await loadClients();
+            } else {
+                showToast(result.error || 'Failed to update client', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to update client', 'error');
+        }
+    }
+    
+    async function createVendor(data) {
+        try {
+            const response = await fetch('/api/vendors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Vendor created successfully', 'success');
+                closeVendorModal();
+                await loadVendors();
+            } else {
+                showToast(result.error || 'Failed to create vendor', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create vendor', 'error');
+        }
+    }
+    
+    async function updateVendor(id, data) {
+        try {
+            const response = await fetch(`/api/vendors/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Vendor updated successfully', 'success');
+                closeVendorModal();
+                await loadVendors();
+            } else {
+                showToast(result.error || 'Failed to update vendor', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to update vendor', 'error');
+        }
+    }
+    
+    async function createMunicipality(data) {
+        try {
+            const response = await fetch('/api/municipalities', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Municipality created successfully', 'success');
+                closeMunicipalityModal();
+                await loadMunicipalities();
+            } else {
+                showToast(result.error || 'Failed to create municipality', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create municipality', 'error');
+        }
+    }
+    
+    async function updateMunicipality(id, data) {
+        try {
+            const response = await fetch(`/api/municipalities/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Municipality updated successfully', 'success');
+                closeMunicipalityModal();
+                await loadMunicipalities();
+            } else {
+                showToast(result.error || 'Failed to update municipality', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to update municipality', 'error');
+        }
+    }
+    
+    async function createCoordinateSystem(data) {
+        try {
+            const response = await fetch('/api/coordinate-systems', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Coordinate system created successfully', 'success');
+                closeCoordinateSystemModal();
+                await loadCoordinateSystems();
+            } else {
+                showToast(result.error || 'Failed to create coordinate system', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create coordinate system', 'error');
+        }
+    }
+    
+    async function updateCoordinateSystem(id, data) {
+        try {
+            const response = await fetch(`/api/coordinate-systems/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Coordinate system updated successfully', 'success');
+                closeCoordinateSystemModal();
+                await loadCoordinateSystems();
+            } else {
+                showToast(result.error || 'Failed to update coordinate system', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to update coordinate system', 'error');
+        }
+    }
+    
+    async function createSurveyPoint(data) {
+        try {
+            const response = await fetch('/api/survey-point-descriptions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Survey point description created successfully', 'success');
+                closeSurveyPointModal();
+                await loadSurveyPoints();
+            } else {
+                showToast(result.error || 'Failed to create survey point description', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create survey point description', 'error');
+        }
+    }
+    
+    async function updateSurveyPoint(id, data) {
+        try {
+            const response = await fetch(`/api/survey-point-descriptions/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Survey point description updated successfully', 'success');
+                closeSurveyPointModal();
+                await loadSurveyPoints();
+            } else {
+                showToast(result.error || 'Failed to update survey point description', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to update survey point description', 'error');
+        }
+    }
+    
     async function confirmDelete() {
-        const { id } = deleteTarget;
+        const { id, type } = deleteTarget;
+        
+        let endpoint;
+        let reloadFunction;
+        
+        switch(type) {
+            case 'entity':
+                endpoint = `/api/entity-registry/${id}`;
+                reloadFunction = loadEntityRegistry;
+                break;
+            case 'client':
+                endpoint = `/api/clients/${id}`;
+                reloadFunction = loadClients;
+                break;
+            case 'vendor':
+                endpoint = `/api/vendors/${id}`;
+                reloadFunction = loadVendors;
+                break;
+            case 'municipality':
+                endpoint = `/api/municipalities/${id}`;
+                reloadFunction = loadMunicipalities;
+                break;
+            case 'coordinate-system':
+                endpoint = `/api/coordinate-systems/${id}`;
+                reloadFunction = loadCoordinateSystems;
+                break;
+            case 'survey-point':
+                endpoint = `/api/survey-point-descriptions/${id}`;
+                reloadFunction = loadSurveyPoints;
+                break;
+            default:
+                showToast('Unknown item type', 'error');
+                return;
+        }
         
         try {
-            const response = await fetch(`/api/entity-registry/${id}`, {
+            const response = await fetch(endpoint, {
                 method: 'DELETE'
             });
             
             const result = await response.json();
             
             if (response.ok) {
-                showToast(result.message || 'Entity deleted successfully', 'success');
+                showToast(result.message || 'Item deleted successfully', 'success');
                 closeConfirmModal();
-                await loadEntityRegistry();
+                await reloadFunction();
             } else {
-                showToast(result.error || 'Failed to delete entity', 'error');
+                showToast(result.error || 'Failed to delete item', 'error');
             }
         } catch (error) {
-            showToast('Network error: Failed to delete entity', 'error');
+            showToast('Network error: Failed to delete item', 'error');
         }
     }
     
@@ -444,20 +1662,41 @@
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeEntityModal();
+            closeClientModal();
+            closeVendorModal();
+            closeMunicipalityModal();
+            closeCoordinateSystemModal();
+            closeSurveyPointModal();
             closeConfirmModal();
         }
     });
     
     document.getElementById('entityModal').addEventListener('click', (e) => {
-        if (e.target.id === 'entityModal') {
-            closeEntityModal();
-        }
+        if (e.target.id === 'entityModal') closeEntityModal();
+    });
+    
+    document.getElementById('clientModal').addEventListener('click', (e) => {
+        if (e.target.id === 'clientModal') closeClientModal();
+    });
+    
+    document.getElementById('vendorModal').addEventListener('click', (e) => {
+        if (e.target.id === 'vendorModal') closeVendorModal();
+    });
+    
+    document.getElementById('municipalityModal').addEventListener('click', (e) => {
+        if (e.target.id === 'municipalityModal') closeMunicipalityModal();
+    });
+    
+    document.getElementById('coordinateSystemModal').addEventListener('click', (e) => {
+        if (e.target.id === 'coordinateSystemModal') closeCoordinateSystemModal();
+    });
+    
+    document.getElementById('surveyPointModal').addEventListener('click', (e) => {
+        if (e.target.id === 'surveyPointModal') closeSurveyPointModal();
     });
     
     document.getElementById('confirmModal').addEventListener('click', (e) => {
-        if (e.target.id === 'confirmModal') {
-            closeConfirmModal();
-        }
+        if (e.target.id === 'confirmModal') closeConfirmModal();
     });
     
     loadEntityRegistry();

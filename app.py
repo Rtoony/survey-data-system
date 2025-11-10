@@ -12117,6 +12117,679 @@ def delete_entity_registry(registry_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== CLIENTS API =====
+
+@app.route('/api/clients')
+def get_clients():
+    """Get all clients"""
+    try:
+        query = """
+            SELECT client_id, client_name, short_name, contact_name, contact_email, contact_phone,
+                   address, city, state, zip_code, country, website, notes, is_active, tags, attributes
+            FROM clients
+            WHERE is_active = TRUE
+            ORDER BY client_name
+        """
+        clients = execute_query(query)
+        return jsonify({'clients': clients})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clients/<int:client_id>')
+def get_client_detail(client_id):
+    """Get a specific client"""
+    try:
+        query = """
+            SELECT client_id, client_name, short_name, contact_name, contact_email, contact_phone,
+                   address, city, state, zip_code, country, website, notes, is_active, tags, attributes
+            FROM clients
+            WHERE client_id = %s
+        """
+        result = execute_query(query, (client_id,))
+        
+        if not result:
+            return jsonify({'error': 'Client not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clients', methods=['POST'])
+def create_client():
+    """Create a new client"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('client_name'):
+            return jsonify({'error': 'client_name is required'}), 400
+        
+        query = """
+            INSERT INTO clients (client_name, short_name, contact_name, contact_email, contact_phone,
+                                address, city, state, zip_code, country, website, notes, tags, attributes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING client_id
+        """
+        result = execute_query(query, (
+            data['client_name'].strip(),
+            data.get('short_name', '').strip() or None,
+            data.get('contact_name', '').strip() or None,
+            data.get('contact_email', '').strip() or None,
+            data.get('contact_phone', '').strip() or None,
+            data.get('address', '').strip() or None,
+            data.get('city', '').strip() or None,
+            data.get('state', '').strip() or None,
+            data.get('zip_code', '').strip() or None,
+            data.get('country', 'USA'),
+            data.get('website', '').strip() or None,
+            data.get('notes', '').strip() or None,
+            data.get('tags', []),
+            data.get('attributes')
+        ))
+        
+        return jsonify({
+            'client_id': result[0]['client_id'],
+            'message': f'Client {data["client_name"]} created successfully'
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clients/<int:client_id>', methods=['PUT'])
+def update_client(client_id):
+    """Update a client"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('client_name'):
+            return jsonify({'error': 'client_name is required'}), 400
+        
+        query = """
+            UPDATE clients 
+            SET client_name = %s, short_name = %s, contact_name = %s, contact_email = %s, contact_phone = %s,
+                address = %s, city = %s, state = %s, zip_code = %s, country = %s, website = %s, notes = %s,
+                tags = %s, attributes = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE client_id = %s
+            RETURNING client_id
+        """
+        result = execute_query(query, (
+            data['client_name'].strip(),
+            data.get('short_name', '').strip() or None,
+            data.get('contact_name', '').strip() or None,
+            data.get('contact_email', '').strip() or None,
+            data.get('contact_phone', '').strip() or None,
+            data.get('address', '').strip() or None,
+            data.get('city', '').strip() or None,
+            data.get('state', '').strip() or None,
+            data.get('zip_code', '').strip() or None,
+            data.get('country', 'USA'),
+            data.get('website', '').strip() or None,
+            data.get('notes', '').strip() or None,
+            data.get('tags', []),
+            data.get('attributes'),
+            client_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Client not found'}), 404
+        
+        return jsonify({'message': f'Client updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clients/<int:client_id>', methods=['DELETE'])
+def delete_client(client_id):
+    """Delete a client (soft delete)"""
+    try:
+        query = "UPDATE clients SET is_active = FALSE WHERE client_id = %s RETURNING client_id"
+        result = execute_query(query, (client_id,))
+        
+        if not result:
+            return jsonify({'error': 'Client not found'}), 404
+        
+        return jsonify({'message': 'Client deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== VENDORS API =====
+
+@app.route('/api/vendors')
+def get_vendors():
+    """Get all vendors"""
+    try:
+        query = """
+            SELECT vendor_id, vendor_name, vendor_type, contact_name, contact_email, contact_phone,
+                   address, city, state, zip_code, country, website, specialty, certifications, notes,
+                   is_active, tags, attributes
+            FROM vendors
+            WHERE is_active = TRUE
+            ORDER BY vendor_name
+        """
+        vendors = execute_query(query)
+        return jsonify({'vendors': vendors})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vendors/<int:vendor_id>')
+def get_vendor_detail(vendor_id):
+    """Get a specific vendor"""
+    try:
+        query = """
+            SELECT vendor_id, vendor_name, vendor_type, contact_name, contact_email, contact_phone,
+                   address, city, state, zip_code, country, website, specialty, certifications, notes,
+                   is_active, tags, attributes
+            FROM vendors
+            WHERE vendor_id = %s
+        """
+        result = execute_query(query, (vendor_id,))
+        
+        if not result:
+            return jsonify({'error': 'Vendor not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vendors', methods=['POST'])
+def create_vendor():
+    """Create a new vendor"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('vendor_name'):
+            return jsonify({'error': 'vendor_name is required'}), 400
+        
+        query = """
+            INSERT INTO vendors (vendor_name, vendor_type, contact_name, contact_email, contact_phone,
+                                address, city, state, zip_code, country, website, specialty, certifications, notes,
+                                tags, attributes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING vendor_id
+        """
+        result = execute_query(query, (
+            data['vendor_name'].strip(),
+            data.get('vendor_type', '').strip() or None,
+            data.get('contact_name', '').strip() or None,
+            data.get('contact_email', '').strip() or None,
+            data.get('contact_phone', '').strip() or None,
+            data.get('address', '').strip() or None,
+            data.get('city', '').strip() or None,
+            data.get('state', '').strip() or None,
+            data.get('zip_code', '').strip() or None,
+            data.get('country', 'USA'),
+            data.get('website', '').strip() or None,
+            data.get('specialty', '').strip() or None,
+            data.get('certifications', []),
+            data.get('notes', '').strip() or None,
+            data.get('tags', []),
+            data.get('attributes')
+        ))
+        
+        return jsonify({
+            'vendor_id': result[0]['vendor_id'],
+            'message': f'Vendor {data["vendor_name"]} created successfully'
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vendors/<int:vendor_id>', methods=['PUT'])
+def update_vendor(vendor_id):
+    """Update a vendor"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('vendor_name'):
+            return jsonify({'error': 'vendor_name is required'}), 400
+        
+        query = """
+            UPDATE vendors 
+            SET vendor_name = %s, vendor_type = %s, contact_name = %s, contact_email = %s, contact_phone = %s,
+                address = %s, city = %s, state = %s, zip_code = %s, country = %s, website = %s,
+                specialty = %s, certifications = %s, notes = %s, tags = %s, attributes = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE vendor_id = %s
+            RETURNING vendor_id
+        """
+        result = execute_query(query, (
+            data['vendor_name'].strip(),
+            data.get('vendor_type', '').strip() or None,
+            data.get('contact_name', '').strip() or None,
+            data.get('contact_email', '').strip() or None,
+            data.get('contact_phone', '').strip() or None,
+            data.get('address', '').strip() or None,
+            data.get('city', '').strip() or None,
+            data.get('state', '').strip() or None,
+            data.get('zip_code', '').strip() or None,
+            data.get('country', 'USA'),
+            data.get('website', '').strip() or None,
+            data.get('specialty', '').strip() or None,
+            data.get('certifications', []),
+            data.get('notes', '').strip() or None,
+            data.get('tags', []),
+            data.get('attributes'),
+            vendor_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Vendor not found'}), 404
+        
+        return jsonify({'message': f'Vendor updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vendors/<int:vendor_id>', methods=['DELETE'])
+def delete_vendor(vendor_id):
+    """Delete a vendor (soft delete)"""
+    try:
+        query = "UPDATE vendors SET is_active = FALSE WHERE vendor_id = %s RETURNING vendor_id"
+        result = execute_query(query, (vendor_id,))
+        
+        if not result:
+            return jsonify({'error': 'Vendor not found'}), 404
+        
+        return jsonify({'message': 'Vendor deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== MUNICIPALITIES API =====
+
+@app.route('/api/municipalities')
+def get_municipalities():
+    """Get all municipalities"""
+    try:
+        query = """
+            SELECT municipality_id, municipality_name, municipality_type, county, state, country, fips_code,
+                   contact_department, contact_name, contact_email, contact_phone, address, website,
+                   permit_portal_url, cad_standards_url, notes, is_active, tags, attributes
+            FROM municipalities
+            WHERE is_active = TRUE
+            ORDER BY state, municipality_name
+        """
+        municipalities = execute_query(query)
+        return jsonify({'municipalities': municipalities})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/municipalities/<int:municipality_id>')
+def get_municipality_detail(municipality_id):
+    """Get a specific municipality"""
+    try:
+        query = """
+            SELECT municipality_id, municipality_name, municipality_type, county, state, country, fips_code,
+                   contact_department, contact_name, contact_email, contact_phone, address, website,
+                   permit_portal_url, cad_standards_url, notes, is_active, tags, attributes
+            FROM municipalities
+            WHERE municipality_id = %s
+        """
+        result = execute_query(query, (municipality_id,))
+        
+        if not result:
+            return jsonify({'error': 'Municipality not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/municipalities', methods=['POST'])
+def create_municipality():
+    """Create a new municipality"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('municipality_name') or not data.get('state'):
+            return jsonify({'error': 'municipality_name and state are required'}), 400
+        
+        query = """
+            INSERT INTO municipalities (municipality_name, municipality_type, county, state, country, fips_code,
+                                       contact_department, contact_name, contact_email, contact_phone, address,
+                                       website, permit_portal_url, cad_standards_url, notes, tags, attributes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING municipality_id
+        """
+        result = execute_query(query, (
+            data['municipality_name'].strip(),
+            data.get('municipality_type', '').strip() or None,
+            data.get('county', '').strip() or None,
+            data['state'].strip(),
+            data.get('country', 'USA'),
+            data.get('fips_code', '').strip() or None,
+            data.get('contact_department', '').strip() or None,
+            data.get('contact_name', '').strip() or None,
+            data.get('contact_email', '').strip() or None,
+            data.get('contact_phone', '').strip() or None,
+            data.get('address', '').strip() or None,
+            data.get('website', '').strip() or None,
+            data.get('permit_portal_url', '').strip() or None,
+            data.get('cad_standards_url', '').strip() or None,
+            data.get('notes', '').strip() or None,
+            data.get('tags', []),
+            data.get('attributes')
+        ))
+        
+        return jsonify({
+            'municipality_id': result[0]['municipality_id'],
+            'message': f'Municipality {data["municipality_name"]} created successfully'
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/municipalities/<int:municipality_id>', methods=['PUT'])
+def update_municipality(municipality_id):
+    """Update a municipality"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('municipality_name') or not data.get('state'):
+            return jsonify({'error': 'municipality_name and state are required'}), 400
+        
+        query = """
+            UPDATE municipalities 
+            SET municipality_name = %s, municipality_type = %s, county = %s, state = %s, country = %s, fips_code = %s,
+                contact_department = %s, contact_name = %s, contact_email = %s, contact_phone = %s, address = %s,
+                website = %s, permit_portal_url = %s, cad_standards_url = %s, notes = %s, tags = %s, attributes = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE municipality_id = %s
+            RETURNING municipality_id
+        """
+        result = execute_query(query, (
+            data['municipality_name'].strip(),
+            data.get('municipality_type', '').strip() or None,
+            data.get('county', '').strip() or None,
+            data['state'].strip(),
+            data.get('country', 'USA'),
+            data.get('fips_code', '').strip() or None,
+            data.get('contact_department', '').strip() or None,
+            data.get('contact_name', '').strip() or None,
+            data.get('contact_email', '').strip() or None,
+            data.get('contact_phone', '').strip() or None,
+            data.get('address', '').strip() or None,
+            data.get('website', '').strip() or None,
+            data.get('permit_portal_url', '').strip() or None,
+            data.get('cad_standards_url', '').strip() or None,
+            data.get('notes', '').strip() or None,
+            data.get('tags', []),
+            data.get('attributes'),
+            municipality_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Municipality not found'}), 404
+        
+        return jsonify({'message': f'Municipality updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/municipalities/<int:municipality_id>', methods=['DELETE'])
+def delete_municipality(municipality_id):
+    """Delete a municipality (soft delete)"""
+    try:
+        query = "UPDATE municipalities SET is_active = FALSE WHERE municipality_id = %s RETURNING municipality_id"
+        result = execute_query(query, (municipality_id,))
+        
+        if not result:
+            return jsonify({'error': 'Municipality not found'}), 404
+        
+        return jsonify({'message': 'Municipality deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== COORDINATE SYSTEMS API =====
+
+@app.route('/api/coordinate-systems')
+def get_coordinate_systems():
+    """Get all coordinate systems"""
+    try:
+        query = """
+            SELECT system_id, epsg_code, system_name, region, datum, units, zone_number, notes,
+                   is_active, tags, attributes
+            FROM coordinate_systems
+            WHERE is_active = TRUE
+            ORDER BY region, system_name
+        """
+        systems = execute_query(query)
+        return jsonify({'coordinate_systems': systems})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/coordinate-systems/<uuid:system_id>')
+def get_coordinate_system_detail(system_id):
+    """Get a specific coordinate system"""
+    try:
+        query = """
+            SELECT system_id, epsg_code, system_name, region, datum, units, zone_number, notes,
+                   is_active, tags, attributes
+            FROM coordinate_systems
+            WHERE system_id = %s
+        """
+        result = execute_query(query, (str(system_id),))
+        
+        if not result:
+            return jsonify({'error': 'Coordinate system not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/coordinate-systems', methods=['POST'])
+def create_coordinate_system():
+    """Create a new coordinate system"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('system_name') or not data.get('epsg_code'):
+            return jsonify({'error': 'system_name and epsg_code are required'}), 400
+        
+        query = """
+            INSERT INTO coordinate_systems (epsg_code, system_name, region, datum, units, zone_number, notes, tags, attributes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING system_id
+        """
+        result = execute_query(query, (
+            data['epsg_code'].strip(),
+            data['system_name'].strip(),
+            data.get('region', '').strip() or None,
+            data.get('datum', '').strip() or None,
+            data.get('units', '').strip() or None,
+            data.get('zone_number'),
+            data.get('notes', '').strip() or None,
+            data.get('tags', []),
+            data.get('attributes')
+        ))
+        
+        return jsonify({
+            'system_id': result[0]['system_id'],
+            'message': f'Coordinate system {data["system_name"]} created successfully'
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/coordinate-systems/<uuid:system_id>', methods=['PUT'])
+def update_coordinate_system(system_id):
+    """Update a coordinate system"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('system_name') or not data.get('epsg_code'):
+            return jsonify({'error': 'system_name and epsg_code are required'}), 400
+        
+        query = """
+            UPDATE coordinate_systems 
+            SET epsg_code = %s, system_name = %s, region = %s, datum = %s, units = %s, zone_number = %s,
+                notes = %s, tags = %s, attributes = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE system_id = %s
+            RETURNING system_id
+        """
+        result = execute_query(query, (
+            data['epsg_code'].strip(),
+            data['system_name'].strip(),
+            data.get('region', '').strip() or None,
+            data.get('datum', '').strip() or None,
+            data.get('units', '').strip() or None,
+            data.get('zone_number'),
+            data.get('notes', '').strip() or None,
+            data.get('tags', []),
+            data.get('attributes'),
+            str(system_id)
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Coordinate system not found'}), 404
+        
+        return jsonify({'message': f'Coordinate system updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/coordinate-systems/<uuid:system_id>', methods=['DELETE'])
+def delete_coordinate_system(system_id):
+    """Delete a coordinate system (soft delete)"""
+    try:
+        query = "UPDATE coordinate_systems SET is_active = FALSE WHERE system_id = %s RETURNING system_id"
+        result = execute_query(query, (str(system_id),))
+        
+        if not result:
+            return jsonify({'error': 'Coordinate system not found'}), 404
+        
+        return jsonify({'message': 'Coordinate system deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== SURVEY POINT DESCRIPTIONS API =====
+
+@app.route('/api/survey-point-descriptions')
+def get_survey_point_descriptions():
+    """Get all survey point descriptions"""
+    try:
+        query = """
+            SELECT description_id, code, description, category, discipline, is_standard, symbol_reference,
+                   layer_suggestion, notes, is_active, sort_order, tags, attributes
+            FROM survey_point_descriptions
+            WHERE is_active = TRUE
+            ORDER BY category, sort_order, code
+        """
+        descriptions = execute_query(query)
+        return jsonify({'survey_point_descriptions': descriptions})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<int:description_id>')
+def get_survey_point_description_detail(description_id):
+    """Get a specific survey point description"""
+    try:
+        query = """
+            SELECT description_id, code, description, category, discipline, is_standard, symbol_reference,
+                   layer_suggestion, notes, is_active, sort_order, tags, attributes
+            FROM survey_point_descriptions
+            WHERE description_id = %s
+        """
+        result = execute_query(query, (description_id,))
+        
+        if not result:
+            return jsonify({'error': 'Survey point description not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions', methods=['POST'])
+def create_survey_point_description():
+    """Create a new survey point description"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('code') or not data.get('description'):
+            return jsonify({'error': 'code and description are required'}), 400
+        
+        check_query = "SELECT description_id FROM survey_point_descriptions WHERE code = %s"
+        existing = execute_query(check_query, (data['code'].strip(),))
+        if existing:
+            return jsonify({'error': f'Code {data["code"]} already exists'}), 409
+        
+        query = """
+            INSERT INTO survey_point_descriptions (code, description, category, discipline, is_standard,
+                                                   symbol_reference, layer_suggestion, notes, sort_order, tags, attributes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING description_id
+        """
+        result = execute_query(query, (
+            data['code'].strip().upper(),
+            data['description'].strip(),
+            data.get('category', '').strip() or None,
+            data.get('discipline', '').strip() or None,
+            data.get('is_standard', True),
+            data.get('symbol_reference', '').strip() or None,
+            data.get('layer_suggestion', '').strip() or None,
+            data.get('notes', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('tags', []),
+            data.get('attributes')
+        ))
+        
+        return jsonify({
+            'description_id': result[0]['description_id'],
+            'message': f'Survey point description {data["code"]} created successfully'
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<int:description_id>', methods=['PUT'])
+def update_survey_point_description(description_id):
+    """Update a survey point description"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('code') or not data.get('description'):
+            return jsonify({'error': 'code and description are required'}), 400
+        
+        check_query = """
+            SELECT description_id FROM survey_point_descriptions 
+            WHERE code = %s AND description_id != %s
+        """
+        existing = execute_query(check_query, (data['code'].strip(), description_id))
+        if existing:
+            return jsonify({'error': f'Code {data["code"]} already exists'}), 409
+        
+        query = """
+            UPDATE survey_point_descriptions 
+            SET code = %s, description = %s, category = %s, discipline = %s, is_standard = %s,
+                symbol_reference = %s, layer_suggestion = %s, notes = %s, sort_order = %s,
+                tags = %s, attributes = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE description_id = %s
+            RETURNING description_id
+        """
+        result = execute_query(query, (
+            data['code'].strip().upper(),
+            data['description'].strip(),
+            data.get('category', '').strip() or None,
+            data.get('discipline', '').strip() or None,
+            data.get('is_standard', True),
+            data.get('symbol_reference', '').strip() or None,
+            data.get('layer_suggestion', '').strip() or None,
+            data.get('notes', '').strip() or None,
+            data.get('sort_order', 100),
+            data.get('tags', []),
+            data.get('attributes'),
+            description_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Survey point description not found'}), 404
+        
+        return jsonify({'message': f'Survey point description updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<int:description_id>', methods=['DELETE'])
+def delete_survey_point_description(description_id):
+    """Delete a survey point description (soft delete)"""
+    try:
+        query = "UPDATE survey_point_descriptions SET is_active = FALSE WHERE description_id = %s RETURNING description_id"
+        result = execute_query(query, (description_id,))
+        
+        if not result:
+            return jsonify({'error': 'Survey point description not found'}), 404
+        
+        return jsonify({'message': 'Survey point description deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/vocabulary/attributes')
 def get_attributes():
     """Get all attribute codes"""
