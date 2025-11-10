@@ -2653,8 +2653,8 @@ def materials_manager():
 
 @app.route('/data-manager/projects')
 def projects_manager():
-    """Render the Projects Manager page"""
-    return render_template('data_manager/projects.html')
+    """Redirect to new Projects page location"""
+    return redirect(url_for('projects_page'), code=301)
 
 @app.route('/data-manager/drawings')
 def drawings_manager():
