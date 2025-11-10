@@ -1,12 +1,29 @@
 {% extends 'base.html' %}
 
-{% block title %}Batch Block Import{% endblock %}
+{% block title %}Batch CAD Import{% endblock %}
 
 {% block content %}
 <div class="mc-page">
     <div class="mc-header">
-        <h1>🔧 Batch Block Import Tool</h1>
-        <p>Extract block definitions from multiple DXF files and import to standards library</p>
+        <h1>🔧 Batch CAD Import Tool</h1>
+        <p>Extract and import CAD elements from multiple DXF files to standards library</p>
+    </div>
+
+    <!-- Import Type Selector -->
+    <div class="mc-card">
+        <h2>Select Import Type</h2>
+        <div class="import-type-selector">
+            <label for="importType" class="mc-label">CAD Element Type:</label>
+            <select id="importType" class="mc-select type-selector">
+                <option value="blocks">📦 Blocks (Symbols)</option>
+                <option value="details">📐 Details (Construction Details)</option>
+                <option value="hatches">🎨 Hatches (Fill Patterns)</option>
+                <option value="linetypes">➖ Linetypes (Line Patterns)</option>
+            </select>
+            <p class="import-type-description" id="typeDescription">
+                Import block definitions (symbols, title blocks, annotations) from DXF files
+            </p>
+        </div>
     </div>
 
     <!-- Upload Section -->
@@ -27,14 +44,14 @@
             <h3>Selected Files</h3>
             <ul id="fileItems"></ul>
             <button class="mc-btn-primary" id="extractBtn">
-                Extract Blocks
+                <span id="extractBtnText">Extract Blocks</span>
             </button>
         </div>
     </div>
 
     <!-- Progress Section -->
     <div class="mc-card" id="progressSection" style="display:none;">
-        <h2>Extracting Blocks...</h2>
+        <h2 id="progressTitle">Extracting Blocks...</h2>
         <div class="progress-bar">
             <div class="progress-fill" id="progressFill"></div>
         </div>
@@ -44,17 +61,17 @@
     <!-- Preview Section -->
     <div class="mc-card" id="previewSection" style="display:none;">
         <div class="preview-header">
-            <h2>Step 2: Review Extracted Blocks</h2>
+            <h2 id="previewTitle">Step 2: Review Extracted Blocks</h2>
             <div class="preview-stats">
-                <span id="totalBlocks" class="stat-badge">0 blocks found</span>
-                <span id="newBlocks" class="stat-badge stat-new">0 new</span>
-                <span id="existingBlocks" class="stat-badge stat-existing">0 existing</span>
+                <span id="totalElements" class="stat-badge">0 blocks found</span>
+                <span id="newElements" class="stat-badge stat-new">0 new</span>
+                <span id="existingElements" class="stat-badge stat-existing">0 existing</span>
             </div>
         </div>
 
         <!-- Filters -->
         <div class="preview-filters">
-            <input type="text" id="searchFilter" placeholder="Search blocks..." class="mc-input">
+            <input type="text" id="searchFilter" placeholder="Search..." class="mc-input">
             <select id="categoryFilter" class="mc-select">
                 <option value="">All Categories</option>
             </select>
@@ -74,7 +91,7 @@
             <button class="mc-btn-secondary" id="selectAllBtn">Select All</button>
             <button class="mc-btn-secondary" id="deselectAllBtn">Deselect All</button>
             <button class="mc-btn-primary" id="importBtn">
-                Import Selected Blocks
+                <span id="importBtnText">Import Selected Blocks</span>
             </button>
         </div>
     </div>
@@ -97,15 +114,37 @@
             </div>
         </div>
         <button class="mc-btn-primary" onclick="location.reload()">
-            Import More Blocks
+            <span id="importMoreBtnText">Import More Blocks</span>
         </button>
-        <a href="/data-manager/blocks" class="mc-btn-secondary">
+        <a href="/data-manager/blocks" class="mc-btn-secondary" id="viewLibraryLink">
             View Block Library
         </a>
     </div>
 </div>
 
 <style>
+/* Import Type Selector */
+.import-type-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.type-selector {
+    font-size: 1.1rem;
+    padding: 0.75rem;
+    max-width: 400px;
+}
+
+.import-type-description {
+    color: var(--mc-text-muted);
+    font-style: italic;
+    padding: 0.5rem;
+    background: rgba(0, 255, 255, 0.05);
+    border-left: 3px solid var(--mc-cyan);
+    border-radius: 4px;
+}
+
 /* Upload Zone */
 .upload-zone {
     border: 3px dashed var(--mc-cyan);
@@ -372,6 +411,107 @@ let selectedFiles = [];
 let extractedBlocks = [];
 let existingBlocks = new Set();
 let validCategories = [];
+let currentImportType = 'blocks'; // Default to blocks
+
+// Import type configuration
+const importTypeConfig = {
+    blocks: {
+        name: 'Blocks',
+        namePlural: 'blocks',
+        description: 'Import block definitions (symbols, title blocks, annotations) from DXF files',
+        extractBtnText: 'Extract Blocks',
+        progressTitle: 'Extracting Blocks...',
+        previewTitle: 'Step 2: Review Extracted Blocks',
+        importBtnText: 'Import Selected Blocks',
+        importMoreText: 'Import More Blocks',
+        searchPlaceholder: 'Search blocks...',
+        viewLibraryLink: '/data-manager/blocks',
+        viewLibraryText: 'View Block Library',
+        apiEndpoint: '/api/batch-cad-import/extract',
+        saveEndpoint: '/api/batch-cad-import/save'
+    },
+    details: {
+        name: 'Details',
+        namePlural: 'details',
+        description: 'Import construction details (typical sections, connection details) from DXF files',
+        extractBtnText: 'Extract Details',
+        progressTitle: 'Extracting Details...',
+        previewTitle: 'Step 2: Review Extracted Details',
+        importBtnText: 'Import Selected Details',
+        importMoreText: 'Import More Details',
+        searchPlaceholder: 'Search details...',
+        viewLibraryLink: '/data-manager/details',
+        viewLibraryText: 'View Detail Library',
+        apiEndpoint: '/api/batch-cad-import/extract',
+        saveEndpoint: '/api/batch-cad-import/save'
+    },
+    hatches: {
+        name: 'Hatches',
+        namePlural: 'hatches',
+        description: 'Import hatch patterns (fill patterns for areas and surfaces) from DXF files',
+        extractBtnText: 'Extract Hatches',
+        progressTitle: 'Extracting Hatches...',
+        previewTitle: 'Step 2: Review Extracted Hatches',
+        importBtnText: 'Import Selected Hatches',
+        importMoreText: 'Import More Hatches',
+        searchPlaceholder: 'Search hatches...',
+        viewLibraryLink: '/data-manager/hatches',
+        viewLibraryText: 'View Hatch Library',
+        apiEndpoint: '/api/batch-cad-import/extract',
+        saveEndpoint: '/api/batch-cad-import/save'
+    },
+    linetypes: {
+        name: 'Linetypes',
+        namePlural: 'linetypes',
+        description: 'Import linetype definitions (dashed, dotted, custom line patterns) from DXF files',
+        extractBtnText: 'Extract Linetypes',
+        progressTitle: 'Extracting Linetypes...',
+        previewTitle: 'Step 2: Review Extracted Linetypes',
+        importBtnText: 'Import Selected Linetypes',
+        importMoreText: 'Import More Linetypes',
+        searchPlaceholder: 'Search linetypes...',
+        viewLibraryLink: '/data-manager/linetypes',
+        viewLibraryText: 'View Linetype Library',
+        apiEndpoint: '/api/batch-cad-import/extract',
+        saveEndpoint: '/api/batch-cad-import/save'
+    }
+};
+
+// Import type selector handler
+document.getElementById('importType').addEventListener('change', function(e) {
+    currentImportType = e.target.value;
+    updateUIForImportType();
+});
+
+function updateUIForImportType() {
+    const config = importTypeConfig[currentImportType];
+    
+    // Update description
+    document.getElementById('typeDescription').textContent = config.description;
+    
+    // Update button texts
+    document.getElementById('extractBtnText').textContent = config.extractBtnText;
+    document.getElementById('importBtnText').textContent = config.importBtnText;
+    document.getElementById('importMoreBtnText').textContent = config.importMoreText;
+    
+    // Update titles
+    document.getElementById('progressTitle').textContent = config.progressTitle;
+    document.getElementById('previewTitle').textContent = config.previewTitle;
+    
+    // Update search placeholder
+    document.getElementById('searchFilter').placeholder = config.searchPlaceholder;
+    
+    // Update library link
+    document.getElementById('viewLibraryLink').href = config.viewLibraryLink;
+    document.getElementById('viewLibraryLink').textContent = config.viewLibraryText;
+    
+    // Reset state when changing type
+    selectedFiles = [];
+    extractedBlocks = [];
+    existingBlocks = new Set();
+    document.getElementById('fileList').style.display = 'none';
+    document.getElementById('fileItems').innerHTML = '';
+}
 
 // Drag and drop handlers
 const dropZone = document.getElementById('dropZone');
@@ -429,7 +569,7 @@ function handleFiles(files) {
     fileList.style.display = 'block';
 }
 
-// Extract blocks
+// Extract elements
 document.getElementById('extractBtn').addEventListener('click', async () => {
     document.getElementById('uploadSection').style.display = 'none';
     document.getElementById('progressSection').style.display = 'block';
@@ -438,9 +578,11 @@ document.getElementById('extractBtn').addEventListener('click', async () => {
     selectedFiles.forEach(file => {
         formData.append('files[]', file);
     });
+    formData.append('import_type', currentImportType);
     
     try {
-        const response = await fetch('/api/batch-block-import/extract-from-dxf', {
+        const config = importTypeConfig[currentImportType];
+        const response = await fetch(config.apiEndpoint, {
             method: 'POST',
             body: formData
         });
@@ -453,10 +595,10 @@ document.getElementById('extractBtn').addEventListener('click', async () => {
             return;
         }
         
-        extractedBlocks = data.blocks;
+        extractedBlocks = data.blocks || data.details || data.hatches || data.linetypes || [];
         validCategories = data.valid_categories || [];
         
-        // Check which blocks already exist
+        // Check which elements already exist
         await checkExistingBlocks();
         
         // Show preview
@@ -495,13 +637,15 @@ function renderBlockPreview() {
     const grid = document.getElementById('blockGrid');
     grid.innerHTML = '';
     
+    const config = importTypeConfig[currentImportType];
+    
     // Update stats
     const newCount = extractedBlocks.filter(b => !b.exists).length;
     const existingCount = extractedBlocks.filter(b => b.exists).length;
     
-    document.getElementById('totalBlocks').textContent = `${extractedBlocks.length} blocks found`;
-    document.getElementById('newBlocks').textContent = `${newCount} new`;
-    document.getElementById('existingBlocks').textContent = `${existingCount} existing`;
+    document.getElementById('totalElements').textContent = `${extractedBlocks.length} ${config.namePlural} found`;
+    document.getElementById('newElements').textContent = `${newCount} new`;
+    document.getElementById('existingElements').textContent = `${existingCount} existing`;
     
     // Populate category filter with valid CAD Layer Vocabulary categories
     const categoryFilter = document.getElementById('categoryFilter');
@@ -607,33 +751,38 @@ document.getElementById('deselectAllBtn').addEventListener('click', () => {
     });
 });
 
-// Import blocks
+// Import elements
 document.getElementById('importBtn').addEventListener('click', async () => {
-    const blocksToImport = extractedBlocks.filter(b => b.action !== 'skip');
+    const elementsToImport = extractedBlocks.filter(b => b.action !== 'skip');
     
-    if (blocksToImport.length === 0) {
-        alert('No blocks selected for import');
+    if (elementsToImport.length === 0) {
+        const config = importTypeConfig[currentImportType];
+        alert(`No ${config.namePlural} selected for import`);
         return;
     }
     
     try {
-        const response = await fetch('/api/batch-block-import/save-blocks', {
+        const config = importTypeConfig[currentImportType];
+        const response = await fetch(config.saveEndpoint, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({blocks: extractedBlocks})
+            body: JSON.stringify({
+                import_type: currentImportType,
+                elements: extractedBlocks
+            })
         });
         
         const result = await response.json();
         
         // Show results
         document.getElementById('previewSection').style.display = 'none';
-        document.getElementById('importedCount').textContent = result.imported;
-        document.getElementById('updatedCount').textContent = result.updated;
-        document.getElementById('skippedCount').textContent = result.skipped;
+        document.getElementById('importedCount').textContent = result.imported || 0;
+        document.getElementById('updatedCount').textContent = result.updated || 0;
+        document.getElementById('skippedCount').textContent = result.skipped || 0;
         document.getElementById('resultsSection').style.display = 'block';
         
     } catch (error) {
-        alert('Error importing blocks: ' + error.message);
+        alert('Error importing: ' + error.message);
     }
 });
 
