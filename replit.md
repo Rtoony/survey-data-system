@@ -43,6 +43,7 @@ Preferred communication style: Simple, everyday language.
 **Key Features & Design:**
 - **Standards Management:** Dedicated interfaces for Layer Vocabulary (`/standards/layer-vocabulary`) and Reference Data Hub (`/standards/reference-data`) for managing entities, clients, vendors, municipalities, coordinate systems, and survey point descriptions with full CRUD.
 - **Schema Explorer & Data Manager:** CRUD operations for CAD standards and vocabulary inline editing.
+- **Schema Visualization Suite:** Multiple database schema visualization tools including a classic table browser (`/schema`), relationship diagram (`/schema/relationships`), and an optimized knowledge graph (`/schema/graph`) using Cytoscape.js for interactive exploration of 146+ tables and 244+ relationships with search, filtering, and multiple layout algorithms.
 - **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards.
 - **Standards Mapping Framework:** 11-table database schema with 5 name mapping managers (blocks, details, hatches, materials, notes) supporting bidirectional DXF↔Database translation.
 - **Project Context Mapping Manager:** Manages 6 relationship types (Keynote↔Block, Keynote↔Detail, Hatch↔Material, Detail↔Material, Block↔Specification, Cross-References).
@@ -70,6 +71,7 @@ Preferred communication style: Simple, everyday language.
 - `Font Awesome 6.4.0`
 - `Google Fonts`
 - `Vis.js`
+- `Cytoscape.js 3.28.1` with COSE-Bilkent layout extension
 - `Leaflet.js 1.9.4`, `Leaflet.draw 1.0.4`, `Proj4js 2.9.0`, `Turf.js 6.x`.
 
 **Related Systems:**
