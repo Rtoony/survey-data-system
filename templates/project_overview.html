@@ -608,7 +608,7 @@ function formatDate(dateString) {
 
 async function loadClients() {
     try {
-        const response = await fetch('/api/reference/clients');
+        const response = await fetch('/api/clients');
         const data = await response.json();
         
         if (data.error) {
@@ -619,7 +619,8 @@ async function loadClients() {
         const clientSelect = document.getElementById('clientId');
         clientSelect.innerHTML = '<option value="">Select a client...</option>';
         
-        data.forEach(client => {
+        const clients = data.clients || data;
+        clients.forEach(client => {
             const option = document.createElement('option');
             option.value = client.client_id;
             option.textContent = client.client_name;
