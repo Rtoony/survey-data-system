@@ -6860,9 +6860,9 @@ def generate_test_dxf():
         count = feature_counts.get(complexity, 5)
         
         # Santa Rosa, California coordinates in SRID 2226 (State Plane CA Zone 2, US Survey Feet)
-        # Approximate center of Santa Rosa downtown area
-        base_x = 6125000  # feet
-        base_y = 2135000  # feet
+        # 2286 Chanate Road, Santa Rosa, CA (Lat: 38.4468, Lon: -122.7047)
+        base_x = 6359843  # feet
+        base_y = 1925319  # feet
         
         # Create new DXF document (AutoCAD 2013)
         doc = ezdxf.new('AC1027')
