@@ -6824,6 +6824,11 @@ def evolution():
     """Render the Evolution timeline page"""
     return render_template('evolution.html')
 
+@app.route('/standards/layer-generator')
+def layer_generator():
+    """Render the CAD Layer Generator page"""
+    return render_template('layer_generator.html')
+
 @app.route('/api/schema/relationships', methods=['GET'])
 def get_schema_relationships():
     """Get table relationships and metadata for visualization"""
@@ -12462,6 +12467,232 @@ def delete_entity_registry(registry_id):
             return jsonify({'error': 'Entity registry entry not found'}), 404
         
         return jsonify({'message': 'Entity registry entry deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# CAD STANDARDS / LAYER GENERATOR API
+# ============================================================================
+
+@app.route('/api/cad-standards/disciplines')
+def get_layer_disciplines():
+    """Get all active layer disciplines"""
+    try:
+        query = """
+            SELECT discipline_id, discipline_code, discipline_name, description, display_order
+            FROM layer_disciplines
+            WHERE is_active = TRUE
+            ORDER BY display_order, discipline_name
+        """
+        disciplines = execute_query(query)
+        return jsonify(disciplines)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/categories')
+def get_layer_categories():
+    """Get layer categories, optionally filtered by discipline"""
+    try:
+        discipline = request.args.get('discipline')
+        
+        if discipline:
+            query = """
+                SELECT category_id, category_code, category_name, description, 
+                       valid_for_disciplines, display_order
+                FROM layer_categories
+                WHERE is_active = TRUE
+                AND (valid_for_disciplines = '{}' OR %s = ANY(valid_for_disciplines))
+                ORDER BY display_order, category_name
+            """
+            categories = execute_query(query, (discipline,))
+        else:
+            query = """
+                SELECT category_id, category_code, category_name, description, 
+                       valid_for_disciplines, display_order
+                FROM layer_categories
+                WHERE is_active = TRUE
+                ORDER BY display_order, category_name
+            """
+            categories = execute_query(query)
+        
+        return jsonify(categories)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/objects')
+def get_layer_objects():
+    """Get layer objects, optionally filtered by category"""
+    try:
+        category = request.args.get('category')
+        
+        if category:
+            query = """
+                SELECT object_id, object_code, object_name, description, 
+                       valid_for_categories, network_mode, utility_type, display_order
+                FROM layer_objects
+                WHERE is_active = TRUE
+                AND (valid_for_categories = '{}' OR %s = ANY(valid_for_categories))
+                ORDER BY display_order, object_name
+            """
+            objects = execute_query(query, (category,))
+        else:
+            query = """
+                SELECT object_id, object_code, object_name, description, 
+                       valid_for_categories, network_mode, utility_type, display_order
+                FROM layer_objects
+                WHERE is_active = TRUE
+                ORDER BY display_order, object_name
+            """
+            objects = execute_query(query)
+        
+        return jsonify(objects)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/phases')
+def get_layer_phases():
+    """Get all active layer phases"""
+    try:
+        query = """
+            SELECT phase_id, phase_code, phase_name, description, display_order
+            FROM layer_phases
+            WHERE is_active = TRUE
+            ORDER BY display_order, phase_name
+        """
+        phases = execute_query(query)
+        return jsonify(phases)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/geometries')
+def get_layer_geometries():
+    """Get all active layer geometry types"""
+    try:
+        query = """
+            SELECT geometry_id, geom_code, geom_name, description, 
+                   expected_entity_types, display_order
+            FROM layer_geometries
+            WHERE is_active = TRUE
+            ORDER BY display_order, geom_name
+        """
+        geometries = execute_query(query)
+        return jsonify(geometries)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/generate-layer-name', methods=['POST'])
+def generate_layer_name():
+    """Generate a canonical layer name from components"""
+    try:
+        data = request.get_json()
+        
+        discipline = data.get('discipline', '').strip()
+        category = data.get('category', '').strip()
+        object_code = data.get('object', '').strip()
+        phase = data.get('phase', '').strip()
+        geometry = data.get('geometry', '').strip()
+        
+        if not all([discipline, category, object_code, phase, geometry]):
+            return jsonify({
+                'error': 'All components required: discipline, category, object, phase, geometry'
+            }), 400
+        
+        canonical_name = f"{discipline}-{category}-{object_code}-{phase}-{geometry}"
+        
+        alias_query = """
+            SELECT alias, notes FROM layer_aliases
+            WHERE canonical_pattern = %s AND is_active = TRUE
+            LIMIT 1
+        """
+        alias_result = execute_query(alias_query, (canonical_name,))
+        
+        result = {
+            'canonical_name': canonical_name,
+            'alias': alias_result[0]['alias'] if alias_result else None,
+            'alias_notes': alias_result[0]['notes'] if alias_result else None,
+            'components': {
+                'discipline': discipline,
+                'category': category,
+                'object': object_code,
+                'phase': phase,
+                'geometry': geometry
+            }
+        }
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/aliases')
+def get_layer_aliases():
+    """Get all active layer aliases"""
+    try:
+        query = """
+            SELECT alias_id, alias, canonical_pattern, discipline_code, 
+                   category_code, object_code, phase_code, geom_code, 
+                   notes, usage_count
+            FROM layer_aliases
+            WHERE is_active = TRUE
+            ORDER BY alias
+        """
+        aliases = execute_query(query)
+        return jsonify(aliases)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/translate-alias', methods=['POST'])
+def translate_alias():
+    """Translate a CAD-friendly alias to canonical layer name"""
+    try:
+        data = request.get_json()
+        alias = data.get('alias', '').strip()
+        
+        if not alias:
+            return jsonify({'error': 'Alias is required'}), 400
+        
+        query = """
+            SELECT alias_id, alias, canonical_pattern, discipline_code, 
+                   category_code, object_code, phase_code, geom_code, notes
+            FROM layer_aliases
+            WHERE UPPER(alias) = UPPER(%s) AND is_active = TRUE
+            LIMIT 1
+        """
+        result = execute_query(query, (alias,))
+        
+        if not result:
+            return jsonify({'error': 'Alias not found', 'alias': alias}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/block-schemas')
+def get_block_schemas():
+    """Get block attribute schemas, optionally filtered by family"""
+    try:
+        family = request.args.get('family')
+        
+        if family:
+            query = """
+                SELECT schema_id, block_family, attribute_name, data_type, 
+                       is_required, default_value, validation_rule, 
+                       maps_to_db_table, maps_to_db_column, description, display_order
+                FROM block_attribute_schemas
+                WHERE block_family = %s AND is_active = TRUE
+                ORDER BY display_order, attribute_name
+            """
+            schemas = execute_query(query, (family,))
+        else:
+            query = """
+                SELECT DISTINCT block_family
+                FROM block_attribute_schemas
+                WHERE is_active = TRUE
+                ORDER BY block_family
+            """
+            families = execute_query(query)
+            return jsonify(families)
+        
+        return jsonify(schemas)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

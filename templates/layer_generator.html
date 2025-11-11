@@ -1,0 +1,577 @@
+{% extends "base.html" %}
+
+{% block title %}CAD Layer Generator{% endblock %}
+
+{% block content %}
+<div class="mc-page-header">
+    <h1><i class="fas fa-layer-group"></i> CAD Layer Generator</h1>
+    <p>Generate standards-compliant CAD layer names using database vocabularies</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+    <div class="mc-card">
+        <div class="mc-card-header">
+            <h2><i class="fas fa-sliders-h"></i> Layer Components</h2>
+        </div>
+        <div class="mc-card-content">
+            <div class="mc-form-group">
+                <label for="disciplineSelect">Discipline <span class="required">*</span></label>
+                <select id="disciplineSelect" class="mc-select" required>
+                    <option value="">Select discipline...</option>
+                </select>
+                <small class="mc-help-text">First segment: Engineering discipline</small>
+            </div>
+
+            <div class="mc-form-group">
+                <label for="categorySelect">Category <span class="required">*</span></label>
+                <select id="categorySelect" class="mc-select" disabled required>
+                    <option value="">Select category...</option>
+                </select>
+                <small class="mc-help-text">Second segment: Functional group</small>
+            </div>
+
+            <div class="mc-form-group">
+                <label for="objectSelect">Object <span class="required">*</span></label>
+                <select id="objectSelect" class="mc-select" disabled required>
+                    <option value="">Select object...</option>
+                </select>
+                <small class="mc-help-text">Third segment: Specific feature type</small>
+            </div>
+
+            <div class="mc-form-group">
+                <label for="phaseSelect">Phase <span class="required">*</span></label>
+                <select id="phaseSelect" class="mc-select" disabled required>
+                    <option value="">Select phase...</option>
+                </select>
+                <small class="mc-help-text">Fourth segment: Construction lifecycle</small>
+            </div>
+
+            <div class="mc-form-group">
+                <label for="geometrySelect">Geometry <span class="required">*</span></label>
+                <select id="geometrySelect" class="mc-select" disabled required>
+                    <option value="">Select geometry type...</option>
+                </select>
+                <small class="mc-help-text">Fifth segment: Geometry hint</small>
+            </div>
+
+            <button id="generateBtn" class="btn btn-primary" style="width: 100%;" disabled>
+                <i class="fas fa-magic"></i> Generate Layer Name
+            </button>
+        </div>
+    </div>
+
+    <div class="mc-card">
+        <div class="mc-card-header">
+            <h2><i class="fas fa-code"></i> Generated Layer</h2>
+        </div>
+        <div class="mc-card-content">
+            <div id="layerPreview" class="layer-preview">
+                <div class="preview-placeholder">
+                    <i class="fas fa-layer-group" style="font-size: 3rem; opacity: 0.3;"></i>
+                    <p>Select components to generate layer name</p>
+                </div>
+            </div>
+
+            <div id="layerResult" style="display: none;">
+                <div class="result-section">
+                    <label>Canonical Layer Name:</label>
+                    <div class="layer-name-display" id="canonicalName">-</div>
+                    <button class="btn-icon" onclick="copyToClipboard('canonicalName')" title="Copy to clipboard">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+
+                <div id="aliasSection" class="result-section" style="display: none;">
+                    <label>CAD-Friendly Alias:</label>
+                    <div class="alias-display" id="aliasName">-</div>
+                    <button class="btn-icon" onclick="copyToClipboard('aliasName')" title="Copy to clipboard">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <small class="mc-help-text" id="aliasNotes"></small>
+                </div>
+
+                <div class="result-section">
+                    <label>Expected Entity Types:</label>
+                    <div id="expectedEntities" class="entity-tags"></div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" onclick="resetForm()">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                    <button class="btn btn-success" onclick="addToExportList()">
+                        <i class="fas fa-plus"></i> Add to Export List
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mc-card">
+    <div class="mc-card-header">
+        <h2><i class="fas fa-list"></i> Export Layer List</h2>
+        <button class="btn btn-primary" onclick="exportLayers()" id="exportBtn" disabled>
+            <i class="fas fa-download"></i> Export to CSV
+        </button>
+    </div>
+    <div class="mc-card-content">
+        <div id="exportList" class="export-list">
+            <p class="text-dim">No layers added yet. Generate layers and add them to your export list.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.mc-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.mc-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.mc-select:enabled:hover {
+    border-color: var(--accent-cyan);
+}
+
+.mc-select:enabled:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.1);
+}
+
+.required {
+    color: var(--accent-red);
+}
+
+.mc-help-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+.layer-preview {
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-placeholder {
+    text-align: center;
+    color: var(--text-dim);
+}
+
+.result-section {
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.result-section label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+}
+
+.layer-name-display {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(0, 128, 255, 0.1));
+    padding: 1rem;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--accent-cyan);
+    letter-spacing: 1px;
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    margin-bottom: 0.5rem;
+}
+
+.alias-display {
+    background: rgba(0, 200, 100, 0.1);
+    padding: 0.75rem;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    color: var(--accent-green);
+    border: 1px solid rgba(0, 200, 100, 0.3);
+    margin-bottom: 0.5rem;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: color 0.2s;
+    margin-left: 0.5rem;
+}
+
+.btn-icon:hover {
+    color: var(--accent-cyan);
+}
+
+.entity-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.entity-tag {
+    background: rgba(0, 255, 255, 0.1);
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--accent-cyan);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.action-buttons button {
+    flex: 1;
+}
+
+.export-list {
+    min-height: 100px;
+}
+
+.export-item {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border-color);
+}
+
+.export-item-layer {
+    font-family: 'Courier New', monospace;
+    color: var(--accent-cyan);
+    font-weight: bold;
+}
+
+.export-item-alias {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-left: 1rem;
+}
+</style>
+
+<script>
+let vocabularies = {
+    disciplines: [],
+    categories: [],
+    objects: [],
+    phases: [],
+    geometries: []
+};
+
+let selectedComponents = {
+    discipline: null,
+    category: null,
+    object: null,
+    phase: null,
+    geometry: null
+};
+
+let exportLayerList = [];
+
+async function loadVocabularies() {
+    try {
+        const [disciplines, phases, geometries] = await Promise.all([
+            fetch('/api/cad-standards/disciplines').then(r => r.json()),
+            fetch('/api/cad-standards/phases').then(r => r.json()),
+            fetch('/api/cad-standards/geometries').then(r => r.json())
+        ]);
+
+        vocabularies.disciplines = disciplines;
+        vocabularies.phases = phases;
+        vocabularies.geometries = geometries;
+
+        populateSelect('disciplineSelect', disciplines, 'discipline_code', 'discipline_name');
+        populateSelect('phaseSelect', phases, 'phase_code', 'phase_name');
+        populateSelect('geometrySelect', geometries, 'geom_code', 'geom_name');
+
+        document.getElementById('disciplineSelect').disabled = false;
+    } catch (error) {
+        console.error('Error loading vocabularies:', error);
+        showToast('Error loading vocabularies', 'error');
+    }
+}
+
+function populateSelect(selectId, data, valueField, textField) {
+    const select = document.getElementById(selectId);
+    const placeholder = select.querySelector('option[value=""]');
+    select.innerHTML = '';
+    select.appendChild(placeholder);
+
+    data.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item[valueField];
+        option.textContent = `${item[textField]} (${item[valueField]})`;
+        option.dataset.description = item.description || '';
+        select.appendChild(option);
+    });
+}
+
+document.getElementById('disciplineSelect').addEventListener('change', async function() {
+    const discipline = this.value;
+    selectedComponents.discipline = discipline;
+
+    document.getElementById('categorySelect').disabled = true;
+    document.getElementById('objectSelect').disabled = true;
+
+    if (!discipline) {
+        resetCascade('category');
+        return;
+    }
+
+    try {
+        const categories = await fetch(`/api/cad-standards/categories?discipline=${discipline}`).then(r => r.json());
+        vocabularies.categories = categories;
+        populateSelect('categorySelect', categories, 'category_code', 'category_name');
+        document.getElementById('categorySelect').disabled = false;
+        resetCascade('object');
+    } catch (error) {
+        console.error('Error loading categories:', error);
+    }
+});
+
+document.getElementById('categorySelect').addEventListener('change', async function() {
+    const category = this.value;
+    selectedComponents.category = category;
+
+    document.getElementById('objectSelect').disabled = true;
+
+    if (!category) {
+        resetCascade('object');
+        return;
+    }
+
+    try {
+        const objects = await fetch(`/api/cad-standards/objects?category=${category}`).then(r => r.json());
+        vocabularies.objects = objects;
+        populateSelect('objectSelect', objects, 'object_code', 'object_name');
+        document.getElementById('objectSelect').disabled = false;
+    } catch (error) {
+        console.error('Error loading objects:', error);
+    }
+});
+
+document.getElementById('objectSelect').addEventListener('change', function() {
+    selectedComponents.object = this.value;
+    checkGenerateReady();
+});
+
+document.getElementById('phaseSelect').addEventListener('change', function() {
+    selectedComponents.phase = this.value;
+    checkGenerateReady();
+});
+
+document.getElementById('geometrySelect').addEventListener('change', function() {
+    selectedComponents.geometry = this.value;
+    checkGenerateReady();
+});
+
+function resetCascade(from) {
+    const cascadeOrder = ['category', 'object'];
+    const startIndex = cascadeOrder.indexOf(from);
+
+    for (let i = startIndex; i < cascadeOrder.length; i++) {
+        const field = cascadeOrder[i];
+        document.getElementById(`${field}Select`).value = '';
+        document.getElementById(`${field}Select`).disabled = true;
+        selectedComponents[field] = null;
+    }
+
+    checkGenerateReady();
+}
+
+function checkGenerateReady() {
+    const allSelected = Object.values(selectedComponents).every(v => v);
+    document.getElementById('generateBtn').disabled = !allSelected;
+}
+
+document.getElementById('generateBtn').addEventListener('click', async function() {
+    try {
+        const response = await fetch('/api/cad-standards/generate-layer-name', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(selectedComponents)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            showToast(data.error || 'Error generating layer name', 'error');
+            return;
+        }
+
+        displayLayerResult(data);
+    } catch (error) {
+        console.error('Error generating layer:', error);
+        showToast('Error generating layer name', 'error');
+    }
+});
+
+function displayLayerResult(data) {
+    document.querySelector('.preview-placeholder').style.display = 'none';
+    document.getElementById('layerResult').style.display = 'block';
+
+    document.getElementById('canonicalName').textContent = data.canonical_name;
+
+    if (data.alias) {
+        document.getElementById('aliasSection').style.display = 'block';
+        document.getElementById('aliasName').textContent = data.alias;
+        document.getElementById('aliasNotes').textContent = data.alias_notes || '';
+    } else {
+        document.getElementById('aliasSection').style.display = 'none';
+    }
+
+    const geomData = vocabularies.geometries.find(g => g.geom_code === selectedComponents.geometry);
+    const entityTypesDiv = document.getElementById('expectedEntities');
+    entityTypesDiv.innerHTML = '';
+    
+    if (geomData && geomData.expected_entity_types) {
+        geomData.expected_entity_types.forEach(type => {
+            const tag = document.createElement('span');
+            tag.className = 'entity-tag';
+            tag.textContent = type;
+            entityTypesDiv.appendChild(tag);
+        });
+    }
+}
+
+function resetForm() {
+    document.querySelectorAll('.mc-select').forEach(select => {
+        select.value = '';
+    });
+
+    selectedComponents = {
+        discipline: null,
+        category: null,
+        object: null,
+        phase: null,
+        geometry: null
+    };
+
+    document.getElementById('categorySelect').disabled = true;
+    document.getElementById('objectSelect').disabled = true;
+    document.getElementById('generateBtn').disabled = true;
+
+    document.querySelector('.preview-placeholder').style.display = 'flex';
+    document.getElementById('layerResult').style.display = 'none';
+}
+
+function copyToClipboard(elementId) {
+    const text = document.getElementById(elementId).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied to clipboard!', 'success');
+    }).catch(() => {
+        showToast('Failed to copy', 'error');
+    });
+}
+
+function addToExportList() {
+    const canonicalName = document.getElementById('canonicalName').textContent;
+    const aliasName = document.getElementById('aliasName').textContent;
+
+    if (exportLayerList.find(l => l.canonical === canonicalName)) {
+        showToast('Layer already in export list', 'warning');
+        return;
+    }
+
+    exportLayerList.push({
+        canonical: canonicalName,
+        alias: aliasName !== '-' ? aliasName : null,
+        components: { ...selectedComponents }
+    });
+
+    updateExportList();
+    showToast('Added to export list', 'success');
+}
+
+function updateExportList() {
+    const listDiv = document.getElementById('exportList');
+    const exportBtn = document.getElementById('exportBtn');
+
+    if (exportLayerList.length === 0) {
+        listDiv.innerHTML = '<p class="text-dim">No layers added yet. Generate layers and add them to your export list.</p>';
+        exportBtn.disabled = true;
+        return;
+    }
+
+    exportBtn.disabled = false;
+    listDiv.innerHTML = exportLayerList.map((layer, index) => `
+        <div class="export-item">
+            <div>
+                <div class="export-item-layer">${layer.canonical}</div>
+                ${layer.alias ? `<span class="export-item-alias">Alias: ${layer.alias}</span>` : ''}
+            </div>
+            <button class="btn-icon" onclick="removeFromExport(${index})" title="Remove">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+function removeFromExport(index) {
+    exportLayerList.splice(index, 1);
+    updateExportList();
+}
+
+function exportLayers() {
+    const csv = ['Canonical Layer Name,Alias,Discipline,Category,Object,Phase,Geometry'];
+    exportLayerList.forEach(layer => {
+        const row = [
+            layer.canonical,
+            layer.alias || '',
+            layer.components.discipline,
+            layer.components.category,
+            layer.components.object,
+            layer.components.phase,
+            layer.components.geometry
+        ];
+        csv.push(row.join(','));
+    });
+
+    const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cad-layer-standards-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToast('Exported to CSV!', 'success');
+}
+
+function showToast(message, type) {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadVocabularies();
+});
+</script>
+{% endblock %}
