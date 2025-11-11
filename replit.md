@@ -38,6 +38,7 @@ Preferred communication style: Simple, everyday language.
 - **Mission Control Design System:** Centralized design system with reusable classes, variables, and a cyan/neon color palette. All templates extend `base.html` for consistency.
 - **Horizontal Navigation Architecture:** Sticky horizontal navbar in `base.html` with 10 dropdown menus and 41 navigation items, implementing hybrid hover/click dropdowns, ARIA accessibility, and a responsive mobile hamburger menu.
 - **Projects Navigation Restructure:** Unified projects functionality under `/projects` route with search, CRUD, and individual project overviews.
+- **Specialized Tools Registry:** Database-driven system linking CAD object types to interactive management tools via `layer_object_tools` table. Layer Generator UI dynamically displays tool badges for objects with specialized capabilities (e.g., Gravity Pipe Manager for GRAV objects). New tools are added via simple database inserts without code changes. Uses DOM APIs for XSS prevention and includes cascade-aware badge clearing.
 
 **Key Features & Design:**
 - **Standards Management:** Dedicated interfaces for Layer Vocabulary (`/standards/layer-vocabulary`) and Reference Data Hub (`/standards/reference-data`) for managing entities, clients, vendors, municipalities, coordinate systems, and survey point descriptions with full CRUD.
