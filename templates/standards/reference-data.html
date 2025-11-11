@@ -719,6 +719,216 @@
     </div>
 </div>
 
+<div id="disciplineModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="disciplineModalTitle">Add New Discipline</h3>
+            <button class="close-btn" onclick="closeDisciplineModal()">&times;</button>
+        </div>
+        <form id="disciplineForm" onsubmit="handleDisciplineSubmit(event)">
+            <input type="hidden" id="disciplineId">
+            <div class="form-group">
+                <label>Discipline Code <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="code" id="disciplineCode" required maxlength="10" 
+                       placeholder="e.g., CIV" style="text-transform: uppercase;">
+                <div class="help-text">Unique code (e.g., CIV, SUR, ARC)</div>
+            </div>
+            <div class="form-group">
+                <label>Discipline Name <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="name" id="disciplineName" required maxlength="100" 
+                       placeholder="e.g., Civil Engineering">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" id="disciplineDescription" rows="3" 
+                          placeholder="Description of this discipline..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Display Order</label>
+                <input type="number" name="display_order" id="disciplineDisplayOrder" value="0" min="0">
+                <div class="help-text">Lower numbers appear first in dropdowns</div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_active" id="disciplineIsActive" checked> Active
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeDisciplineModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="categoryModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="categoryModalTitle">Add New Category</h3>
+            <button class="close-btn" onclick="closeCategoryModal()">&times;</button>
+        </div>
+        <form id="categoryForm" onsubmit="handleCategorySubmit(event)">
+            <input type="hidden" id="categoryId">
+            <div class="form-group">
+                <label>Category Code <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="code" id="categoryCode" required maxlength="10" 
+                       placeholder="e.g., PIPE" style="text-transform: uppercase;">
+                <div class="help-text">Unique code (e.g., PIPE, ROAD, BLDG)</div>
+            </div>
+            <div class="form-group">
+                <label>Category Name <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="name" id="categoryName" required maxlength="100" 
+                       placeholder="e.g., Piping Systems">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" id="categoryDescription" rows="3" 
+                          placeholder="Description of this category..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Display Order</label>
+                <input type="number" name="display_order" id="categoryDisplayOrder" value="0" min="0">
+                <div class="help-text">Lower numbers appear first in dropdowns</div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_active" id="categoryIsActive" checked> Active
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeCategoryModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="objectModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="objectModalTitle">Add New Object</h3>
+            <button class="close-btn" onclick="closeObjectModal()">&times;</button>
+        </div>
+        <form id="objectForm" onsubmit="handleObjectSubmit(event)">
+            <input type="hidden" id="objectId">
+            <div class="form-group">
+                <label>Object Code <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="code" id="objectCode" required maxlength="10" 
+                       placeholder="e.g., STORM" style="text-transform: uppercase;">
+                <div class="help-text">Unique code (e.g., STORM, SEWER, WATER)</div>
+            </div>
+            <div class="form-group">
+                <label>Object Name <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="name" id="objectName" required maxlength="100" 
+                       placeholder="e.g., Storm Drain">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" id="objectDescription" rows="3" 
+                          placeholder="Description of this object type..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Display Order</label>
+                <input type="number" name="display_order" id="objectDisplayOrder" value="0" min="0">
+                <div class="help-text">Lower numbers appear first in dropdowns</div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_active" id="objectIsActive" checked> Active
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeObjectModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="phaseModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="phaseModalTitle">Add New Phase</h3>
+            <button class="close-btn" onclick="closePhaseModal()">&times;</button>
+        </div>
+        <form id="phaseForm" onsubmit="handlePhaseSubmit(event)">
+            <input type="hidden" id="phaseId">
+            <div class="form-group">
+                <label>Phase Code <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="code" id="phaseCode" required maxlength="10" 
+                       placeholder="e.g., PROP" style="text-transform: uppercase;">
+                <div class="help-text">Unique code (e.g., EXST, PROP, DEMO)</div>
+            </div>
+            <div class="form-group">
+                <label>Phase Name <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="name" id="phaseName" required maxlength="100" 
+                       placeholder="e.g., Proposed">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" id="phaseDescription" rows="3" 
+                          placeholder="Description of this construction phase..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Display Order</label>
+                <input type="number" name="display_order" id="phaseDisplayOrder" value="0" min="0">
+                <div class="help-text">Lower numbers appear first in dropdowns</div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_active" id="phaseIsActive" checked> Active
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closePhaseModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="geometryModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="geometryModalTitle">Add New Geometry</h3>
+            <button class="close-btn" onclick="closeGeometryModal()">&times;</button>
+        </div>
+        <form id="geometryForm" onsubmit="handleGeometrySubmit(event)">
+            <input type="hidden" id="geometryId">
+            <div class="form-group">
+                <label>Geometry Code <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="code" id="geometryCode" required maxlength="10" 
+                       placeholder="e.g., AXIS" style="text-transform: uppercase;">
+                <div class="help-text">Unique code (e.g., AXIS, ANNO, AREA)</div>
+            </div>
+            <div class="form-group">
+                <label>Geometry Name <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="name" id="geometryName" required maxlength="100" 
+                       placeholder="e.g., Centerline/Axis">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" id="geometryDescription" rows="3" 
+                          placeholder="Description of this geometry type..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Display Order</label>
+                <input type="number" name="display_order" id="geometryDisplayOrder" value="0" min="0">
+                <div class="help-text">Lower numbers appear first in dropdowns</div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_active" id="geometryIsActive" checked> Active
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeGeometryModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="confirmModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -2292,49 +2502,613 @@
     }
     
     function openAddDisciplineModal() {
-        showToast('Discipline CRUD coming soon!', 'info');
+        currentEdit = { id: null, data: null, type: 'discipline' };
+        document.getElementById('disciplineModalTitle').textContent = 'Add New Discipline';
+        document.getElementById('disciplineForm').reset();
+        document.getElementById('disciplineId').value = '';
+        document.getElementById('disciplineIsActive').checked = true;
+        document.getElementById('disciplineModal').classList.add('active');
     }
-    function openAddCategoryModal() {
-        showToast('Category CRUD coming soon!', 'info');
+    
+    function openEditDisciplineModal(id, data) {
+        currentEdit = { id, data, type: 'discipline' };
+        document.getElementById('disciplineModalTitle').textContent = 'Edit Discipline';
+        document.getElementById('disciplineId').value = id;
+        document.getElementById('disciplineCode').value = data.discipline_code || '';
+        document.getElementById('disciplineName').value = data.discipline_name || '';
+        document.getElementById('disciplineDescription').value = data.description || '';
+        document.getElementById('disciplineDisplayOrder').value = data.display_order || 0;
+        document.getElementById('disciplineIsActive').checked = data.is_active !== false;
+        document.getElementById('disciplineModal').classList.add('active');
     }
-    function openAddObjectModal() {
-        showToast('Object CRUD coming soon!', 'info');
+    
+    function closeDisciplineModal() {
+        document.getElementById('disciplineModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
     }
-    function openAddPhaseModal() {
-        showToast('Phase CRUD coming soon!', 'info');
+    
+    async function handleDisciplineSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const data = {
+            code: form.code.value.trim().toUpperCase(),
+            name: form.name.value.trim(),
+            description: form.description.value.trim(),
+            display_order: parseInt(form.display_order.value) || 0,
+            is_active: form.is_active.checked
+        };
+        
+        const id = document.getElementById('disciplineId').value;
+        if (id) {
+            await updateDiscipline(id, data);
+        } else {
+            await createDiscipline(data);
+        }
     }
-    function openAddGeometryModal() {
-        showToast('Geometry CRUD coming soon!', 'info');
+    
+    async function createDiscipline(data) {
+        try {
+            const response = await fetch('/api/cad-standards/disciplines', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Discipline created successfully', 'success');
+                closeDisciplineModal();
+                await loadDisciplines();
+            } else {
+                showToast(result.error || 'Failed to create discipline', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create discipline', 'error');
+        }
     }
+    
+    async function updateDiscipline(id, data) {
+        try {
+            const response = await fetch(`/api/cad-standards/disciplines/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Discipline updated successfully', 'success');
+                closeDisciplineModal();
+                await loadDisciplines();
+            } else {
+                showToast(result.error || 'Failed to update discipline', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to update discipline', 'error');
+        }
+    }
+    
     function editDiscipline(id) {
-        showToast('Edit coming soon!', 'info');
+        const discipline = disciplines.find(d => d.discipline_id === id);
+        if (discipline) {
+            openEditDisciplineModal(id, discipline);
+        }
     }
-    function deleteDiscipline(id) {
-        showToast('Delete coming soon!', 'info');
+    
+    async function deleteDiscipline(id) {
+        const discipline = disciplines.find(d => d.discipline_id === id);
+        if (!discipline) return;
+        
+        if (!confirm(`Delete discipline "${discipline.discipline_code} - ${discipline.discipline_name}"?\n\nThis cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/cad-standards/disciplines/${id}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Discipline deleted successfully', 'success');
+                await loadDisciplines();
+            } else {
+                showToast(result.error || 'Failed to delete discipline', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to delete discipline', 'error');
+        }
     }
+    
+    function openAddCategoryModal() {
+        currentEdit = { id: null, data: null, type: 'category' };
+        document.getElementById('categoryModalTitle').textContent = 'Add New Category';
+        document.getElementById('categoryForm').reset();
+        document.getElementById('categoryId').value = '';
+        document.getElementById('categoryIsActive').checked = true;
+        document.getElementById('categoryModal').classList.add('active');
+    }
+    
+    function openEditCategoryModal(id, data) {
+        currentEdit = { id, data, type: 'category' };
+        document.getElementById('categoryModalTitle').textContent = 'Edit Category';
+        document.getElementById('categoryId').value = id;
+        document.getElementById('categoryCode').value = data.category_code || '';
+        document.getElementById('categoryName').value = data.category_name || '';
+        document.getElementById('categoryDescription').value = data.description || '';
+        document.getElementById('categoryDisplayOrder').value = data.display_order || 0;
+        document.getElementById('categoryIsActive').checked = data.is_active !== false;
+        document.getElementById('categoryModal').classList.add('active');
+    }
+    
+    function closeCategoryModal() {
+        document.getElementById('categoryModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    async function handleCategorySubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const data = {
+            code: form.code.value.trim().toUpperCase(),
+            name: form.name.value.trim(),
+            description: form.description.value.trim(),
+            display_order: parseInt(form.display_order.value) || 0,
+            is_active: form.is_active.checked
+        };
+        
+        const id = document.getElementById('categoryId').value;
+        if (id) {
+            await updateCategory(id, data);
+        } else {
+            await createCategory(data);
+        }
+    }
+    
+    async function createCategory(data) {
+        try {
+            const response = await fetch('/api/cad-standards/categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Category created successfully', 'success');
+                closeCategoryModal();
+                await loadCategories();
+            } else {
+                showToast(result.error || 'Failed to create category', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create category', 'error');
+        }
+    }
+    
+    async function updateCategory(id, data) {
+        try {
+            const response = await fetch(`/api/cad-standards/categories/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Category updated successfully', 'success');
+                closeCategoryModal();
+                await loadCategories();
+            } else {
+                showToast(result.error || 'Failed to update category', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to update category', 'error');
+        }
+    }
+    
     function editCategory(id) {
-        showToast('Edit coming soon!', 'info');
+        const category = categories.find(c => c.category_id === id);
+        if (category) {
+            openEditCategoryModal(id, category);
+        }
     }
-    function deleteCategory(id) {
-        showToast('Delete coming soon!', 'info');
+    
+    async function deleteCategory(id) {
+        const category = categories.find(c => c.category_id === id);
+        if (!category) return;
+        
+        if (!confirm(`Delete category "${category.category_code} - ${category.category_name}"?\n\nThis cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/cad-standards/categories/${id}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Category deleted successfully', 'success');
+                await loadCategories();
+            } else {
+                showToast(result.error || 'Failed to delete category', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to delete category', 'error');
+        }
     }
+    
+    function openAddObjectModal() {
+        currentEdit = { id: null, data: null, type: 'object' };
+        document.getElementById('objectModalTitle').textContent = 'Add New Object';
+        document.getElementById('objectForm').reset();
+        document.getElementById('objectId').value = '';
+        document.getElementById('objectIsActive').checked = true;
+        document.getElementById('objectModal').classList.add('active');
+    }
+    
+    function openEditObjectModal(id, data) {
+        currentEdit = { id, data, type: 'object' };
+        document.getElementById('objectModalTitle').textContent = 'Edit Object';
+        document.getElementById('objectId').value = id;
+        document.getElementById('objectCode').value = data.object_code || '';
+        document.getElementById('objectName').value = data.object_name || '';
+        document.getElementById('objectDescription').value = data.description || '';
+        document.getElementById('objectDisplayOrder').value = data.display_order || 0;
+        document.getElementById('objectIsActive').checked = data.is_active !== false;
+        document.getElementById('objectModal').classList.add('active');
+    }
+    
+    function closeObjectModal() {
+        document.getElementById('objectModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    async function handleObjectSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const data = {
+            code: form.code.value.trim().toUpperCase(),
+            name: form.name.value.trim(),
+            description: form.description.value.trim(),
+            display_order: parseInt(form.display_order.value) || 0,
+            is_active: form.is_active.checked
+        };
+        
+        const id = document.getElementById('objectId').value;
+        if (id) {
+            await updateObject(id, data);
+        } else {
+            await createObject(data);
+        }
+    }
+    
+    async function createObject(data) {
+        try {
+            const response = await fetch('/api/cad-standards/objects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Object created successfully', 'success');
+                closeObjectModal();
+                await loadObjects();
+            } else {
+                showToast(result.error || 'Failed to create object', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create object', 'error');
+        }
+    }
+    
+    async function updateObject(id, data) {
+        try {
+            const response = await fetch(`/api/cad-standards/objects/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Object updated successfully', 'success');
+                closeObjectModal();
+                await loadObjects();
+            } else {
+                showToast(result.error || 'Failed to update object', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to update object', 'error');
+        }
+    }
+    
     function editObject(id) {
-        showToast('Edit coming soon!', 'info');
+        const object = objects.find(o => o.object_id === id);
+        if (object) {
+            openEditObjectModal(id, object);
+        }
     }
-    function deleteObject(id) {
-        showToast('Delete coming soon!', 'info');
+    
+    async function deleteObject(id) {
+        const object = objects.find(o => o.object_id === id);
+        if (!object) return;
+        
+        if (!confirm(`Delete object "${object.object_code} - ${object.object_name}"?\n\nThis cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/cad-standards/objects/${id}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Object deleted successfully', 'success');
+                await loadObjects();
+            } else {
+                showToast(result.error || 'Failed to delete object', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to delete object', 'error');
+        }
     }
+    
+    function openAddPhaseModal() {
+        currentEdit = { id: null, data: null, type: 'phase' };
+        document.getElementById('phaseModalTitle').textContent = 'Add New Phase';
+        document.getElementById('phaseForm').reset();
+        document.getElementById('phaseId').value = '';
+        document.getElementById('phaseIsActive').checked = true;
+        document.getElementById('phaseModal').classList.add('active');
+    }
+    
+    function openEditPhaseModal(id, data) {
+        currentEdit = { id, data, type: 'phase' };
+        document.getElementById('phaseModalTitle').textContent = 'Edit Phase';
+        document.getElementById('phaseId').value = id;
+        document.getElementById('phaseCode').value = data.phase_code || '';
+        document.getElementById('phaseName').value = data.phase_name || '';
+        document.getElementById('phaseDescription').value = data.description || '';
+        document.getElementById('phaseDisplayOrder').value = data.display_order || 0;
+        document.getElementById('phaseIsActive').checked = data.is_active !== false;
+        document.getElementById('phaseModal').classList.add('active');
+    }
+    
+    function closePhaseModal() {
+        document.getElementById('phaseModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    async function handlePhaseSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const data = {
+            code: form.code.value.trim().toUpperCase(),
+            name: form.name.value.trim(),
+            description: form.description.value.trim(),
+            display_order: parseInt(form.display_order.value) || 0,
+            is_active: form.is_active.checked
+        };
+        
+        const id = document.getElementById('phaseId').value;
+        if (id) {
+            await updatePhase(id, data);
+        } else {
+            await createPhase(data);
+        }
+    }
+    
+    async function createPhase(data) {
+        try {
+            const response = await fetch('/api/cad-standards/phases', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Phase created successfully', 'success');
+                closePhaseModal();
+                await loadPhases();
+            } else {
+                showToast(result.error || 'Failed to create phase', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create phase', 'error');
+        }
+    }
+    
+    async function updatePhase(id, data) {
+        try {
+            const response = await fetch(`/api/cad-standards/phases/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Phase updated successfully', 'success');
+                closePhaseModal();
+                await loadPhases();
+            } else {
+                showToast(result.error || 'Failed to update phase', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to update phase', 'error');
+        }
+    }
+    
     function editPhase(id) {
-        showToast('Edit coming soon!', 'info');
+        const phase = phases.find(p => p.phase_id === id);
+        if (phase) {
+            openEditPhaseModal(id, phase);
+        }
     }
-    function deletePhase(id) {
-        showToast('Delete coming soon!', 'info');
+    
+    async function deletePhase(id) {
+        const phase = phases.find(p => p.phase_id === id);
+        if (!phase) return;
+        
+        if (!confirm(`Delete phase "${phase.phase_code} - ${phase.phase_name}"?\n\nThis cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/cad-standards/phases/${id}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Phase deleted successfully', 'success');
+                await loadPhases();
+            } else {
+                showToast(result.error || 'Failed to delete phase', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to delete phase', 'error');
+        }
     }
+    
+    function openAddGeometryModal() {
+        currentEdit = { id: null, data: null, type: 'geometry' };
+        document.getElementById('geometryModalTitle').textContent = 'Add New Geometry';
+        document.getElementById('geometryForm').reset();
+        document.getElementById('geometryId').value = '';
+        document.getElementById('geometryIsActive').checked = true;
+        document.getElementById('geometryModal').classList.add('active');
+    }
+    
+    function openEditGeometryModal(id, data) {
+        currentEdit = { id, data, type: 'geometry' };
+        document.getElementById('geometryModalTitle').textContent = 'Edit Geometry';
+        document.getElementById('geometryId').value = id;
+        document.getElementById('geometryCode').value = data.geometry_code || '';
+        document.getElementById('geometryName').value = data.geometry_name || '';
+        document.getElementById('geometryDescription').value = data.description || '';
+        document.getElementById('geometryDisplayOrder').value = data.display_order || 0;
+        document.getElementById('geometryIsActive').checked = data.is_active !== false;
+        document.getElementById('geometryModal').classList.add('active');
+    }
+    
+    function closeGeometryModal() {
+        document.getElementById('geometryModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    async function handleGeometrySubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const data = {
+            code: form.code.value.trim().toUpperCase(),
+            name: form.name.value.trim(),
+            description: form.description.value.trim(),
+            display_order: parseInt(form.display_order.value) || 0,
+            is_active: form.is_active.checked
+        };
+        
+        const id = document.getElementById('geometryId').value;
+        if (id) {
+            await updateGeometry(id, data);
+        } else {
+            await createGeometry(data);
+        }
+    }
+    
+    async function createGeometry(data) {
+        try {
+            const response = await fetch('/api/cad-standards/geometries', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Geometry created successfully', 'success');
+                closeGeometryModal();
+                await loadGeometries();
+            } else {
+                showToast(result.error || 'Failed to create geometry', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create geometry', 'error');
+        }
+    }
+    
+    async function updateGeometry(id, data) {
+        try {
+            const response = await fetch(`/api/cad-standards/geometries/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Geometry updated successfully', 'success');
+                closeGeometryModal();
+                await loadGeometries();
+            } else {
+                showToast(result.error || 'Failed to update geometry', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to update geometry', 'error');
+        }
+    }
+    
     function editGeometry(id) {
-        showToast('Edit coming soon!', 'info');
+        const geometry = geometries.find(g => g.geometry_id === id);
+        if (geometry) {
+            openEditGeometryModal(id, geometry);
+        }
     }
-    function deleteGeometry(id) {
-        showToast('Delete coming soon!', 'info');
+    
+    async function deleteGeometry(id) {
+        const geometry = geometries.find(g => g.geometry_id === id);
+        if (!geometry) return;
+        
+        if (!confirm(`Delete geometry "${geometry.geometry_code} - ${geometry.geometry_name}"?\n\nThis cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/cad-standards/geometries/${id}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Geometry deleted successfully', 'success');
+                await loadGeometries();
+            } else {
+                showToast(result.error || 'Failed to delete geometry', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to delete geometry', 'error');
+        }
     }
     
     loadEntityRegistry();

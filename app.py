@@ -12479,7 +12479,7 @@ def get_layer_disciplines():
     """Get all active layer disciplines"""
     try:
         query = """
-            SELECT discipline_id, discipline_code, discipline_name, description, display_order
+            SELECT discipline_id, discipline_code, discipline_name, description, display_order, is_active
             FROM layer_disciplines
             WHERE is_active = TRUE
             ORDER BY display_order, discipline_name
@@ -12487,6 +12487,112 @@ def get_layer_disciplines():
         disciplines = execute_query(query)
         return jsonify(disciplines)
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/disciplines', methods=['POST'])
+def create_layer_discipline():
+    """Create a new discipline"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip().upper()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        display_order = data.get('display_order', 0)
+        is_active = data.get('is_active', True)
+        
+        if not code or not name:
+            return jsonify({'error': 'Code and name are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Check for duplicate code
+                cur.execute("SELECT 1 FROM layer_disciplines WHERE discipline_code = %s", (code,))
+                if cur.fetchone():
+                    return jsonify({'error': f'Discipline code "{code}" already exists'}), 409
+                
+                # Insert new discipline
+                cur.execute("""
+                    INSERT INTO layer_disciplines (discipline_code, discipline_name, description, display_order, is_active)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING discipline_id
+                """, (code, name, description, display_order, is_active))
+                
+                result = cur.fetchone()
+                conn.commit()
+                
+                return jsonify({
+                    'message': 'Discipline created successfully',
+                    'discipline_id': result[0]
+                }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/disciplines/<int:discipline_id>', methods=['PUT'])
+def update_layer_discipline(discipline_id):
+    """Update an existing discipline"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip().upper()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        display_order = data.get('display_order', 0)
+        is_active = data.get('is_active', True)
+        
+        if not code or not name:
+            return jsonify({'error': 'Code and name are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Check for duplicate code (excluding current record)
+                cur.execute("""
+                    SELECT 1 FROM layer_disciplines 
+                    WHERE discipline_code = %s AND discipline_id != %s
+                """, (code, discipline_id))
+                if cur.fetchone():
+                    return jsonify({'error': f'Discipline code "{code}" already exists'}), 409
+                
+                # Update discipline
+                cur.execute("""
+                    UPDATE layer_disciplines
+                    SET discipline_code = %s, discipline_name = %s, description = %s,
+                        display_order = %s, is_active = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE discipline_id = %s
+                    RETURNING discipline_id
+                """, (code, name, description, display_order, is_active, discipline_id))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Discipline not found'}), 404
+                
+                conn.commit()
+                return jsonify({'message': 'Discipline updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/disciplines/<int:discipline_id>', methods=['DELETE'])
+def delete_layer_discipline(discipline_id):
+    """Delete a discipline"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Check if discipline is in use (you can add more checks here for layer_name_config, etc.)
+                # For now, just delete it
+                cur.execute("""
+                    DELETE FROM layer_disciplines
+                    WHERE discipline_id = %s
+                    RETURNING discipline_id
+                """, (discipline_id,))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Discipline not found'}), 404
+                
+                conn.commit()
+                return jsonify({'message': 'Discipline deleted successfully'})
+    except Exception as e:
+        # Catch foreign key constraint violations
+        if 'foreign key' in str(e).lower() or 'violates' in str(e).lower():
+            return jsonify({'error': 'Cannot delete: discipline is in use'}), 409
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/cad-standards/categories')
@@ -12519,6 +12625,105 @@ def get_layer_categories():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/cad-standards/categories', methods=['POST'])
+def create_layer_category():
+    """Create a new category"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip().upper()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        display_order = data.get('display_order', 0)
+        is_active = data.get('is_active', True)
+        
+        if not code or not name:
+            return jsonify({'error': 'Code and name are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM layer_categories WHERE category_code = %s", (code,))
+                if cur.fetchone():
+                    return jsonify({'error': f'Category code "{code}" already exists'}), 409
+                
+                cur.execute("""
+                    INSERT INTO layer_categories (category_code, category_name, description, display_order, is_active)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING category_id
+                """, (code, name, description, display_order, is_active))
+                
+                result = cur.fetchone()
+                conn.commit()
+                
+                return jsonify({
+                    'message': 'Category created successfully',
+                    'category_id': result[0]
+                }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/categories/<int:category_id>', methods=['PUT'])
+def update_layer_category(category_id):
+    """Update an existing category"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip().upper()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        display_order = data.get('display_order', 0)
+        is_active = data.get('is_active', True)
+        
+        if not code or not name:
+            return jsonify({'error': 'Code and name are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT 1 FROM layer_categories 
+                    WHERE category_code = %s AND category_id != %s
+                """, (code, category_id))
+                if cur.fetchone():
+                    return jsonify({'error': f'Category code "{code}" already exists'}), 409
+                
+                cur.execute("""
+                    UPDATE layer_categories
+                    SET category_code = %s, category_name = %s, description = %s,
+                        display_order = %s, is_active = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE category_id = %s
+                    RETURNING category_id
+                """, (code, name, description, display_order, is_active, category_id))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Category not found'}), 404
+                
+                conn.commit()
+                return jsonify({'message': 'Category updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/categories/<int:category_id>', methods=['DELETE'])
+def delete_layer_category(category_id):
+    """Delete a category"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM layer_categories
+                    WHERE category_id = %s
+                    RETURNING category_id
+                """, (category_id,))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Category not found'}), 404
+                
+                conn.commit()
+                return jsonify({'message': 'Category deleted successfully'})
+    except Exception as e:
+        if 'foreign key' in str(e).lower() or 'violates' in str(e).lower():
+            return jsonify({'error': 'Cannot delete: category is in use'}), 409
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/cad-standards/objects')
 def get_layer_objects():
     """Get layer objects, optionally filtered by category"""
@@ -12549,12 +12754,111 @@ def get_layer_objects():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/cad-standards/objects', methods=['POST'])
+def create_layer_object():
+    """Create a new object"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip().upper()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        display_order = data.get('display_order', 0)
+        is_active = data.get('is_active', True)
+        
+        if not code or not name:
+            return jsonify({'error': 'Code and name are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM layer_objects WHERE object_code = %s", (code,))
+                if cur.fetchone():
+                    return jsonify({'error': f'Object code "{code}" already exists'}), 409
+                
+                cur.execute("""
+                    INSERT INTO layer_objects (object_code, object_name, description, display_order, is_active)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING object_id
+                """, (code, name, description, display_order, is_active))
+                
+                result = cur.fetchone()
+                conn.commit()
+                
+                return jsonify({
+                    'message': 'Object created successfully',
+                    'object_id': result[0]
+                }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/objects/<int:object_id>', methods=['PUT'])
+def update_layer_object(object_id):
+    """Update an existing object"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip().upper()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        display_order = data.get('display_order', 0)
+        is_active = data.get('is_active', True)
+        
+        if not code or not name:
+            return jsonify({'error': 'Code and name are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT 1 FROM layer_objects 
+                    WHERE object_code = %s AND object_id != %s
+                """, (code, object_id))
+                if cur.fetchone():
+                    return jsonify({'error': f'Object code "{code}" already exists'}), 409
+                
+                cur.execute("""
+                    UPDATE layer_objects
+                    SET object_code = %s, object_name = %s, description = %s,
+                        display_order = %s, is_active = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE object_id = %s
+                    RETURNING object_id
+                """, (code, name, description, display_order, is_active, object_id))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Object not found'}), 404
+                
+                conn.commit()
+                return jsonify({'message': 'Object updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/objects/<int:object_id>', methods=['DELETE'])
+def delete_layer_object(object_id):
+    """Delete an object"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM layer_objects
+                    WHERE object_id = %s
+                    RETURNING object_id
+                """, (object_id,))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Object not found'}), 404
+                
+                conn.commit()
+                return jsonify({'message': 'Object deleted successfully'})
+    except Exception as e:
+        if 'foreign key' in str(e).lower() or 'violates' in str(e).lower():
+            return jsonify({'error': 'Cannot delete: object is in use'}), 409
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/cad-standards/phases')
 def get_layer_phases():
     """Get all active layer phases"""
     try:
         query = """
-            SELECT phase_id, phase_code, phase_name, description, display_order
+            SELECT phase_id, phase_code, phase_name, description, display_order, is_active
             FROM layer_phases
             WHERE is_active = TRUE
             ORDER BY display_order, phase_name
@@ -12564,13 +12868,112 @@ def get_layer_phases():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/cad-standards/phases', methods=['POST'])
+def create_layer_phase():
+    """Create a new phase"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip().upper()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        display_order = data.get('display_order', 0)
+        is_active = data.get('is_active', True)
+        
+        if not code or not name:
+            return jsonify({'error': 'Code and name are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM layer_phases WHERE phase_code = %s", (code,))
+                if cur.fetchone():
+                    return jsonify({'error': f'Phase code "{code}" already exists'}), 409
+                
+                cur.execute("""
+                    INSERT INTO layer_phases (phase_code, phase_name, description, display_order, is_active)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING phase_id
+                """, (code, name, description, display_order, is_active))
+                
+                result = cur.fetchone()
+                conn.commit()
+                
+                return jsonify({
+                    'message': 'Phase created successfully',
+                    'phase_id': result[0]
+                }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/phases/<int:phase_id>', methods=['PUT'])
+def update_layer_phase(phase_id):
+    """Update an existing phase"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip().upper()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        display_order = data.get('display_order', 0)
+        is_active = data.get('is_active', True)
+        
+        if not code or not name:
+            return jsonify({'error': 'Code and name are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT 1 FROM layer_phases 
+                    WHERE phase_code = %s AND phase_id != %s
+                """, (code, phase_id))
+                if cur.fetchone():
+                    return jsonify({'error': f'Phase code "{code}" already exists'}), 409
+                
+                cur.execute("""
+                    UPDATE layer_phases
+                    SET phase_code = %s, phase_name = %s, description = %s,
+                        display_order = %s, is_active = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE phase_id = %s
+                    RETURNING phase_id
+                """, (code, name, description, display_order, is_active, phase_id))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Phase not found'}), 404
+                
+                conn.commit()
+                return jsonify({'message': 'Phase updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/phases/<int:phase_id>', methods=['DELETE'])
+def delete_layer_phase(phase_id):
+    """Delete a phase"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM layer_phases
+                    WHERE phase_id = %s
+                    RETURNING phase_id
+                """, (phase_id,))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Phase not found'}), 404
+                
+                conn.commit()
+                return jsonify({'message': 'Phase deleted successfully'})
+    except Exception as e:
+        if 'foreign key' in str(e).lower() or 'violates' in str(e).lower():
+            return jsonify({'error': 'Cannot delete: phase is in use'}), 409
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/cad-standards/geometries')
 def get_layer_geometries():
     """Get all active layer geometry types"""
     try:
         query = """
-            SELECT geometry_id, geom_code, geom_name, description, 
-                   expected_entity_types, display_order
+            SELECT geometry_id, geom_code AS geometry_code, geom_name AS geometry_name, 
+                   description, expected_entity_types, display_order, is_active
             FROM layer_geometries
             WHERE is_active = TRUE
             ORDER BY display_order, geom_name
@@ -12578,6 +12981,105 @@ def get_layer_geometries():
         geometries = execute_query(query)
         return jsonify(geometries)
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/geometries', methods=['POST'])
+def create_layer_geometry():
+    """Create a new geometry"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip().upper()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        display_order = data.get('display_order', 0)
+        is_active = data.get('is_active', True)
+        
+        if not code or not name:
+            return jsonify({'error': 'Code and name are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM layer_geometries WHERE geom_code = %s", (code,))
+                if cur.fetchone():
+                    return jsonify({'error': f'Geometry code "{code}" already exists'}), 409
+                
+                cur.execute("""
+                    INSERT INTO layer_geometries (geom_code, geom_name, description, display_order, is_active)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING geometry_id
+                """, (code, name, description, display_order, is_active))
+                
+                result = cur.fetchone()
+                conn.commit()
+                
+                return jsonify({
+                    'message': 'Geometry created successfully',
+                    'geometry_id': result[0]
+                }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/geometries/<int:geometry_id>', methods=['PUT'])
+def update_layer_geometry(geometry_id):
+    """Update an existing geometry"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip().upper()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        display_order = data.get('display_order', 0)
+        is_active = data.get('is_active', True)
+        
+        if not code or not name:
+            return jsonify({'error': 'Code and name are required'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT 1 FROM layer_geometries 
+                    WHERE geom_code = %s AND geometry_id != %s
+                """, (code, geometry_id))
+                if cur.fetchone():
+                    return jsonify({'error': f'Geometry code "{code}" already exists'}), 409
+                
+                cur.execute("""
+                    UPDATE layer_geometries
+                    SET geom_code = %s, geom_name = %s, description = %s,
+                        display_order = %s, is_active = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE geometry_id = %s
+                    RETURNING geometry_id
+                """, (code, name, description, display_order, is_active, geometry_id))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Geometry not found'}), 404
+                
+                conn.commit()
+                return jsonify({'message': 'Geometry updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/geometries/<int:geometry_id>', methods=['DELETE'])
+def delete_layer_geometry(geometry_id):
+    """Delete a geometry"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM layer_geometries
+                    WHERE geometry_id = %s
+                    RETURNING geometry_id
+                """, (geometry_id,))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Geometry not found'}), 404
+                
+                conn.commit()
+                return jsonify({'message': 'Geometry deleted successfully'})
+    except Exception as e:
+        if 'foreign key' in str(e).lower() or 'violates' in str(e).lower():
+            return jsonify({'error': 'Cannot delete: geometry is in use'}), 409
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/cad-standards/generate-layer-name', methods=['POST'])
