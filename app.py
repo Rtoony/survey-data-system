@@ -13159,6 +13159,52 @@ def delete_layer_object(object_id):
             return jsonify({'error': 'Cannot delete: object is in use'}), 409
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/cad-standards/object-tools')
+def get_layer_object_tools():
+    """Get specialized tools available for layer objects"""
+    try:
+        object_code = request.args.get('object_code')
+        
+        if object_code:
+            query = """
+                SELECT 
+                    lot.id,
+                    lot.object_code,
+                    lot.tool_name,
+                    lot.tool_url,
+                    lot.tool_icon,
+                    lot.description,
+                    lot.display_order,
+                    lo.object_name
+                FROM layer_object_tools lot
+                LEFT JOIN layer_objects lo ON lot.object_code = lo.object_code
+                WHERE lot.is_active = TRUE 
+                AND lot.object_code = %s
+                ORDER BY lot.display_order, lot.tool_name
+            """
+            tools = execute_query(query, (object_code.upper(),))
+        else:
+            query = """
+                SELECT 
+                    lot.id,
+                    lot.object_code,
+                    lot.tool_name,
+                    lot.tool_url,
+                    lot.tool_icon,
+                    lot.description,
+                    lot.display_order,
+                    lo.object_name
+                FROM layer_object_tools lot
+                LEFT JOIN layer_objects lo ON lot.object_code = lo.object_code
+                WHERE lot.is_active = TRUE
+                ORDER BY lot.object_code, lot.display_order, lot.tool_name
+            """
+            tools = execute_query(query)
+        
+        return jsonify(tools)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/cad-standards/phases')
 def get_layer_phases():
     """Get all active layer phases"""
