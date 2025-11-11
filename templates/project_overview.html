@@ -953,12 +953,12 @@ const ENTITY_TYPE_CONFIG = {
     'coordinate-systems': {
         apiType: 'coordinate_systems',
         displayName: 'Coordinate System',
-        getDisplayText: (entity) => `${entity.coordinate_system_name} (EPSG:${entity.epsg_code || 'Unknown'})`,
+        getDisplayText: (entity) => `${entity.system_name} (EPSG:${entity.epsg_code || 'Unknown'})`,
         getSubtext: (entity) => `${entity.datum || ''} - ${entity.units || ''}`,
         renderCard: (entity) => `
             <div class="mc-ref-item">
                 <div class="mc-ref-item-header">
-                    <strong>${entity.coordinate_system_name}</strong>
+                    <strong>${entity.system_name}</strong>
                     ${entity.is_primary ? '<span class="badge badge-primary">PRIMARY</span>' : ''}
                 </div>
                 <div class="mc-ref-item-details">
