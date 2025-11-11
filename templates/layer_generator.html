@@ -450,7 +450,7 @@ function displayLayerResult(data) {
         document.getElementById('aliasSection').style.display = 'none';
     }
 
-    const geomData = vocabularies.geometries.find(g => g.geom_code === selectedComponents.geometry);
+    const geomData = vocabularies.geometries.find(g => g.geometry_code === selectedComponents.geometry);
     const entityTypesDiv = document.getElementById('expectedEntities');
     entityTypesDiv.innerHTML = '';
     
