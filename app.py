@@ -151,6 +151,11 @@ def batch_block_import_tool_redirect():
     """Legacy redirect - Batch Block Import Tool"""
     return redirect(url_for('batch_cad_import_tool'))
 
+@app.route('/tools/specialized-tools-directory')
+def specialized_tools_directory():
+    """Specialized Tools Directory - comprehensive list of interactive management tools"""
+    return render_template('tools/specialized_tools_directory.html')
+
 @app.route('/project-standards-assignment')
 def project_standards_assignment():
     """Project Standards Assignment page"""
@@ -13202,6 +13207,154 @@ def get_layer_object_tools():
             tools = execute_query(query)
         
         return jsonify(tools)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cad-standards/specialized-tools-directory')
+@cache.cached(timeout=300, query_string=True)
+def get_specialized_tools_directory():
+    """Get all specialized tools with curated layer examples for discovery/directory views"""
+    try:
+        tools_query = """
+            SELECT 
+                lot.id,
+                lot.object_code,
+                lot.tool_name,
+                lot.tool_url,
+                lot.tool_icon,
+                lot.description,
+                lot.display_order,
+                lo.object_name,
+                lo.valid_for_categories
+            FROM layer_object_tools lot
+            LEFT JOIN layer_objects lo ON lot.object_code = lo.object_code
+            WHERE lot.is_active = TRUE
+            ORDER BY lot.display_order, lot.tool_name
+        """
+        tools = execute_query(tools_query)
+        
+        phases_query = """
+            SELECT phase_code, phase_name 
+            FROM layer_phases 
+            WHERE is_active = TRUE 
+            ORDER BY display_order 
+            LIMIT 5
+        """
+        phases = execute_query(phases_query)
+        
+        geometries_query = """
+            SELECT geom_code as geometry_code, geom_name as geometry_name 
+            FROM layer_geometries 
+            WHERE is_active = TRUE 
+            ORDER BY display_order 
+            LIMIT 5
+        """
+        geometries = execute_query(geometries_query)
+        
+        categories_query = """
+            SELECT category_code, category_name, valid_for_disciplines
+            FROM layer_categories
+            WHERE is_active = TRUE
+            ORDER BY display_order
+        """
+        categories = execute_query(categories_query)
+        
+        disciplines_query = """
+            SELECT discipline_code, discipline_name
+            FROM layer_disciplines
+            WHERE is_active = TRUE
+            ORDER BY discipline_name
+        """
+        disciplines = execute_query(disciplines_query)
+        
+        default_phases = [p['phase_code'] for p in phases[:3]] if phases else ['EXST', 'PROP', 'DEMO']
+        default_geometries = [g['geometry_code'] for g in geometries[:3]] if geometries else ['LN', 'PT', 'PG']
+        
+        category_lookup = {c['category_code']: c for c in categories}
+        discipline_lookup = {d['discipline_code']: d for d in disciplines}
+        
+        result_tools = []
+        for tool in tools:
+            object_code = tool['object_code']
+            valid_categories = tool.get('valid_for_categories', []) or []
+            
+            layer_examples = []
+            examples_count = 0
+            max_examples = 3
+            
+            for category_code in valid_categories[:2]:
+                if examples_count >= max_examples:
+                    break
+                    
+                category = category_lookup.get(category_code)
+                if not category:
+                    continue
+                    
+                valid_disciplines = category.get('valid_for_disciplines', []) or []
+                
+                for discipline_code in valid_disciplines[:2]:
+                    if examples_count >= max_examples:
+                        break
+                    
+                    phase_code = default_phases[examples_count % len(default_phases)]
+                    geometry_code = default_geometries[examples_count % len(default_geometries)]
+                    
+                    layer_name = f"{discipline_code}-{category_code}-{object_code}-{phase_code}-{geometry_code}"
+                    
+                    discipline_name = discipline_lookup.get(discipline_code, {}).get('discipline_name', discipline_code)
+                    category_name = category.get('category_name', category_code)
+                    phase_obj = next((p for p in phases if p['phase_code'] == phase_code), None)
+                    geom_obj = next((g for g in geometries if g['geometry_code'] == geometry_code), None)
+                    
+                    phase_name = phase_obj['phase_name'] if phase_obj else phase_code
+                    geometry_name = geom_obj['geometry_name'] if geom_obj else geometry_code
+                    
+                    layer_examples.append({
+                        'layer': layer_name,
+                        'description': f"{phase_name} {tool['object_name']} - {discipline_name}/{category_name}",
+                        'discipline_code': discipline_code,
+                        'category_code': category_code,
+                        'object_code': object_code,
+                        'phase_code': phase_code,
+                        'geometry_code': geometry_code
+                    })
+                    
+                    examples_count += 1
+            
+            if not layer_examples:
+                discipline_code = 'CIV'
+                category_code = valid_categories[0] if valid_categories else 'MISC'
+                phase_code = default_phases[0]
+                geometry_code = default_geometries[0]
+                layer_name = f"{discipline_code}-{category_code}-{object_code}-{phase_code}-{geometry_code}"
+                
+                layer_examples.append({
+                    'layer': layer_name,
+                    'description': f"{tool['object_name']} layer example",
+                    'discipline_code': discipline_code,
+                    'category_code': category_code,
+                    'object_code': object_code,
+                    'phase_code': phase_code,
+                    'geometry_code': geometry_code
+                })
+            
+            result_tools.append({
+                'id': tool['id'],
+                'tool_name': tool['tool_name'],
+                'tool_url': tool['tool_url'],
+                'tool_icon': tool['tool_icon'],
+                'description': tool['description'],
+                'object_code': tool['object_code'],
+                'object_name': tool['object_name'],
+                'layer_examples': layer_examples
+            })
+        
+        return jsonify({
+            'tools': result_tools,
+            'phases': {p['phase_code']: p['phase_name'] for p in phases},
+            'geometries': {g['geometry_code']: g['geometry_name'] for g in geometries}
+        })
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

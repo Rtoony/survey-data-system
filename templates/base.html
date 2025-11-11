@@ -196,13 +196,18 @@
                 </div>
             </div>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/tools/batch-cad-import', '/tools/batch-block-import', '/map-viewer', '/map-viewer-v2', '/gravity-network-manager', '/pressure-network-manager', '/bmp-manager', '/sheet-notes', '/entity-viewer'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/tools/batch-cad-import', '/tools/batch-block-import', '/tools/specialized-tools-directory', '/map-viewer', '/map-viewer-v2', '/gravity-network-manager', '/pressure-network-manager', '/bmp-manager', '/sheet-notes', '/entity-viewer'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-drafting-compass"></i>
                     <span>Tools</span>
                     <i class="fas fa-chevron-down mc-dropdown-icon"></i>
                 </button>
                 <div class="mc-dropdown">
+                    <a href="/tools/specialized-tools-directory" class="mc-dropdown-item {% if request.path == '/tools/specialized-tools-directory' %}active{% endif %}">
+                        <i class="fas fa-tools"></i>
+                        Specialized Tools Directory
+                    </a>
+                    <div class="mc-dropdown-divider"></div>
                     <a href="/dxf-tools" class="mc-dropdown-item {% if request.path == '/dxf-tools' %}active{% endif %}">
                         <i class="fas fa-file-export"></i>
                         DXF Tools
