@@ -2489,7 +2489,7 @@
         container.innerHTML = '<div class="grid">' + geometries.map(g => `
             <div class="card-item">
                 <div class="card-header">
-                    <h3>${g.geom_code} - ${g.geom_name}</h3>
+                    <h3>${g.geometry_code} - ${g.geometry_name}</h3>
                     <div class="actions">
                         <button class="btn-icon" onclick="editGeometry(${g.geometry_id})" title="Edit"><i class="fas fa-edit"></i></button>
                         <button class="btn-icon danger" onclick="deleteGeometry(${g.geometry_id})" title="Delete"><i class="fas fa-trash"></i></button>
