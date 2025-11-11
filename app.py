@@ -6834,6 +6834,307 @@ def dxf_test_generator():
     """Render the DXF Test Generator page"""
     return render_template('tools/dxf_test_generator.html')
 
+@app.route('/api/tools/generate-test-dxf', methods=['POST'])
+def generate_test_dxf():
+    """Generate a test DXF file with sample geometries and network objects"""
+    try:
+        import ezdxf
+        import random
+        
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'error': 'Invalid JSON payload'}), 400
+            
+        geometries = data.get('geometries', [])
+        networks = data.get('networks', [])
+        bmps = data.get('bmps', [])
+        layer_mode = data.get('layerMode', 'canonical')
+        complexity = data.get('complexity', 'basic')
+        
+        # Determine feature count based on complexity
+        feature_counts = {
+            'minimal': 2,
+            'basic': 5,
+            'complex': 10
+        }
+        count = feature_counts.get(complexity, 5)
+        
+        # Santa Rosa, California coordinates in SRID 2226 (State Plane CA Zone 2, US Survey Feet)
+        # Approximate center of Santa Rosa downtown area
+        base_x = 6125000  # feet
+        base_y = 2135000  # feet
+        
+        # Create new DXF document (AutoCAD 2013)
+        doc = ezdxf.new('AC1027')
+        msp = doc.modelspace()
+        
+        # Helper function for random offset
+        def random_offset():
+            return random.uniform(-500, 500)
+        
+        # Generate basic geometries
+        if 'AXIS' in geometries:  # Lines/Centerlines
+            layer_name = 'CIV-ROAD-CNTR-EXST-AXIS' if layer_mode == 'canonical' else 'Centerlines'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 3})  # Green
+            for i in range(count):
+                x1 = base_x + random_offset()
+                y1 = base_y + random_offset()
+                x2 = x1 + random.uniform(50, 200)
+                y2 = y1 + random.uniform(-50, 50)
+                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': layer_name})
+        
+        if 'PT' in geometries:  # Points
+            layer_name = 'SURV-CTRL-MONUMENT-EXST-PT' if layer_mode == 'canonical' else 'Points'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 1})  # Red
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                msp.add_point((x, y), dxfattribs={'layer': layer_name})
+        
+        if 'AREA' in geometries:  # Areas/Polygons
+            layer_name = 'SITE-GRAD-PAD-EXST-AREA' if layer_mode == 'canonical' else 'Areas'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 5})  # Blue
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                size = random.uniform(30, 80)
+                points = [
+                    (x, y),
+                    (x + size, y),
+                    (x + size, y + size),
+                    (x, y + size),
+                    (x, y)
+                ]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+        
+        if 'TEXT' in geometries:  # Text Labels
+            layer_name = 'SITE-ANNO-LABL-EXST-TEXT' if layer_mode == 'canonical' else 'Labels'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 7})  # White
+            labels = ['TEST POINT', 'SAMPLE AREA', 'REFERENCE', 'BENCHMARK', 'CONTROL POINT']
+            for i in range(min(count, len(labels))):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                msp.add_text(labels[i], dxfattribs={
+                    'layer': layer_name,
+                    'height': 5.0,
+                    'insert': (x, y)
+                })
+        
+        if 'SYMB' in geometries:  # Blocks/Symbols
+            layer_name = 'SITE-UTIL-VALVE-EXST-SYMB' if layer_mode == 'canonical' else 'Symbols'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 6})  # Magenta
+            # Create a simple block (circle symbol)
+            if 'VALVE_SYMBOL' not in doc.blocks:
+                blk = doc.blocks.new(name='VALVE_SYMBOL')
+                blk.add_circle((0, 0), radius=3)
+                blk.add_line((-3, 0), (3, 0))
+                blk.add_line((0, -3), (0, 3))
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                msp.add_blockref('VALVE_SYMBOL', (x, y), dxfattribs={'layer': layer_name})
+        
+        if 'HATCH' in geometries:  # Hatches
+            layer_name = 'SITE-LAND-GRASS-EXST-HATCH' if layer_mode == 'canonical' else 'Hatches'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 92})  # Light green
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                size = random.uniform(25, 60)
+                hatch = msp.add_hatch(color=92, dxfattribs={'layer': layer_name})
+                hatch.paths.add_polyline_path([
+                    (x, y), (x + size, y), (x + size, y + size), (x, y + size)
+                ], is_closed=True)
+                hatch.set_pattern_fill('ANSI31', scale=0.5)
+        
+        # Generate network objects
+        if 'GRAV' in networks:  # Gravity Pipe System
+            pipe_layer = 'CIV-PIPE-GRAV-EXST-AXIS' if layer_mode == 'canonical' else 'Gravity_Pipes'
+            mh_layer = 'CIV-STRC-MH-EXST-SYMB' if layer_mode == 'canonical' else 'Manholes'
+            doc.layers.new(name=pipe_layer, dxfattribs={'color': 2})  # Yellow
+            doc.layers.new(name=mh_layer, dxfattribs={'color': 1})  # Red
+            
+            # Create simple manhole block
+            if 'MH_SYMBOL' not in doc.blocks:
+                blk = doc.blocks.new(name='MH_SYMBOL')
+                blk.add_circle((0, 0), radius=2.5)
+                blk.add_text('MH', dxfattribs={'height': 1.5, 'insert': (-1, -0.75)})
+            
+            # Generate pipe network
+            x_start = base_x - 100
+            y_start = base_y + 100
+            for i in range(count):
+                x1 = x_start + (i * 50)
+                y1 = y_start - (i * 30)
+                x2 = x1 + 50
+                y2 = y1 - 30
+                # Add pipe
+                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': pipe_layer})
+                # Add manholes
+                msp.add_blockref('MH_SYMBOL', (x1, y1), dxfattribs={'layer': mh_layer})
+                if i == count - 1:
+                    msp.add_blockref('MH_SYMBOL', (x2, y2), dxfattribs={'layer': mh_layer})
+        
+        if 'PRES' in networks:  # Pressure Pipe System
+            pipe_layer = 'CIV-PIPE-PRES-EXST-AXIS' if layer_mode == 'canonical' else 'Pressure_Pipes'
+            valve_layer = 'CIV-STRC-VALVE-EXST-SYMB' if layer_mode == 'canonical' else 'Valves'
+            doc.layers.new(name=pipe_layer, dxfattribs={'color': 4})  # Cyan
+            doc.layers.new(name=valve_layer, dxfattribs={'color': 6})  # Magenta
+            
+            # Create valve symbol
+            if 'VALVE_SYM' not in doc.blocks:
+                blk = doc.blocks.new(name='VALVE_SYM')
+                blk.add_circle((0, 0), radius=2)
+                blk.add_line((-2, 0), (2, 0))
+            
+            # Generate pressure network
+            x_start = base_x + 100
+            y_start = base_y - 100
+            for i in range(count):
+                x1 = x_start + (i * 40)
+                y1 = y_start + (i * 20)
+                x2 = x1 + 40
+                y2 = y1 + 20
+                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': pipe_layer})
+                msp.add_blockref('VALVE_SYM', (x1, y1), dxfattribs={'layer': valve_layer})
+        
+        if 'STORM' in networks:  # Storm Drain Network
+            pipe_layer = 'CIV-PIPE-STORM-EXST-AXIS' if layer_mode == 'canonical' else 'Storm_Pipes'
+            inlet_layer = 'CIV-STRC-INLET-EXST-SYMB' if layer_mode == 'canonical' else 'Inlets'
+            doc.layers.new(name=pipe_layer, dxfattribs={'color': 3})  # Green
+            doc.layers.new(name=inlet_layer, dxfattribs={'color': 5})  # Blue
+            
+            # Create inlet symbol
+            if 'INLET_SYM' not in doc.blocks:
+                blk = doc.blocks.new(name='INLET_SYM')
+                blk.add_lwpolyline([(0, 2), (1.5, 0), (0, -2), (-1.5, 0), (0, 2)])
+                blk.add_text('I', dxfattribs={'height': 1, 'insert': (-0.3, -0.5)})
+            
+            # Generate storm network
+            for i in range(count):
+                x1 = base_x + random_offset()
+                y1 = base_y + random_offset()
+                x2 = x1 + random.uniform(30, 70)
+                y2 = y1 - random.uniform(20, 40)
+                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': pipe_layer})
+                msp.add_blockref('INLET_SYM', (x1, y1), dxfattribs={'layer': inlet_layer})
+        
+        if 'WATER' in networks:  # Water Distribution
+            pipe_layer = 'CIV-PIPE-WATER-EXST-AXIS' if layer_mode == 'canonical' else 'Water_Pipes'
+            hydrant_layer = 'CIV-STRC-HYDRANT-EXST-SYMB' if layer_mode == 'canonical' else 'Hydrants'
+            doc.layers.new(name=pipe_layer, dxfattribs={'color': 4})  # Cyan
+            doc.layers.new(name=hydrant_layer, dxfattribs={'color': 1})  # Red
+            
+            # Create hydrant symbol
+            if 'HYDRANT_SYM' not in doc.blocks:
+                blk = doc.blocks.new(name='HYDRANT_SYM')
+                blk.add_circle((0, 0), radius=2.5)
+                blk.add_text('H', dxfattribs={'height': 1.5, 'insert': (-0.6, -0.75)})
+            
+            # Generate water network in grid pattern
+            grid_size = 60
+            for i in range(int(count / 2) + 1):
+                for j in range(2):
+                    x = base_x + (i * grid_size) - 150
+                    y = base_y + (j * grid_size) - 150
+                    if i < count / 2:
+                        msp.add_line((x, y), (x + grid_size, y), dxfattribs={'layer': pipe_layer})
+                    if j == 0:
+                        msp.add_line((x, y), (x, y + grid_size), dxfattribs={'layer': pipe_layer})
+                    if i % 2 == 0:
+                        msp.add_blockref('HYDRANT_SYM', (x, y), dxfattribs={'layer': hydrant_layer})
+        
+        # Generate BMP features
+        if 'BIOR' in bmps:  # Bioretention
+            layer_name = 'SITE-BMP-BIOR-EXST-AREA' if layer_mode == 'canonical' else 'Bioretention'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 82})  # Light green
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                size_x = random.uniform(20, 40)
+                size_y = random.uniform(15, 30)
+                points = [
+                    (x, y), (x + size_x, y), (x + size_x, y + size_y), (x, y + size_y), (x, y)
+                ]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+                msp.add_text('BIORETENTION', dxfattribs={
+                    'layer': layer_name, 'height': 3.0, 'insert': (x + 2, y + size_y/2)
+                })
+        
+        if 'SWAL' in bmps:  # Bioswale
+            layer_name = 'SITE-BMP-SWAL-EXST-AXIS' if layer_mode == 'canonical' else 'Bioswale'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 93})  # Light cyan
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                length = random.uniform(40, 80)
+                width = random.uniform(8, 15)
+                # Create swale outline
+                points = [
+                    (x, y), (x + length, y), (x + length, y + width), (x, y + width), (x, y)
+                ]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+                # Add centerline
+                msp.add_line((x, y + width/2), (x + length, y + width/2), 
+                           dxfattribs={'layer': layer_name, 'linetype': 'DASHED'})
+        
+        if 'POND' in bmps:  # Detention Pond
+            layer_name = 'SITE-BMP-POND-EXST-AREA' if layer_mode == 'canonical' else 'Detention_Pond'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 150})  # Blue
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                radius = random.uniform(25, 50)
+                # Create irregular pond shape using multiple points
+                angle_step = 360 / 12
+                points = []
+                for angle in range(0, 360, int(angle_step)):
+                    rad = radius + random.uniform(-5, 5)
+                    import math
+                    px = x + rad * math.cos(math.radians(angle))
+                    py = y + rad * math.sin(math.radians(angle))
+                    points.append((px, py))
+                points.append(points[0])
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+                msp.add_text('DETENTION POND', dxfattribs={
+                    'layer': layer_name, 'height': 4.0, 'insert': (x - 15, y)
+                })
+        
+        if 'INFIL' in bmps:  # Infiltration Basin
+            layer_name = 'SITE-BMP-INFIL-EXST-AREA' if layer_mode == 'canonical' else 'Infiltration'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 52})  # Dark green
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                size_x = random.uniform(30, 50)
+                size_y = random.uniform(20, 35)
+                points = [
+                    (x, y), (x + size_x, y), (x + size_x, y + size_y), (x, y + size_y), (x, y)
+                ]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+                # Add hatch pattern
+                hatch = msp.add_hatch(color=52, dxfattribs={'layer': layer_name})
+                hatch.paths.add_polyline_path(points, is_closed=True)
+                hatch.set_pattern_fill('EARTH', scale=0.3)
+        
+        # Save to temporary file
+        temp_path = f'/tmp/test-data-{datetime.now().strftime("%Y%m%d-%H%M%S")}.dxf'
+        doc.saveas(temp_path)
+        
+        # Return file for download
+        return send_file(
+            temp_path,
+            mimetype='application/dxf',
+            as_attachment=True,
+            download_name=f'test-data-{datetime.now().strftime("%Y%m%d")}.dxf'
+        )
+        
+    except Exception as e:
+        print(f"Error generating DXF: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/schema/relationships', methods=['GET'])
 def get_schema_relationships():
     """Get table relationships and metadata for visualization"""
