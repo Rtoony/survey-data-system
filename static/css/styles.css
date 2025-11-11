@@ -49,6 +49,7 @@
     --color-accent-red: #ef4444;
     
     /* Spacing */
+    --mc-spacing-xxs: 3px;
     --mc-spacing-xs: 5px;
     --mc-spacing-sm: 10px;
     --mc-spacing-md: 15px;
@@ -173,7 +174,7 @@ h3 {
 .header {
     background: linear-gradient(90deg, rgba(0, 255, 255, 0.3), rgba(0, 255, 136, 0.3));
     border-bottom: 2px solid rgba(0, 255, 255, 0.5);
-    padding: var(--spacing-sm) var(--spacing-lg);
+    padding: 6px 18px;
     backdrop-filter: blur(10px);
 }
 
@@ -192,18 +193,18 @@ h3 {
 }
 
 .header-title i {
-    font-size: 1.25rem;
+    font-size: 1rem;
 }
 
 .header-title h1 {
-    font-size: 1.25rem;
+    font-size: 1rem;
     font-weight: 700;
     margin: 0;
 }
 
 .header-subtitle {
     color: var(--mc-accent);
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     margin-top: 2px;
 }
 
@@ -223,8 +224,8 @@ h3 {
     align-items: center;
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0 var(--spacing-md);
-    gap: var(--spacing-xs);
+    padding: 0 var(--spacing-sm);
+    gap: var(--mc-spacing-xxs);
 }
 
 .mc-navbar-mobile-toggle {
@@ -233,9 +234,9 @@ h3 {
     border: 1px solid rgba(0, 255, 255, 0.3);
     border-radius: var(--mc-radius-md);
     color: var(--mc-text);
-    padding: var(--spacing-md);
+    padding: 10px;
     cursor: pointer;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     transition: var(--mc-transition);
     margin: var(--spacing-sm);
 }
@@ -249,12 +250,12 @@ h3 {
     position: relative;
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-lg);
+    gap: 6px;
+    padding: 6px 14px;
     color: var(--mc-text);
     text-decoration: none;
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     border-bottom: 3px solid transparent;
     transition: var(--mc-transition);
     white-space: nowrap;
@@ -272,7 +273,7 @@ h3 {
 }
 
 .mc-nav-item i {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
 }
 
 .mc-nav-link {
@@ -283,7 +284,7 @@ h3 {
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: 6px;
     padding: 0;
     width: 100%;
 }
@@ -324,10 +325,11 @@ h3 {
 .mc-dropdown-item {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md) var(--spacing-lg);
+    gap: 10px;
+    padding: 10px 14px;
     color: var(--mc-text);
     text-decoration: none;
+    font-size: 0.8rem;
     transition: var(--mc-transition);
     border-left: 3px solid transparent;
 }
@@ -346,7 +348,8 @@ h3 {
 }
 
 .mc-dropdown-item i {
-    min-width: 20px;
+    min-width: 16px;
+    font-size: 0.85rem;
     text-align: center;
 }
 

@@ -2,6 +2,10 @@
 
 {% block title %}BMP Manager{% endblock %}
 
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/specialized-tool-info.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="content">
     <div class="page-header">
@@ -13,6 +17,15 @@
             </div>
         </div>
     </div>
+
+    <!-- Specialized Tool Info Card - Database Driven -->
+    <div id="toolInfoCard" style="margin: 20px;"></div>
+    <script>
+        // Load tool info from database when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadToolInfoCard('BIOR', 'toolInfoCard');
+        });
+    </script>
 
     <div class="bmp-editor-container">
         <div class="editor-controls">
