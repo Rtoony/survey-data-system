@@ -33,7 +33,7 @@
                 <span>Home</span>
             </a>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-library', '/standards/layer-vocabulary', '/standards/reference-data', '/standards/reference', '/standards/layer-generator'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-library', '/standards/layer-vocabulary', '/standards/reference-data', '/standards/reference', '/standards/layer-generator', '/tools/dxf-test-generator'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-ruler-combined"></i>
                     <span>Standards</span>
@@ -51,6 +51,10 @@
                     <a href="/standards/layer-generator" class="mc-dropdown-item {% if request.path == '/standards/layer-generator' %}active{% endif %}">
                         <i class="fas fa-magic"></i>
                         Layer Generator
+                    </a>
+                    <a href="/tools/dxf-test-generator" class="mc-dropdown-item {% if request.path == '/tools/dxf-test-generator' %}active{% endif %}">
+                        <i class="fas fa-file-code"></i>
+                        DXF Test Generator
                     </a>
                     <a href="/standards/reference-data" class="mc-dropdown-item {% if request.path == '/standards/reference-data' %}active{% endif %}">
                         <i class="fas fa-database"></i>
