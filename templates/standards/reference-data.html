@@ -15,6 +15,11 @@
         <div class="tab" data-tab="coordinate-systems">Coordinate Systems</div>
         <div class="tab" data-tab="survey-points">Survey Point Descriptions</div>
         <div class="tab" data-tab="gis-layers">GIS Data Layers</div>
+        <div class="tab" data-tab="disciplines">Disciplines</div>
+        <div class="tab" data-tab="categories">Categories</div>
+        <div class="tab" data-tab="objects">Objects</div>
+        <div class="tab" data-tab="phases">Phases</div>
+        <div class="tab" data-tab="geometries">Geometries</div>
     </div>
     
     <div class="tab-content active" id="entity-registry">
@@ -119,6 +124,81 @@
                 Manage GIS data layers from external services with server links and configuration.
             </p>
             <div id="gisLayersContainer"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="disciplines">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-hard-hat"></i> Layer Disciplines</h2>
+                <button class="btn btn-add" onclick="openAddDisciplineModal()">
+                    <i class="fas fa-plus"></i> Add New Discipline
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage engineering disciplines for CAD layer naming (e.g., CIV, SUR, ARC).
+            </p>
+            <div id="disciplinesContainer"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="categories">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-th-large"></i> Layer Categories</h2>
+                <button class="btn btn-add" onclick="openAddCategoryModal()">
+                    <i class="fas fa-plus"></i> Add New Category
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage functional categories for CAD layers (e.g., PIPE, ROAD, BLDG).
+            </p>
+            <div id="categoriesContainer"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="objects">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-cube"></i> Layer Objects</h2>
+                <button class="btn btn-add" onclick="openAddObjectModal()">
+                    <i class="fas fa-plus"></i> Add New Object
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage specific object types for CAD layers (e.g., STORM, SEWER, WATER).
+            </p>
+            <div id="objectsContainer"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="phases">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-clock"></i> Layer Phases</h2>
+                <button class="btn btn-add" onclick="openAddPhaseModal()">
+                    <i class="fas fa-plus"></i> Add New Phase
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage construction lifecycle phases for CAD layers (e.g., EXST, PROP, DEMO).
+            </p>
+            <div id="phasesContainer"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="geometries">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-shapes"></i> Layer Geometries</h2>
+                <button class="btn btn-add" onclick="openAddGeometryModal()">
+                    <i class="fas fa-plus"></i> Add New Geometry
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage geometry types for CAD layers (e.g., AXIS, ANNO, AREA, SYMB).
+            </p>
+            <div id="geometriesContainer"></div>
         </div>
     </div>
 </div>
@@ -706,6 +786,21 @@
                     break;
                 case 'gis-layers':
                     if (gisLayers.length === 0) loadGISLayers();
+                    break;
+                case 'disciplines':
+                    if (disciplines.length === 0) loadDisciplines();
+                    break;
+                case 'categories':
+                    if (categories.length === 0) loadCategories();
+                    break;
+                case 'objects':
+                    if (objects.length === 0) loadObjects();
+                    break;
+                case 'phases':
+                    if (phases.length === 0) loadPhases();
+                    break;
+                case 'geometries':
+                    if (geometries.length === 0) loadGeometries();
                     break;
             }
         });
@@ -2029,6 +2124,218 @@
     document.getElementById('confirmModal').addEventListener('click', (e) => {
         if (e.target.id === 'confirmModal') closeConfirmModal();
     });
+    
+    let disciplines = [];
+    let categories = [];
+    let objects = [];
+    let phases = [];
+    let geometries = [];
+    
+    async function loadDisciplines() {
+        try {
+            const response = await fetch('/api/cad-standards/disciplines');
+            disciplines = await response.json();
+            renderDisciplines();
+        } catch (error) {
+            console.error('Error loading disciplines:', error);
+            showToast('Failed to load disciplines', 'error');
+        }
+    }
+    
+    function renderDisciplines() {
+        const container = document.getElementById('disciplinesContainer');
+        if (disciplines.length === 0) {
+            container.innerHTML = '<div class="placeholder-message"><i class="fas fa-hard-hat"></i><h3>No disciplines configured yet</h3><p>Click "Add New Discipline" to create your first discipline.</p></div>';
+            return;
+        }
+        container.innerHTML = '<div class="grid">' + disciplines.map(d => `
+            <div class="card-item">
+                <div class="card-header">
+                    <h3>${d.discipline_code} - ${d.discipline_name}</h3>
+                    <div class="actions">
+                        <button class="btn-icon" onclick="editDiscipline(${d.discipline_id})" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon danger" onclick="deleteDiscipline(${d.discipline_id})" title="Delete"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <p>${d.description || ''}</p>
+                <div><span class="mc-badge mc-badge-info">Order: ${d.display_order}</span></div>
+            </div>
+        `).join('') + '</div>';
+    }
+    
+    async function loadCategories() {
+        try {
+            const response = await fetch('/api/cad-standards/categories');
+            categories = await response.json();
+            renderCategories();
+        } catch (error) {
+            console.error('Error loading categories:', error);
+            showToast('Failed to load categories', 'error');
+        }
+    }
+    
+    function renderCategories() {
+        const container = document.getElementById('categoriesContainer');
+        if (categories.length === 0) {
+            container.innerHTML = '<div class="placeholder-message"><i class="fas fa-th-large"></i><h3>No categories configured yet</h3><p>Click "Add New Category" to create your first category.</p></div>';
+            return;
+        }
+        container.innerHTML = '<div class="grid">' + categories.map(c => `
+            <div class="card-item">
+                <div class="card-header">
+                    <h3>${c.category_code} - ${c.category_name}</h3>
+                    <div class="actions">
+                        <button class="btn-icon" onclick="editCategory(${c.category_id})" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon danger" onclick="deleteCategory(${c.category_id})" title="Delete"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <p>${c.description || ''}</p>
+                <div><span class="mc-badge mc-badge-info">Order: ${c.display_order}</span></div>
+            </div>
+        `).join('') + '</div>';
+    }
+    
+    async function loadObjects() {
+        try {
+            const response = await fetch('/api/cad-standards/objects');
+            objects = await response.json();
+            renderObjects();
+        } catch (error) {
+            console.error('Error loading objects:', error);
+            showToast('Failed to load objects', 'error');
+        }
+    }
+    
+    function renderObjects() {
+        const container = document.getElementById('objectsContainer');
+        if (objects.length === 0) {
+            container.innerHTML = '<div class="placeholder-message"><i class="fas fa-cube"></i><h3>No objects configured yet</h3><p>Click "Add New Object" to create your first object.</p></div>';
+            return;
+        }
+        container.innerHTML = '<div class="grid">' + objects.map(o => `
+            <div class="card-item">
+                <div class="card-header">
+                    <h3>${o.object_code} - ${o.object_name}</h3>
+                    <div class="actions">
+                        <button class="btn-icon" onclick="editObject(${o.object_id})" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon danger" onclick="deleteObject(${o.object_id})" title="Delete"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <p>${o.description || ''}</p>
+                <div><span class="mc-badge mc-badge-info">Order: ${o.display_order}</span></div>
+            </div>
+        `).join('') + '</div>';
+    }
+    
+    async function loadPhases() {
+        try {
+            const response = await fetch('/api/cad-standards/phases');
+            phases = await response.json();
+            renderPhases();
+        } catch (error) {
+            console.error('Error loading phases:', error);
+            showToast('Failed to load phases', 'error');
+        }
+    }
+    
+    function renderPhases() {
+        const container = document.getElementById('phasesContainer');
+        if (phases.length === 0) {
+            container.innerHTML = '<div class="placeholder-message"><i class="fas fa-clock"></i><h3>No phases configured yet</h3><p>Click "Add New Phase" to create your first phase.</p></div>';
+            return;
+        }
+        container.innerHTML = '<div class="grid">' + phases.map(p => `
+            <div class="card-item">
+                <div class="card-header">
+                    <h3>${p.phase_code} - ${p.phase_name}</h3>
+                    <div class="actions">
+                        <button class="btn-icon" onclick="editPhase(${p.phase_id})" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon danger" onclick="deletePhase(${p.phase_id})" title="Delete"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <p>${p.description || ''}</p>
+                <div><span class="mc-badge mc-badge-info">Order: ${p.display_order}</span></div>
+            </div>
+        `).join('') + '</div>';
+    }
+    
+    async function loadGeometries() {
+        try {
+            const response = await fetch('/api/cad-standards/geometries');
+            geometries = await response.json();
+            renderGeometries();
+        } catch (error) {
+            console.error('Error loading geometries:', error);
+            showToast('Failed to load geometries', 'error');
+        }
+    }
+    
+    function renderGeometries() {
+        const container = document.getElementById('geometriesContainer');
+        if (geometries.length === 0) {
+            container.innerHTML = '<div class="placeholder-message"><i class="fas fa-shapes"></i><h3>No geometries configured yet</h3><p>Click "Add New Geometry" to create your first geometry type.</p></div>';
+            return;
+        }
+        container.innerHTML = '<div class="grid">' + geometries.map(g => `
+            <div class="card-item">
+                <div class="card-header">
+                    <h3>${g.geom_code} - ${g.geom_name}</h3>
+                    <div class="actions">
+                        <button class="btn-icon" onclick="editGeometry(${g.geometry_id})" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon danger" onclick="deleteGeometry(${g.geometry_id})" title="Delete"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <p>${g.description || ''}</p>
+                <div><span class="mc-badge mc-badge-info">Order: ${g.display_order}</span></div>
+            </div>
+        `).join('') + '</div>';
+    }
+    
+    function openAddDisciplineModal() {
+        showToast('Discipline CRUD coming soon!', 'info');
+    }
+    function openAddCategoryModal() {
+        showToast('Category CRUD coming soon!', 'info');
+    }
+    function openAddObjectModal() {
+        showToast('Object CRUD coming soon!', 'info');
+    }
+    function openAddPhaseModal() {
+        showToast('Phase CRUD coming soon!', 'info');
+    }
+    function openAddGeometryModal() {
+        showToast('Geometry CRUD coming soon!', 'info');
+    }
+    function editDiscipline(id) {
+        showToast('Edit coming soon!', 'info');
+    }
+    function deleteDiscipline(id) {
+        showToast('Delete coming soon!', 'info');
+    }
+    function editCategory(id) {
+        showToast('Edit coming soon!', 'info');
+    }
+    function deleteCategory(id) {
+        showToast('Delete coming soon!', 'info');
+    }
+    function editObject(id) {
+        showToast('Edit coming soon!', 'info');
+    }
+    function deleteObject(id) {
+        showToast('Delete coming soon!', 'info');
+    }
+    function editPhase(id) {
+        showToast('Edit coming soon!', 'info');
+    }
+    function deletePhase(id) {
+        showToast('Delete coming soon!', 'info');
+    }
+    function editGeometry(id) {
+        showToast('Edit coming soon!', 'info');
+    }
+    function deleteGeometry(id) {
+        showToast('Delete coming soon!', 'info');
+    }
     
     loadEntityRegistry();
 </script>

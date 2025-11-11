@@ -313,6 +313,8 @@ async function loadVocabularies() {
         populateSelect('geometrySelect', geometries, 'geom_code', 'geom_name');
 
         document.getElementById('disciplineSelect').disabled = false;
+        document.getElementById('phaseSelect').disabled = false;
+        document.getElementById('geometrySelect').disabled = false;
     } catch (error) {
         console.error('Error loading vocabularies:', error);
         showToast('Error loading vocabularies', 'error');
