@@ -13125,6 +13125,109 @@ def generate_layer_name():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/cad-standards/export-all-layers')
+def export_all_layer_combinations():
+    """Export all valid layer combinations to CSV"""
+    try:
+        disciplines_query = """
+            SELECT discipline_code, discipline_name 
+            FROM layer_disciplines 
+            WHERE is_active = TRUE 
+            ORDER BY display_order, discipline_name
+        """
+        disciplines = execute_query(disciplines_query)
+        
+        categories_query = """
+            SELECT category_code, category_name 
+            FROM layer_categories 
+            WHERE is_active = TRUE 
+            ORDER BY display_order, category_name
+        """
+        categories = execute_query(categories_query)
+        
+        objects_query = """
+            SELECT object_code, object_name, valid_for_categories 
+            FROM layer_objects 
+            WHERE is_active = TRUE 
+            ORDER BY display_order, object_name
+        """
+        objects = execute_query(objects_query)
+        
+        phases_query = """
+            SELECT phase_code, phase_name 
+            FROM layer_phases 
+            WHERE is_active = TRUE 
+            ORDER BY display_order, phase_name
+        """
+        phases = execute_query(phases_query)
+        
+        geometries_query = """
+            SELECT geom_code, geom_name 
+            FROM layer_geometries 
+            WHERE is_active = TRUE 
+            ORDER BY display_order, geom_name
+        """
+        geometries = execute_query(geometries_query)
+        
+        aliases_query = """
+            SELECT canonical_pattern, alias, notes 
+            FROM layer_aliases 
+            WHERE is_active = TRUE
+        """
+        aliases_data = execute_query(aliases_query)
+        aliases_map = {row['canonical_pattern']: row for row in aliases_data}
+        
+        output = io.StringIO()
+        fieldnames = [
+            'Canonical_Name', 'Alias', 'Alias_Notes',
+            'Discipline_Code', 'Discipline_Name',
+            'Category_Code', 'Category_Name',
+            'Object_Code', 'Object_Name',
+            'Phase_Code', 'Phase_Name',
+            'Geometry_Code', 'Geometry_Name'
+        ]
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        
+        for discipline in disciplines:
+            for category in categories:
+                for obj in objects:
+                    valid_categories = obj.get('valid_for_categories', [])
+                    if valid_categories and category['category_code'] not in valid_categories:
+                        continue
+                    
+                    for phase in phases:
+                        for geometry in geometries:
+                            canonical_name = f"{discipline['discipline_code']}-{category['category_code']}-{obj['object_code']}-{phase['phase_code']}-{geometry['geom_code']}"
+                            
+                            alias_info = aliases_map.get(canonical_name, {})
+                            
+                            writer.writerow({
+                                'Canonical_Name': canonical_name,
+                                'Alias': alias_info.get('alias', ''),
+                                'Alias_Notes': alias_info.get('notes', ''),
+                                'Discipline_Code': discipline['discipline_code'],
+                                'Discipline_Name': discipline['discipline_name'],
+                                'Category_Code': category['category_code'],
+                                'Category_Name': category['category_name'],
+                                'Object_Code': obj['object_code'],
+                                'Object_Name': obj['object_name'],
+                                'Phase_Code': phase['phase_code'],
+                                'Phase_Name': phase['phase_name'],
+                                'Geometry_Code': geometry['geom_code'],
+                                'Geometry_Name': geometry['geom_name']
+                            })
+        
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name='layer_combinations.csv'
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/cad-standards/aliases')
 def get_layer_aliases():
     """Get all active layer aliases"""
