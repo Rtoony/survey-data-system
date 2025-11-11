@@ -77,6 +77,11 @@ def schema_page():
     """Schema viewer page"""
     return render_template('schema.html')
 
+@app.route('/schema/graph')
+def schema_graph_page():
+    """Schema knowledge graph visualization page"""
+    return render_template('schema_graph.html')
+
 @app.route('/projects')
 def projects_page():
     """Projects manager page"""
