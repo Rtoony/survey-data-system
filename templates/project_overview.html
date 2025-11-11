@@ -323,8 +323,10 @@
                     <input type="text" id="projectNumber">
                 </div>
                 <div class="mc-form-group">
-                    <label for="clientName">Client Name</label>
-                    <input type="text" id="clientName">
+                    <label for="clientId">Client Name</label>
+                    <select id="clientId">
+                        <option value="">Select a client...</option>
+                    </select>
                 </div>
                 <div class="mc-form-group">
                     <label for="description">Description</label>
@@ -604,8 +606,35 @@ function formatDate(dateString) {
     });
 }
 
+async function loadClients() {
+    try {
+        const response = await fetch('/api/reference/clients');
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Error loading clients:', data.error);
+            return;
+        }
+        
+        const clientSelect = document.getElementById('clientId');
+        clientSelect.innerHTML = '<option value="">Select a client...</option>';
+        
+        data.forEach(client => {
+            const option = document.createElement('option');
+            option.value = client.client_id;
+            option.textContent = client.client_name;
+            clientSelect.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading clients:', error);
+    }
+}
+
 async function loadProjectData() {
     try {
+        await loadClients();
+        
         const response = await fetch(`/api/projects/${projectId}`);
         const data = await response.json();
         
@@ -617,7 +646,7 @@ async function loadProjectData() {
         
         document.getElementById('projectName').value = data.project_name || '';
         document.getElementById('projectNumber').value = data.project_number || '';
-        document.getElementById('clientName').value = data.client_name || '';
+        document.getElementById('clientId').value = data.client_id || '';
         document.getElementById('description').value = data.description || '';
         
     } catch (error) {
@@ -714,11 +743,11 @@ async function initializeMap(mapData) {
         document.getElementById('projectMap').style.display = 'block';
         
         map = L.map('projectMap', {
-            zoomControl: true,
-            dragging: true,
-            touchZoom: true,
-            doubleClickZoom: true,
-            scrollWheelZoom: true,
+            zoomControl: false,
+            dragging: false,
+            touchZoom: false,
+            doubleClickZoom: false,
+            scrollWheelZoom: false,
             boxZoom: false,
             keyboard: false
         });
@@ -807,10 +836,12 @@ async function loadDrawings() {
 document.getElementById('projectInfoForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
+    const clientIdValue = document.getElementById('clientId').value;
+    
     const data = {
         project_name: document.getElementById('projectName').value,
         project_number: document.getElementById('projectNumber').value || null,
-        client_name: document.getElementById('clientName').value || null,
+        client_id: clientIdValue ? parseInt(clientIdValue) : null,
         description: document.getElementById('description').value || null
     };
     
@@ -823,6 +854,7 @@ document.getElementById('projectInfoForm').addEventListener('submit', async (e) 
         
         if (response.ok) {
             showToast('Project updated successfully', 'success');
+            await loadProjectData();
         } else {
             const error = await response.json();
             showToast(`Error: ${error.error}`, 'error');

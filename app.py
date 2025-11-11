@@ -433,14 +433,23 @@ def get_project(project_id):
     """Get a single project by ID"""
     try:
         query = """
-            SELECT * FROM projects WHERE project_id = %s
+            SELECT 
+                p.*,
+                c.client_name as client_name_from_ref
+            FROM projects p
+            LEFT JOIN clients c ON p.client_id = c.client_id
+            WHERE p.project_id = %s
         """
         result = execute_query(query, (project_id,))
         
         if not result:
             return jsonify({'error': 'Project not found'}), 404
         
-        return jsonify(result[0])
+        project_data = result[0]
+        if project_data.get('client_name_from_ref'):
+            project_data['client_name'] = project_data['client_name_from_ref']
+        
+        return jsonify(project_data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -473,6 +482,7 @@ def update_project(project_id):
             return jsonify({'error': 'Invalid request body'}), 400
             
         project_name = data.get('project_name')
+        client_id = data.get('client_id')
         client_name = data.get('client_name')
         project_number = data.get('project_number')
         description = data.get('description')
@@ -482,18 +492,28 @@ def update_project(project_id):
 
         with get_db() as conn:
             with conn.cursor() as cur:
+                if client_id:
+                    cur.execute(
+                        "SELECT client_name FROM clients WHERE client_id = %s",
+                        (client_id,)
+                    )
+                    client_result = cur.fetchone()
+                    if client_result:
+                        client_name = client_result[0]
+                
                 cur.execute(
                     """
                     UPDATE projects 
                     SET project_name = %s, 
+                        client_id = %s,
                         client_name = %s, 
                         project_number = %s, 
                         description = %s,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE project_id = %s
-                    RETURNING project_id, project_name, client_name, project_number, updated_at
+                    RETURNING project_id, project_name, client_id, client_name, project_number, updated_at
                     """,
-                    (project_name, client_name, project_number, description, project_id)
+                    (project_name, client_id, client_name, project_number, description, project_id)
                 )
                 result = cur.fetchone()
                 if not result:
@@ -503,9 +523,10 @@ def update_project(project_id):
                 return jsonify({
                     'project_id': str(result[0]),
                     'project_name': result[1],
-                    'client_name': result[2],
-                    'project_number': result[3],
-                    'updated_at': result[4].isoformat() if result[4] else None
+                    'client_id': result[2],
+                    'client_name': result[3],
+                    'project_number': result[4],
+                    'updated_at': result[5].isoformat() if result[5] else None
                 })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
