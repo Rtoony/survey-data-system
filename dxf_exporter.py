@@ -278,15 +278,16 @@ class DXFExporter:
                 stats['errors'].append(f"Failed to export {entity['entity_type']}: {str(e)}")
     
     def _create_entity(self, entity: Dict, layout):
-        """Create DXF entity from database record."""
+        """Create DXF entity from database record with full 3D support."""
         entity_type = entity['entity_type']
         layer = entity['layer_name']
         geom_wkt = entity['geom_wkt']
         
-        # Parse WKT to coordinates
+        # Parse WKT to coordinates (includes Z values)
         coords = self._parse_wkt_coords(geom_wkt)
         
         if entity_type == 'LINE' and len(coords) >= 2:
+            # Lines support 3D coordinates directly
             layout.add_line(
                 start=coords[0],
                 end=coords[1],
@@ -294,35 +295,74 @@ class DXFExporter:
             )
         
         elif entity_type == 'POLYLINE' or entity_type == 'LWPOLYLINE':
-            layout.add_lwpolyline(
-                points=coords,
-                dxfattribs={'layer': layer}
-            )
+            # Use true 3D polyline to preserve Z values
+            # If coordinates have Z dimension (from GeometryZ), always preserve it
+            # even if Z values are all zero (e.g., flat pad at elevation 0)
+            is_3d = len(coords) > 0 and len(coords[0]) > 2
+            
+            if is_3d:
+                # Create 3D polyline to preserve GeometryZ data
+                layout.add_polyline3d(
+                    points=coords,
+                    dxfattribs={'layer': layer}
+                )
+            else:
+                # Use lightweight polyline only for true 2D data (no Z coordinate)
+                layout.add_lwpolyline(
+                    points=[(c[0], c[1]) for c in coords],
+                    dxfattribs={'layer': layer}
+                )
         
         elif entity_type == 'CIRCLE' and len(coords) > 10:
             # Calculate center and radius from approximated circle points
             center = coords[0]
             radius = ((coords[8][0] - center[0])**2 + (coords[8][1] - center[1])**2)**0.5
-            layout.add_circle(
-                center=center,
+            
+            # Preserve elevation using the elevation attribute
+            circle = layout.add_circle(
+                center=(center[0], center[1]),
                 radius=radius,
                 dxfattribs={'layer': layer}
             )
+            # Set elevation for 3D positioning (preserve even if Z=0)
+            if len(center) > 2:
+                circle.dxf.elevation = center[2]
         
         elif entity_type == 'ARC' and len(coords) > 2:
             # Approximate arc from points
             center = coords[len(coords)//2]
             radius = ((coords[0][0] - center[0])**2 + (coords[0][1] - center[1])**2)**0.5
-            layout.add_arc(
-                center=center,
+            
+            # Create arc and preserve elevation
+            arc = layout.add_arc(
+                center=(center[0], center[1]),
                 radius=radius,
                 start_angle=0,
                 end_angle=180,
                 dxfattribs={'layer': layer}
             )
+            # Set elevation for 3D positioning (preserve even if Z=0)
+            if len(center) > 2:
+                arc.dxf.elevation = center[2]
+        
+        elif entity_type == '3DFACE' and len(coords) >= 3:
+            # Export 3D faces with full vertex elevations
+            # Ensure we have 4 points (duplicate last if only 3)
+            points = coords[:4] if len(coords) >= 4 else coords + [coords[-1]]
+            layout.add_3dface(
+                points=points[:4],
+                dxfattribs={'layer': layer}
+            )
+        
+        elif entity_type == 'POINT' and len(coords) >= 1:
+            # Points support 3D coordinates
+            layout.add_point(
+                location=coords[0],
+                dxfattribs={'layer': layer}
+            )
     
     def _parse_wkt_coords(self, wkt: str) -> List[tuple]:
-        """Parse WKT geometry to coordinate tuples."""
+        """Parse WKT geometry to coordinate tuples with Z values."""
         try:
             # Remove geometry type prefix
             wkt = wkt.split('(', 1)[1].rsplit(')', 1)[0]
@@ -344,6 +384,70 @@ class DXFExporter:
         except Exception as e:
             print(f"Error parsing WKT: {e}")
             return []
+    
+    def _has_elevation_data(self, coords: List[tuple]) -> bool:
+        """
+        Check if coordinate list has 3D (Z) dimension.
+        Returns True if coordinates have Z values, regardless of magnitude.
+        Even Z=0 is valid elevation data that must be preserved.
+        """
+        if not coords:
+            return False
+        # Check if coordinates are 3D (have Z component)
+        return len(coords[0]) > 2 if coords else False
+    
+    def _extract_z_from_metadata(self, metadata: Dict, key: str = 'elevation') -> Optional[float]:
+        """
+        Extract elevation from entity metadata.
+        Useful for cases where processing tools calculated elevation but it's not in geometry.
+        
+        Args:
+            metadata: Entity metadata dictionary
+            key: Key to look for elevation data (default: 'elevation')
+        
+        Returns:
+            Float elevation value or None if not found
+        """
+        if not metadata:
+            return None
+        
+        # Try common elevation keys
+        elevation_keys = [key, 'z', 'invert_elevation', 'rim_elevation', 'top_elevation', 'bottom_elevation']
+        
+        for k in elevation_keys:
+            if k in metadata and metadata[k] is not None:
+                try:
+                    return float(metadata[k])
+                except (ValueError, TypeError):
+                    continue
+        
+        return None
+    
+    def _enrich_coords_with_metadata_z(self, coords: List[tuple], metadata: Dict) -> List[tuple]:
+        """
+        Enrich 2D coordinates with Z values from metadata if available.
+        Used when processing tools have calculated elevations that aren't yet in geometry.
+        
+        Args:
+            coords: List of coordinate tuples (may be 2D or 3D)
+            metadata: Entity metadata that may contain elevation info
+        
+        Returns:
+            List of 3D coordinate tuples
+        """
+        if self._has_elevation_data(coords):
+            # Already has elevation data, return as-is
+            return coords
+        
+        # Try to get elevation from metadata
+        z_value = self._extract_z_from_metadata(metadata)
+        
+        if z_value is not None:
+            # Apply metadata elevation to all coordinates
+            return [(c[0], c[1], z_value) for c in coords]
+        
+        # No elevation data available, ensure 3D tuples with Z=0
+        return [(c[0], c[1], c[2] if len(c) > 2 else 0.0) for c in coords]
     
     def _export_text(self, drawing_id: str, space: str, layout,
                      cur, stats: Dict, layer_filter: Optional[List[str]]):
@@ -718,10 +822,18 @@ class DXFExporter:
                 if layer_name not in doc.layers:
                     doc.layers.add(layer_name)
                 
-                # Parse WKT and create polyline
+                # Parse WKT and create 3D polyline to preserve elevations
                 coords = self._parse_wkt_coords(line['geometry_wkt'])
                 if coords:
-                    msp.add_lwpolyline(coords, dxfattribs={'layer': layer_name})
+                    # Check if coordinates are 3D (preserve Z even if zero)
+                    is_3d = len(coords[0]) > 2 if coords else False
+                    
+                    if is_3d:
+                        # Use 3D polyline to preserve pipe invert elevations
+                        msp.add_polyline3d(coords, dxfattribs={'layer': layer_name})
+                    else:
+                        # Use lightweight polyline only for true 2D data
+                        msp.add_lwpolyline([(c[0], c[1]) for c in coords], dxfattribs={'layer': layer_name})
                     count += 1
                     
             except Exception as e:
@@ -813,15 +925,23 @@ class DXFExporter:
                 if layer_name not in doc.layers:
                     doc.layers.add(layer_name)
                 
-                # Export as polygon or point
+                # Export as polygon or point with elevation support
                 if bmp.get('boundary_wkt') and 'POLYGON' in bmp.get('boundary_geom_type', ''):
                     coords = self._parse_wkt_coords(bmp['boundary_wkt'])
                     if coords:
-                        msp.add_lwpolyline(coords, close=True, dxfattribs={'layer': layer_name})
+                        is_3d = len(coords[0]) > 2 if coords else False
+                        
+                        if is_3d:
+                            # Use 3D polyline for BMPs with Z dimension
+                            msp.add_polyline3d(coords + [coords[0]], dxfattribs={'layer': layer_name})
+                        else:
+                            # Use lightweight polyline only for true 2D BMPs
+                            msp.add_lwpolyline([(c[0], c[1]) for c in coords], close=True, dxfattribs={'layer': layer_name})
                         count += 1
                 elif bmp.get('location_wkt'):
                     coords = self._parse_wkt_coords(bmp['location_wkt'])
                     if coords:
+                        # Point with 3D support
                         msp.add_point(coords[0], dxfattribs={'layer': layer_name})
                         count += 1
                     
@@ -863,10 +983,17 @@ class DXFExporter:
                 if layer_name not in doc.layers:
                     doc.layers.add(layer_name)
                 
-                # Export boundary polyline
+                # Export boundary polyline with elevation support for terrain surfaces
                 coords = self._parse_wkt_coords(surface['geometry_wkt'])
                 if coords:
-                    msp.add_lwpolyline(coords, close=True, dxfattribs={'layer': layer_name})
+                    is_3d = len(coords[0]) > 2 if coords else False
+                    
+                    if is_3d:
+                        # Use 3D polyline for surfaces with Z dimension
+                        msp.add_polyline3d(coords + [coords[0]], dxfattribs={'layer': layer_name})
+                    else:
+                        # Use lightweight polyline only for true 2D surfaces
+                        msp.add_lwpolyline([(c[0], c[1]) for c in coords], close=True, dxfattribs={'layer': layer_name})
                     count += 1
                     
             except Exception as e:
@@ -908,10 +1035,17 @@ class DXFExporter:
                 if layer_name not in doc.layers:
                     doc.layers.add(layer_name)
                 
-                # Parse WKT and create polyline
+                # Parse WKT and create polyline with vertical alignment support
                 coords = self._parse_wkt_coords(alignment['geometry_wkt'])
                 if coords:
-                    msp.add_lwpolyline(coords, dxfattribs={'layer': layer_name})
+                    is_3d = len(coords[0]) > 2 if coords else False
+                    
+                    if is_3d:
+                        # Use 3D polyline for alignments with Z dimension
+                        msp.add_polyline3d(coords, dxfattribs={'layer': layer_name})
+                    else:
+                        # Use lightweight polyline only for horizontal-only alignments
+                        msp.add_lwpolyline([(c[0], c[1]) for c in coords], dxfattribs={'layer': layer_name})
                     count += 1
                     
             except Exception as e:

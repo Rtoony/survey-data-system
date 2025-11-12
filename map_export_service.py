@@ -227,7 +227,7 @@ class MapExportService:
             return False
     
     def export_to_dxf(self, layers_data: Dict[str, List[Dict]], output_path: str) -> bool:
-        """Export features to DXF format"""
+        """Export features to DXF format with 3D support"""
         try:
             doc = ezdxf.new('R2010')
             msp = doc.modelspace()
@@ -241,41 +241,66 @@ class MapExportService:
                     
                     if geom.geom_type == 'Polygon':
                         points = list(geom.exterior.coords)
-                        msp.add_lwpolyline(
-                            points,
-                            dxfattribs={'layer': layer_name, 'closed': True}
-                        )
+                        # Check if geometry has Z dimension (preserve even if Z=0)
+                        is_3d = len(points[0]) > 2 if points else False
+                        
+                        if is_3d:
+                            # Use 3D polyline for polygons with Z dimension
+                            msp.add_polyline3d(points + [points[0]], dxfattribs={'layer': layer_name})
+                        else:
+                            # Use lightweight polyline only for true 2D polygons
+                            msp.add_lwpolyline(
+                                [(p[0], p[1]) for p in points],
+                                dxfattribs={'layer': layer_name, 'closed': True}
+                            )
                     elif geom.geom_type == 'MultiPolygon':
                         for poly in geom.geoms:
                             points = list(poly.exterior.coords)
-                            msp.add_lwpolyline(
-                                points,
-                                dxfattribs={'layer': layer_name, 'closed': True}
-                            )
+                            is_3d = len(points[0]) > 2 if points else False
+                            
+                            if is_3d:
+                                msp.add_polyline3d(points + [points[0]], dxfattribs={'layer': layer_name})
+                            else:
+                                msp.add_lwpolyline(
+                                    [(p[0], p[1]) for p in points],
+                                    dxfattribs={'layer': layer_name, 'closed': True}
+                                )
                     elif geom.geom_type == 'LineString':
                         points = list(geom.coords)
-                        msp.add_lwpolyline(
-                            points,
-                            dxfattribs={'layer': layer_name}
-                        )
+                        is_3d = len(points[0]) > 2 if points else False
+                        
+                        if is_3d:
+                            # Use 3D polyline to preserve Z dimension
+                            msp.add_polyline3d(points, dxfattribs={'layer': layer_name})
+                        else:
+                            msp.add_lwpolyline(
+                                [(p[0], p[1]) for p in points],
+                                dxfattribs={'layer': layer_name}
+                            )
                     elif geom.geom_type == 'MultiLineString':
                         for line in geom.geoms:
                             points = list(line.coords)
-                            msp.add_lwpolyline(
-                                points,
-                                dxfattribs={'layer': layer_name}
-                            )
+                            is_3d = len(points[0]) > 2 if points else False
+                            
+                            if is_3d:
+                                msp.add_polyline3d(points, dxfattribs={'layer': layer_name})
+                            else:
+                                msp.add_lwpolyline(
+                                    [(p[0], p[1]) for p in points],
+                                    dxfattribs={'layer': layer_name}
+                                )
                     elif geom.geom_type == 'Point':
-                        msp.add_point(
-                            (geom.x, geom.y),
-                            dxfattribs={'layer': layer_name}
-                        )
+                        # Support 3D points
+                        if geom.has_z:
+                            msp.add_point((geom.x, geom.y, geom.z), dxfattribs={'layer': layer_name})
+                        else:
+                            msp.add_point((geom.x, geom.y), dxfattribs={'layer': layer_name})
                     elif geom.geom_type == 'MultiPoint':
                         for point in geom.geoms:
-                            msp.add_point(
-                                (point.x, point.y),
-                                dxfattribs={'layer': layer_name}
-                            )
+                            if point.has_z:
+                                msp.add_point((point.x, point.y, point.z), dxfattribs={'layer': layer_name})
+                            else:
+                                msp.add_point((point.x, point.y), dxfattribs={'layer': layer_name})
             
             doc.saveas(output_path)
             return True
