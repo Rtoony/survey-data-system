@@ -227,6 +227,66 @@ class ZStressHarness:
         doc.saveas(filepath)
         return fixtures
     
+    def validate_coordinate_ranges(self, coords_dict: Dict, srid: int) -> Dict:
+        """
+        Validate that extracted coordinates fall within expected ranges for SRID.
+        
+        Args:
+            coords_dict: Dictionary of extracted coordinates by layer
+            srid: Declared SRID for validation
+        
+        Returns:
+            Validation result with warnings if coordinates seem mismatched
+        """
+        # Collect all coordinate values
+        all_x, all_y, all_z = [], [], []
+        for layer, entities in coords_dict.items():
+            for entity in entities:
+                for x, y, z in entity['coords']:
+                    all_x.append(x)
+                    all_y.append(y)
+                    all_z.append(z)
+        
+        if not all_x:
+            return {'valid': True, 'warnings': []}
+        
+        min_x, max_x = min(all_x), max(all_x)
+        min_y, max_y = min(all_y), max(all_y)
+        min_z, max_z = min(all_z), max(all_z)
+        
+        warnings = []
+        
+        if srid == 0:  # LOCAL CAD
+            # Expected: Reasonable engineering scales (100s - 100,000s ft typical)
+            if abs(min_x) > 1e8 or abs(max_x) > 1e8:
+                warnings.append(f"X coordinates ({min_x:.2f} to {max_x:.2f}) seem unusually large for LOCAL CAD")
+            if abs(min_y) > 1e8 or abs(max_y) > 1e8:
+                warnings.append(f"Y coordinates ({min_y:.2f} to {max_y:.2f}) seem unusually large for LOCAL CAD")
+        
+        elif srid == 2226:  # CA State Plane Zone 2
+            # Expected: X ~6M ft, Y ~2M ft (NAD83 CA Zone 2)
+            if not (5500000 <= min_x <= 6500000) or not (5500000 <= max_x <= 6500000):
+                warnings.append(f"X coordinates ({min_x:.0f} to {max_x:.0f}) outside typical CA State Plane Zone 2 range (5.5M-6.5M ft)")
+            if not (1900000 <= min_y <= 2300000) or not (1900000 <= max_y <= 2300000):
+                warnings.append(f"Y coordinates ({min_y:.0f} to {max_y:.0f}) outside typical CA State Plane Zone 2 range (1.9M-2.3M ft)")
+        
+        elif srid == 4326:  # WGS84 Geographic
+            # Expected: Longitude -180 to 180, Latitude -90 to 90
+            if not (-180 <= min_x <= 180) or not (-180 <= max_x <= 180):
+                warnings.append(f"X/Longitude ({min_x:.6f} to {max_x:.6f}) outside valid range (-180° to 180°)")
+            if not (-90 <= min_y <= 90) or not (-90 <= max_y <= 90):
+                warnings.append(f"Y/Latitude ({min_y:.6f} to {max_y:.6f}) outside valid range (-90° to 90°)")
+        
+        return {
+            'valid': len(warnings) == 0,
+            'warnings': warnings,
+            'ranges': {
+                'x': (min_x, max_x),
+                'y': (min_y, max_y),
+                'z': (min_z, max_z)
+            }
+        }
+    
     def extract_coords_from_dxf(self, filepath: str) -> Dict:
         """Extract all 3D coordinates from a DXF file, organized by layer."""
         doc = ezdxf.readfile(filepath)
@@ -488,6 +548,14 @@ class ZStressHarness:
         # Extract baseline coordinates
         baseline_coords = self.extract_coords_from_dxf(initial_dxf)
         
+        # Validate coordinate ranges for SRID
+        validation = self.validate_coordinate_ranges(baseline_coords, srid)
+        if not validation['valid']:
+            print("\n⚠️  COORDINATE VALIDATION WARNINGS:")
+            for warning in validation['warnings']:
+                print(f"  - {warning}")
+            print("\nTest will continue, but results may be unreliable if SRID is incorrect.\n")
+        
         results = {
             'test_id': self.test_id,
             'timestamp': datetime.now().isoformat(),
@@ -498,6 +566,7 @@ class ZStressHarness:
             },
             'fixtures': fixtures,
             'baseline_hash': self._hash_coords(baseline_coords),
+            'coordinate_validation': validation,
             'cycles': [],
             'summary': {}
         }
