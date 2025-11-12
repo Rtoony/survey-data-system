@@ -6874,7 +6874,7 @@ def run_z_stress_test():
         if srid not in [0, 2226]:
             return jsonify({'error': 'SRID must be 0 (local CAD) or 2226 (CA State Plane)'}), 400
         
-        if tolerance <= 0 or tolerance > 1:
+        if tolerance < 0 or tolerance > 1:
             return jsonify({'error': 'Tolerance must be between 0 and 1 feet'}), 400
         
         # Run the stress test
