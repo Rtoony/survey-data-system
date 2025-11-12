@@ -176,6 +176,11 @@ def z_stress_test_tool():
     """Z-Value Elevation Preservation Stress Test - interactive testing tool"""
     return render_template('tools/z_stress_test.html')
 
+@app.route('/tools/survey-codes')
+def survey_codes_manager():
+    """Survey Code Library Manager - CRUD interface for field survey codes"""
+    return render_template('tools/survey_codes.html')
+
 @app.route('/project-standards-assignment')
 def project_standards_assignment():
     """Project Standards Assignment page"""
@@ -14869,142 +14874,253 @@ def delete_coordinate_system(system_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ===== SURVEY POINT DESCRIPTIONS API =====
+# ===== SURVEY CODE LIBRARY API =====
 
-@app.route('/api/survey-point-descriptions')
-def get_survey_point_descriptions():
-    """Get all survey point descriptions"""
+@app.route('/api/survey-codes')
+def get_survey_codes():
+    """Get all survey codes with optional filtering"""
     try:
-        query = """
-            SELECT description_id, code, description, category, discipline, is_standard, symbol_reference,
-                   layer_suggestion, notes, is_active, sort_order, tags, attributes
-            FROM survey_point_descriptions
-            WHERE is_active = TRUE
-            ORDER BY category, sort_order, code
+        discipline = request.args.get('discipline')
+        category = request.args.get('category')
+        connectivity = request.args.get('connectivity')
+        category_group = request.args.get('category_group')
+        favorites_only = request.args.get('favorites_only') == 'true'
+        search = request.args.get('search', '').strip()
+        
+        where_clauses = ['is_active = TRUE']
+        params = []
+        
+        if discipline:
+            where_clauses.append('discipline_code = %s')
+            params.append(discipline)
+        
+        if category:
+            where_clauses.append('category_code = %s')
+            params.append(category)
+        
+        if connectivity:
+            where_clauses.append('connectivity_type = %s')
+            params.append(connectivity)
+        
+        if category_group:
+            where_clauses.append('category_group = %s')
+            params.append(category_group)
+        
+        if favorites_only:
+            where_clauses.append('is_favorite = TRUE')
+        
+        if search:
+            where_clauses.append('(code ILIKE %s OR display_name ILIKE %s OR description ILIKE %s)')
+            search_pattern = f'%{search}%'
+            params.extend([search_pattern, search_pattern, search_pattern])
+        
+        where_sql = ' AND '.join(where_clauses)
+        
+        query = f"""
+            SELECT code_id, code, display_name, description, discipline_code, category_code,
+                   feature_type, icon_name, connectivity_type, geometry_output, auto_connect,
+                   create_block, block_name, available_attributes, default_attributes,
+                   required_attributes, layer_template, default_phase, category_group,
+                   sort_order, is_favorite, usage_count, last_used_at, quality_score,
+                   tags, attributes, created_at, updated_at
+            FROM survey_code_library
+            WHERE {where_sql}
+            ORDER BY is_favorite DESC, sort_order, display_name
         """
-        descriptions = execute_query(query)
-        return jsonify({'survey_point_descriptions': descriptions})
+        
+        codes = execute_query(query, tuple(params))
+        return jsonify({'survey_codes': codes, 'count': len(codes)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/survey-point-descriptions/<int:description_id>')
-def get_survey_point_description_detail(description_id):
-    """Get a specific survey point description"""
+@app.route('/api/survey-codes/<uuid:code_id>')
+def get_survey_code_detail(code_id):
+    """Get a specific survey code"""
     try:
         query = """
-            SELECT description_id, code, description, category, discipline, is_standard, symbol_reference,
-                   layer_suggestion, notes, is_active, sort_order, tags, attributes
-            FROM survey_point_descriptions
-            WHERE description_id = %s
+            SELECT code_id, code, display_name, description, discipline_code, category_code,
+                   feature_type, icon_name, connectivity_type, geometry_output, auto_connect,
+                   create_block, block_name, available_attributes, default_attributes,
+                   required_attributes, layer_template, default_phase, category_group,
+                   sort_order, is_favorite, usage_count, last_used_at, quality_score,
+                   tags, attributes, created_at, updated_at
+            FROM survey_code_library
+            WHERE code_id = %s
         """
-        result = execute_query(query, (description_id,))
+        result = execute_query(query, (str(code_id),))
         
         if not result:
-            return jsonify({'error': 'Survey point description not found'}), 404
+            return jsonify({'error': 'Survey code not found'}), 404
         
         return jsonify(result[0])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/survey-point-descriptions', methods=['POST'])
-def create_survey_point_description():
-    """Create a new survey point description"""
+@app.route('/api/survey-codes', methods=['POST'])
+def create_survey_code():
+    """Create a new survey code"""
     try:
         data = request.get_json()
         
-        if not data.get('code') or not data.get('description'):
-            return jsonify({'error': 'code and description are required'}), 400
+        if not data.get('code') or not data.get('display_name'):
+            return jsonify({'error': 'code and display_name are required'}), 400
         
-        check_query = "SELECT description_id FROM survey_point_descriptions WHERE code = %s"
+        if not data.get('feature_type'):
+            return jsonify({'error': 'feature_type is required'}), 400
+        
+        check_query = "SELECT code_id FROM survey_code_library WHERE code = %s"
         existing = execute_query(check_query, (data['code'].strip(),))
         if existing:
             return jsonify({'error': f'Code {data["code"]} already exists'}), 409
         
         query = """
-            INSERT INTO survey_point_descriptions (code, description, category, discipline, is_standard,
-                                                   symbol_reference, layer_suggestion, notes, sort_order, tags, attributes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING description_id
+            INSERT INTO survey_code_library (
+                code, display_name, description, discipline_code, category_code, feature_type,
+                icon_name, connectivity_type, geometry_output, auto_connect, create_block,
+                block_name, available_attributes, default_attributes, required_attributes,
+                layer_template, default_phase, category_group, sort_order, is_favorite,
+                tags, attributes
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING code_id, code, display_name, connectivity_type, is_favorite, created_at
         """
+        
         result = execute_query(query, (
             data['code'].strip().upper(),
-            data['description'].strip(),
-            data.get('category', '').strip() or None,
-            data.get('discipline', '').strip() or None,
-            data.get('is_standard', True),
-            data.get('symbol_reference', '').strip() or None,
-            data.get('layer_suggestion', '').strip() or None,
-            data.get('notes', '').strip() or None,
-            data.get('sort_order', 100),
+            data['display_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('discipline_code', '').strip() or None,
+            data.get('category_code', '').strip() or None,
+            data['feature_type'].strip(),
+            data.get('icon_name', '').strip() or None,
+            data.get('connectivity_type', 'POINT'),
+            data.get('geometry_output', '').strip() or None,
+            data.get('auto_connect', False),
+            data.get('create_block', False),
+            data.get('block_name', '').strip() or None,
+            data.get('available_attributes', []),
+            data.get('default_attributes', {}),
+            data.get('required_attributes', []),
+            data.get('layer_template', '').strip() or None,
+            data.get('default_phase', 'EXIST'),
+            data.get('category_group', '').strip() or None,
+            data.get('sort_order', 0),
+            data.get('is_favorite', False),
             data.get('tags', []),
-            data.get('attributes')
+            data.get('attributes', {})
         ))
         
         return jsonify({
-            'description_id': result[0]['description_id'],
-            'message': f'Survey point description {data["code"]} created successfully'
+            'survey_code': result[0],
+            'message': f'Survey code {data["code"]} created successfully'
         }), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/survey-point-descriptions/<int:description_id>', methods=['PUT'])
-def update_survey_point_description(description_id):
-    """Update a survey point description"""
+@app.route('/api/survey-codes/<uuid:code_id>', methods=['PUT'])
+def update_survey_code(code_id):
+    """Update a survey code"""
     try:
         data = request.get_json()
         
-        if not data.get('code') or not data.get('description'):
-            return jsonify({'error': 'code and description are required'}), 400
+        if not data.get('code') or not data.get('display_name'):
+            return jsonify({'error': 'code and display_name are required'}), 400
         
         check_query = """
-            SELECT description_id FROM survey_point_descriptions 
-            WHERE code = %s AND description_id != %s
+            SELECT code_id FROM survey_code_library 
+            WHERE code = %s AND code_id != %s
         """
-        existing = execute_query(check_query, (data['code'].strip(), description_id))
+        existing = execute_query(check_query, (data['code'].strip(), str(code_id)))
         if existing:
             return jsonify({'error': f'Code {data["code"]} already exists'}), 409
         
         query = """
-            UPDATE survey_point_descriptions 
-            SET code = %s, description = %s, category = %s, discipline = %s, is_standard = %s,
-                symbol_reference = %s, layer_suggestion = %s, notes = %s, sort_order = %s,
-                tags = %s, attributes = %s, updated_at = CURRENT_TIMESTAMP
-            WHERE description_id = %s
-            RETURNING description_id
+            UPDATE survey_code_library 
+            SET code = %s, display_name = %s, description = %s, discipline_code = %s,
+                category_code = %s, feature_type = %s, icon_name = %s, connectivity_type = %s,
+                geometry_output = %s, auto_connect = %s, create_block = %s, block_name = %s,
+                available_attributes = %s, default_attributes = %s, required_attributes = %s,
+                layer_template = %s, default_phase = %s, category_group = %s, sort_order = %s,
+                is_favorite = %s, tags = %s, attributes = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE code_id = %s
+            RETURNING code_id, code, display_name, connectivity_type, is_favorite, updated_at
         """
+        
         result = execute_query(query, (
             data['code'].strip().upper(),
-            data['description'].strip(),
-            data.get('category', '').strip() or None,
-            data.get('discipline', '').strip() or None,
-            data.get('is_standard', True),
-            data.get('symbol_reference', '').strip() or None,
-            data.get('layer_suggestion', '').strip() or None,
-            data.get('notes', '').strip() or None,
-            data.get('sort_order', 100),
+            data['display_name'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('discipline_code', '').strip() or None,
+            data.get('category_code', '').strip() or None,
+            data['feature_type'].strip(),
+            data.get('icon_name', '').strip() or None,
+            data.get('connectivity_type', 'POINT'),
+            data.get('geometry_output', '').strip() or None,
+            data.get('auto_connect', False),
+            data.get('create_block', False),
+            data.get('block_name', '').strip() or None,
+            data.get('available_attributes', []),
+            data.get('default_attributes', {}),
+            data.get('required_attributes', []),
+            data.get('layer_template', '').strip() or None,
+            data.get('default_phase', 'EXIST'),
+            data.get('category_group', '').strip() or None,
+            data.get('sort_order', 0),
+            data.get('is_favorite', False),
             data.get('tags', []),
-            data.get('attributes'),
-            description_id
+            data.get('attributes', {}),
+            str(code_id)
         ))
         
         if not result:
-            return jsonify({'error': 'Survey point description not found'}), 404
+            return jsonify({'error': 'Survey code not found'}), 404
         
-        return jsonify({'message': f'Survey point description updated successfully'})
+        return jsonify({
+            'survey_code': result[0],
+            'message': 'Survey code updated successfully'
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/survey-point-descriptions/<int:description_id>', methods=['DELETE'])
-def delete_survey_point_description(description_id):
-    """Delete a survey point description (soft delete)"""
+@app.route('/api/survey-codes/<uuid:code_id>', methods=['DELETE'])
+def delete_survey_code(code_id):
+    """Delete a survey code (soft delete)"""
     try:
-        query = "UPDATE survey_point_descriptions SET is_active = FALSE WHERE description_id = %s RETURNING description_id"
-        result = execute_query(query, (description_id,))
+        query = "UPDATE survey_code_library SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE code_id = %s RETURNING code_id, code"
+        result = execute_query(query, (str(code_id),))
         
         if not result:
-            return jsonify({'error': 'Survey point description not found'}), 404
+            return jsonify({'error': 'Survey code not found'}), 404
         
-        return jsonify({'message': 'Survey point description deactivated successfully'})
+        return jsonify({
+            'message': f'Survey code {result[0]["code"]} deactivated successfully'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-codes/<uuid:code_id>/favorite', methods=['POST'])
+def toggle_survey_code_favorite(code_id):
+    """Toggle favorite status of a survey code"""
+    try:
+        data = request.get_json()
+        is_favorite = data.get('is_favorite', False)
+        
+        query = """
+            UPDATE survey_code_library 
+            SET is_favorite = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE code_id = %s
+            RETURNING code_id, code, display_name, is_favorite
+        """
+        
+        result = execute_query(query, (is_favorite, str(code_id)))
+        
+        if not result:
+            return jsonify({'error': 'Survey code not found'}), 404
+        
+        return jsonify({
+            'survey_code': result[0],
+            'message': f'Survey code favorite status updated'
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

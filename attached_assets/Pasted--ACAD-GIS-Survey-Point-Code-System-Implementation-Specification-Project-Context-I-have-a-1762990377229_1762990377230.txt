@@ -1,0 +1,789 @@
+# ACAD-GIS Survey Point Code System - Implementation Specification
+
+## Project Context
+
+I have an existing Flask/PostgreSQL ACAD-GIS application (see uploaded documentation). I need to add a comprehensive survey point code system that enables field crews to capture structured data that automatically generates topographic maps and CAD objects.
+
+## Core Concept
+
+Field crews will use structured point codes instead of traditional abbreviations. These codes are machine-parsable and feed directly into the database to auto-generate CAD entities, polylines, and properly-layered DXF outputs.
+
+### Code Structure
+```
+[DISCIPLINE]-[CATEGORY]-[FEATURE_TYPE]-[ATTRIBUTES]-[CONNECTIVITY]-[FLAGS]
+```
+
+### Example Codes
+```
+CIV-UTIL-STORM-MH-24IN-NODE-TOP          → Storm manhole, 24", top elevation
+SITE-ROAD-ASPH-EDGE-6IN-LINE-EXIST       → Asphalt edge, 6" curb, existing
+SURV-TOPO-CONTOUR-SHOT-2FT-LINE          → Topo shot for 2ft contours
+SITE-TREE-OAK-24DBH-POINT-PRES           → Oak tree, 24" diameter, preserve
+CIV-UTIL-SANITARY-MH-EDGE-RIM-NODE       → Sanitary manhole rim
+```
+
+## Database Schema Requirements
+
+### 1. New Table: `survey_code_library`
+
+This is the master library of all available survey codes for field crews.
+```sql
+CREATE TABLE survey_code_library (
+    code_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    entity_id UUID REFERENCES standards_entities(entity_id) ON DELETE SET NULL,
+    
+    -- Core code components
+    code VARCHAR(200) UNIQUE NOT NULL,  -- Full code string
+    discipline_code VARCHAR(50) NOT NULL REFERENCES discipline_codes(code),
+    category_code VARCHAR(50) NOT NULL REFERENCES category_codes(code),
+    feature_type VARCHAR(100) NOT NULL,  -- e.g., 'STORM-MH', 'ASPH-EDGE', 'TREE'
+    
+    -- Descriptive fields
+    display_name VARCHAR(200) NOT NULL,  -- "Storm Manhole"
+    description TEXT,  -- Detailed explanation
+    icon_name VARCHAR(100),  -- Font Awesome icon: 'fa-circle-dot'
+    
+    -- Behavioral properties
+    connectivity_type VARCHAR(20) NOT NULL,  -- 'NODE', 'LINE', 'EDGE', 'POINT', 'BREAK', 'CLOSE'
+    geometry_output VARCHAR(10),  -- 'BL', 'LN', 'PL', 'PT' - what CAD entity to create
+    auto_connect BOOLEAN DEFAULT false,  -- Should sequential points auto-connect?
+    create_block BOOLEAN DEFAULT false,  -- Should this create a block insert?
+    block_name VARCHAR(100),  -- Which block to insert
+    
+    -- Attribute configuration (JSONB for flexible schema)
+    available_attributes JSONB DEFAULT '[]'::jsonb,  -- List of attribute prompts
+    default_attributes JSONB DEFAULT '{}'::jsonb,  -- Default values
+    required_attributes TEXT[],  -- Which attributes are required
+    
+    -- Layer generation rules
+    layer_template VARCHAR(200),  -- Template: "{discipline}-{category}-{feature}-{phase}-{geometry}"
+    default_phase VARCHAR(20) DEFAULT 'EXIST',
+    
+    -- Organization
+    category_group VARCHAR(50),  -- For grouping in UI: 'utilities', 'site', 'control'
+    sort_order INTEGER DEFAULT 0,
+    is_favorite BOOLEAN DEFAULT false,  -- Quick access codes
+    is_active BOOLEAN DEFAULT true,
+    
+    -- Usage tracking
+    usage_count INTEGER DEFAULT 0,
+    last_used_at TIMESTAMP,
+    
+    -- AI optimization (standard columns)
+    quality_score NUMERIC(4, 3),
+    tags TEXT[],
+    attributes JSONB DEFAULT '{}'::jsonb,
+    search_vector tsvector,
+    
+    -- Audit
+    created_by VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX idx_survey_code_library_entity ON survey_code_library(entity_id);
+CREATE INDEX idx_survey_code_library_discipline ON survey_code_library(discipline_code);
+CREATE INDEX idx_survey_code_library_category ON survey_code_library(category_code);
+CREATE INDEX idx_survey_code_library_connectivity ON survey_code_library(connectivity_type);
+CREATE INDEX idx_survey_code_library_favorite ON survey_code_library(is_favorite) WHERE is_favorite = true;
+CREATE INDEX idx_survey_code_library_active ON survey_code_library(is_active) WHERE is_active = true;
+CREATE INDEX idx_survey_code_library_search ON survey_code_library USING GIN(search_vector);
+CREATE INDEX idx_survey_code_library_tags ON survey_code_library USING GIN(tags);
+CREATE INDEX idx_survey_code_library_attrs ON survey_code_library USING GIN(available_attributes);
+
+-- Full-text search trigger
+CREATE TRIGGER survey_code_library_search_update
+BEFORE INSERT OR UPDATE ON survey_code_library
+FOR EACH ROW
+EXECUTE FUNCTION tsvector_update_trigger(
+    search_vector, 'pg_catalog.english',
+    code, display_name, description, feature_type
+);
+```
+
+### 2. New Table: `survey_code_attributes`
+
+Store available attribute options for dropdown prompts on data collectors.
+```sql
+CREATE TABLE survey_code_attributes (
+    attribute_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Attribute definition
+    attribute_name VARCHAR(100) NOT NULL,  -- 'size', 'material', 'condition'
+    display_label VARCHAR(100) NOT NULL,  -- "Pipe Size"
+    attribute_type VARCHAR(50) NOT NULL,  -- 'dropdown', 'text', 'number', 'boolean'
+    
+    -- Options (for dropdowns)
+    options JSONB DEFAULT '[]'::jsonb,  -- [{"value": "6IN", "label": "6 inch"}, ...]
+    default_value VARCHAR(100),
+    
+    -- Validation
+    is_required BOOLEAN DEFAULT false,
+    validation_regex VARCHAR(200),
+    min_value NUMERIC,
+    max_value NUMERIC,
+    
+    -- UI hints
+    placeholder VARCHAR(200),
+    help_text TEXT,
+    sort_order INTEGER DEFAULT 0,
+    
+    -- Usage
+    usage_count INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_survey_code_attributes_name ON survey_code_attributes(attribute_name);
+CREATE INDEX idx_survey_code_attributes_active ON survey_code_attributes(is_active) WHERE is_active = true;
+```
+
+### 3. Enhancement: Update `survey_points` table
+
+Add columns to support parsed code data (may already exist - check first).
+```sql
+ALTER TABLE survey_points 
+ADD COLUMN IF NOT EXISTS code VARCHAR(200),
+ADD COLUMN IF NOT EXISTS code_id UUID REFERENCES survey_code_library(code_id),
+ADD COLUMN IF NOT EXISTS discipline_code VARCHAR(50),
+ADD COLUMN IF NOT EXISTS category_code VARCHAR(50),
+ADD COLUMN IF NOT EXISTS feature_type VARCHAR(100),
+ADD COLUMN IF NOT EXISTS connectivity_type VARCHAR(20),
+ADD COLUMN IF NOT EXISTS layer_name VARCHAR(200),
+ADD COLUMN IF NOT EXISTS parsed_attributes JSONB DEFAULT '{}'::jsonb,
+ADD COLUMN IF NOT EXISTS phase VARCHAR(20) DEFAULT 'EXIST',
+ADD COLUMN IF NOT EXISTS auto_connected BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS line_segment_id UUID;  -- For grouping connected points
+
+CREATE INDEX idx_survey_points_code ON survey_points(code);
+CREATE INDEX idx_survey_points_code_id ON survey_points(code_id);
+CREATE INDEX idx_survey_points_connectivity ON survey_points(connectivity_type);
+CREATE INDEX idx_survey_points_line_segment ON survey_points(line_segment_id);
+CREATE INDEX idx_survey_points_feature ON survey_points(feature_type);
+```
+
+### 4. New Table: `survey_line_segments`
+
+Track auto-generated polylines from connected survey points.
+```sql
+CREATE TABLE survey_line_segments (
+    segment_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    entity_id UUID REFERENCES standards_entities(entity_id) ON DELETE SET NULL,
+    
+    -- Drawing context
+    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
+    
+    -- Segment properties
+    feature_type VARCHAR(100) NOT NULL,
+    layer_name VARCHAR(200),
+    connectivity_type VARCHAR(20),  -- 'LINE' or 'EDGE'
+    is_closed BOOLEAN DEFAULT false,
+    
+    -- Geometry
+    geometry geometry(LineStringZ, 2226),  -- SRID 2226 (CA State Plane)
+    length_2d NUMERIC(10, 3),
+    length_3d NUMERIC(10, 3),
+    
+    -- Points comprising this segment
+    point_ids UUID[],  -- Array of survey_points.point_id
+    point_count INTEGER,
+    
+    -- Metadata
+    description TEXT,
+    attributes JSONB DEFAULT '{}'::jsonb,
+    
+    -- AI optimization
+    quality_score NUMERIC(4, 3),
+    tags TEXT[],
+    search_vector tsvector,
+    
+    -- Audit
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100)
+);
+
+CREATE INDEX idx_survey_line_segments_entity ON survey_line_segments(entity_id);
+CREATE INDEX idx_survey_line_segments_drawing ON survey_line_segments(drawing_id);
+CREATE INDEX idx_survey_line_segments_project ON survey_line_segments(project_id);
+CREATE INDEX idx_survey_line_segments_geom ON survey_line_segments USING GIST(geometry);
+CREATE INDEX idx_survey_line_segments_feature ON survey_line_segments(feature_type);
+CREATE INDEX idx_survey_line_segments_search ON survey_line_segments USING GIN(search_vector);
+```
+
+## Flask Routes & Pages
+
+### 1. Survey Code Library Manager (`/tools/survey-codes`)
+
+**Purpose:** CRUD interface for managing the master code library.
+
+**Features:**
+- Table view with columns: Code, Display Name, Discipline, Category, Feature, Connectivity, Favorite, Usage Count
+- Inline editing for all fields
+- Add/edit modal with form fields for all properties
+- Bulk import from CSV
+- Export to CSV (for loading into data collectors)
+- Search/filter by discipline, category, connectivity type
+- Toggle favorite status
+- Clone code to create variants
+- Usage statistics (most used codes)
+- Inactive/archived codes section
+
+**UI Components:**
+- Mission Control theme styling
+- DataTables or similar for sortable/filterable table
+- Font Awesome icons for connectivity types:
+  - NODE: `fa-circle-dot`
+  - LINE: `fa-lines-leaning`
+  - EDGE: `fa-ruler-combined`
+  - POINT: `fa-location-dot`
+  - BREAK: `fa-scissors`
+  - CLOSE: `fa-circle`
+
+**Routes:**
+```python
+@app.route('/tools/survey-codes')  # Main manager page
+@app.route('/tools/survey-codes/create', methods=['GET', 'POST'])
+@app.route('/tools/survey-codes/<code_id>/edit', methods=['GET', 'POST'])
+@app.route('/tools/survey-codes/<code_id>/delete', methods=['POST'])
+@app.route('/tools/survey-codes/bulk-import', methods=['POST'])
+@app.route('/tools/survey-codes/export')  # CSV download
+@app.route('/tools/survey-codes/<code_id>/toggle-favorite', methods=['POST'])
+@app.route('/tools/survey-codes/<code_id>/clone', methods=['POST'])
+```
+
+### 2. Survey Attribute Manager (`/tools/survey-attributes`)
+
+**Purpose:** Manage attribute definitions and dropdown options.
+
+**Features:**
+- Table of all attributes with type, options count, usage
+- Add/edit modal for creating attributes
+- JSON editor for options array
+- Preview of how attribute appears in UI
+- Reorder options via drag-and-drop
+- Bulk import common attributes (sizes, materials, conditions)
+
+**Routes:**
+```python
+@app.route('/tools/survey-attributes')
+@app.route('/tools/survey-attributes/create', methods=['GET', 'POST'])
+@app.route('/tools/survey-attributes/<attr_id>/edit', methods=['GET', 'POST'])
+@app.route('/tools/survey-attributes/<attr_id>/delete', methods=['POST'])
+```
+
+### 3. Survey Point Code Parser (`/tools/survey-parser`)
+
+**Purpose:** Test code parsing logic and preview auto-generation results.
+
+**Features:**
+- Text input for testing a code string
+- Live preview showing parsed components:
+  - Discipline
+  - Category
+  - Feature Type
+  - Attributes
+  - Connectivity Type
+  - Generated Layer Name
+  - Block to Insert (if applicable)
+- Visual indicator of connectivity behavior (icon + description)
+- List of available attributes with defaults
+- "Simulate Field Shot" button to create test point
+
+**Routes:**
+```python
+@app.route('/tools/survey-parser', methods=['GET', 'POST'])
+@app.route('/api/survey-codes/parse', methods=['POST'])  # JSON API
+```
+
+### 4. Survey Import Tool (`/tools/survey-import`)
+
+**Purpose:** Import CSV files from data collectors and auto-process points.
+
+**Features:**
+- File upload (CSV format)
+- Column mapping interface (Point ID, Northing, Easting, Elevation, Description/Code)
+- Preview first 10 rows with parsed code data
+- Validation warnings (unknown codes, missing attributes)
+- Options:
+  - Auto-connect LINE/EDGE points
+  - Generate blocks for NODE points
+  - Create line segments
+  - Assign to drawing/project
+- Progress indicator during import
+- Import summary report:
+  - Total points imported
+  - Codes matched vs. unmatched
+  - Line segments created
+  - Blocks inserted
+  - Warnings/errors
+
+**Routes:**
+```python
+@app.route('/tools/survey-import', methods=['GET', 'POST'])
+@app.route('/api/survey-import/validate', methods=['POST'])  # Validate CSV
+@app.route('/api/survey-import/process', methods=['POST'])  # Process import
+```
+
+### 5. Survey Code Quick Reference (`/tools/survey-reference`)
+
+**Purpose:** Printable/mobile-friendly quick reference for field crews.
+
+**Features:**
+- Grouped by category (Utilities, Site, Control, Vegetation)
+- Favorite codes at top
+- Each code shows:
+  - Full code string
+  - Display name
+  - Icon
+  - Available attributes
+  - Example usage
+- Print-optimized CSS
+- Export to PDF button
+- Search/filter codes
+
+**Routes:**
+```python
+@app.route('/tools/survey-reference')
+@app.route('/tools/survey-reference/pdf')  # Generate PDF
+```
+
+### 6. Enhancement: Map Viewer Integration (`/map-viewer`)
+
+**Add to existing Map Viewer:**
+- Filter by connectivity type (show only NODEs, or only LINEs)
+- Color-code points by feature type
+- Show line segments with click-to-highlight source points
+- Popup on points showing full parsed code data
+- "Generate DXF from Selection" button for bounding box exports
+
+## Python Backend Functions
+
+### 1. Code Parser (`utils/survey_code_parser.py`)
+```python
+def parse_survey_code(code_string: str) -> dict:
+    """
+    Parse a survey code string into components.
+    
+    Args:
+        code_string: Raw code like "CIV-UTIL-STORM-MH-24IN-NODE-TOP"
+    
+    Returns:
+        dict with keys:
+            - discipline: str
+            - category: str
+            - feature_type: str
+            - attributes: dict (parsed from middle sections)
+            - connectivity: str
+            - flags: list
+            - layer_name: str (generated)
+            - block_name: str or None
+            - is_valid: bool
+            - errors: list of error messages
+    """
+    pass
+
+def validate_code_against_library(code_string: str, db_connection) -> dict:
+    """
+    Check if code exists in survey_code_library.
+    
+    Returns:
+        dict with:
+            - exists: bool
+            - code_record: dict or None
+            - suggestions: list (if not found, suggest similar codes)
+    """
+    pass
+
+def generate_layer_name(code_components: dict, phase: str = 'EXIST') -> str:
+    """
+    Generate standard layer name from parsed components.
+    
+    Example:
+        Input: {discipline: 'CIV', category: 'UTIL', feature: 'STORM-MH'}
+        Output: 'CIV-UTIL-STORM-MH-EXIST-BL'
+    """
+    pass
+```
+
+### 2. Auto-Connection Engine (`utils/survey_autoconnect.py`)
+```python
+def auto_connect_survey_points(points: list, feature_type: str, connectivity_type: str) -> list:
+    """
+    Connect sequential points into line segments.
+    
+    Args:
+        points: List of survey_points dicts (sorted by shot order)
+        feature_type: Feature type to filter (e.g., 'STORM-PIPE')
+        connectivity_type: 'LINE' or 'EDGE'
+    
+    Returns:
+        list of line segment dicts with:
+            - point_ids: list of UUIDs
+            - geometry: LineStringZ (WKT)
+            - is_closed: bool
+            - feature_type: str
+    
+    Logic:
+        - Group consecutive points with same feature_type
+        - Break segments on 'BREAK' connectivity
+        - Close segments on 'CLOSE' connectivity
+        - Validate reasonable distances between points
+    """
+    pass
+
+def create_line_segment_from_points(point_ids: list, db_connection) -> UUID:
+    """
+    Create survey_line_segments record from point IDs.
+    
+    Returns:
+        segment_id (UUID)
+    """
+    pass
+```
+
+### 3. Block Insertion Engine (`utils/survey_blocks.py`)
+```python
+def create_block_insert_from_point(point: dict, db_connection) -> UUID:
+    """
+    Create a block_inserts record from a NODE connectivity point.
+    
+    Args:
+        point: survey_points record dict
+    
+    Returns:
+        block_insert_id (UUID)
+    
+    Logic:
+        - Lookup block_name from survey_code_library
+        - Create block_inserts record with point geometry
+        - Set layer_name from generated layer
+        - Set attributes from parsed_attributes
+    """
+    pass
+```
+
+### 4. CSV Import Processor (`utils/survey_import.py`)
+```python
+def process_survey_csv(
+    file_path: str,
+    column_mapping: dict,
+    project_id: UUID,
+    drawing_id: UUID,
+    auto_connect: bool = True,
+    create_blocks: bool = True
+) -> dict:
+    """
+    Process uploaded survey CSV file.
+    
+    Args:
+        file_path: Path to CSV file
+        column_mapping: dict mapping CSV columns to fields
+            Example: {'Point ID': 'point_id', 'Northing': 'northing', ...}
+        project_id: UUID
+        drawing_id: UUID
+        auto_connect: Whether to auto-connect LINE/EDGE points
+        create_blocks: Whether to create blocks for NODE points
+    
+    Returns:
+        dict with:
+            - success: bool
+            - points_imported: int
+            - points_matched: int (code found in library)
+            - points_unmatched: int
+            - line_segments_created: int
+            - blocks_created: int
+            - errors: list
+            - warnings: list
+    """
+    pass
+```
+
+## Sample Data / Seed Script
+
+Create a seed script (`database/seeds/survey_code_library_seed.sql`) with 80 common codes:
+
+### Utilities (25 codes)
+```sql
+-- Storm Drainage (5)
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, create_block, block_name, category_group, is_favorite) VALUES
+('CIV-UTIL-STORM-MH-NODE', 'CIV', 'UTIL', 'STORM-MH', 'Storm Manhole', 'NODE', 'BL', true, 'STORM-MH', 'utilities', true),
+('CIV-UTIL-STORM-CB-NODE', 'CIV', 'UTIL', 'STORM-CB', 'Storm Catch Basin', 'NODE', 'BL', true, 'STORM-CB', 'utilities', true),
+('CIV-UTIL-STORM-PIPE-LINE', 'CIV', 'UTIL', 'STORM-PIPE', 'Storm Pipe Edge', 'LINE', 'LN', false, null, 'utilities', true),
+('CIV-UTIL-STORM-INLET-NODE', 'CIV', 'UTIL', 'STORM-INLET', 'Storm Inlet', 'NODE', 'BL', true, 'STORM-INLET', 'utilities', false),
+('CIV-UTIL-STORM-OUTLET-NODE', 'CIV', 'UTIL', 'STORM-OUTLET', 'Storm Outlet', 'NODE', 'BL', true, 'STORM-OUTLET', 'utilities', false);
+
+-- Sanitary Sewer (5)
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, create_block, block_name, category_group, is_favorite) VALUES
+('CIV-UTIL-SANITARY-MH-NODE', 'CIV', 'UTIL', 'SANITARY-MH', 'Sanitary Manhole', 'NODE', 'BL', true, 'SANITARY-MH', 'utilities', true),
+('CIV-UTIL-SANITARY-PIPE-LINE', 'CIV', 'UTIL', 'SANITARY-PIPE', 'Sanitary Pipe Edge', 'LINE', 'LN', false, null, 'utilities', true),
+('CIV-UTIL-SANITARY-LATERAL-LINE', 'CIV', 'UTIL', 'SANITARY-LATERAL', 'Sewer Lateral', 'LINE', 'LN', false, null, 'utilities', false),
+('CIV-UTIL-SANITARY-CLEANOUT-NODE', 'CIV', 'UTIL', 'SANITARY-CO', 'Sewer Cleanout', 'NODE', 'BL', true, 'SANITARY-CO', 'utilities', false),
+('CIV-UTIL-SANITARY-LIFT-NODE', 'CIV', 'UTIL', 'SANITARY-LIFT', 'Lift Station', 'NODE', 'BL', true, 'SANITARY-LIFT', 'utilities', false);
+
+-- Water (5)
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, create_block, block_name, category_group, is_favorite) VALUES
+('CIV-UTIL-WATER-VALVE-NODE', 'CIV', 'UTIL', 'WATER-VALVE', 'Water Valve', 'NODE', 'BL', true, 'WATER-VALVE', 'utilities', true),
+('CIV-UTIL-WATER-HYDRANT-NODE', 'CIV', 'UTIL', 'WATER-HYDRANT', 'Fire Hydrant', 'NODE', 'BL', true, 'WATER-HYDRANT', 'utilities', true),
+('CIV-UTIL-WATER-METER-NODE', 'CIV', 'UTIL', 'WATER-METER', 'Water Meter', 'NODE', 'BL', true, 'WATER-METER', 'utilities', false),
+('CIV-UTIL-WATER-PIPE-LINE', 'CIV', 'UTIL', 'WATER-PIPE', 'Water Main Edge', 'LINE', 'LN', false, null, 'utilities', true),
+('CIV-UTIL-WATER-SERVICE-LINE', 'CIV', 'UTIL', 'WATER-SERVICE', 'Water Service', 'LINE', 'LN', false, null, 'utilities', false);
+
+-- Additional utilities...
+-- (Continue pattern for gas, electric, telecom - 10 more codes)
+```
+
+### Site Features (25 codes)
+```sql
+-- Roads/Paving (8)
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, category_group, is_favorite) VALUES
+('SITE-ROAD-ASPH-EDGE-EDGE', 'SITE', 'ROAD', 'ASPH-EDGE', 'Asphalt Edge', 'EDGE', 'LN', 'site', true),
+('SITE-ROAD-CONC-EDGE-EDGE', 'SITE', 'ROAD', 'CONC-EDGE', 'Concrete Edge', 'EDGE', 'LN', 'site', true),
+('SITE-ROAD-CONC-CURB-EDGE', 'SITE', 'ROAD', 'CONC-CURB', 'Concrete Curb', 'EDGE', 'LN', 'site', true),
+('SITE-ROAD-CONC-GUTTER-EDGE', 'SITE', 'ROAD', 'CONC-GUTTER', 'Gutter Flow Line', 'EDGE', 'LN', 'site', false),
+('SITE-ROAD-CENTERLINE-LINE', 'SITE', 'ROAD', 'CENTERLINE', 'Road Centerline', 'LINE', 'LN', 'site', true),
+('SITE-ROAD-STRIPE-LINE', 'SITE', 'ROAD', 'STRIPE', 'Pavement Stripe', 'LINE', 'LN', 'site', false),
+('SITE-ROAD-CRACK-LINE', 'SITE', 'ROAD', 'CRACK', 'Pavement Crack', 'LINE', 'LN', 'site', false),
+('SITE-ROAD-JOINT-LINE', 'SITE', 'ROAD', 'JOINT', 'Pavement Joint', 'LINE', 'LN', 'site', false);
+
+-- Structures (7)
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, create_block, block_name, category_group, is_favorite) VALUES
+('SITE-STRU-WALL-EDGE', 'SITE', 'STRU', 'WALL', 'Retaining Wall', 'EDGE', 'LN', false, null, 'site', true),
+('SITE-STRU-FENCE-EDGE', 'SITE', 'STRU', 'FENCE', 'Fence Line', 'EDGE', 'LN', false, null, 'site', true),
+('SITE-STRU-BLDG-EDGE', 'SITE', 'STRU', 'BLDG', 'Building Edge', 'EDGE', 'LN', false, null, 'site', true),
+('SITE-STRU-SHED-EDGE', 'SITE', 'STRU', 'SHED', 'Shed/Accessory Building', 'EDGE', 'LN', false, null, 'site', false),
+('SITE-STRU-SIGN-NODE', 'SITE', 'STRU', 'SIGN', 'Sign', 'NODE', 'BL', true, 'SIGN', 'site', false),
+('SITE-STRU-POLE-NODE', 'SITE', 'STRU', 'POLE', 'Pole', 'NODE', 'BL', true, 'POLE', 'site', false),
+('SITE-STRU-PAD-EDGE', 'SITE', 'STRU', 'PAD', 'Concrete Pad', 'EDGE', 'LN', false, null, 'site', false);
+
+-- Vegetation (5)
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, create_block, block_name, category_group, is_favorite) VALUES
+('SITE-VEGE-TREE-NODE', 'SITE', 'VEGE', 'TREE', 'Tree', 'NODE', 'BL', true, 'TREE', 'site', true),
+('SITE-VEGE-SHRUB-NODE', 'SITE', 'VEGE', 'SHRUB', 'Shrub', 'NODE', 'PT', false, null, 'site', false),
+('SITE-VEGE-HEDGE-EDGE', 'SITE', 'VEGE', 'HEDGE', 'Hedge Line', 'EDGE', 'LN', false, null, 'site', false),
+('SITE-VEGE-GRASS-EDGE', 'SITE', 'VEGE', 'GRASS-EDGE', 'Grass Edge', 'EDGE', 'LN', false, null, 'site', false),
+('SITE-VEGE-PLANTER-EDGE', 'SITE', 'VEGE', 'PLANTER', 'Planter Edge', 'EDGE', 'LN', false, null, 'site', false);
+
+-- (Continue for grading, site furnishings, ADA - 5 more codes)
+```
+
+### Survey Control (15 codes)
+```sql
+-- Control Points (5)
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, create_block, block_name, category_group, is_favorite) VALUES
+('SURV-CTRL-MONU-DISK-POINT', 'SURV', 'CTRL', 'MONU-DISK', 'Control Disk Monument', 'POINT', 'BL', true, 'CONTROL-DISK', 'control', true),
+('SURV-CTRL-MONU-NAIL-POINT', 'SURV', 'CTRL', 'MONU-NAIL', 'Control Nail', 'POINT', 'BL', true, 'CONTROL-NAIL', 'control', true),
+('SURV-CTRL-MONU-SPIKE-POINT', 'SURV', 'CTRL', 'MONU-SPIKE', 'Control Spike', 'POINT', 'BL', true, 'CONTROL-SPIKE', 'control', false),
+('SURV-CTRL-MONU-HUB-POINT', 'SURV', 'CTRL', 'MONU-HUB', 'Hub & Tack', 'POINT', 'BL', true, 'CONTROL-HUB', 'control', true),
+('SURV-CTRL-POINT-POINT', 'SURV', 'CTRL', 'POINT', 'Generic Control Point', 'POINT', 'PT', false, null, 'control', false);
+
+-- Property (4)
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, create_block, block_name, category_group, is_favorite) VALUES
+('SURV-PROP-PIN-POINT', 'SURV', 'PROP', 'PIN', 'Property Pin', 'POINT', 'BL', true, 'PROP-PIN', 'control', true),
+('SURV-PROP-CORNER-POINT', 'SURV', 'PROP', 'CORNER', 'Property Corner', 'POINT', 'BL', true, 'PROP-CORNER', 'control', true),
+('SURV-PROP-MON-POINT', 'SURV', 'PROP', 'MONUMENT', 'Property Monument', 'POINT', 'BL', true, 'PROP-MON', 'control', false),
+('SURV-PROP-MARKER-POINT', 'SURV', 'PROP', 'MARKER', 'Property Marker', 'POINT', 'BL', true, 'PROP-MARKER', 'control', false);
+
+-- Reference (3)
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, create_block, category_group) VALUES
+('SURV-REF-TRAVERSE-POINT', 'SURV', 'REF', 'TRAVERSE', 'Traverse Point', 'POINT', 'PT', false, 'control'),
+('SURV-REF-BENCHMARK-POINT', 'SURV', 'REF', 'BENCHMARK', 'Benchmark', 'POINT', 'BL', true, 'control'),
+('SURV-REF-TBM-POINT', 'SURV', 'REF', 'TBM', 'Temporary Benchmark', 'POINT', 'BL', true, 'control');
+
+-- (Continue for offset, calc, temp - 3 more codes)
+```
+
+### Topography (10 codes)
+```sql
+-- Topo shots
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, category_group, is_favorite) VALUES
+('SURV-TOPO-CONTOUR-SHOT-LINE', 'SURV', 'TOPO', 'CONTOUR-SHOT', 'Contour Shot', 'LINE', 'PT', 'topo', true),
+('SURV-TOPO-SPOT-POINT', 'SURV', 'TOPO', 'SPOT', 'Spot Elevation', 'POINT', 'PT', 'topo', true),
+('SURV-TOPO-BREAKLINE-LINE', 'SURV', 'TOPO', 'BREAKLINE', 'Breakline', 'LINE', 'LN', 'topo', true),
+('SURV-TOPO-RIDGE-LINE', 'SURV', 'TOPO', 'RIDGE', 'Ridge Line', 'LINE', 'LN', 'topo', false),
+('SURV-TOPO-VALLEY-LINE', 'SURV', 'TOPO', 'VALLEY', 'Valley Line', 'LINE', 'LN', 'topo', false);
+
+-- (Continue for slope, swale, berm, ditch, surface - 5 more codes)
+```
+
+### Utilities - Other (5 codes)
+```sql
+-- Electric, gas, telecom
+INSERT INTO survey_code_library (code, discipline_code, category_code, feature_type, display_name, connectivity_type, geometry_output, create_block, block_name, category_group) VALUES
+('UTIL-ELEC-POLE-NODE', 'UTIL', 'ELEC', 'POLE', 'Electric Pole', 'NODE', 'BL', true, 'ELEC-POLE', 'utilities'),
+('UTIL-ELEC-XFMR-NODE', 'UTIL', 'ELEC', 'TRANSFORMER', 'Transformer', 'NODE', 'BL', true, 'ELEC-XFMR', 'utilities'),
+('UTIL-GAS-VALVE-NODE', 'UTIL', 'GAS', 'VALVE', 'Gas Valve', 'NODE', 'BL', true, 'GAS-VALVE', 'utilities'),
+('UTIL-TELE-PEDESTAL-NODE', 'UTIL', 'TELE', 'PEDESTAL', 'Telecom Pedestal', 'NODE', 'BL', true, 'TELE-PED', 'utilities'),
+('UTIL-TELE-HANDHOLE-NODE', 'UTIL', 'TELE', 'HANDHOLE', 'Telecom Handhole', 'NODE', 'BL', true, 'TELE-HH', 'utilities');
+```
+
+## Attribute Definitions Seed
+```sql
+-- Common attribute types
+INSERT INTO survey_code_attributes (attribute_name, display_label, attribute_type, options, sort_order) VALUES
+('size', 'Pipe/Structure Size', 'dropdown', 
+ '[{"value":"4IN","label":"4 inch"},{"value":"6IN","label":"6 inch"},{"value":"8IN","label":"8 inch"},{"value":"10IN","label":"10 inch"},{"value":"12IN","label":"12 inch"},{"value":"15IN","label":"15 inch"},{"value":"18IN","label":"18 inch"},{"value":"21IN","label":"21 inch"},{"value":"24IN","label":"24 inch"},{"value":"27IN","label":"27 inch"},{"value":"30IN","label":"30 inch"},{"value":"36IN","label":"36 inch"},{"value":"42IN","label":"42 inch"},{"value":"48IN","label":"48 inch"},{"value":"54IN","label":"54 inch"},{"value":"60IN","label":"60 inch"},{"value":"72IN","label":"72 inch"}]'::jsonb, 
+ 1);
+
+INSERT INTO survey_code_attributes (attribute_name, display_label, attribute_type, options, sort_order) VALUES
+('material', 'Material', 'dropdown',
+ '[{"value":"CONC","label":"Concrete"},{"value":"ASPH","label":"Asphalt"},{"value":"PVC","label":"PVC"},{"value":"DI","label":"Ductile Iron"},{"value":"STEEL","label":"Steel"},{"value":"PE","label":"Polyethylene"},{"value":"HDPE","label":"HDPE"},{"value":"CMP","label":"CMP"},{"value":"RCP","label":"RCP"},{"value":"VCP","label":"VCP"},{"value":"BRICK","label":"Brick"},{"value":"WOOD","label":"Wood"}]'::jsonb,
+ 2);
+
+INSERT INTO survey_code_attributes (attribute_name, display_label, attribute_type, options, sort_order) VALUES
+('phase', 'Phase', 'dropdown',
+ '[{"value":"EXIST","label":"Existing"},{"value":"DEMO","label":"Demolition"},{"value":"PROP","label":"Proposed"},{"value":"NEW","label":"New Construction"},{"value":"FUTURE","label":"Future Phase"},{"value":"TEMP","label":"Temporary"}]'::jsonb,
+ 3);
+
+INSERT INTO survey_code_attributes (attribute_name, display_label, attribute_type, options, sort_order) VALUES
+('condition', 'Condition', 'dropdown',
+ '[{"value":"GOOD","label":"Good"},{"value":"FAIR","label":"Fair"},{"value":"POOR","label":"Poor"},{"value":"DAMAGED","label":"Damaged"},{"value":"UNKNOWN","label":"Unknown"}]'::jsonb,
+ 4);
+
+INSERT INTO survey_code_attributes (attribute_name, display_label, attribute_type, options, sort_order) VALUES
+('elevation_type', 'Elevation Type', 'dropdown',
+ '[{"value":"TOP","label":"Top of Structure"},{"value":"RIM","label":"Rim Elevation"},{"value":"INV","label":"Invert"},{"value":"SPRING","label":"Springline"},{"value":"CL","label":"Centerline"},{"value":"FL","label":"Finish Floor"},{"value":"BOC","label":"Bottom of Curb"},{"value":"TOC","label":"Top of Curb"}]'::jsonb,
+ 5);
+
+INSERT INTO survey_code_attributes (attribute_name, display_label, attribute_type, options, sort_order) VALUES
+('tree_species', 'Tree Species', 'dropdown',
+ '[{"value":"OAK","label":"Oak"},{"value":"PINE","label":"Pine"},{"value":"MAPLE","label":"Maple"},{"value":"BIRCH","label":"Birch"},{"value":"REDWOOD","label":"Redwood"},{"value":"EUCALYPTUS","label":"Eucalyptus"},{"value":"PALM","label":"Palm"},{"value":"UNKNOWN","label":"Unknown"}]'::jsonb,
+ 6);
+
+INSERT INTO survey_code_attributes (attribute_name, display_label, attribute_type, options, sort_order) VALUES
+('dbh', 'Diameter at Breast Height', 'number', '[]'::jsonb, 7);
+
+INSERT INTO survey_code_attributes (attribute_name, display_label, attribute_type, options, sort_order) VALUES
+('preserve', 'Preserve Status', 'dropdown',
+ '[{"value":"PRES","label":"Preserve"},{"value":"REMOVE","label":"Remove"},{"value":"PROTECT","label":"Protect in Place"},{"value":"RELOCATE","label":"Relocate"}]'::jsonb,
+ 8);
+
+INSERT INTO survey_code_attributes (attribute_name, display_label, attribute_type, options, sort_order) VALUES
+('curb_height', 'Curb Height', 'dropdown',
+ '[{"value":"4IN","label":"4 inch"},{"value":"6IN","label":"6 inch"},{"value":"8IN","label":"8 inch"}]'::jsonb,
+ 9);
+
+INSERT INTO survey_code_attributes (attribute_name, display_label, attribute_type, options, sort_order) VALUES
+('found', 'Monument Status', 'dropdown',
+ '[{"value":"FOUND","label":"Found"},{"value":"SET","label":"Set"},{"value":"RESET","label":"Reset"},{"value":"NOT_FOUND","label":"Not Found"},{"value":"DESTROYED","label":"Destroyed"}]'::jsonb,
+ 10);
+```
+
+## Navigation Integration
+
+Add to the horizontal navigation in `base.html`:
+```html
+<!-- In the "Tools" dropdown menu -->
+<div class="dropdown-section">
+    <div class="dropdown-section-title">Survey Tools</div>
+    <a href="/tools/survey-codes" class="dropdown-item">
+        <i class="fas fa-list-check"></i>
+        <span>Survey Code Library</span>
+    </a>
+    <a href="/tools/survey-attributes" class="dropdown-item">
+        <i class="fas fa-tags"></i>
+        <span>Survey Attributes</span>
+    </a>
+    <a href="/tools/survey-parser" class="dropdown-item">
+        <i class="fas fa-code"></i>
+        <span>Code Parser</span>
+    </a>
+    <a href="/tools/survey-import" class="dropdown-item">
+        <i class="fas fa-file-import"></i>
+        <span>Import Survey Data</span>
+    </a>
+    <a href="/tools/survey-reference" class="dropdown-item">
+        <i class="fas fa-book"></i>
+        <span>Quick Reference</span>
+    </a>
+</div>
+```
+
+## Testing Strategy
+
+### 1. Unit Tests
+- Test `parse_survey_code()` with valid/invalid codes
+- Test `generate_layer_name()` output
+- Test `auto_connect_survey_points()` logic
+- Test block insertion
+
+### 2. Integration Tests
+- Import sample CSV with 50 mixed points
+- Verify points inserted to survey_points
+- Verify line segments created
+- Verify blocks inserted
+- Verify layer names generated correctly
+
+### 3. End-to-End Test
+- Create test project and drawing
+- Use Survey Code Library to add 10 codes
+- Import CSV with those codes
+- View in Map Viewer
+- Export to DXF
+- Verify DXF has correct layers and entities
+
+## Documentation
+
+Create user documentation at `/docs/survey-codes`:
+- Overview of system
+- How to add codes to library
+- How to configure data collectors
+- CSV format requirements
+- Troubleshooting guide
+
+## Success Criteria
+
+✅ Survey Code Library Manager fully functional (CRUD, search, favorites)
+✅ Survey Attribute Manager working
+✅ Code parser correctly breaks down codes
+✅ CSV import processes file and creates points
+✅ Auto-connection creates line segments from sequential points
+✅ Blocks inserted for NODE connectivity points
+✅ Layer names generated correctly
+✅ Map Viewer shows imported points
+✅ Quick reference page printable
+✅ 80 seed codes loaded
+✅ 10 attribute definitions loaded
+✅ Navigation integrated
+
+## Design Notes
+
+- Use Mission Control theme (cyan/neon colors)
+- All pages extend `base.html`
+- Use DataTables for sortable tables
+- Use Font Awesome icons throughout
+- Mobile-responsive forms
+- ARIA accessibility labels
+- XSS prevention (DOM APIs, not innerHTML)
+
+## Implementation Order
+
+1. Database schema (tables, indexes, seed data)
+2. Python utility functions (parser, auto-connect, blocks)
+3. Survey Code Library Manager page (main CRUD)
+4. Survey Attribute Manager page
+5. Code Parser test page
+6. CSV Import tool
+7. Quick Reference page
+8. Map Viewer integration
+9. Navigation updates
+10. Testing & documentation
+
+## Questions for Replit AI
+
+- Should I use SQLAlchemy models or raw psycopg2?
+- Do you want validation on code format (regex)?
+- Should auto-connection use PostGIS ST_MakeLine or Python list?
+- How should I handle code conflicts (duplicate codes)?
+- Do you want audit logging for code changes?
+- Should I create API endpoints for external data collector integration?
+
+---
+
+**END OF SPECIFICATION**
+
+Please implement this system following the ACAD-GIS architecture patterns, Mission Control design system, and database-first philosophy. Let me know if you need clarification on any part of this specification.

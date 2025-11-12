@@ -196,7 +196,7 @@
                 </div>
             </div>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/tools/batch-cad-import', '/tools/batch-block-import', '/tools/batch-point-import', '/tools/z-stress-test', '/tools/specialized-tools-directory', '/map-viewer', '/map-viewer-v2', '/gravity-network-manager', '/pressure-network-manager', '/bmp-manager', '/sheet-notes', '/entity-viewer'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/tools/batch-cad-import', '/tools/batch-block-import', '/tools/batch-point-import', '/tools/survey-codes', '/tools/z-stress-test', '/tools/specialized-tools-directory', '/map-viewer', '/map-viewer-v2', '/gravity-network-manager', '/pressure-network-manager', '/bmp-manager', '/sheet-notes', '/entity-viewer'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-drafting-compass"></i>
                     <span>Tools</span>
@@ -219,6 +219,10 @@
                     <a href="/tools/batch-point-import" class="mc-dropdown-item {% if request.path == '/tools/batch-point-import' %}active{% endif %}">
                         <i class="fas fa-map-pin"></i>
                         Batch Point Import
+                    </a>
+                    <a href="/tools/survey-codes" class="mc-dropdown-item {% if request.path == '/tools/survey-codes' %}active{% endif %}">
+                        <i class="fas fa-list-check"></i>
+                        Survey Code Library
                     </a>
                     <a href="/tools/z-stress-test" class="mc-dropdown-item {% if request.path == '/tools/z-stress-test' %}active{% endif %}">
                         <i class="fas fa-vial"></i>

@@ -1,0 +1,745 @@
+{% extends 'base.html' %}
+
+{% block title %}Survey Code Library Manager{% endblock %}
+
+{% block content %}
+<div class="mc-page">
+    <div class="mc-header">
+        <h1><i class="fas fa-list-check"></i> Survey Code Library Manager</h1>
+        <p>Manage field survey codes for structured data collection and auto-CAD generation</p>
+    </div>
+
+    <!-- Stats and Quick Actions -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-code"></i></div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalCodes">0</div>
+                <div class="stat-label">Total Codes</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-star"></i></div>
+            <div class="stat-content">
+                <div class="stat-value" id="favoriteCodes">0</div>
+                <div class="stat-label">Favorites</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+            <div class="stat-content">
+                <div class="stat-value" id="usedCodes">0</div>
+                <div class="stat-label">In Use</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-layer-group"></i></div>
+            <div class="stat-content">
+                <div class="stat-value" id="categoryCount">0</div>
+                <div class="stat-label">Categories</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Controls -->
+    <div class="mc-card">
+        <div class="filters-toolbar">
+            <div class="filters-row">
+                <input type="text" id="searchInput" class="mc-input" placeholder="Search codes, names, descriptions..." style="flex: 2;">
+                <select id="filterDiscipline" class="mc-select">
+                    <option value="">All Disciplines</option>
+                </select>
+                <select id="filterCategory" class="mc-select">
+                    <option value="">All Categories</option>
+                </select>
+                <select id="filterConnectivity" class="mc-select">
+                    <option value="">All Connectivity Types</option>
+                    <option value="NODE">NODE - Single Point</option>
+                    <option value="LINE">LINE - Auto-connect</option>
+                    <option value="EDGE">EDGE - Closed Polygon</option>
+                    <option value="POINT">POINT - Standalone</option>
+                    <option value="BREAK">BREAK - Stop Line</option>
+                    <option value="CLOSE">CLOSE - Close Polygon</option>
+                </select>
+                <select id="filterCategoryGroup" class="mc-select">
+                    <option value="">All Groups</option>
+                    <option value="utilities">Utilities</option>
+                    <option value="site">Site</option>
+                    <option value="topo">Topographic</option>
+                    <option value="control">Control</option>
+                </select>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="favoritesOnly">
+                    <i class="fas fa-star"></i> Favorites Only
+                </label>
+                <button class="mc-btn-primary" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i> Add Code
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Survey Codes Table -->
+    <div class="mc-card">
+        <div class="table-header">
+            <h2>Survey Codes</h2>
+            <div class="table-actions">
+                <span id="resultCount" class="result-count">0 codes</span>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <table class="mc-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"></th>
+                        <th>Code</th>
+                        <th>Display Name</th>
+                        <th>Discipline</th>
+                        <th>Category</th>
+                        <th>Feature Type</th>
+                        <th>Connectivity</th>
+                        <th>Group</th>
+                        <th>Usage</th>
+                        <th style="width: 100px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="codesTableBody">
+                    <tr>
+                        <td colspan="10" style="text-align: center; padding: 40px;">
+                            <i class="fas fa-spinner fa-spin"></i> Loading codes...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="codeModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3 id="modalTitle">Add Survey Code</h3>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="codeForm" onsubmit="handleSubmit(event)">
+            <input type="hidden" id="codeId">
+            
+            <div class="form-grid">
+                <!-- Basic Info -->
+                <div class="form-section">
+                    <h4><i class="fas fa-info-circle"></i> Basic Information</h4>
+                    
+                    <div class="form-group">
+                        <label>Code <span style="color: var(--mc-danger);">*</span></label>
+                        <input type="text" id="code" required placeholder="e.g., CIV-UTIL-STORM-MH" class="mc-input">
+                        <div class="help-text">Unique code string (uppercase, use hyphens)</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Display Name <span style="color: var(--mc-danger);">*</span></label>
+                        <input type="text" id="displayName" required placeholder="e.g., Storm Manhole" class="mc-input">
+                        <div class="help-text">Human-readable name shown in data collectors</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="description" placeholder="Detailed description of what this code represents..." class="mc-input"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Feature Type <span style="color: var(--mc-danger);">*</span></label>
+                        <input type="text" id="featureType" required placeholder="e.g., STORM-MH, ASPH-EDGE" class="mc-input">
+                        <div class="help-text">Specific feature identifier</div>
+                    </div>
+                </div>
+
+                <!-- Classification -->
+                <div class="form-section">
+                    <h4><i class="fas fa-tags"></i> Classification</h4>
+                    
+                    <div class="form-group">
+                        <label>Discipline Code</label>
+                        <input type="text" id="disciplineCode" placeholder="e.g., CIV, SURV, SITE" class="mc-input">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Category Code</label>
+                        <input type="text" id="categoryCode" placeholder="e.g., UTIL, ROAD, TOPO" class="mc-input">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Category Group</label>
+                        <select id="categoryGroup" class="mc-select">
+                            <option value="">Select Group</option>
+                            <option value="utilities">Utilities</option>
+                            <option value="site">Site</option>
+                            <option value="topo">Topographic</option>
+                            <option value="control">Control</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Icon Name</label>
+                        <input type="text" id="iconName" placeholder="e.g., fa-circle-dot" class="mc-input">
+                        <div class="help-text">Font Awesome icon class</div>
+                    </div>
+                </div>
+
+                <!-- Behavior -->
+                <div class="form-section">
+                    <h4><i class="fas fa-sliders-h"></i> Behavior & Output</h4>
+                    
+                    <div class="form-group">
+                        <label>Connectivity Type <span style="color: var(--mc-danger);">*</span></label>
+                        <select id="connectivityType" class="mc-select" required>
+                            <option value="POINT">POINT - Standalone point</option>
+                            <option value="NODE">NODE - Network node</option>
+                            <option value="LINE">LINE - Auto-connect sequential</option>
+                            <option value="EDGE">EDGE - Closed polygon</option>
+                            <option value="BREAK">BREAK - Stop line</option>
+                            <option value="CLOSE">CLOSE - Close polygon</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Geometry Output</label>
+                        <select id="geometryOutput" class="mc-select">
+                            <option value="">None</option>
+                            <option value="PT">PT - Point</option>
+                            <option value="LN">LN - Line</option>
+                            <option value="PL">PL - Polyline</option>
+                            <option value="BL">BL - Block Insert</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="autoConnect">
+                            Auto-connect sequential points
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="createBlock">
+                            Create block insert
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Block Name</label>
+                        <input type="text" id="blockName" placeholder="e.g., STMH-24" class="mc-input">
+                        <div class="help-text">CAD block to insert (if create block enabled)</div>
+                    </div>
+                </div>
+
+                <!-- Layer Generation -->
+                <div class="form-section">
+                    <h4><i class="fas fa-layer-group"></i> Layer Rules</h4>
+                    
+                    <div class="form-group">
+                        <label>Layer Template</label>
+                        <input type="text" id="layerTemplate" placeholder="{discipline}-{category}-{feature}-{phase}-{geometry}" class="mc-input">
+                        <div class="help-text">Template for auto-generating layer names</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Default Phase</label>
+                        <select id="defaultPhase" class="mc-select">
+                            <option value="EXIST">EXIST - Existing</option>
+                            <option value="PROP">PROP - Proposed</option>
+                            <option value="DEMO">DEMO - Demolition</option>
+                            <option value="TEMP">TEMP - Temporary</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Organization -->
+                <div class="form-section">
+                    <h4><i class="fas fa-cog"></i> Organization</h4>
+                    
+                    <div class="form-group">
+                        <label>Sort Order</label>
+                        <input type="number" id="sortOrder" value="0" class="mc-input">
+                        <div class="help-text">Lower numbers appear first</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="isFavorite">
+                            <i class="fas fa-star"></i> Mark as Favorite (Quick Access)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="mc-btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="mc-btn-primary">
+                    <i class="fas fa-save"></i> Save Code
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: var(--mc-card-bg);
+    border: 1px solid var(--mc-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.stat-icon {
+    font-size: 2rem;
+    color: var(--mc-primary);
+    background: var(--mc-primary-dim);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--mc-text);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--mc-muted);
+    margin-top: 0.25rem;
+}
+
+.filters-toolbar {
+    padding: 1rem;
+    background: var(--mc-surface);
+    border-radius: 8px;
+}
+
+.filters-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    background: var(--mc-surface);
+    border: 1px solid var(--mc-border);
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.checkbox-label:hover {
+    background: var(--mc-hover);
+}
+
+.checkbox-label input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.result-count {
+    background: var(--mc-primary-dim);
+    color: var(--mc-primary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-section {
+    background: var(--mc-surface);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--mc-border);
+}
+
+.form-section h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: var(--mc-primary);
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.connectivity-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.conn-NODE { background: #2563eb20; color: #2563eb; }
+.conn-LINE { background: #16a34a20; color: #16a34a; }
+.conn-EDGE { background: #9333ea20; color: #9333ea; }
+.conn-POINT { background: #ca843820; color: #ca8438; }
+.conn-BREAK { background: #dc262620; color: #dc2626; }
+.conn-CLOSE { background: #06b6d420; color: #06b6d4; }
+
+.action-btn {
+    padding: 0.25rem 0.5rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: transform 0.1s;
+}
+
+.action-btn:hover {
+    transform: scale(1.1);
+}
+
+.btn-favorite { color: #fbbf24; }
+.btn-favorite.active { color: #f59e0b; }
+.btn-edit { color: var(--mc-primary); }
+.btn-delete { color: var(--mc-danger); }
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--mc-muted);
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+</style>
+
+<script>
+let allCodes = [];
+let currentCodeId = null;
+
+// Load codes on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadCodes();
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    document.getElementById('searchInput').addEventListener('input', filterCodes);
+    document.getElementById('filterDiscipline').addEventListener('change', filterCodes);
+    document.getElementById('filterCategory').addEventListener('change', filterCodes);
+    document.getElementById('filterConnectivity').addEventListener('change', filterCodes);
+    document.getElementById('filterCategoryGroup').addEventListener('change', filterCodes);
+    document.getElementById('favoritesOnly').addEventListener('change', filterCodes);
+}
+
+async function loadCodes() {
+    try {
+        const response = await fetch('/api/survey-codes');
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        allCodes = data.survey_codes || [];
+        updateStats();
+        populateFilters();
+        renderCodes(allCodes);
+    } catch (error) {
+        console.error('Error loading survey codes:', error);
+        document.getElementById('codesTableBody').innerHTML = `
+            <tr><td colspan="10" style="text-align: center; padding: 2rem; color: var(--mc-danger);">
+                <i class="fas fa-exclamation-triangle"></i> Error loading codes: ${error.message}
+            </td></tr>
+        `;
+    }
+}
+
+function updateStats() {
+    document.getElementById('totalCodes').textContent = allCodes.length;
+    document.getElementById('favoriteCodes').textContent = allCodes.filter(c => c.is_favorite).length;
+    document.getElementById('usedCodes').textContent = allCodes.filter(c => c.usage_count > 0).length;
+    
+    const uniqueGroups = new Set(allCodes.map(c => c.category_group).filter(Boolean));
+    document.getElementById('categoryCount').textContent = uniqueGroups.size;
+}
+
+function populateFilters() {
+    const disciplines = [...new Set(allCodes.map(c => c.discipline_code).filter(Boolean))];
+    const categories = [...new Set(allCodes.map(c => c.category_code).filter(Boolean))];
+    
+    const disciplineSelect = document.getElementById('filterDiscipline');
+    disciplineSelect.innerHTML = '<option value="">All Disciplines</option>';
+    disciplines.forEach(d => {
+        disciplineSelect.innerHTML += `<option value="${d}">${d}</option>`;
+    });
+    
+    const categorySelect = document.getElementById('filterCategory');
+    categorySelect.innerHTML = '<option value="">All Categories</option>';
+    categories.forEach(c => {
+        categorySelect.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+}
+
+function filterCodes() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const discipline = document.getElementById('filterDiscipline').value;
+    const category = document.getElementById('filterCategory').value;
+    const connectivity = document.getElementById('filterConnectivity').value;
+    const categoryGroup = document.getElementById('filterCategoryGroup').value;
+    const favoritesOnly = document.getElementById('favoritesOnly').checked;
+    
+    let filtered = allCodes;
+    
+    if (search) {
+        filtered = filtered.filter(c => 
+            c.code.toLowerCase().includes(search) ||
+            c.display_name.toLowerCase().includes(search) ||
+            (c.description && c.description.toLowerCase().includes(search))
+        );
+    }
+    
+    if (discipline) filtered = filtered.filter(c => c.discipline_code === discipline);
+    if (category) filtered = filtered.filter(c => c.category_code === category);
+    if (connectivity) filtered = filtered.filter(c => c.connectivity_type === connectivity);
+    if (categoryGroup) filtered = filtered.filter(c => c.category_group === categoryGroup);
+    if (favoritesOnly) filtered = filtered.filter(c => c.is_favorite);
+    
+    renderCodes(filtered);
+}
+
+function renderCodes(codes) {
+    const tbody = document.getElementById('codesTableBody');
+    document.getElementById('resultCount').textContent = `${codes.length} code${codes.length !== 1 ? 's' : ''}`;
+    
+    if (codes.length === 0) {
+        tbody.innerHTML = `
+            <tr><td colspan="10" class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No survey codes found</p>
+            </td></tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = codes.map(code => `
+        <tr>
+            <td style="text-align: center;">
+                <button class="action-btn btn-favorite ${code.is_favorite ? 'active' : ''}" 
+                        onclick="toggleFavorite('${code.code_id}', ${!code.is_favorite})" 
+                        title="${code.is_favorite ? 'Remove from favorites' : 'Add to favorites'}">
+                    <i class="fas fa-star"></i>
+                </button>
+            </td>
+            <td><code style="color: var(--mc-primary); font-weight: 600;">${code.code}</code></td>
+            <td>${code.display_name}</td>
+            <td>${code.discipline_code || '-'}</td>
+            <td>${code.category_code || '-'}</td>
+            <td>${code.feature_type}</td>
+            <td>
+                <span class="connectivity-icon conn-${code.connectivity_type}">
+                    ${getConnectivityIcon(code.connectivity_type)} ${code.connectivity_type}
+                </span>
+            </td>
+            <td>${code.category_group || '-'}</td>
+            <td>${code.usage_count || 0}</td>
+            <td>
+                <button class="action-btn btn-edit" onclick="editCode('${code.code_id}')" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="action-btn btn-delete" onclick="deleteCode('${code.code_id}', '${code.code}')" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function getConnectivityIcon(type) {
+    const icons = {
+        'NODE': '<i class="fas fa-circle-dot"></i>',
+        'LINE': '<i class="fas fa-grip-lines"></i>',
+        'EDGE': '<i class="fas fa-vector-square"></i>',
+        'POINT': '<i class="fas fa-location-dot"></i>',
+        'BREAK': '<i class="fas fa-scissors"></i>',
+        'CLOSE': '<i class="fas fa-circle"></i>'
+    };
+    return icons[type] || '<i class="fas fa-question"></i>';
+}
+
+function openAddModal() {
+    currentCodeId = null;
+    document.getElementById('modalTitle').textContent = 'Add Survey Code';
+    document.getElementById('codeForm').reset();
+    document.getElementById('codeId').value = '';
+    document.getElementById('modal').style.display = 'flex';
+}
+
+async function editCode(codeId) {
+    try {
+        const response = await fetch(`/api/survey-codes/${codeId}`);
+        const code = await response.json();
+        
+        if (code.error) throw new Error(code.error);
+        
+        currentCodeId = codeId;
+        document.getElementById('modalTitle').textContent = 'Edit Survey Code';
+        document.getElementById('codeId').value = codeId;
+        
+        // Populate form
+        document.getElementById('code').value = code.code || '';
+        document.getElementById('displayName').value = code.display_name || '';
+        document.getElementById('description').value = code.description || '';
+        document.getElementById('featureType').value = code.feature_type || '';
+        document.getElementById('disciplineCode').value = code.discipline_code || '';
+        document.getElementById('categoryCode').value = code.category_code || '';
+        document.getElementById('categoryGroup').value = code.category_group || '';
+        document.getElementById('iconName').value = code.icon_name || '';
+        document.getElementById('connectivityType').value = code.connectivity_type || 'POINT';
+        document.getElementById('geometryOutput').value = code.geometry_output || '';
+        document.getElementById('autoConnect').checked = code.auto_connect || false;
+        document.getElementById('createBlock').checked = code.create_block || false;
+        document.getElementById('blockName').value = code.block_name || '';
+        document.getElementById('layerTemplate').value = code.layer_template || '';
+        document.getElementById('defaultPhase').value = code.default_phase || 'EXIST';
+        document.getElementById('sortOrder').value = code.sort_order || 0;
+        document.getElementById('isFavorite').checked = code.is_favorite || false;
+        
+        document.getElementById('codeModal').style.display = 'flex';
+    } catch (error) {
+        alert('Error loading code: ' + error.message);
+    }
+}
+
+async function handleSubmit(event) {
+    event.preventDefault();
+    
+    const codeId = document.getElementById('codeId').value;
+    const formData = {
+        code: document.getElementById('code').value.trim().toUpperCase(),
+        display_name: document.getElementById('displayName').value.trim(),
+        description: document.getElementById('description').value.trim(),
+        feature_type: document.getElementById('featureType').value.trim(),
+        discipline_code: document.getElementById('disciplineCode').value.trim(),
+        category_code: document.getElementById('categoryCode').value.trim(),
+        category_group: document.getElementById('categoryGroup').value,
+        icon_name: document.getElementById('iconName').value.trim(),
+        connectivity_type: document.getElementById('connectivityType').value,
+        geometry_output: document.getElementById('geometryOutput').value,
+        auto_connect: document.getElementById('autoConnect').checked,
+        create_block: document.getElementById('createBlock').checked,
+        block_name: document.getElementById('blockName').value.trim(),
+        layer_template: document.getElementById('layerTemplate').value.trim(),
+        default_phase: document.getElementById('defaultPhase').value,
+        sort_order: parseInt(document.getElementById('sortOrder').value) || 0,
+        is_favorite: document.getElementById('isFavorite').checked
+    };
+    
+    try {
+        const url = codeId ? `/api/survey-codes/${codeId}` : '/api/survey-codes';
+        const method = codeId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
+        
+        closeModal();
+        await loadCodes();
+        
+        alert(result.message || 'Survey code saved successfully!');
+    } catch (error) {
+        alert('Error saving code: ' + error.message);
+    }
+}
+
+async function toggleFavorite(codeId, isFavorite) {
+    try {
+        const response = await fetch(`/api/survey-codes/${codeId}/favorite`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_favorite: isFavorite })
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) throw new Error(result.error);
+        
+        await loadCodes();
+    } catch (error) {
+        alert('Error updating favorite: ' + error.message);
+    }
+}
+
+async function deleteCode(codeId, codeName) {
+    if (!confirm(`Are you sure you want to delete the survey code "${codeName}"?\n\nThis will soft-delete the code (mark as inactive).`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/survey-codes/${codeId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) throw new Error(result.error);
+        
+        await loadCodes();
+        alert(result.message || 'Survey code deleted successfully!');
+    } catch (error) {
+        alert('Error deleting code: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('codeModal').style.display = 'none';
+    document.getElementById('codeForm').reset();
+    currentCodeId = null;
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('codeModal');
+    if (event.target === modal) {
+        closeModal();
+    }
+};
+</script>
+{% endblock %}
