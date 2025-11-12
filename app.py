@@ -161,6 +161,11 @@ def specialized_tools_directory():
     """Specialized Tools Directory - comprehensive list of interactive management tools"""
     return render_template('tools/specialized_tools_directory.html')
 
+@app.route('/tools/z-stress-test')
+def z_stress_test_tool():
+    """Z-Value Elevation Preservation Stress Test - interactive testing tool"""
+    return render_template('tools/z_stress_test.html')
+
 @app.route('/project-standards-assignment')
 def project_standards_assignment():
     """Project Standards Assignment page"""
@@ -6843,6 +6848,49 @@ def layer_generator():
 def dxf_test_generator():
     """Render the DXF Test Generator page"""
     return render_template('tools/dxf_test_generator.html')
+
+@app.route('/api/z-stress-test/run', methods=['POST'])
+def run_z_stress_test():
+    """Run Z-value elevation preservation stress test"""
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    
+    from scripts.z_stress_harness import ZStressHarness
+    
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'error': 'Invalid JSON payload'}), 400
+        
+        num_cycles = data.get('num_cycles', 20)
+        srid = data.get('srid', 0)
+        tolerance = data.get('tolerance', 0.001)
+        
+        # Validate parameters
+        if num_cycles < 1 or num_cycles > 100:
+            return jsonify({'error': 'Number of cycles must be between 1 and 100'}), 400
+        
+        if srid not in [0, 2226]:
+            return jsonify({'error': 'SRID must be 0 (local CAD) or 2226 (CA State Plane)'}), 400
+        
+        if tolerance <= 0 or tolerance > 1:
+            return jsonify({'error': 'Tolerance must be between 0 and 1 feet'}), 400
+        
+        # Run the stress test
+        harness = ZStressHarness(DB_CONFIG)
+        results = harness.run_stress_test(
+            num_cycles=num_cycles,
+            srid=srid,
+            tolerance_ft=tolerance
+        )
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/tools/generate-test-dxf', methods=['POST'])
 def generate_test_dxf():

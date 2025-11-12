@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+
+{% block title %}Z-Value Stress Test{% endblock %}
+
+{% block content %}
+<div class="mc-page-header">
+    <h1><i class="fas fa-vial"></i> Z-Value Elevation Preservation Stress Test</h1>
+    <p>Interactive tool to prove survey-grade 3D elevation preservation through multiple import/export cycles</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 400px 1fr; gap: 2rem; margin-bottom: 2rem;">
+    <!-- Left Panel: Configuration -->
+    <div class="mc-card">
+        <div class="mc-card-header">
+            <h2><i class="fas fa-sliders-h"></i> Test Configuration</h2>
+        </div>
+        <div class="mc-card-content">
+            
+            <!-- Test Parameters -->
+            <div class="section-group">
+                <h3><i class="fas fa-cog"></i> Parameters</h3>
+                
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="num_cycles">
+                        <i class="fas fa-repeat"></i> Number of Cycles:
+                    </label>
+                    <input type="number" id="num_cycles" class="form-control" value="20" min="1" max="100" style="width: 100%;">
+                    <small class="mc-help-text">Each cycle performs a full import → database → export round-trip</small>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="srid">
+                        <i class="fas fa-map"></i> Coordinate System:
+                    </label>
+                    <select id="srid" class="form-control" style="width: 100%;">
+                        <option value="0">SRID 0 - Local CAD</option>
+                        <option value="2226">EPSG:2226 - CA State Plane Zone 2</option>
+                    </select>
+                    <small class="mc-help-text">Test both local and georeferenced coordinates</small>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="tolerance">
+                        <i class="fas fa-ruler"></i> Tolerance (feet):
+                    </label>
+                    <input type="number" id="tolerance" class="form-control" value="0.001" step="0.0001" min="0.0001" style="width: 100%;">
+                    <small class="mc-help-text">
+                        0.001 ft = sub-millimeter precision<br>
+                        (~0.012 inches = ~0.3 mm)
+                    </small>
+                </div>
+            </div>
+
+            <!-- Test Fixtures Info -->
+            <div class="section-group" style="margin-top: 1.5rem;">
+                <h3><i class="fas fa-shapes"></i> Test Fixtures</h3>
+                <p class="mc-help-text">Canonical test geometries:</p>
+                <ul style="font-size: 0.9rem; line-height: 1.6; margin-left: 1.2rem;">
+                    <li><strong>Z=0 Flat Pad</strong> <span class="badge" style="background: var(--mc-critical-red);">CRITICAL</span></li>
+                    <li>Sloped Stormwater Pipe (50' drop)</li>
+                    <li>High-Elevation Boundary (Z=1000+)</li>
+                    <li>Sub-Millimeter Precision Test</li>
+                    <li>Large Coordinate Values</li>
+                </ul>
+            </div>
+
+            <!-- Run Button -->
+            <button id="runTestBtn" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 1rem;">
+                <i class="fas fa-play"></i> Run Stress Test
+            </button>
+
+            <!-- Download Results Button (hidden initially) -->
+            <button id="downloadJsonBtn" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem; display: none;">
+                <i class="fas fa-download"></i> Download JSON Results
+            </button>
+        </div>
+    </div>
+
+    <!-- Right Panel: Results & Progress -->
+    <div class="mc-card">
+        <div class="mc-card-header">
+            <h2><i class="fas fa-chart-line"></i> Test Results</h2>
+        </div>
+        <div class="mc-card-content">
+            
+            <!-- Initial State -->
+            <div id="initialState" class="placeholder-state">
+                <div style="text-align: center; padding: 4rem 2rem; color: var(--mc-text-dim);">
+                    <i class="fas fa-flask" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+                    <p style="font-size: 1.1rem;">Configure test parameters and click "Run Stress Test" to begin</p>
+                    <p style="font-size: 0.9rem; margin-top: 0.5rem;">
+                        This test will prove Z-value preservation with reproducible, auditable results
+                    </p>
+                </div>
+            </div>
+
+            <!-- Progress State -->
+            <div id="progressState" style="display: none;">
+                <div class="status-banner" style="background: var(--mc-info-blue); padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0 0 0.5rem 0;">
+                        <i class="fas fa-spinner fa-spin"></i> Running Test...
+                    </h3>
+                    <p id="progressText" style="margin: 0;">Initializing test fixtures...</p>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-bar-container" style="background: var(--mc-dark-3); border-radius: 4px; height: 30px; margin-bottom: 1.5rem; overflow: hidden; position: relative;">
+                    <div id="progressBar" style="background: linear-gradient(90deg, var(--mc-cyan), var(--mc-neon-green)); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                    <span id="progressPercent" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; color: white; z-index: 1;">0%</span>
+                </div>
+
+                <!-- Cycle Log -->
+                <div id="cycleLog" class="log-container" style="background: var(--mc-dark-3); padding: 1rem; border-radius: 4px; max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.85rem; line-height: 1.6;">
+                </div>
+            </div>
+
+            <!-- Results State -->
+            <div id="resultsState" style="display: none;">
+                <!-- Overall Status -->
+                <div id="overallStatus" class="status-banner" style="padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                    <!-- Will be populated with pass/fail -->
+                </div>
+
+                <!-- Summary Statistics -->
+                <div class="stats-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div class="stat-card" style="background: var(--mc-dark-3); padding: 1rem; border-radius: 4px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--mc-cyan);" id="stat-cycles">-</div>
+                        <div style="font-size: 0.9rem; color: var(--mc-text-dim);">Cycles Run</div>
+                    </div>
+                    <div class="stat-card" style="background: var(--mc-dark-3); padding: 1rem; border-radius: 4px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--mc-neon-green);" id="stat-max-error">-</div>
+                        <div style="font-size: 0.9rem; color: var(--mc-text-dim);">Max Error (ft)</div>
+                    </div>
+                    <div class="stat-card" style="background: var(--mc-dark-3); padding: 1rem; border-radius: 4px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--mc-neon-orange);" id="stat-avg-error">-</div>
+                        <div style="font-size: 0.9rem; color: var(--mc-text-dim);">Avg Error (ft)</div>
+                    </div>
+                </div>
+
+                <!-- Per-Cycle Chart Placeholder -->
+                <div class="section-group">
+                    <h3><i class="fas fa-chart-area"></i> Error Progression</h3>
+                    <div id="errorChart" style="background: var(--mc-dark-3); padding: 1.5rem; border-radius: 4px; min-height: 300px;">
+                        <canvas id="errorCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Test Metadata -->
+                <div class="section-group" style="margin-top: 1.5rem;">
+                    <h3><i class="fas fa-info-circle"></i> Test Details</h3>
+                    <div style="background: var(--mc-dark-3); padding: 1rem; border-radius: 4px; font-size: 0.9rem;">
+                        <div style="margin-bottom: 0.5rem;">
+                            <strong>Test ID:</strong> <code id="test-id" style="color: var(--mc-cyan);">-</code>
+                        </div>
+                        <div style="margin-bottom: 0.5rem;">
+                            <strong>Timestamp:</strong> <span id="test-timestamp">-</span>
+                        </div>
+                        <div style="margin-bottom: 0.5rem;">
+                            <strong>SHA256 Hash:</strong> <code id="test-hash" style="color: var(--mc-cyan); font-size: 0.75rem; word-break: break-all;">-</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--mc-text);
+}
+
+.form-control {
+    background: var(--mc-dark-3);
+    border: 1px solid var(--mc-border);
+    color: var(--mc-text);
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--mc-cyan);
+    box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.1);
+}
+
+.section-group {
+    border-top: 1px solid var(--mc-border);
+    padding-top: 1rem;
+}
+
+.section-group:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.section-group h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--mc-text);
+}
+
+.badge {
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.log-entry {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.log-entry.pass {
+    color: var(--mc-neon-green);
+}
+
+.log-entry.fail {
+    color: var(--mc-critical-red);
+}
+</style>
+
+<script>
+let currentTestResults = null;
+
+document.getElementById('runTestBtn').addEventListener('click', async function() {
+    const btn = this;
+    const numCycles = parseInt(document.getElementById('num_cycles').value);
+    const srid = parseInt(document.getElementById('srid').value);
+    const tolerance = parseFloat(document.getElementById('tolerance').value);
+
+    // Hide initial state, show progress
+    document.getElementById('initialState').style.display = 'none';
+    document.getElementById('resultsState').style.display = 'none';
+    document.getElementById('progressState').style.display = 'block';
+    document.getElementById('downloadJsonBtn').style.display = 'none';
+    document.getElementById('cycleLog').innerHTML = '';
+
+    // Disable button
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+
+    try {
+        const response = await fetch('/api/z-stress-test/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ num_cycles: numCycles, srid: srid, tolerance: tolerance })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        // Store results
+        currentTestResults = data;
+
+        // Show results
+        displayResults(data);
+
+    } catch (error) {
+        alert('Test failed: ' + error.message);
+        document.getElementById('progressState').style.display = 'none';
+        document.getElementById('initialState').style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play"></i> Run Stress Test';
+    }
+});
+
+function displayResults(data) {
+    // Hide progress, show results
+    document.getElementById('progressState').style.display = 'none';
+    document.getElementById('resultsState').style.display = 'block';
+    document.getElementById('downloadJsonBtn').style.display = 'block';
+
+    // Overall status
+    const overallStatus = data.summary.overall_status;
+    const statusEl = document.getElementById('overallStatus');
+    
+    if (overallStatus === 'PASS') {
+        statusEl.style.background = 'var(--mc-success-green)';
+        statusEl.innerHTML = `
+            <h3 style="margin: 0 0 0.5rem 0;">
+                <i class="fas fa-check-circle"></i> TEST PASSED ✓
+            </h3>
+            <p style="margin: 0;">
+                All ${data.parameters.num_cycles} cycles completed successfully within ${data.parameters.tolerance_ft} ft tolerance
+            </p>
+        `;
+    } else {
+        statusEl.style.background = 'var(--mc-critical-red)';
+        statusEl.innerHTML = `
+            <h3 style="margin: 0 0 0.5rem 0;">
+                <i class="fas fa-times-circle"></i> TEST FAILED ✗
+            </h3>
+            <p style="margin: 0;">
+                One or more cycles exceeded tolerance or failed validation
+            </p>
+        `;
+    }
+
+    // Summary stats
+    document.getElementById('stat-cycles').textContent = data.summary.total_cycles;
+    document.getElementById('stat-max-error').textContent = (data.summary.max_error || 0).toFixed(6);
+    document.getElementById('stat-avg-error').textContent = (data.summary.avg_error || 0).toFixed(6);
+
+    // Test metadata
+    document.getElementById('test-id').textContent = data.test_id;
+    document.getElementById('test-timestamp').textContent = new Date(data.timestamp).toLocaleString();
+    document.getElementById('test-hash').textContent = data.baseline_hash || 'N/A';
+
+    // Draw chart
+    drawErrorChart(data.cycles);
+}
+
+function drawErrorChart(cycles) {
+    const canvas = document.getElementById('errorCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size
+    canvas.width = canvas.parentElement.clientWidth - 48;
+    canvas.height = 250;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = { top: 20, right: 20, bottom: 40, left: 60 };
+
+    // Clear canvas
+    ctx.fillStyle = '#1a1f2e';
+    ctx.fillRect(0, 0, width, height);
+
+    if (!cycles || cycles.length === 0) return;
+
+    // Extract data
+    const maxErrors = cycles.map(c => c.max_error || 0);
+    const maxY = Math.max(...maxErrors, 0.001) * 1.1;
+
+    // Draw grid
+    ctx.strokeStyle = '#2a3142';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i++) {
+        const y = padding.top + (height - padding.top - padding.bottom) * i / 5;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+    }
+
+    // Draw axes
+    ctx.strokeStyle = '#4a5568';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, height - padding.bottom);
+    ctx.lineTo(width - padding.right, height - padding.bottom);
+    ctx.stroke();
+
+    // Draw Y-axis labels
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 5; i++) {
+        const y = padding.top + (height - padding.top - padding.bottom) * (5 - i) / 5;
+        const value = (maxY * i / 5).toFixed(6);
+        ctx.fillText(value + ' ft', padding.left - 10, y + 4);
+    }
+
+    // Draw X-axis label
+    ctx.textAlign = 'center';
+    ctx.fillText('Cycle Number', width / 2, height - 5);
+
+    // Draw line chart
+    const plotWidth = width - padding.left - padding.right;
+    const plotHeight = height - padding.top - padding.bottom;
+
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    cycles.forEach((cycle, i) => {
+        const x = padding.left + (plotWidth * i / (cycles.length - 1 || 1));
+        const y = height - padding.bottom - (plotHeight * (cycle.max_error || 0) / maxY);
+        
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    ctx.stroke();
+
+    // Draw points
+    ctx.fillStyle = '#00ffff';
+    cycles.forEach((cycle, i) => {
+        const x = padding.left + (plotWidth * i / (cycles.length - 1 || 1));
+        const y = height - padding.bottom - (plotHeight * (cycle.max_error || 0) / maxY);
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw cycle number
+        if (i % 5 === 0 || i === cycles.length - 1) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px sans-serif';
+            ctx.fillText(cycle.cycle, x, height - padding.bottom + 20);
+            ctx.fillStyle = '#00ffff';
+        }
+    });
+}
+
+// Download JSON
+document.getElementById('downloadJsonBtn').addEventListener('click', function() {
+    if (!currentTestResults) return;
+
+    const blob = new Blob([JSON.stringify(currentTestResults, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `z_stress_test_${currentTestResults.test_id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+});
+</script>
+
+{% endblock %}
