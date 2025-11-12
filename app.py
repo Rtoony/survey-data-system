@@ -6897,8 +6897,8 @@ def run_z_stress_test():
         if num_cycles < 1 or num_cycles > 100:
             return jsonify({'error': 'Number of cycles must be between 1 and 100'}), 400
         
-        if srid not in [0, 2226]:
-            return jsonify({'error': 'SRID must be 0 (local CAD) or 2226 (CA State Plane)'}), 400
+        if srid not in [0, 2226, 4326]:
+            return jsonify({'error': 'SRID must be 0 (local CAD), 2226 (CA State Plane), or 4326 (WGS84)'}), 400
         
         if tolerance < 0 or tolerance > 1:
             return jsonify({'error': 'Tolerance must be between 0 and 1 feet'}), 400
@@ -6912,27 +6912,25 @@ def run_z_stress_test():
             user_dxf_path=user_dxf_path
         )
         
-        # Clean up uploaded file if it exists
-        if user_dxf_path and os.path.exists(user_dxf_path):
-            try:
-                os.remove(user_dxf_path)
-            except:
-                pass
+        # DON'T clean up uploaded file - let harness manage it for multi-cycle testing
         
         return jsonify(results)
         
     except Exception as e:
         import traceback
-        traceback.print_exc()
+        error_msg = str(e)
+        error_trace = traceback.format_exc()
+        print(f"Z-Stress Test Error: {error_msg}")
+        print(error_trace)
         
         # Clean up uploaded file on error
-        if user_dxf_path and os.path.exists(user_dxf_path):
+        if 'user_dxf_path' in locals() and user_dxf_path and os.path.exists(user_dxf_path):
             try:
                 os.remove(user_dxf_path)
             except:
                 pass
         
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': error_msg}), 500
 
 @app.route('/api/tools/generate-test-dxf', methods=['POST'])
 def generate_test_dxf():

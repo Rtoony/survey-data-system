@@ -329,6 +329,16 @@ class ZStressHarness:
                     'type': 'line',
                     'coords': [(start.x, start.y, start.z), (end.x, end.y, end.z)]
                 })
+            elif entity.dxftype() == '3DFACE':
+                coords = []
+                for i in range(4):
+                    try:
+                        vtx = entity.dxf.get(f'vtx{i}')
+                        coords.append((vtx.x, vtx.y, vtx.z))
+                    except:
+                        break
+                if coords:
+                    extracted[layer].append({'type': '3dface', 'coords': coords})
         
         return extracted
     
@@ -611,7 +621,12 @@ class ZStressHarness:
                 before_coords = self.extract_coords_from_dxf(current_dxf)
                 
                 # Run import-export cycle
-                exported_dxf = self.run_cycle(current_dxf, cycle, project_name, srid)
+                # For user-uploaded files, always use the ORIGINAL file, not the exported one
+                # This prevents file path issues between cycles
+                if user_dxf_path and os.path.exists(user_dxf_path):
+                    exported_dxf = self.run_cycle(user_dxf_path, cycle, project_name, srid)
+                else:
+                    exported_dxf = self.run_cycle(current_dxf, cycle, project_name, srid)
                 
                 # Extract and compare coordinates
                 extracted_coords = self.extract_coords_from_dxf(exported_dxf)
