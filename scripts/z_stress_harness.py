@@ -210,8 +210,10 @@ class ZStressHarness:
             }
         }
         
-        # Transform and add geometries to DXF
+        # Transform and add geometries to DXF using SRID-appropriate coordinates
+        # Fixtures must contain coordinates in the declared coordinate system
         for key, geom in canonical_geometries.items():
+            # Transform coordinates to match declared SRID
             transformed_coords = self.transform_coords_for_srid(geom['coords'], srid)
             
             if geom['type'] == 'polyline3d':
@@ -225,7 +227,7 @@ class ZStressHarness:
                 for pt in transformed_coords:
                     msp.add_point(pt, dxfattribs={'layer': geom['layer']})
             
-            # Store metadata
+            # Store metadata with transformed coordinates
             fixtures['geometries'].append({
                 'name': geom['name'],
                 'type': geom['type'],
@@ -509,12 +511,13 @@ class ZStressHarness:
         conn = psycopg2.connect(**self.db_config)
         cur = conn.cursor()
         try:
-            # Delete all entities associated with this drawing (CASCADE should handle this)
+            # Delete all entities associated with this drawing
+            # Only delete from tables that have drawing_id column
             cur.execute("DELETE FROM drawing_entities WHERE drawing_id = %s", (drawing_id,))
             cur.execute("DELETE FROM drawing_text WHERE drawing_id = %s", (drawing_id,))
             cur.execute("DELETE FROM drawing_dimensions WHERE drawing_id = %s", (drawing_id,))
             cur.execute("DELETE FROM drawing_hatches WHERE drawing_id = %s", (drawing_id,))
-            cur.execute("DELETE FROM drawing_block_inserts WHERE drawing_id = %s", (drawing_id,))
+            # Finally delete the drawing record (CASCADE should handle remaining references)
             cur.execute("DELETE FROM drawings WHERE drawing_id = %s", (drawing_id,))
             conn.commit()
         finally:
@@ -590,10 +593,11 @@ class ZStressHarness:
         }
         
         current_dxf = initial_dxf
-        project_name = f"Z_Stress_Test_{self.test_id}"
         
         # Run cycles
         for cycle in range(1, num_cycles + 1):
+            # Use unique project name per cycle to prevent coordinate offset accumulation
+            project_name = f"Z_Stress_Test_{self.test_id}_Cycle{cycle:03d}"
             print(f"Cycle {cycle}/{num_cycles}...", end=' ', flush=True)
             
             cycle_result = {
