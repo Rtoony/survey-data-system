@@ -663,7 +663,7 @@ class DXFImporter:
         cur.execute("""
             INSERT INTO drawing_entities (
                 drawing_id, entity_type, layer_id, space_type,
-                geometry, color_aci, lineweight, linetype, metadata
+                geometry, color_aci, lineweight, linetype, attributes
             )
             VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
         """, (
@@ -706,7 +706,7 @@ class DXFImporter:
         cur.execute("""
             INSERT INTO drawing_entities (
                 drawing_id, entity_type, layer_id, space_type,
-                geometry, color_aci, lineweight, linetype, metadata
+                geometry, color_aci, lineweight, linetype, attributes
             )
             VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
         """, (
