@@ -1,0 +1,755 @@
+{% extends 'base.html' %}
+
+{% block title %}Batch Point Import{% endblock %}
+
+{% block content %}
+<div class="mc-page">
+    <div class="mc-header">
+        <h1>📍 Batch Point Import Tool</h1>
+        <p>Import survey points from PNEZD text files (Point, Northing, Easting, Elevation, Description)</p>
+    </div>
+
+    <!-- Configuration Section -->
+    <div class="mc-card" id="configSection">
+        <h2>Step 1: Configure Import</h2>
+        
+        <div class="config-grid">
+            <div class="config-item">
+                <label for="drawingSelect" class="mc-label">Select Drawing:</label>
+                <select id="drawingSelect" class="mc-select" required>
+                    <option value="">-- Select Drawing --</option>
+                </select>
+                <p class="help-text">Points will be imported into the selected drawing</p>
+            </div>
+
+            <div class="config-item">
+                <label for="coordSystemSelect" class="mc-label">Coordinate System:</label>
+                <select id="coordSystemSelect" class="mc-select" required>
+                    <option value="">-- Select Coordinate System --</option>
+                </select>
+                <p class="help-text">Coordinate system of the incoming data</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="mc-card" id="uploadSection">
+        <h2>Step 2: Upload PNEZD Files</h2>
+        <div class="upload-zone" id="dropZone">
+            <div class="upload-icon">📁</div>
+            <p class="upload-text">Drag & drop PNEZD text files here</p>
+            <p class="upload-subtext">or</p>
+            <button class="mc-btn-primary" onclick="document.getElementById('fileInput').click()">
+                Browse Files
+            </button>
+            <input type="file" id="fileInput" multiple accept=".txt,.csv" style="display:none;">
+            <p class="upload-hint">Supports .txt and .csv files (comma-separated P,N,E,Z,D format)</p>
+        </div>
+        
+        <div id="fileList" class="file-list" style="display:none;">
+            <h3>Selected Files</h3>
+            <ul id="fileItems"></ul>
+            <button class="mc-btn-primary" id="parseBtn">
+                Parse Files
+            </button>
+        </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div class="mc-card" id="progressSection" style="display:none;">
+        <h2>Parsing Points...</h2>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p id="progressText">Processing files...</p>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="mc-card" id="previewSection" style="display:none;">
+        <div class="preview-header">
+            <h2>Step 3: Review Parsed Points</h2>
+            <div class="preview-stats">
+                <span id="totalPoints" class="stat-badge">0 points found</span>
+                <span id="newPoints" class="stat-badge stat-new">0 new</span>
+                <span id="existingPoints" class="stat-badge stat-existing">0 existing</span>
+                <span id="errorCount" class="stat-badge stat-error" style="display:none;">0 errors</span>
+            </div>
+        </div>
+
+        <!-- Errors (if any) -->
+        <div id="errorsSection" style="display:none;">
+            <h3 style="color: var(--mc-danger);">⚠️ Parsing Errors</h3>
+            <div id="errorsList" class="errors-list"></div>
+        </div>
+
+        <!-- Filters -->
+        <div class="preview-filters">
+            <input type="text" id="searchFilter" placeholder="Search by point number or description..." class="mc-input">
+            <select id="actionFilter" class="mc-select">
+                <option value="">All Actions</option>
+                <option value="import">Import New</option>
+                <option value="update">Update Existing</option>
+                <option value="skip">Skip</option>
+            </select>
+            <select id="sourceFilter" class="mc-select">
+                <option value="">All Files</option>
+            </select>
+        </div>
+
+        <!-- Point Table -->
+        <div class="table-container">
+            <table id="pointsTable" class="mc-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAllCheckbox"></th>
+                        <th>Point #</th>
+                        <th>Northing</th>
+                        <th>Easting</th>
+                        <th>Elevation</th>
+                        <th>Description</th>
+                        <th>Source File</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="pointsTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Import Actions -->
+        <div class="import-actions">
+            <button class="mc-btn-secondary" id="selectAllBtn">Select All</button>
+            <button class="mc-btn-secondary" id="deselectAllBtn">Deselect All</button>
+            <button class="mc-btn-primary" id="importBtn">
+                Import Selected Points
+            </button>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="mc-card" id="resultsSection" style="display:none;">
+        <h2>✅ Import Complete</h2>
+        <div class="results-summary">
+            <div class="result-item">
+                <span class="result-label">Imported:</span>
+                <span class="result-value" id="importedCount">0</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Updated:</span>
+                <span class="result-value" id="updatedCount">0</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Skipped:</span>
+                <span class="result-value" id="skippedCount">0</span>
+            </div>
+        </div>
+        <button class="mc-btn-primary" onclick="location.reload()">
+            Import More Points
+        </button>
+    </div>
+</div>
+
+<style>
+/* Config Grid */
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.config-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.help-text {
+    font-size: 0.875rem;
+    color: var(--mc-muted);
+    font-style: italic;
+}
+
+/* Upload Zone */
+.upload-zone {
+    border: 3px dashed var(--mc-primary);
+    border-radius: 8px;
+    padding: 3rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: rgba(0, 255, 255, 0.05);
+}
+
+.upload-zone.drag-over {
+    background: rgba(0, 255, 255, 0.15);
+    border-color: var(--mc-secondary);
+    transform: scale(1.02);
+}
+
+.upload-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.upload-text {
+    font-size: 1.25rem;
+    color: var(--mc-primary);
+    margin-bottom: 0.5rem;
+}
+
+.upload-subtext {
+    color: var(--mc-muted);
+    margin: 1rem 0;
+}
+
+.upload-hint {
+    color: var(--mc-muted);
+    font-size: 0.875rem;
+    margin-top: 1rem;
+}
+
+/* File List */
+.file-list {
+    margin-top: 2rem;
+}
+
+.file-list h3 {
+    color: var(--mc-primary);
+    margin-bottom: 1rem;
+}
+
+.file-list ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 1.5rem;
+}
+
+.file-list li {
+    padding: 0.75rem;
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid var(--mc-primary);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.file-list li::before {
+    content: '📄';
+}
+
+/* Progress Bar */
+.progress-bar {
+    width: 100%;
+    height: 30px;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--mc-primary);
+    border-radius: 15px;
+    overflow: hidden;
+    margin: 1.5rem 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--mc-primary), var(--mc-accent));
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* Stats Badges */
+.preview-stats {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.stat-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--mc-primary);
+    color: var(--mc-primary);
+    font-weight: 600;
+}
+
+.stat-new {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: var(--mc-accent);
+    color: var(--mc-accent);
+}
+
+.stat-existing {
+    background: rgba(255, 0, 255, 0.1);
+    border-color: var(--mc-secondary);
+    color: var(--mc-secondary);
+}
+
+.stat-error {
+    background: rgba(255, 68, 68, 0.1);
+    border-color: var(--mc-danger);
+    color: var(--mc-danger);
+}
+
+/* Errors Section */
+.errors-list {
+    background: rgba(255, 68, 68, 0.05);
+    border: 1px solid var(--mc-danger);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.error-item {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.error-line {
+    color: var(--mc-danger);
+    font-weight: bold;
+}
+
+/* Filters */
+.preview-filters {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+/* Table */
+.table-container {
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.mc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.mc-table th {
+    position: sticky;
+    top: 0;
+    background: var(--mc-surface);
+    color: var(--mc-primary);
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 2px solid var(--mc-primary);
+    z-index: 10;
+}
+
+.mc-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+}
+
+.mc-table tbody tr:hover {
+    background: rgba(0, 255, 255, 0.05);
+}
+
+.mc-table tr.row-selected {
+    background: rgba(0, 255, 136, 0.1);
+}
+
+.mc-table tr.row-existing {
+    background: rgba(255, 0, 255, 0.05);
+}
+
+.mc-table tr.row-skip {
+    opacity: 0.5;
+}
+
+.action-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.action-import {
+    background: rgba(0, 255, 136, 0.2);
+    color: var(--mc-accent);
+}
+
+.action-update {
+    background: rgba(255, 0, 255, 0.2);
+    color: var(--mc-secondary);
+}
+
+.action-skip {
+    background: rgba(128, 128, 128, 0.2);
+    color: #999;
+}
+
+/* Import Actions */
+.import-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+/* Results Summary */
+.results-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.result-item {
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid var(--mc-primary);
+    border-radius: 6px;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.result-label {
+    display: block;
+    color: var(--mc-muted);
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.result-value {
+    display: block;
+    color: var(--mc-primary);
+    font-size: 2rem;
+    font-weight: 700;
+}
+</style>
+
+<script>
+let parsedPoints = [];
+let selectedFiles = [];
+let projects = [];
+let coordinateSystems = [];
+
+// Load initial data
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadProjectsAndDrawings();
+    await loadCoordinateSystems();
+});
+
+async function loadProjectsAndDrawings() {
+    try {
+        const response = await fetch('/api/batch-point-import/get-drawings');
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error loading drawings: ' + data.error);
+            return;
+        }
+        
+        projects = data.projects || [];
+        
+        const drawingSelect = document.getElementById('drawingSelect');
+        drawingSelect.innerHTML = '<option value="">-- Select Drawing --</option>';
+        
+        projects.forEach(project => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = `${project.project_number} - ${project.project_name}`;
+            
+            project.drawings.forEach(drawing => {
+                const option = document.createElement('option');
+                option.value = drawing.drawing_id;
+                option.textContent = `${drawing.drawing_number} - ${drawing.drawing_name}`;
+                optgroup.appendChild(option);
+            });
+            
+            if (project.drawings.length > 0) {
+                drawingSelect.appendChild(optgroup);
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error loading drawings:', error);
+        alert('Failed to load drawings');
+    }
+}
+
+async function loadCoordinateSystems() {
+    try {
+        const response = await fetch('/api/batch-point-import/get-coordinate-systems');
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error loading coordinate systems: ' + data.error);
+            return;
+        }
+        
+        coordinateSystems = data.coordinate_systems || [];
+        
+        const coordSelect = document.getElementById('coordSystemSelect');
+        coordSelect.innerHTML = '<option value="">-- Select Coordinate System --</option>';
+        
+        coordinateSystems.forEach(cs => {
+            const option = document.createElement('option');
+            option.value = cs.epsg_code;
+            option.textContent = `${cs.system_name} (EPSG:${cs.epsg_code})`;
+            option.dataset.units = cs.units;
+            coordSelect.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading coordinate systems:', error);
+        alert('Failed to load coordinate systems');
+    }
+}
+
+// File upload handlers
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const fileList = document.getElementById('fileList');
+const fileItems = document.getElementById('fileItems');
+
+fileInput.addEventListener('change', handleFileSelect);
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('drag-over');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    handleFileSelect({ target: { files: e.dataTransfer.files } });
+});
+
+function handleFileSelect(e) {
+    selectedFiles = Array.from(e.target.files);
+    
+    if (selectedFiles.length === 0) return;
+    
+    fileItems.innerHTML = '';
+    selectedFiles.forEach(file => {
+        const li = document.createElement('li');
+        li.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        fileItems.appendChild(li);
+    });
+    
+    fileList.style.display = 'block';
+}
+
+// Parse button handler
+document.getElementById('parseBtn').addEventListener('click', async () => {
+    const drawingId = document.getElementById('drawingSelect').value;
+    const coordSystem = document.getElementById('coordSystemSelect').value;
+    
+    if (!drawingId) {
+        alert('Please select a drawing');
+        return;
+    }
+    
+    if (!coordSystem) {
+        alert('Please select a coordinate system');
+        return;
+    }
+    
+    if (selectedFiles.length === 0) {
+        alert('Please select files to import');
+        return;
+    }
+    
+    document.getElementById('uploadSection').style.display = 'none';
+    document.getElementById('progressSection').style.display = 'block';
+    
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    
+    parsedPoints = [];
+    let totalErrors = [];
+    
+    for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        progressText.textContent = `Processing ${file.name} (${i + 1}/${selectedFiles.length})...`;
+        progressFill.style.width = `${((i + 1) / selectedFiles.length) * 100}%`;
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('drawing_id', drawingId);
+            formData.append('epsg_code', coordSystem);
+            
+            const response = await fetch('/api/batch-point-import/parse', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                alert(`Error parsing ${file.name}: ${data.error}`);
+                continue;
+            }
+            
+            parsedPoints.push(...data.points);
+            totalErrors.push(...data.errors);
+            
+        } catch (error) {
+            console.error(`Error parsing ${file.name}:`, error);
+            alert(`Failed to parse ${file.name}`);
+        }
+    }
+    
+    document.getElementById('progressSection').style.display = 'none';
+    displayPointsPreview(parsedPoints, totalErrors);
+});
+
+function displayPointsPreview(points, errors) {
+    const previewSection = document.getElementById('previewSection');
+    const tbody = document.getElementById('pointsTableBody');
+    
+    // Update stats
+    document.getElementById('totalPoints').textContent = `${points.length} points found`;
+    document.getElementById('newPoints').textContent = `${points.filter(p => !p.exists).length} new`;
+    document.getElementById('existingPoints').textContent = `${points.filter(p => p.exists).length} existing`;
+    
+    if (errors.length > 0) {
+        document.getElementById('errorCount').textContent = `${errors.length} errors`;
+        document.getElementById('errorCount').style.display = 'inline-block';
+        
+        const errorsSection = document.getElementById('errorsSection');
+        const errorsList = document.getElementById('errorsList');
+        errorsSection.style.display = 'block';
+        
+        errorsList.innerHTML = errors.map(err => `
+            <div class="error-item">
+                <span class="error-line">Line ${err.line}:</span> ${err.error}<br>
+                <small style="color: var(--mc-muted);">${err.content}</small>
+            </div>
+        `).join('');
+    }
+    
+    // Populate table
+    tbody.innerHTML = points.map((point, index) => `
+        <tr class="row-${point.action}" data-index="${index}">
+            <td><input type="checkbox" class="point-checkbox" data-index="${index}" ${point.action !== 'skip' ? 'checked' : ''}></td>
+            <td>${point.point_number}</td>
+            <td>${point.northing.toFixed(3)}</td>
+            <td>${point.easting.toFixed(3)}</td>
+            <td>${point.elevation.toFixed(3)}</td>
+            <td>${point.description}</td>
+            <td><small>${point.source_file}</small></td>
+            <td><span class="action-badge action-${point.action}">${point.action}</span></td>
+        </tr>
+    `).join('');
+    
+    // Populate source filter
+    const sourceFilter = document.getElementById('sourceFilter');
+    const uniqueFiles = [...new Set(points.map(p => p.source_file))];
+    sourceFilter.innerHTML = '<option value="">All Files</option>' +
+        uniqueFiles.map(file => `<option value="${file}">${file}</option>`).join('');
+    
+    previewSection.style.display = 'block';
+    setupTableFilters();
+}
+
+function setupTableFilters() {
+    const searchFilter = document.getElementById('searchFilter');
+    const actionFilter = document.getElementById('actionFilter');
+    const sourceFilter = document.getElementById('sourceFilter');
+    
+    function applyFilters() {
+        const searchText = searchFilter.value.toLowerCase();
+        const actionValue = actionFilter.value;
+        const sourceValue = sourceFilter.value;
+        
+        document.querySelectorAll('#pointsTableBody tr').forEach((row, index) => {
+            const point = parsedPoints[index];
+            const matchesSearch = !searchText || 
+                point.point_number.toLowerCase().includes(searchText) ||
+                point.description.toLowerCase().includes(searchText);
+            const matchesAction = !actionValue || point.action === actionValue;
+            const matchesSource = !sourceValue || point.source_file === sourceValue;
+            
+            row.style.display = (matchesSearch && matchesAction && matchesSource) ? '' : 'none';
+        });
+    }
+    
+    searchFilter.addEventListener('input', applyFilters);
+    actionFilter.addEventListener('change', applyFilters);
+    sourceFilter.addEventListener('change', applyFilters);
+}
+
+// Select all/deselect all
+document.getElementById('selectAllBtn').addEventListener('click', () => {
+    document.querySelectorAll('.point-checkbox').forEach(cb => cb.checked = true);
+});
+
+document.getElementById('deselectAllBtn').addEventListener('click', () => {
+    document.querySelectorAll('.point-checkbox').forEach(cb => cb.checked = false);
+});
+
+document.getElementById('selectAllCheckbox').addEventListener('change', (e) => {
+    document.querySelectorAll('.point-checkbox').forEach(cb => cb.checked = e.target.checked);
+});
+
+// Import button handler
+document.getElementById('importBtn').addEventListener('click', async () => {
+    const selectedIndices = Array.from(document.querySelectorAll('.point-checkbox:checked'))
+        .map(cb => parseInt(cb.dataset.index));
+    
+    if (selectedIndices.length === 0) {
+        alert('Please select points to import');
+        return;
+    }
+    
+    const selectedPoints = selectedIndices.map(i => parsedPoints[i]);
+    const drawingId = document.getElementById('drawingSelect').value;
+    const epsgCode = document.getElementById('coordSystemSelect').value;
+    
+    try {
+        document.getElementById('importBtn').disabled = true;
+        document.getElementById('importBtn').textContent = 'Importing...';
+        
+        const response = await fetch('/api/batch-point-import/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                points: selectedPoints,
+                drawing_id: drawingId,
+                source_epsg: epsgCode
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error importing points: ' + data.error);
+            return;
+        }
+        
+        document.getElementById('previewSection').style.display = 'none';
+        document.getElementById('resultsSection').style.display = 'block';
+        
+        document.getElementById('importedCount').textContent = data.imported || 0;
+        document.getElementById('updatedCount').textContent = data.updated || 0;
+        document.getElementById('skippedCount').textContent = data.skipped || 0;
+        
+    } catch (error) {
+        console.error('Error importing points:', error);
+        alert('Failed to import points');
+    } finally {
+        document.getElementById('importBtn').disabled = false;
+        document.getElementById('importBtn').textContent = 'Import Selected Points';
+    }
+});
+</script>
+{% endblock %}

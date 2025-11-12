@@ -156,6 +156,11 @@ def batch_block_import_tool_redirect():
     """Legacy redirect - Batch Block Import Tool"""
     return redirect(url_for('batch_cad_import_tool'))
 
+@app.route('/tools/batch-point-import')
+def batch_point_import_tool():
+    """Batch Point Import Tool - Import survey points from PNEZD text files"""
+    return render_template('tools/batch_point_import.html')
+
 @app.route('/tools/specialized-tools-directory')
 def specialized_tools_directory():
     """Specialized Tools Directory - comprehensive list of interactive management tools"""
@@ -2667,6 +2672,249 @@ def _save_linetypes(elements):
         'updated': updated_count,
         'skipped': skipped_count
     }
+
+# ============================================================================
+# BATCH POINT IMPORT ROUTES
+# ============================================================================
+
+@app.route('/api/batch-point-import/get-drawings', methods=['GET'])
+def get_drawings_for_point_import():
+    """Get list of projects and drawings for point import selection"""
+    try:
+        from batch_pnezd_parser import PNEZDParser
+        import traceback
+        
+        db_config = {
+            'host': os.getenv('DB_HOST', 'localhost'),
+            'port': os.getenv('DB_PORT', '5432'),
+            'database': os.getenv('DB_NAME', 'acad_gis'),
+            'user': os.getenv('DB_USER', 'postgres'),
+            'password': os.getenv('DB_PASSWORD', '')
+        }
+        
+        parser = PNEZDParser(db_config)
+        result = parser.get_projects_and_drawings()
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch-point-import/get-coordinate-systems', methods=['GET'])
+def get_coordinate_systems_for_point_import():
+    """Get list of available coordinate systems for point import"""
+    try:
+        from batch_pnezd_parser import PNEZDParser
+        
+        db_config = {
+            'host': os.getenv('DB_HOST', 'localhost'),
+            'port': os.getenv('DB_PORT', '5432'),
+            'database': os.getenv('DB_NAME', 'acad_gis'),
+            'user': os.getenv('DB_USER', 'postgres'),
+            'password': os.getenv('DB_PASSWORD', '')
+        }
+        
+        parser = PNEZDParser(db_config)
+        systems = parser.get_coordinate_systems()
+        
+        return jsonify({'coordinate_systems': systems})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch-point-import/parse', methods=['POST'])
+def parse_pnezd_file():
+    """Parse PNEZD text file and extract point data"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        drawing_id = request.form.get('drawing_id')
+        epsg_code = request.form.get('epsg_code')
+        
+        if not drawing_id or not epsg_code:
+            return jsonify({'error': 'Drawing ID and EPSG code are required'}), 400
+        
+        from batch_pnezd_parser import PNEZDParser
+        
+        db_config = {
+            'host': os.getenv('DB_HOST', 'localhost'),
+            'port': os.getenv('DB_PORT', '5432'),
+            'database': os.getenv('DB_NAME', 'acad_gis'),
+            'user': os.getenv('DB_USER', 'postgres'),
+            'password': os.getenv('DB_PASSWORD', '')
+        }
+        
+        parser = PNEZDParser(db_config)
+        
+        # Read file content
+        file_content = file.read().decode('utf-8')
+        
+        # Parse file
+        result = parser.parse_file(file_content, file.filename)
+        
+        # Check for existing points in this drawing
+        if result['points']:
+            result['points'] = parser.check_existing_points(result['points'], drawing_id)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch-point-import/save', methods=['POST'])
+def save_survey_points():
+    """Save parsed survey points to database"""
+    try:
+        data = request.get_json()
+        points = data.get('points', [])
+        drawing_id = data.get('drawing_id')
+        source_epsg = data.get('source_epsg')
+        
+        if not points:
+            return jsonify({'error': 'No points provided'}), 400
+        
+        if not drawing_id:
+            return jsonify({'error': 'Drawing ID is required'}), 400
+        
+        if not source_epsg:
+            return jsonify({'error': 'Source EPSG code is required'}), 400
+        
+        from pyproj import Transformer
+        
+        # Get target EPSG (database uses SRID 2226)
+        target_epsg = '2226'
+        
+        # Create coordinate transformer if coordinate systems differ
+        transformer = None
+        if source_epsg != target_epsg:
+            transformer = Transformer.from_crs(
+                f'EPSG:{source_epsg}',
+                f'EPSG:{target_epsg}',
+                always_xy=True
+            )
+        
+        imported_count = 0
+        updated_count = 0
+        skipped_count = 0
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Get project_id from drawing_id
+                cur.execute("""
+                    SELECT project_id FROM drawings WHERE drawing_id = %s
+                """, (drawing_id,))
+                
+                result = cur.fetchone()
+                if not result:
+                    return jsonify({'error': 'Drawing not found'}), 404
+                
+                project_id = result[0]
+                
+                for point in points:
+                    action = point.get('action', 'skip')
+                    if action == 'skip':
+                        skipped_count += 1
+                        continue
+                    
+                    point_number = point['point_number']
+                    northing = float(point['northing'])
+                    easting = float(point['easting'])
+                    elevation = float(point['elevation'])
+                    description = point['description']
+                    
+                    # Transform coordinates if necessary
+                    if transformer:
+                        easting_transformed, northing_transformed = transformer.transform(easting, northing)
+                    else:
+                        easting_transformed = easting
+                        northing_transformed = northing
+                    
+                    # Check if point already exists
+                    cur.execute("""
+                        SELECT point_id FROM survey_points
+                        WHERE drawing_id = %s AND point_number = %s
+                    """, (drawing_id, point_number))
+                    
+                    existing = cur.fetchone()
+                    
+                    if action == 'update' and existing:
+                        # Update existing point
+                        cur.execute("""
+                            UPDATE survey_points
+                            SET northing = %s,
+                                easting = %s,
+                                elevation = %s,
+                                point_description = %s,
+                                geometry = ST_SetSRID(ST_MakePoint(%s, %s, %s), 2226),
+                                coordinate_system = %s,
+                                epsg_code = %s,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE point_id = %s
+                        """, (
+                            northing_transformed,
+                            easting_transformed,
+                            elevation,
+                            description,
+                            easting_transformed,
+                            northing_transformed,
+                            elevation,
+                            f'EPSG:{target_epsg}',
+                            target_epsg,
+                            existing[0]
+                        ))
+                        updated_count += 1
+                        
+                    elif action == 'import' and not existing:
+                        # Insert new point
+                        cur.execute("""
+                            INSERT INTO survey_points (
+                                project_id,
+                                drawing_id,
+                                point_number,
+                                point_description,
+                                northing,
+                                easting,
+                                elevation,
+                                geometry,
+                                coordinate_system,
+                                epsg_code,
+                                is_active
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 
+                                      ST_SetSRID(ST_MakePoint(%s, %s, %s), 2226),
+                                      %s, %s, TRUE)
+                        """, (
+                            project_id,
+                            drawing_id,
+                            point_number,
+                            description,
+                            northing_transformed,
+                            easting_transformed,
+                            elevation,
+                            easting_transformed,
+                            northing_transformed,
+                            elevation,
+                            f'EPSG:{target_epsg}',
+                            target_epsg
+                        ))
+                        imported_count += 1
+                    else:
+                        skipped_count += 1
+                
+                conn.commit()
+        
+        cache.clear()
+        
+        return jsonify({
+            'imported': imported_count,
+            'updated': updated_count,
+            'skipped': skipped_count
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ============================================================================
 # DETAILS MANAGER ROUTES
