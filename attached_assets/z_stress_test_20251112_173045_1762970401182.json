@@ -1,0 +1,485 @@
+{
+  "baseline_hash": "fd7c48be5a22481caafe0f01f6d9edbec9a0129aadbbb3d12ae17345b108f70b",
+  "coordinate_validation": {
+    "ranges": {
+      "x": [
+        6354652.9731,
+        6354702.7073
+      ],
+      "y": [
+        1931409.2969,
+        1931521.4733
+      ],
+      "z": [
+        147.5404,
+        148.9599999999627
+      ]
+    },
+    "valid": true,
+    "warnings": []
+  },
+  "cycles": [
+    {
+      "avg_error": 0,
+      "cycle": 1,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:30:45.466375"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 2,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:31:04.217616"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 3,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:31:22.137020"
+    },
+    {
+      "avg_error": 4.75765088992965,
+      "cycle": 4,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 4.75765088992965,
+          "max_error": 53.09080831844629,
+          "max_x_error": 7.095100001432002,
+          "max_y_error": 53.0891999991145,
+          "max_z_error": 0.7993999999999915,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 53.09080831844629,
+      "max_z_error": 0.7993999999999915,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T17:31:39.874279"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 5,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:31:57.621096"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 6,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:32:15.268065"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 7,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:32:33.193918"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 8,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:32:51.081630"
+    },
+    {
+      "avg_error": 38.90137056750389,
+      "cycle": 9,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 38.90137056750389,
+          "max_error": 104.77815582142226,
+          "max_x_error": 48.93760000169277,
+          "max_y_error": 104.2542999999132,
+          "max_z_error": 1.069599999869581,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 104.77815582142226,
+      "max_z_error": 1.069599999869581,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T17:33:08.946359"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 10,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:33:27.457254"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 11,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:33:46.335127"
+    },
+    {
+      "avg_error": 37.129969878101726,
+      "cycle": 12,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 37.129969878101726,
+          "max_error": 103.63069138617058,
+          "max_x_error": 48.951500001363456,
+          "max_y_error": 103.6074999999255,
+          "max_z_error": 1.0401999999999987,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 103.63069138617058,
+      "max_z_error": 1.0401999999999987,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T17:34:05.563771"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 13,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:34:24.545661"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 14,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:34:42.183959"
+    },
+    {
+      "avg_error": 39.98903605221422,
+      "cycle": 15,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 39.98903605221422,
+          "max_error": 104.48653240137457,
+          "max_x_error": 49.17949999962002,
+          "max_y_error": 103.70049999910407,
+          "max_z_error": 1.0019000002048983,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 104.48653240137457,
+      "max_z_error": 1.0019000002048983,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T17:35:00.500552"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 16,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:35:19.067678"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 17,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:35:37.480656"
+    },
+    {
+      "avg_error": 36.58061128714432,
+      "cycle": 18,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 36.58061128714432,
+          "max_error": 109.57028215357528,
+          "max_x_error": 49.010599995963275,
+          "max_y_error": 105.58900000015274,
+          "max_z_error": 0.8868999999998834,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 109.57028215357528,
+      "max_z_error": 0.8868999999998834,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T17:35:55.768487"
+    },
+    {
+      "avg_error": 38.317180593284995,
+      "cycle": 19,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 38.317180593284995,
+          "max_error": 105.52517151054346,
+          "max_x_error": 49.01410000026226,
+          "max_y_error": 101.34089999995194,
+          "max_z_error": 0.9113999998882036,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 105.52517151054346,
+      "max_z_error": 0.9113999998882036,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T17:36:13.930503"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 20,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:36:32.174374"
+    }
+  ],
+  "fixtures": {
+    "filename": "upload_5131-EG_SURFACE-CIVIL_3D-export-small_test_area.dxf",
+    "geometries": [],
+    "source": "user_upload",
+    "srid": 2226
+  },
+  "parameters": {
+    "num_cycles": 20,
+    "srid": 2226,
+    "tolerance_ft": 0.001
+  },
+  "summary": {
+    "avg_error": 0,
+    "best_avg_error": 0,
+    "best_max_error": 0,
+    "cycles_failed": 6,
+    "cycles_passed": 14,
+    "final_avg_error": 0,
+    "final_max_error": 0,
+    "final_max_z_error": 0,
+    "max_error": 0,
+    "max_x_error": 0,
+    "max_y_error": 0,
+    "max_z_error": 0,
+    "overall_status": "FAIL",
+    "tolerance_met": true,
+    "tolerances": {
+      "units": "ft",
+      "x": 0.001,
+      "y": 0.001,
+      "z": 0.001
+    },
+    "total_cycles": 20,
+    "worst_avg_error": 39.98903605221422,
+    "worst_max_error": 109.57028215357528,
+    "x_pass": true,
+    "y_pass": true,
+    "z_pass": true,
+    "z_zero_preserved": false
+  },
+  "test_id": "20251112_173045",
+  "timestamp": "2025-11-12T17:30:45.464810"
+}
