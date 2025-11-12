@@ -48,7 +48,8 @@ Preferred communication style: Simple, everyday language.
 - **Standards Mapping Framework:** 11-table database schema with 5 name mapping managers (blocks, details, hatches, materials, notes) supporting bidirectional DXF↔Database translation.
 - **Project Context Mapping Manager:** Manages 6 relationship types (Keynote↔Block, Keynote↔Detail, Hatch↔Material, Detail↔Material, Block↔Specification, Cross-References).
 - **Standards Documentation Export:** Generates client handoffs and training materials (Excel, CSV, HTML, PDF).
-- **DXF Tools:** Full DXF import/export with intelligent object creation, change detection, and bidirectional sync.
+- **DXF Tools:** Full DXF import/export with intelligent object creation, change detection, and bidirectional sync. Includes survey-grade 3D elevation (Z-value) preservation using dimension-based detection and POLYLINE3D export.
+- **Z-Value Stress Test Harness (`scripts/z_stress_harness.py`):** Production-ready CLI tool for proving Z-value preservation over 20+ import/export cycles. Generates auditable JSON reports with SHA256 hashes, per-cycle error metrics (max/avg/z-delta), and canonical test fixtures (Z=0 flat pads, sloped pipes, large coordinates, sub-millimeter precision). Exits with status code 0 on PASS, 1 on FAIL. Supports both SRID 0 (local CAD) and EPSG:2226 (CA State Plane).
 - **Map Viewer & Export:** Interactive Leaflet map with coordinate transformation, bounding box export, and measurement tools.
 - **Entity Viewer (`/entity-viewer`):** Lightweight 2D viewer for project entities with SVG rendering, supporting 8 entity types, multi-select filters, and dynamic legend.
 - **Network Managers Suite:** Unified framework of specialized manager tools (Gravity Pipe, Pressure Pipe, BMP Manager) following the Entity Viewer pattern, with shared core module for zoom, pan, grid, scale, and north arrow functionalities.
