@@ -1,0 +1,170 @@
+{
+  "baseline_hash": "fd7c48be5a22481caafe0f01f6d9edbec9a0129aadbbb3d12ae17345b108f70b",
+  "coordinate_validation": {
+    "ranges": {
+      "x": [
+        6354652.9731,
+        6354702.7073
+      ],
+      "y": [
+        1931409.2969,
+        1931521.4733
+      ],
+      "z": [
+        147.5404,
+        148.9599999999627
+      ]
+    },
+    "valid": true,
+    "warnings": []
+  },
+  "cycles": [
+    {
+      "avg_error": 0,
+      "cycle": 1,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T18:12:20.668623"
+    },
+    {
+      "avg_error": 43.71463315326765,
+      "cycle": 2,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 43.71463315326765,
+          "max_error": 111.13566878367953,
+          "max_x_error": 49.242099998518825,
+          "max_y_error": 110.90400000102818,
+          "max_z_error": 1.0966999999999132,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 111.13566878367953,
+      "max_z_error": 1.0966999999999132,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T18:12:42.548221"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 3,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T18:13:02.296633"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 4,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T18:13:20.613756"
+    },
+    {
+      "avg_error": 46.59428461296656,
+      "cycle": 5,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 46.59428461296656,
+          "max_error": 112.77871087587707,
+          "max_x_error": 45.267099999822676,
+          "max_y_error": 104.41960000083782,
+          "max_z_error": 1.419599999962685,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 112.77871087587707,
+      "max_z_error": 1.419599999962685,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T18:13:40.818254"
+    }
+  ],
+  "fixtures": {
+    "filename": "upload_5131-EG_SURFACE-CIVIL_3D-export-small_test_area.dxf",
+    "geometries": [],
+    "source": "user_upload",
+    "srid": 2226
+  },
+  "parameters": {
+    "num_cycles": 5,
+    "srid": 2226,
+    "tolerance_ft": 0.001
+  },
+  "summary": {
+    "avg_error": 46.59428461296656,
+    "best_avg_error": 0,
+    "best_max_error": 0,
+    "cycles_failed": 2,
+    "cycles_passed": 3,
+    "final_avg_error": 46.59428461296656,
+    "final_max_error": 112.77871087587707,
+    "final_max_z_error": 1.419599999962685,
+    "max_error": 112.77871087587707,
+    "max_x_error": 45.267099999822676,
+    "max_y_error": 104.41960000083782,
+    "max_z_error": 1.419599999962685,
+    "overall_status": "FAIL",
+    "tolerance_met": false,
+    "tolerances": {
+      "units": "ft",
+      "x": 0.001,
+      "y": 0.001,
+      "z": 0.001
+    },
+    "total_cycles": 5,
+    "worst_avg_error": 46.59428461296656,
+    "worst_max_error": 112.77871087587707,
+    "x_pass": false,
+    "y_pass": false,
+    "z_pass": false,
+    "z_zero_preserved": false
+  },
+  "test_id": "20251112_181220",
+  "timestamp": "2025-11-12T18:12:20.667352"
+}

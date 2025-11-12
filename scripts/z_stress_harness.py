@@ -300,6 +300,85 @@ class ZStressHarness:
             }
         }
     
+    def _calculate_centroid(self, coords: List[Tuple[float, float, float]]) -> Tuple[float, float, float]:
+        """Calculate the centroid (average position) of a set of coordinates."""
+        if not coords:
+            return (0.0, 0.0, 0.0)
+        n = len(coords)
+        avg_x = sum(c[0] for c in coords) / n
+        avg_y = sum(c[1] for c in coords) / n
+        avg_z = sum(c[2] for c in coords) / n
+        return (avg_x, avg_y, avg_z)
+    
+    def _distance_3d(self, pt1: Tuple[float, float, float], pt2: Tuple[float, float, float]) -> float:
+        """Calculate 3D Euclidean distance between two points."""
+        dx = pt1[0] - pt2[0]
+        dy = pt1[1] - pt2[1]
+        dz = pt1[2] - pt2[2]
+        return math.sqrt(dx*dx + dy*dy + dz*dz)
+    
+    def _match_entities_spatially(self, baseline_entities: List[Dict], extracted_entities: List[Dict], srid: int = 0) -> List[Tuple[Dict, Dict]]:
+        """
+        Match entities between baseline and extracted by spatial proximity (centroid matching).
+        Returns list of (baseline_entity, extracted_entity) pairs.
+        Unmatched entities are paired with None.
+        """
+        matched_pairs = []
+        
+        # Handle empty extracted list - all baseline entities are unmatched
+        if not extracted_entities:
+            for baseline_entity in baseline_entities:
+                matched_pairs.append((baseline_entity, None))
+            return matched_pairs
+        
+        # Handle empty baseline list - all extracted entities are unmatched
+        if not baseline_entities:
+            for extracted_entity in extracted_entities:
+                matched_pairs.append((None, extracted_entity))
+            return matched_pairs
+        
+        # Calculate centroids for all entities
+        baseline_centroids = [(self._calculate_centroid(e['coords']), e) for e in baseline_entities]
+        extracted_centroids = [(self._calculate_centroid(e['coords']), e) for e in extracted_entities]
+        
+        # Use SRID-specific tolerance for centroid matching (max of X/Y tolerances)
+        tolerances = self.TOLERANCES.get(srid, self.TOLERANCES[0])
+        centroid_threshold = max(tolerances['x'], tolerances['y'])
+        
+        used_extracted = set()
+        
+        # For each baseline entity, find the nearest extracted entity
+        for baseline_centroid, baseline_entity in baseline_centroids:
+            best_match = None
+            best_distance = float('inf')
+            best_idx = None
+            
+            for idx, (extracted_centroid, extracted_entity) in enumerate(extracted_centroids):
+                if idx in used_extracted:
+                    continue
+                
+                distance = self._distance_3d(baseline_centroid, extracted_centroid)
+                if distance < best_distance:
+                    best_distance = distance
+                    best_match = extracted_entity
+                    best_idx = idx
+            
+            # Match if centroids are within tolerance (should be nearly identical for same entity)
+            if best_distance < centroid_threshold:
+                matched_pairs.append((baseline_entity, best_match))
+                if best_idx is not None:
+                    used_extracted.add(best_idx)
+            else:
+                # No match found - entity missing or moved significantly
+                matched_pairs.append((baseline_entity, None))
+        
+        # Check for extracted entities that weren't matched (extra entities)
+        for idx, (_, extracted_entity) in enumerate(extracted_centroids):
+            if idx not in used_extracted:
+                matched_pairs.append((None, extracted_entity))
+        
+        return matched_pairs
+    
     def extract_coords_from_dxf(self, filepath: str) -> Dict:
         """Extract all 3D coordinates from a DXF file, organized by layer."""
         doc = ezdxf.readfile(filepath)
@@ -700,18 +779,45 @@ class ZStressHarness:
                     
                     extracted_entities = extracted_coords[layer]
                     
-                    if len(baseline_entities) != len(extracted_entities):
-                        cycle_result['errors_by_layer'][layer] = {
-                            'status': 'FAIL',
-                            'error': f'Entity count mismatch: {len(baseline_entities)} vs {len(extracted_entities)}'
-                        }
-                        has_layer_failure = True
-                        total_max_error = float('inf')
-                        continue
+                    # Detect if this layer contains 3DFACE entities (needs spatial matching)
+                    has_3dface = any(e.get('type') == '3dface' for e in baseline_entities)
                     
-                    # Compare each entity
+                    # Use spatial matching for 3DFACE entities to handle DXF reordering
+                    if has_3dface:
+                        entity_pairs = self._match_entities_spatially(baseline_entities, extracted_entities, srid)
+                        
+                        # Check for unmatched entities
+                        unmatched_baseline = sum(1 for b, e in entity_pairs if b is not None and e is None)
+                        unmatched_extracted = sum(1 for b, e in entity_pairs if b is None and e is not None)
+                        
+                        if unmatched_baseline > 0 or unmatched_extracted > 0:
+                            cycle_result['errors_by_layer'][layer] = {
+                                'status': 'FAIL',
+                                'error': f'Entity matching failed: {unmatched_baseline} baseline unmatched, {unmatched_extracted} extracted unmatched'
+                            }
+                            has_layer_failure = True
+                            total_max_error = float('inf')
+                            continue
+                    else:
+                        # For non-3DFACE entities, use simple order-based pairing
+                        if len(baseline_entities) != len(extracted_entities):
+                            cycle_result['errors_by_layer'][layer] = {
+                                'status': 'FAIL',
+                                'error': f'Entity count mismatch: {len(baseline_entities)} vs {len(extracted_entities)}'
+                            }
+                            has_layer_failure = True
+                            total_max_error = float('inf')
+                            continue
+                        
+                        entity_pairs = list(zip(baseline_entities, extracted_entities))
+                    
+                    # Compare each matched entity pair
                     layer_errors = []
-                    for baseline_entity, extracted_entity in zip(baseline_entities, extracted_entities):
+                    for baseline_entity, extracted_entity in entity_pairs:
+                        # Skip unmatched pairs (should not happen due to check above)
+                        if baseline_entity is None or extracted_entity is None:
+                            continue
+                        
                         baseline_pts = baseline_entity['coords']
                         extracted_pts = extracted_entity['coords']
                         
@@ -724,6 +830,16 @@ class ZStressHarness:
                         layer_count += 1
                     
                     # Aggregate layer metrics with per-axis data
+                    if not layer_errors:
+                        # No entities were compared (shouldn't happen due to checks above)
+                        cycle_result['errors_by_layer'][layer] = {
+                            'status': 'FAIL',
+                            'error': 'No entities compared in layer'
+                        }
+                        has_layer_failure = True
+                        total_max_error = float('inf')
+                        continue
+                    
                     layer_max = max(e['max_error'] for e in layer_errors)
                     layer_avg = sum(e['avg_error'] for e in layer_errors) / len(layer_errors)
                     layer_max_x = max(e['max_x_error'] for e in layer_errors)
