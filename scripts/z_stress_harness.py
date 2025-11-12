@@ -117,7 +117,7 @@ class ZStressHarness:
         
         # Create layers
         for layer in ['TEST-FLAT-PAD', 'TEST-SLOPED-PIPE', 'TEST-SURVEY-POINTS', 
-                      'TEST-LARGE-COORDS', 'TEST-PRECISION']:
+                      'TEST-LARGE-COORDS', 'TEST-PRECISION', 'TEST-MULTIPLE-LINES']:
             doc.layers.add(layer)
         
         fixtures = {
@@ -207,35 +207,71 @@ class ZStressHarness:
                 'type': 'polyline3d',
                 'critical': True,
                 'description': '0.24mm Z increments - tests floating point precision limits'
+            },
+            'multiple_lines': {
+                'coords': [
+                    # Line 1: NW-SE diagonal
+                    [(1600.0, 2400.0, 110.0), (1700.0, 2300.0, 112.0)],
+                    # Line 2: SW-NE diagonal
+                    [(1600.0, 2300.0, 115.0), (1700.0, 2400.0, 117.0)],
+                    # Line 3: Horizontal
+                    [(1650.0, 2350.0, 120.0), (1750.0, 2350.0, 122.0)],
+                    # Line 4: Vertical
+                    [(1675.0, 2300.0, 125.0), (1675.0, 2400.0, 127.0)],
+                ],
+                'layer': 'TEST-MULTIPLE-LINES',
+                'name': 'Multiple Independent Lines',
+                'type': 'lines',
+                'critical': True,
+                'description': 'Multiple LINE entities on same layer - tests spatial matching for entity ordering'
             }
         }
         
         # Transform and add geometries to DXF using SRID-appropriate coordinates
         # Fixtures must contain coordinates in the declared coordinate system
         for key, geom in canonical_geometries.items():
-            # Transform coordinates to match declared SRID
-            transformed_coords = self.transform_coords_for_srid(geom['coords'], srid)
-            
-            if geom['type'] == 'polyline3d':
-                if key == 'flat_pad':
-                    # Close the polyline for flat pad
-                    msp.add_polyline3d(transformed_coords + [transformed_coords[0]], 
-                                      dxfattribs={'layer': geom['layer']})
-                else:
-                    msp.add_polyline3d(transformed_coords, dxfattribs={'layer': geom['layer']})
-            elif geom['type'] == 'points':
-                for pt in transformed_coords:
-                    msp.add_point(pt, dxfattribs={'layer': geom['layer']})
-            
-            # Store metadata with transformed coordinates
-            fixtures['geometries'].append({
-                'name': geom['name'],
-                'type': geom['type'],
-                'layer': geom['layer'],
-                'coords': transformed_coords,
-                'critical': geom['critical'],
-                'description': geom['description']
-            })
+            if geom['type'] == 'lines':
+                # Handle multiple LINE entities (list of line segments)
+                # Each line is stored as a separate entity for centroid matching
+                for idx, line_coords in enumerate(geom['coords']):
+                    transformed_line = self.transform_coords_for_srid(line_coords, srid)
+                    msp.add_line(transformed_line[0], transformed_line[1], 
+                               dxfattribs={'layer': geom['layer']})
+                    
+                    # Store each line separately to match extraction format
+                    # This allows centroid matching to work correctly
+                    fixtures['geometries'].append({
+                        'name': f"{geom['name']} #{idx+1}",
+                        'type': 'line',
+                        'layer': geom['layer'],
+                        'coords': transformed_line,  # Just the two endpoints
+                        'critical': geom['critical'],
+                        'description': f"{geom['description']} - segment {idx+1}"
+                    })
+            else:
+                # Transform coordinates to match declared SRID
+                transformed_coords = self.transform_coords_for_srid(geom['coords'], srid)
+                
+                if geom['type'] == 'polyline3d':
+                    if key == 'flat_pad':
+                        # Close the polyline for flat pad
+                        msp.add_polyline3d(transformed_coords + [transformed_coords[0]], 
+                                          dxfattribs={'layer': geom['layer']})
+                    else:
+                        msp.add_polyline3d(transformed_coords, dxfattribs={'layer': geom['layer']})
+                elif geom['type'] == 'points':
+                    for pt in transformed_coords:
+                        msp.add_point(pt, dxfattribs={'layer': geom['layer']})
+                
+                # Store metadata with transformed coordinates
+                fixtures['geometries'].append({
+                    'name': geom['name'],
+                    'type': geom['type'],
+                    'layer': geom['layer'],
+                    'coords': transformed_coords,
+                    'critical': geom['critical'],
+                    'description': geom['description']
+                })
         
         doc.saveas(filepath)
         return fixtures
@@ -779,37 +815,22 @@ class ZStressHarness:
                     
                     extracted_entities = extracted_coords[layer]
                     
-                    # Detect if this layer contains 3DFACE entities (needs spatial matching)
-                    has_3dface = any(e.get('type') == '3dface' for e in baseline_entities)
+                    # Use spatial matching for ALL entity types to handle DXF reordering
+                    # This ensures robustness regardless of entity type (3DFACE, LINE, POINT, etc.)
+                    entity_pairs = self._match_entities_spatially(baseline_entities, extracted_entities, srid)
                     
-                    # Use spatial matching for 3DFACE entities to handle DXF reordering
-                    if has_3dface:
-                        entity_pairs = self._match_entities_spatially(baseline_entities, extracted_entities, srid)
-                        
-                        # Check for unmatched entities
-                        unmatched_baseline = sum(1 for b, e in entity_pairs if b is not None and e is None)
-                        unmatched_extracted = sum(1 for b, e in entity_pairs if b is None and e is not None)
-                        
-                        if unmatched_baseline > 0 or unmatched_extracted > 0:
-                            cycle_result['errors_by_layer'][layer] = {
-                                'status': 'FAIL',
-                                'error': f'Entity matching failed: {unmatched_baseline} baseline unmatched, {unmatched_extracted} extracted unmatched'
-                            }
-                            has_layer_failure = True
-                            total_max_error = float('inf')
-                            continue
-                    else:
-                        # For non-3DFACE entities, use simple order-based pairing
-                        if len(baseline_entities) != len(extracted_entities):
-                            cycle_result['errors_by_layer'][layer] = {
-                                'status': 'FAIL',
-                                'error': f'Entity count mismatch: {len(baseline_entities)} vs {len(extracted_entities)}'
-                            }
-                            has_layer_failure = True
-                            total_max_error = float('inf')
-                            continue
-                        
-                        entity_pairs = list(zip(baseline_entities, extracted_entities))
+                    # Check for unmatched entities (missing or extra entities after round-trip)
+                    unmatched_baseline = sum(1 for b, e in entity_pairs if b is not None and e is None)
+                    unmatched_extracted = sum(1 for b, e in entity_pairs if b is None and e is not None)
+                    
+                    if unmatched_baseline > 0 or unmatched_extracted > 0:
+                        cycle_result['errors_by_layer'][layer] = {
+                            'status': 'FAIL',
+                            'error': f'Entity matching failed: {unmatched_baseline} baseline unmatched, {unmatched_extracted} extracted unmatched'
+                        }
+                        has_layer_failure = True
+                        total_max_error = float('inf')
+                        continue
                     
                     # Compare each matched entity pair
                     layer_errors = []
