@@ -353,10 +353,19 @@ class DXFExporter:
         
         elif entity_type == '3DFACE' and len(coords) >= 3:
             # Export 3D faces with full vertex elevations
-            # Ensure we have 4 points (duplicate last if only 3)
-            points = coords[:4] if len(coords) >= 4 else coords + [coords[-1]]
+            # POLYGON Z has closing point: triangles=[v0,v1,v2,v0], quads=[v0,v1,v2,v3,v0]
+            # Remove closing point if present (check if first == last)
+            if len(coords) >= 4 and coords[0] == coords[-1]:
+                coords = coords[:-1]  # Drop closing point, leaving unique vertices
+            
+            # Ensure we have exactly 4 points (duplicate 3rd if only 3)
+            if len(coords) == 3:
+                points = coords + [coords[-1]]  # Triangle -> Quad by duplicating last vertex
+            else:
+                points = coords[:4]  # Take first 4 vertices
+            
             layout.add_3dface(
-                points=points[:4],
+                points=points,
                 dxfattribs={'layer': layer}
             )
         

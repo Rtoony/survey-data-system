@@ -306,30 +306,49 @@ class ZStressHarness:
         msp = doc.modelspace()
         
         extracted = {}
+        entity_counts = {}
         
         for entity in msp:
             layer = entity.dxf.layer
             if layer not in extracted:
                 extracted[layer] = []
+                entity_counts[layer] = {}
             
-            if entity.dxftype() == 'POLYLINE':
+            entity_type = entity.dxftype()
+            entity_counts[layer][entity_type] = entity_counts[layer].get(entity_type, 0) + 1
+            
+            if entity_type == 'LWPOLYLINE':
+                # LWPOLYLINE stores coordinates with optional elevation
+                coords = []
+                elevation = entity.dxf.get('elevation', 0.0)
+                for point in entity.get_points('xyb'):
+                    x, y = point[0], point[1]
+                    coords.append((x, y, elevation))
+                if coords:
+                    extracted[layer].append({'type': 'lwpolyline', 'coords': coords})
+            
+            elif entity_type == 'POLYLINE':
                 coords = [(v.dxf.location.x, v.dxf.location.y, v.dxf.location.z) 
                          for v in entity.vertices]
-                extracted[layer].append({'type': 'polyline', 'coords': coords})
-            elif entity.dxftype() == 'POINT':
+                if coords:
+                    extracted[layer].append({'type': 'polyline', 'coords': coords})
+            
+            elif entity_type == 'POINT':
                 loc = entity.dxf.location
                 extracted[layer].append({
                     'type': 'point',
                     'coords': [(loc.x, loc.y, loc.z)]
                 })
-            elif entity.dxftype() == 'LINE':
+            
+            elif entity_type == 'LINE':
                 start = entity.dxf.start
                 end = entity.dxf.end
                 extracted[layer].append({
                     'type': 'line',
                     'coords': [(start.x, start.y, start.z), (end.x, end.y, end.z)]
                 })
-            elif entity.dxftype() == '3DFACE':
+            
+            elif entity_type == '3DFACE':
                 coords = []
                 for i in range(4):
                     try:
@@ -339,6 +358,15 @@ class ZStressHarness:
                         break
                 if coords:
                     extracted[layer].append({'type': '3dface', 'coords': coords})
+        
+        # Log entity counts for debugging
+        for layer, counts in entity_counts.items():
+            total = sum(counts.values())
+            extracted_count = len(extracted.get(layer, []))
+            if total != extracted_count:
+                print(f"  Layer '{layer}': Found {total} entities, extracted {extracted_count}")
+                for etype, count in counts.items():
+                    print(f"    - {etype}: {count}")
         
         return extracted
     

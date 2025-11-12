@@ -1,0 +1,121 @@
+{
+  "baseline_hash": "e467e4ad3758391c6dbb7edfe099dabd47f5d32c6dae594f8d225e132dca48ce",
+  "coordinate_validation": {
+    "valid": true,
+    "warnings": []
+  },
+  "cycles": [
+    {
+      "avg_error": 0,
+      "cycle": 1,
+      "errors_by_layer": {
+        "0": {
+          "error": "Entity count mismatch: 0 vs 3",
+          "status": "FAIL"
+        }
+      },
+      "max_error": 999999,
+      "max_z_error": 0,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T16:32:26.130772"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 2,
+      "errors_by_layer": {
+        "0": {
+          "error": "Entity count mismatch: 0 vs 3",
+          "status": "FAIL"
+        }
+      },
+      "max_error": 999999,
+      "max_z_error": 0,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T16:32:34.877841"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 3,
+      "errors_by_layer": {
+        "0": {
+          "error": "Entity count mismatch: 0 vs 3",
+          "status": "FAIL"
+        }
+      },
+      "max_error": 999999,
+      "max_z_error": 0,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T16:32:41.920599"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 4,
+      "errors_by_layer": {
+        "0": {
+          "error": "Entity count mismatch: 0 vs 3",
+          "status": "FAIL"
+        }
+      },
+      "max_error": 999999,
+      "max_z_error": 0,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T16:32:49.004420"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 5,
+      "errors_by_layer": {
+        "0": {
+          "error": "Entity count mismatch: 0 vs 3",
+          "status": "FAIL"
+        }
+      },
+      "max_error": 999999,
+      "max_z_error": 0,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T16:32:55.935212"
+    }
+  ],
+  "fixtures": {
+    "filename": "upload_5131-DESIGN-PL_AT_ELEVATION.dxf",
+    "geometries": [],
+    "source": "user_upload",
+    "srid": 2226
+  },
+  "parameters": {
+    "num_cycles": 5,
+    "srid": 2226,
+    "tolerance_ft": 0.001
+  },
+  "summary": {
+    "avg_error": 0,
+    "best_avg_error": 0,
+    "best_max_error": 999999,
+    "cycles_failed": 5,
+    "cycles_passed": 0,
+    "final_avg_error": 0,
+    "final_max_error": 999999,
+    "final_max_z_error": 0,
+    "max_error": 999999,
+    "max_x_error": 0,
+    "max_y_error": 0,
+    "max_z_error": 0,
+    "overall_status": "FAIL",
+    "tolerance_met": false,
+    "tolerances": {
+      "units": "ft",
+      "x": 0.001,
+      "y": 0.001,
+      "z": 0.001
+    },
+    "total_cycles": 5,
+    "worst_avg_error": 0,
+    "worst_max_error": 999999,
+    "x_pass": true,
+    "y_pass": true,
+    "z_pass": true,
+    "z_zero_preserved": false
+  },
+  "test_id": "20251112_163226",
+  "timestamp": "2025-11-12T16:32:26.130653"
+}
