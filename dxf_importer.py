@@ -42,6 +42,14 @@ class DXFImporter:
         Returns:
             Dictionary with import statistics
         """
+        # Map coordinate system to SRID
+        srid_map = {
+            'LOCAL': 0,  # Local CAD coordinates (no projection)
+            'STATE_PLANE': 2226,  # CA State Plane Zone 2, US Survey Feet (NAD83)
+            'WGS84': 4326  # WGS84 geographic coordinates
+        }
+        self.srid = srid_map.get(coordinate_system.upper(), 0)
+        
         stats = {
             'entities': 0,
             'text': 0,
@@ -129,7 +137,7 @@ class DXFImporter:
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
         # Get project_id from drawing
-        cur.execute("""
+        cur.execute(f"""
             SELECT project_id FROM drawings WHERE drawing_id = %s
         """, (drawing_id,))
         result = cur.fetchone()
@@ -141,7 +149,7 @@ class DXFImporter:
         project_id = str(result['project_id'])
         
         # Query recently imported entities from this drawing
-        cur.execute("""
+        cur.execute(f"""
             SELECT 
                 de.entity_id,
                 de.entity_type,
@@ -299,13 +307,13 @@ class DXFImporter:
                 }
                 
                 # Use SRID 2226 for California State Plane Zone 2, US Survey Feet (NAD83)
-                cur.execute("""
+                cur.execute(f"""
                     INSERT INTO drawing_entities (
                         drawing_id, entity_type, layer_id, space_type,
                         geometry, dxf_handle, color_aci, lineweight, linetype, 
                         transparency, quality_score, tags, attributes
                     )
-                    VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, 0.5, '{}', %s)
+                    VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
                 """, (
                     drawing_id, entity_type, layer_id, space,
                     geometry_wkt, dxf_handle, color_aci, lineweight, linetype,
@@ -368,11 +376,10 @@ class DXFImporter:
             
             elif entity_type == 'POLYLINE':
                 points = []
-                for point in entity.points():
-                    if len(point) == 2:
-                        points.append(f'{point[0]} {point[1]} 0')
-                    else:
-                        points.append(f'{point[0]} {point[1]} {point[2]}')
+                # Use vertices directly to ensure Z-values are preserved
+                for vertex in entity.vertices:
+                    loc = vertex.dxf.location
+                    points.append(f'{loc.x} {loc.y} {loc.z}')
                 
                 if len(points) > 0:
                     return f'LINESTRING Z ({", ".join(points)})'
@@ -448,14 +455,14 @@ class DXFImporter:
             'entity_type': entity_type
         }
         
-        cur.execute("""
+        cur.execute(f"""
             INSERT INTO drawing_text (
                 drawing_id, layer_id, space_type, text_content,
                 insertion_point, text_height, rotation_angle,
                 text_style, horizontal_justification, vertical_justification,
                 dxf_handle, quality_score, tags, attributes
             )
-            VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, %s, 0.5, '{}', %s)
+            VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
         """, (
             drawing_id, layer_id, space, text_content,
             geometry_wkt, height, rotation, style_name, h_just, v_just,
@@ -491,13 +498,13 @@ class DXFImporter:
             'entity_type': dim_type
         }
         
-        cur.execute("""
+        cur.execute(f"""
             INSERT INTO drawing_dimensions (
                 drawing_id, layer_id, space_type, dimension_type,
                 measured_value, dimension_text, dimension_style,
                 dxf_handle, quality_score, tags, attributes
             )
-            VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, 0.5, '{}', %s)
+            VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
         """, (
             drawing_id, layer_id, space, dim_type,
             measured_value, dimension_text, dimstyle_name,
@@ -547,13 +554,13 @@ class DXFImporter:
                     'is_solid': pattern_name.upper() == 'SOLID'
                 }
                 
-                cur.execute("""
+                cur.execute(f"""
                     INSERT INTO drawing_hatches (
                         drawing_id, layer_id, space_type, hatch_pattern,
                         boundary_geometry, hatch_scale, hatch_angle,
                         dxf_handle, quality_score, tags, attributes
                     )
-                    VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, 0.5, '{}', %s)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, 0.5, '{{}}', %s)
                 """, (
                     drawing_id, layer_id, space, pattern_name,
                     geometry_wkt, scale, angle,
@@ -597,13 +604,13 @@ class DXFImporter:
         }
         
         try:
-            cur.execute("""
+            cur.execute(f"""
                 INSERT INTO block_inserts (
                     drawing_id, layer_id, block_name, insertion_point,
                     scale_x, scale_y, scale_z, rotation,
                     dxf_handle, quality_score, tags, attributes
                 )
-                VALUES (%s::uuid, %s::uuid, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s, %s, 0.5, '{}', %s)
+                VALUES (%s::uuid, %s::uuid, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
             """, (
                 drawing_id, layer_id, block_name, geometry_wkt,
                 scale_x, scale_y, scale_z, rotation,
@@ -638,12 +645,12 @@ class DXFImporter:
                 # Get view center as point
                 view_center_wkt = f'POINT Z ({view_center.x} {view_center.y} 0)'
                 
-                cur.execute("""
+                cur.execute(f"""
                     INSERT INTO layout_viewports (
                         drawing_id, layout_name, viewport_geometry,
                         view_center, scale_factor
                     )
-                    VALUES (%s, %s, ST_GeomFromText(%s, 2226), ST_GeomFromText(%s, 2226), %s)
+                    VALUES (%s, %s, ST_GeomFromText(%s, {self.srid}), ST_GeomFromText(%s, {self.srid}), %s)
                 """, (
                     drawing_id, layout.name, geometry_wkt, view_center_wkt, scale
                 ))
@@ -669,12 +676,12 @@ class DXFImporter:
         
         geometry_wkt = f'POINT Z ({location.x} {location.y} {location.z})'
         
-        cur.execute("""
+        cur.execute(f"""
             INSERT INTO drawing_entities (
                 drawing_id, entity_type, layer_id, space_type,
                 geometry, color_aci, lineweight, linetype, attributes
             )
-            VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
         """, (
             drawing_id, 'POINT', layer_id, space,
             geometry_wkt, 
@@ -712,12 +719,12 @@ class DXFImporter:
         
         geometry_wkt = f'POLYGON Z (({", ".join(points)}))'
         
-        cur.execute("""
+        cur.execute(f"""
             INSERT INTO drawing_entities (
                 drawing_id, entity_type, layer_id, space_type,
                 geometry, color_aci, lineweight, linetype, attributes
             )
-            VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
         """, (
             drawing_id, '3DFACE', layer_id, space,
             geometry_wkt,
@@ -749,12 +756,12 @@ class DXFImporter:
             
             geometry_wkt = 'POINT Z (0 0 0)'
             
-            cur.execute("""
+            cur.execute(f"""
                 INSERT INTO drawing_entities (
                     drawing_id, entity_type, layer_id, space_type,
                     geometry, color_aci, lineweight, linetype, metadata
                 )
-                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
             """, (
                 drawing_id, '3DSOLID', layer_id, space,
                 geometry_wkt,
@@ -793,12 +800,12 @@ class DXFImporter:
             else:
                 geometry_wkt = 'POINT Z (0 0 0)'
             
-            cur.execute("""
+            cur.execute(f"""
                 INSERT INTO drawing_entities (
                     drawing_id, entity_type, layer_id, space_type,
                     geometry, color_aci, lineweight, linetype, metadata
                 )
-                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
             """, (
                 drawing_id, 'MESH', layer_id, space,
                 geometry_wkt,
@@ -839,12 +846,12 @@ class DXFImporter:
             else:
                 geometry_wkt = 'LINESTRING Z (0 0 0, 1 1 0)'
             
-            cur.execute("""
+            cur.execute(f"""
                 INSERT INTO drawing_entities (
                     drawing_id, entity_type, layer_id, space_type,
                     geometry, color_aci, lineweight, linetype, metadata
                 )
-                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
             """, (
                 drawing_id, 'LEADER', layer_id, space,
                 geometry_wkt,

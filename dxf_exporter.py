@@ -256,7 +256,7 @@ class DXFExporter:
         query = """
             SELECT de.entity_type, l.layer_name, 
                    ST_AsText(de.geometry) as geom_wkt,
-                   de.color_aci, de.lineweight, de.metadata
+                   de.color_aci, de.lineweight, de.attributes
             FROM drawing_entities de
             JOIN layers l ON de.layer_id = l.layer_id
             WHERE de.drawing_id = %s::uuid AND de.space_type = %s
@@ -493,10 +493,11 @@ class DXFExporter:
         """Export dimension entities to DXF layout."""
         query = """
             SELECT l.layer_name, dd.dimension_type,
-                   ST_AsText(dd.geometry) as geom_wkt,
-                   dd.override_value, dd.dimension_style
+                   ST_AsText(de.geometry) as geom_wkt,
+                   dd.dimension_text, dd.dimension_style
             FROM drawing_dimensions dd
             JOIN layers l ON dd.layer_id = l.layer_id
+            LEFT JOIN drawing_entities de ON dd.entity_id = de.entity_id
             WHERE dd.drawing_id = %s::uuid AND dd.space_type = %s
         """
         
@@ -510,6 +511,8 @@ class DXFExporter:
         
         for dim in dimensions:
             try:
+                if not dim['geom_wkt']:
+                    continue
                 coords = self._parse_wkt_coords(dim['geom_wkt'])
                 if len(coords) >= 2:
                     # Create linear dimension (simplified)
@@ -518,7 +521,7 @@ class DXFExporter:
                         p1=coords[0],
                         p2=coords[1],
                         dimstyle=dim['dimension_style'] or 'Standard',
-                        override={'dimtxt': dim['override_value']} if dim['override_value'] else None,
+                        override={'dimtxt': dim['dimension_text']} if dim['dimension_text'] else None,
                         dxfattribs={'layer': dim['layer_name']}
                     )
                     stats['dimensions'] += 1
@@ -529,9 +532,9 @@ class DXFExporter:
                         cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export hatch entities to DXF layout."""
         query = """
-            SELECT l.layer_name, dh.pattern_name,
+            SELECT l.layer_name, dh.hatch_pattern,
                    ST_AsText(dh.boundary_geometry) as boundary_wkt,
-                   dh.pattern_scale, dh.pattern_angle
+                   dh.hatch_scale, dh.hatch_angle
             FROM drawing_hatches dh
             JOIN layers l ON dh.layer_id = l.layer_id
             WHERE dh.drawing_id = %s::uuid AND dh.space_type = %s
@@ -553,9 +556,9 @@ class DXFExporter:
                     h = layout.add_hatch(dxfattribs={'layer': hatch['layer_name']})
                     h.paths.add_polyline_path(coords[:-1])  # Remove duplicate closing point
                     h.set_pattern_fill(
-                        hatch['pattern_name'],
-                        scale=hatch['pattern_scale'],
-                        angle=hatch['pattern_angle']
+                        hatch['hatch_pattern'],
+                        scale=hatch['hatch_scale'],
+                        angle=hatch['hatch_angle']
                     )
                     stats['hatches'] += 1
             except Exception as e:
