@@ -2677,6 +2677,33 @@ def _save_linetypes(elements):
 # BATCH POINT IMPORT ROUTES
 # ============================================================================
 
+def get_batch_import_db_config():
+    """
+    Get database config for batch point import.
+    Uses DATABASE_URL (Neon) instead of DB_* variables (Supabase).
+    """
+    from urllib.parse import urlparse
+    
+    database_url = os.getenv('DATABASE_URL')
+    if database_url:
+        parsed = urlparse(database_url)
+        return {
+            'host': parsed.hostname,
+            'port': parsed.port or 5432,
+            'database': parsed.path.lstrip('/').split('?')[0],
+            'user': parsed.username,
+            'password': parsed.password
+        }
+    else:
+        # Fallback to individual variables
+        return {
+            'host': os.getenv('DB_HOST', 'localhost'),
+            'port': os.getenv('DB_PORT', '5432'),
+            'database': os.getenv('DB_NAME', 'acad_gis'),
+            'user': os.getenv('DB_USER', 'postgres'),
+            'password': os.getenv('DB_PASSWORD', '')
+        }
+
 @app.route('/api/batch-point-import/get-drawings', methods=['GET'])
 def get_drawings_for_point_import():
     """Get list of projects and drawings for point import selection"""
@@ -2684,14 +2711,7 @@ def get_drawings_for_point_import():
         from batch_pnezd_parser import PNEZDParser
         import traceback
         
-        db_config = {
-            'host': os.getenv('DB_HOST', 'localhost'),
-            'port': os.getenv('DB_PORT', '5432'),
-            'database': os.getenv('DB_NAME', 'acad_gis'),
-            'user': os.getenv('DB_USER', 'postgres'),
-            'password': os.getenv('DB_PASSWORD', '')
-        }
-        
+        db_config = get_batch_import_db_config()
         parser = PNEZDParser(db_config)
         result = parser.get_projects_and_drawings()
         
@@ -2707,14 +2727,7 @@ def get_coordinate_systems_for_point_import():
     try:
         from batch_pnezd_parser import PNEZDParser
         
-        db_config = {
-            'host': os.getenv('DB_HOST', 'localhost'),
-            'port': os.getenv('DB_PORT', '5432'),
-            'database': os.getenv('DB_NAME', 'acad_gis'),
-            'user': os.getenv('DB_USER', 'postgres'),
-            'password': os.getenv('DB_PASSWORD', '')
-        }
-        
+        db_config = get_batch_import_db_config()
         parser = PNEZDParser(db_config)
         systems = parser.get_coordinate_systems()
         
@@ -2739,14 +2752,7 @@ def parse_pnezd_file():
         
         from batch_pnezd_parser import PNEZDParser
         
-        db_config = {
-            'host': os.getenv('DB_HOST', 'localhost'),
-            'port': os.getenv('DB_PORT', '5432'),
-            'database': os.getenv('DB_NAME', 'acad_gis'),
-            'user': os.getenv('DB_USER', 'postgres'),
-            'password': os.getenv('DB_PASSWORD', '')
-        }
-        
+        db_config = get_batch_import_db_config()
         parser = PNEZDParser(db_config)
         
         # Read file content
