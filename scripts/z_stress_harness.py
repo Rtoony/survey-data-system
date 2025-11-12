@@ -505,10 +505,16 @@ class ZStressHarness:
         if export_stats.get('errors'):
             raise Exception(f"Export failed in cycle {cycle_num}: {export_stats.get('errors')}")
         
-        # Clean up drawing record after successful export
+        # Clean up drawing record AND all associated entities after successful export
         conn = psycopg2.connect(**self.db_config)
         cur = conn.cursor()
         try:
+            # Delete all entities associated with this drawing (CASCADE should handle this)
+            cur.execute("DELETE FROM drawing_entities WHERE drawing_id = %s", (drawing_id,))
+            cur.execute("DELETE FROM drawing_text WHERE drawing_id = %s", (drawing_id,))
+            cur.execute("DELETE FROM drawing_dimensions WHERE drawing_id = %s", (drawing_id,))
+            cur.execute("DELETE FROM drawing_hatches WHERE drawing_id = %s", (drawing_id,))
+            cur.execute("DELETE FROM drawing_block_inserts WHERE drawing_id = %s", (drawing_id,))
             cur.execute("DELETE FROM drawings WHERE drawing_id = %s", (drawing_id,))
             conn.commit()
         finally:
