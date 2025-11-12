@@ -695,16 +695,47 @@ class ZStressHarness:
         avg_errors = [c['avg_error'] for c in successful_cycles]
         max_z_errors = [c['max_z_error'] for c in successful_cycles]
         
+        # Collect per-axis error metrics from all cycles
+        max_x_errors = []
+        max_y_errors = []
+        for cycle in successful_cycles:
+            cycle_max_x = 0
+            cycle_max_y = 0
+            for layer_data in cycle.get('errors_by_layer', {}).values():
+                if isinstance(layer_data, dict):
+                    cycle_max_x = max(cycle_max_x, layer_data.get('max_x_error', 0))
+                    cycle_max_y = max(cycle_max_y, layer_data.get('max_y_error', 0))
+            max_x_errors.append(cycle_max_x)
+            max_y_errors.append(cycle_max_y)
+        
+        # Get SRID-specific tolerances
+        tolerances = self.TOLERANCES.get(srid, self.TOLERANCES[0])
+        
+        # Calculate final per-axis errors
+        final_max_x = max_x_errors[-1] if max_x_errors else 0
+        final_max_y = max_y_errors[-1] if max_y_errors else 0
+        final_max_z = max_z_errors[-1]
+        
         results['summary'] = {
             'final_max_error': max_errors[-1],
             'final_avg_error': avg_errors[-1],
-            'final_max_z_error': max_z_errors[-1],
+            'final_max_z_error': final_max_z,
+            'max_x_error': final_max_x,
+            'max_y_error': final_max_y,
+            'max_z_error': final_max_z,
+            'x_pass': final_max_x <= tolerances['x'],
+            'y_pass': final_max_y <= tolerances['y'],
+            'z_pass': final_max_z <= tolerances['z'],
+            'tolerances': tolerances,
             'worst_max_error': max(max_errors),
             'worst_avg_error': max(avg_errors),
             'best_max_error': min(max_errors),
             'best_avg_error': min(avg_errors),
             'cycles_passed': sum(1 for c in successful_cycles if c['status'] == 'PASS'),
             'cycles_failed': sum(1 for c in successful_cycles if c['status'] == 'FAIL'),
+            'total_cycles': len(successful_cycles),
+            'max_error': max_errors[-1],  # For UI compatibility
+            'avg_error': avg_errors[-1],  # For UI compatibility
             'overall_status': 'PASS' if all(c['status'] == 'PASS' for c in successful_cycles) else 'FAIL',
             'z_zero_preserved': self._check_z_zero_preservation(results['cycles'][-1], baseline_coords),
             'tolerance_met': max_errors[-1] < tolerance_ft
