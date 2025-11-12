@@ -366,13 +366,22 @@ class DXFImporter:
                     points.append(f'{x} {y} {center.z}')
                 return f'LINESTRING Z ({", ".join(points)})'
             
-            elif entity_type in ['POLYLINE', 'LWPOLYLINE']:
+            elif entity_type == 'POLYLINE':
                 points = []
-                for point in entity.get_points():
+                for point in entity.points():
                     if len(point) == 2:
                         points.append(f'{point[0]} {point[1]} 0')
                     else:
                         points.append(f'{point[0]} {point[1]} {point[2]}')
+                
+                if len(points) > 0:
+                    return f'LINESTRING Z ({", ".join(points)})'
+            
+            elif entity_type == 'LWPOLYLINE':
+                points = []
+                for x, y in entity.vertices():
+                    z = entity.dxf.elevation if hasattr(entity.dxf, 'elevation') else 0
+                    points.append(f'{x} {y} {z}')
                 
                 if len(points) > 0:
                     return f'LINESTRING Z ({", ".join(points)})'
