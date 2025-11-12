@@ -53,7 +53,8 @@ class DXFExporter:
                    dxf_version: str = 'AC1027',
                    include_modelspace: bool = True,
                    include_paperspace: bool = True,
-                   layer_filter: Optional[List[str]] = None) -> Dict:
+                   layer_filter: Optional[List[str]] = None,
+                   external_conn=None) -> Dict:
         """
         Export a drawing to DXF file.
         
@@ -64,6 +65,7 @@ class DXFExporter:
             include_modelspace: Whether to export model space entities
             include_paperspace: Whether to export paper space entities
             layer_filter: Optional list of layer names to include
+            external_conn: Optional external database connection (will not be closed)
             
         Returns:
             Dictionary with export statistics
@@ -79,12 +81,14 @@ class DXFExporter:
             'errors': []
         }
         
+        # Use external connection or create new one
+        owns_connection = external_conn is None
+        conn = external_conn if external_conn else psycopg2.connect(**self.db_config)
+        
         try:
             # Create new DXF document
             doc = ezdxf.new(dxf_version)
             
-            # Connect to database
-            conn = psycopg2.connect(**self.db_config)
             cur = conn.cursor(cursor_factory=RealDictCursor)
             
             try:
@@ -121,7 +125,9 @@ class DXFExporter:
                 
             finally:
                 cur.close()
-                conn.close()
+                # Only close connection if we own it
+                if owns_connection:
+                    conn.close()
                 
         except Exception as e:
             stats['errors'].append(f"Export failed: {str(e)}")

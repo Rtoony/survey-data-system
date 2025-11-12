@@ -1,0 +1,114 @@
+{
+  "baseline_hash": "fd7c48be5a22481caafe0f01f6d9edbec9a0129aadbbb3d12ae17345b108f70b",
+  "coordinate_validation": {
+    "ranges": {
+      "x": [
+        6354652.9731,
+        6354702.7073
+      ],
+      "y": [
+        1931409.2969,
+        1931521.4733
+      ],
+      "z": [
+        147.5404,
+        148.9599999999627
+      ]
+    },
+    "valid": true,
+    "warnings": []
+  },
+  "cycles": [
+    {
+      "cycle": 1,
+      "error": "Import failed in cycle 1: ['Import failed: connection already closed']",
+      "errors_by_layer": {},
+      "status": "ERROR",
+      "timestamp": "2025-11-12T16:18:10.616688"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 2,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T16:18:24.370226"
+    },
+    {
+      "avg_error": 42.50193948688739,
+      "cycle": 3,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 42.50193948688739,
+          "max_error": 110.24700274641553,
+          "max_x_error": 49.242099998518825,
+          "max_y_error": 104.41960000083782,
+          "max_z_error": 1.0408999999999935,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 110.24700274641553,
+      "max_z_error": 1.0408999999999935,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T16:18:38.962034"
+    }
+  ],
+  "fixtures": {
+    "filename": "upload_5131-EG_SURFACE-CIVIL_3D-export-small_test_area.dxf",
+    "geometries": [],
+    "source": "user_upload",
+    "srid": 2226
+  },
+  "parameters": {
+    "num_cycles": 3,
+    "srid": 2226,
+    "tolerance_ft": 0.001
+  },
+  "summary": {
+    "avg_error": 42.50193948688739,
+    "best_avg_error": 0,
+    "best_max_error": 0,
+    "cycles_failed": 1,
+    "cycles_passed": 1,
+    "final_avg_error": 42.50193948688739,
+    "final_max_error": 110.24700274641553,
+    "final_max_z_error": 1.0408999999999935,
+    "max_error": 110.24700274641553,
+    "max_x_error": 49.242099998518825,
+    "max_y_error": 104.41960000083782,
+    "max_z_error": 1.0408999999999935,
+    "overall_status": "FAIL",
+    "tolerance_met": false,
+    "tolerances": {
+      "units": "ft",
+      "x": 0.001,
+      "y": 0.001,
+      "z": 0.001
+    },
+    "total_cycles": 2,
+    "worst_avg_error": 42.50193948688739,
+    "worst_max_error": 110.24700274641553,
+    "x_pass": false,
+    "y_pass": false,
+    "z_pass": false,
+    "z_zero_preserved": false
+  },
+  "test_id": "20251112_161810",
+  "timestamp": "2025-11-12T16:18:10.615145"
+}

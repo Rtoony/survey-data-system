@@ -28,7 +28,8 @@ class DXFImporter:
     def import_dxf(self, file_path: str, drawing_id: str, 
                    coordinate_system: str = 'LOCAL', 
                    import_modelspace: bool = True,
-                   import_paperspace: bool = True) -> Dict:
+                   import_paperspace: bool = True,
+                   external_conn=None) -> Dict:
         """
         Import a DXF file into the database.
         
@@ -38,6 +39,7 @@ class DXFImporter:
             coordinate_system: Coordinate system ('LOCAL', 'WGS84', etc.)
             import_modelspace: Whether to import model space entities
             import_paperspace: Whether to import paper space entities
+            external_conn: Optional external database connection (will not be closed)
             
         Returns:
             Dictionary with import statistics
@@ -68,13 +70,17 @@ class DXFImporter:
             'errors': []
         }
         
+        # Use external connection or create new one
+        owns_connection = external_conn is None
+        conn = external_conn if external_conn else psycopg2.connect(**self.db_config)
+        
         try:
             # Read DXF file
             doc = ezdxf.readfile(file_path)
             
-            # Connect to database
-            conn = psycopg2.connect(**self.db_config)
-            conn.autocommit = False
+            # Set autocommit only if we own the connection
+            if owns_connection:
+                conn.autocommit = False
             
             try:
                 # Initialize lookup service with connection for transaction support
@@ -105,13 +111,19 @@ class DXFImporter:
                         drawing_id, conn, stats
                     )
                 
-                conn.commit()
+                # Only commit if we own the connection
+                if owns_connection:
+                    conn.commit()
                 
             except Exception as e:
-                conn.rollback()
+                # Only rollback if we own the connection
+                if owns_connection:
+                    conn.rollback()
                 raise e
             finally:
-                conn.close()
+                # Only close if we own the connection
+                if owns_connection:
+                    conn.close()
                 
         except Exception as e:
             stats['errors'].append(f"Import failed: {str(e)}")

@@ -444,7 +444,7 @@ class ZStressHarness:
     
     def run_cycle(self, dxf_path: str, cycle_num: int, project_name: str, srid: int = 0) -> str:
         """
-        Run one import-export cycle through the database.
+        Run one import-export cycle through the database using a single shared connection.
         
         Returns path to exported DXF.
         """
@@ -452,8 +452,9 @@ class ZStressHarness:
         drawing_number = f"ST-{cycle_num:03d}"
         export_path = os.path.join(self.output_dir, f"z_stress_cycle_{cycle_num:03d}.dxf")
         
-        # Create project and drawing records first
+        # Use a SINGLE connection for the entire cycle
         conn = psycopg2.connect(**self.db_config)
+        conn.autocommit = False
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
         try:
@@ -487,42 +488,40 @@ class ZStressHarness:
             
             conn.commit()
             
-        finally:
-            cur.close()
-            conn.close()
-        
-        # Import DXF into the drawing
-        importer = DXFImporter(self.db_config)
-        coordinate_system = self.srid_to_coordinate_system(srid)
-        import_stats = importer.import_dxf(
-            file_path=dxf_path,
-            drawing_id=drawing_id,
-            coordinate_system=coordinate_system,
-            import_modelspace=True,
-            import_paperspace=False
-        )
-        
-        if import_stats.get('errors'):
-            raise Exception(f"Import failed in cycle {cycle_num}: {import_stats.get('errors')}")
-        
-        # Export DXF from the drawing
-        exporter = DXFExporter(self.db_config)
-        export_stats = exporter.export_dxf(
-            drawing_id=drawing_id,
-            output_path=export_path,
-            include_modelspace=True,
-            include_paperspace=False
-        )
-        
-        if export_stats.get('errors'):
-            raise Exception(f"Export failed in cycle {cycle_num}: {export_stats.get('errors')}")
-        
-        # Clean up drawing record AND all associated entities after successful export
-        conn = psycopg2.connect(**self.db_config)
-        cur = conn.cursor()
-        try:
+            # Import DXF into the drawing (pass the shared connection)
+            importer = DXFImporter(self.db_config)
+            coordinate_system = self.srid_to_coordinate_system(srid)
+            import_stats = importer.import_dxf(
+                file_path=dxf_path,
+                drawing_id=drawing_id,
+                coordinate_system=coordinate_system,
+                import_modelspace=True,
+                import_paperspace=False,
+                external_conn=conn
+            )
+            
+            if import_stats.get('errors'):
+                raise Exception(f"Import failed in cycle {cycle_num}: {import_stats.get('errors')}")
+            
+            conn.commit()
+            
+            # Export DXF from the drawing (pass the shared connection)
+            exporter = DXFExporter(self.db_config)
+            export_stats = exporter.export_dxf(
+                drawing_id=drawing_id,
+                output_path=export_path,
+                include_modelspace=True,
+                include_paperspace=False,
+                external_conn=conn
+            )
+            
+            if export_stats.get('errors'):
+                raise Exception(f"Export failed in cycle {cycle_num}: {export_stats.get('errors')}")
+            
+            conn.commit()
+            
+            # Clean up drawing record AND all associated entities after successful export
             # Delete all entities associated with this drawing
-            # Only delete from tables that have drawing_id column
             cur.execute("DELETE FROM drawing_entities WHERE drawing_id = %s", (drawing_id,))
             cur.execute("DELETE FROM drawing_text WHERE drawing_id = %s", (drawing_id,))
             cur.execute("DELETE FROM drawing_dimensions WHERE drawing_id = %s", (drawing_id,))
@@ -530,11 +529,15 @@ class ZStressHarness:
             # Finally delete the drawing record (CASCADE should handle remaining references)
             cur.execute("DELETE FROM drawings WHERE drawing_id = %s", (drawing_id,))
             conn.commit()
+            
+            return export_path
+            
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             cur.close()
             conn.close()
-        
-        return export_path
     
     def run_stress_test(self, num_cycles: int = 20, srid: int = 0, tolerance_ft: float = 0.001, user_dxf_path: str = None) -> Dict:
         """
@@ -815,13 +818,31 @@ class ZStressHarness:
         max_z_error = layer_result.get('max_z_error', float('inf'))
         return max_z_error < 0.0001  # Within 0.0001 ft = 0.03mm
     
+    def _sanitize_for_json(self, obj):
+        """Recursively sanitize data structure to replace NaN/Infinity with valid JSON values."""
+        if isinstance(obj, dict):
+            return {k: self._sanitize_for_json(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._sanitize_for_json(item) for item in obj]
+        elif isinstance(obj, float):
+            if math.isnan(obj):
+                return 0.0
+            elif math.isinf(obj):
+                return 999999.0 if obj > 0 else -999999.0
+            return obj
+        else:
+            return obj
+    
     def save_results(self, results: Dict, output_path: str = None):
         """Save test results to JSON file."""
         if output_path is None:
             output_path = os.path.join(self.output_dir, f'z_stress_results_{self.test_id}.json')
         
+        # Sanitize results to prevent NaN/Infinity JSON errors
+        sanitized_results = self._sanitize_for_json(results)
+        
         with open(output_path, 'w') as f:
-            json.dump(results, f, indent=2)
+            json.dump(sanitized_results, f, indent=2)
         
         return output_path
 

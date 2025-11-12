@@ -6912,9 +6912,12 @@ def run_z_stress_test():
             user_dxf_path=user_dxf_path
         )
         
+        # Sanitize results to prevent NaN/Infinity JSON errors
+        sanitized_results = harness._sanitize_for_json(results)
+        
         # DON'T clean up uploaded file - let harness manage it for multi-cycle testing
         
-        return jsonify(results)
+        return jsonify(sanitized_results)
         
     except Exception as e:
         import traceback
