@@ -60,6 +60,17 @@ class ZStressHarness:
         self.db_config = DB_CONFIG
         self.test_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     
+    def srid_to_coordinate_system(self, srid: int) -> str:
+        """Map SRID integer to coordinate system name for DXF importer/exporter."""
+        if srid == 0:
+            return 'LOCAL'
+        elif srid == 2226:
+            return 'STATE_PLANE'
+        elif srid == 4326:
+            return 'WGS84'
+        else:
+            raise ValueError(f"Unsupported SRID: {srid}")
+    
     def transform_coords_for_srid(self, coords: List[Tuple[float, float, float]], srid: int) -> List[Tuple[float, float, float]]:
         """
         Transform canonical LOCAL coordinates to SRID-specific coordinates.
@@ -470,10 +481,11 @@ class ZStressHarness:
         
         # Import DXF into the drawing
         importer = DXFImporter(self.db_config)
+        coordinate_system = self.srid_to_coordinate_system(srid)
         import_stats = importer.import_dxf(
             file_path=dxf_path,
             drawing_id=drawing_id,
-            coordinate_system='LOCAL' if srid == 0 else 'STATE_PLANE',
+            coordinate_system=coordinate_system,
             import_modelspace=True,
             import_paperspace=False
         )
