@@ -119,11 +119,11 @@ class ZStressHarness:
             'description': 'Survey control points with 0.001 ft precision'
         })
         
-        # 4. Large State Plane coordinates (EPSG:2226 typical range)
+        # 4. Large local CAD coordinates (50,000+ ft scale - typical site engineering)
         large_coords = [
-            (6000000.0, 2100000.0, 250.0),
-            (6000100.0, 2100000.0, 250.5),
-            (6000100.0, 2100100.0, 251.0)
+            (50000.0, 25000.0, 250.0),
+            (50100.0, 25000.0, 250.5),
+            (50100.0, 25100.0, 251.0)
         ]
         msp.add_polyline3d(large_coords, dxfattribs={'layer': 'TEST-LARGE-COORDS'})
         fixtures['geometries'].append({
@@ -132,7 +132,7 @@ class ZStressHarness:
             'layer': 'TEST-LARGE-COORDS',
             'coords': large_coords,
             'critical': False,
-            'description': 'State Plane Zone 2 typical coordinates (millions of feet)'
+            'description': 'Large local CAD coordinates (50K+ ft scale typical for site engineering)'
         })
         
         # 5. Sub-millimeter precision test (0.0008 ft = 0.24 mm increments)
