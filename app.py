@@ -565,6 +565,43 @@ def get_project_survey_points(project_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/projects/<project_id>/survey-points', methods=['DELETE'])
+def delete_survey_points(project_id):
+    """Soft-delete survey points by setting is_active = false"""
+    try:
+        data = request.get_json()
+        if not data or 'point_ids' not in data:
+            return jsonify({'error': 'point_ids array is required'}), 400
+        
+        point_ids = data['point_ids']
+        if not isinstance(point_ids, list) or len(point_ids) == 0:
+            return jsonify({'error': 'point_ids must be a non-empty array'}), 400
+        
+        # Soft delete points (set is_active = false)
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE survey_points 
+                    SET is_active = false, updated_at = CURRENT_TIMESTAMP
+                    WHERE project_id = %s 
+                      AND point_id = ANY(%s::uuid[])
+                      AND is_active = true
+                    """,
+                    (project_id, point_ids)
+                )
+                deleted_count = cur.rowcount
+                conn.commit()
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'message': f'{deleted_count} survey point(s) deleted successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/projects/<project_id>', methods=['PUT'])
 def update_project(project_id):
     """Update an existing project"""

@@ -236,8 +236,13 @@
 <div class="mc-table-container">
     <div class="mc-table-header">
         <h2><i class="fas fa-table"></i> Survey Points</h2>
-        <div class="mc-stat-badge">
-            <span id="pointCount">0</span> points
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button id="deleteButton" class="btn btn-danger" onclick="deleteSelectedPoints()" style="display: none;">
+                <i class="fas fa-trash"></i> Delete Selected (<span id="selectedCount">0</span>)
+            </button>
+            <div class="mc-stat-badge">
+                <span id="pointCount">0</span> points
+            </div>
         </div>
     </div>
     
@@ -245,6 +250,9 @@
         <table class="mc-table">
             <thead>
                 <tr>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" title="Select all visible points">
+                    </th>
                     <th>Point #</th>
                     <th>Type</th>
                     <th>Description</th>
@@ -259,7 +267,7 @@
             </thead>
             <tbody id="pointsTable">
                 <tr>
-                    <td colspan="10" class="mc-no-data">
+                    <td colspan="11" class="mc-no-data">
                         <i class="fas fa-spinner fa-spin"></i>
                         <p>Loading survey points...</p>
                     </td>
@@ -323,6 +331,7 @@ function populateFilters() {
     const drawings = [...new Set(allPoints.map(p => p.drawing_name).filter(Boolean))];
     
     const typeSelect = document.getElementById('filterType');
+    typeSelect.innerHTML = '<option value="">All Types</option>';
     types.forEach(type => {
         const option = document.createElement('option');
         option.value = type;
@@ -331,6 +340,7 @@ function populateFilters() {
     });
     
     const drawingSelect = document.getElementById('filterDrawing');
+    drawingSelect.innerHTML = '<option value="">All Drawings</option>';
     drawings.forEach(drawing => {
         const option = document.createElement('option');
         option.value = drawing;
@@ -345,12 +355,13 @@ function renderPoints(points) {
     if (points.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="10" class="mc-no-data">
+                <td colspan="11" class="mc-no-data">
                     <i class="fas fa-map-marker-alt"></i>
                     <p>No survey points found</p>
                 </td>
             </tr>
         `;
+        updateDeleteButton();
         return;
     }
     
@@ -365,6 +376,9 @@ function renderPoints(points) {
         
         return `
             <tr>
+                <td>
+                    <input type="checkbox" class="point-checkbox" data-point-id="${point.point_id}" onchange="updateDeleteButton()">
+                </td>
                 <td><strong>${point.point_number}</strong> ${badge}</td>
                 <td>${point.point_type || '-'}</td>
                 <td>${point.point_description || '-'}</td>
@@ -378,6 +392,7 @@ function renderPoints(points) {
             </tr>
         `;
     }).join('');
+    updateDeleteButton();
 }
 
 function filterPoints() {
@@ -409,6 +424,62 @@ function filterPoints() {
     
     renderPoints(filtered);
     document.getElementById('pointCount').textContent = filtered.length.toLocaleString();
+}
+
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.point-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    updateDeleteButton();
+}
+
+function updateDeleteButton() {
+    const checkboxes = document.querySelectorAll('.point-checkbox:checked');
+    const deleteButton = document.getElementById('deleteButton');
+    const selectedCount = document.getElementById('selectedCount');
+    const selectAll = document.getElementById('selectAll');
+    
+    selectedCount.textContent = checkboxes.length;
+    deleteButton.style.display = checkboxes.length > 0 ? 'block' : 'none';
+    
+    const allCheckboxes = document.querySelectorAll('.point-checkbox');
+    selectAll.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
+    selectAll.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
+}
+
+async function deleteSelectedPoints() {
+    const checkboxes = document.querySelectorAll('.point-checkbox:checked');
+    const pointIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-point-id'));
+    
+    if (pointIds.length === 0) return;
+    
+    const confirmed = confirm(`Are you sure you want to delete ${pointIds.length} survey point(s)? This action cannot be undone.`);
+    if (!confirmed) return;
+    
+    try {
+        const response = await fetch(`/api/projects/${PROJECT_ID}/survey-points`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ point_ids: pointIds })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Failed to delete points');
+        }
+        
+        alert(`${data.deleted_count} survey point(s) deleted successfully`);
+        
+        await loadSurveyPoints();
+        document.getElementById('selectAll').checked = false;
+        
+    } catch (error) {
+        console.error('Error deleting points:', error);
+        alert(`Error deleting points: ${error.message}`);
+    }
 }
 
 loadProjectInfo();
