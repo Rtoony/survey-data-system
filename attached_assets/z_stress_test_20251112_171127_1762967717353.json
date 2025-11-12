@@ -1,0 +1,170 @@
+{
+  "baseline_hash": "fd7c48be5a22481caafe0f01f6d9edbec9a0129aadbbb3d12ae17345b108f70b",
+  "coordinate_validation": {
+    "ranges": {
+      "x": [
+        6354652.9731,
+        6354702.7073
+      ],
+      "y": [
+        1931409.2969,
+        1931521.4733
+      ],
+      "z": [
+        147.5404,
+        148.9599999999627
+      ]
+    },
+    "valid": true,
+    "warnings": []
+  },
+  "cycles": [
+    {
+      "avg_error": 0,
+      "cycle": 1,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:11:27.775564"
+    },
+    {
+      "avg_error": 41.22980110141546,
+      "cycle": 2,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 41.22980110141546,
+          "max_error": 111.29131201811383,
+          "max_x_error": 49.010599995963275,
+          "max_y_error": 111.144100000849,
+          "max_z_error": 1.2195999997765057,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 111.29131201811383,
+      "max_z_error": 1.2195999997765057,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T17:11:51.265915"
+    },
+    {
+      "avg_error": 26.9403790890452,
+      "cycle": 3,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 26.9403790890452,
+          "max_error": 82.86259873792726,
+          "max_x_error": 45.267099999822676,
+          "max_y_error": 73.01500000082888,
+          "max_z_error": 0.8896000001676043,
+          "status": "FAIL",
+          "x_pass": false,
+          "y_pass": false,
+          "z_pass": false
+        }
+      },
+      "max_error": 82.86259873792726,
+      "max_z_error": 0.8896000001676043,
+      "status": "FAIL",
+      "timestamp": "2025-11-12T17:12:11.242673"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 4,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:12:29.157485"
+    },
+    {
+      "avg_error": 0,
+      "cycle": 5,
+      "errors_by_layer": {
+        "0": {
+          "avg_error": 0,
+          "max_error": 0,
+          "max_x_error": 0,
+          "max_y_error": 0,
+          "max_z_error": 0,
+          "status": "PASS",
+          "x_pass": true,
+          "y_pass": true,
+          "z_pass": true
+        }
+      },
+      "max_error": 0,
+      "max_z_error": 0,
+      "status": "PASS",
+      "timestamp": "2025-11-12T17:12:47.709328"
+    }
+  ],
+  "fixtures": {
+    "filename": "upload_5131-EG_SURFACE-CIVIL_3D-export-small_test_area.dxf",
+    "geometries": [],
+    "source": "user_upload",
+    "srid": 2226
+  },
+  "parameters": {
+    "num_cycles": 5,
+    "srid": 2226,
+    "tolerance_ft": 0.001
+  },
+  "summary": {
+    "avg_error": 0,
+    "best_avg_error": 0,
+    "best_max_error": 0,
+    "cycles_failed": 2,
+    "cycles_passed": 3,
+    "final_avg_error": 0,
+    "final_max_error": 0,
+    "final_max_z_error": 0,
+    "max_error": 0,
+    "max_x_error": 0,
+    "max_y_error": 0,
+    "max_z_error": 0,
+    "overall_status": "FAIL",
+    "tolerance_met": true,
+    "tolerances": {
+      "units": "ft",
+      "x": 0.001,
+      "y": 0.001,
+      "z": 0.001
+    },
+    "total_cycles": 5,
+    "worst_avg_error": 41.22980110141546,
+    "worst_max_error": 111.29131201811383,
+    "x_pass": true,
+    "y_pass": true,
+    "z_pass": true,
+    "z_zero_preserved": false
+  },
+  "test_id": "20251112_171127",
+  "timestamp": "2025-11-12T17:11:27.774276"
+}
