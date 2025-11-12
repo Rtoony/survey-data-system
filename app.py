@@ -92,6 +92,11 @@ def project_overview(project_id):
     """Project Overview dashboard page"""
     return render_template('project_overview.html', project_id=project_id)
 
+@app.route('/projects/<project_id>/survey-points')
+def project_survey_points(project_id):
+    """Project Survey Point Manager page"""
+    return render_template('project_survey_points.html', project_id=project_id)
+
 @app.route('/drawings')
 def drawings_page():
     """Drawings manager page"""
@@ -493,6 +498,73 @@ def get_project_drawings(project_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/projects/<project_id>/survey-points')
+def get_project_survey_points(project_id):
+    """Get all survey points for a specific project with optional filtering"""
+    try:
+        # Get query parameters for filtering
+        point_type = request.args.get('point_type')
+        drawing_id = request.args.get('drawing_id')
+        is_control = request.args.get('is_control')
+        search = request.args.get('search')
+        
+        # Build dynamic WHERE clause
+        where_conditions = ["sp.project_id = %s", "sp.is_active = true"]
+        params = [project_id]
+        
+        if point_type:
+            where_conditions.append("sp.point_type = %s")
+            params.append(point_type)
+        
+        if drawing_id:
+            where_conditions.append("sp.drawing_id = %s")
+            params.append(drawing_id)
+        
+        if is_control is not None:
+            is_control_bool = is_control.lower() == 'true'
+            where_conditions.append("sp.is_control_point = %s")
+            params.append(is_control_bool)
+        
+        if search:
+            where_conditions.append("LOWER(sp.point_number::text) LIKE %s")
+            params.append(f"%{search.lower()}%")
+        
+        where_clause = " AND ".join(where_conditions)
+        
+        query = f"""
+            SELECT 
+                sp.point_id,
+                sp.point_number,
+                sp.point_description,
+                sp.point_type,
+                sp.elevation,
+                sp.northing,
+                sp.easting,
+                sp.is_control_point,
+                sp.survey_date,
+                sp.surveyed_by,
+                sp.survey_method,
+                sp.horizontal_accuracy,
+                sp.vertical_accuracy,
+                sp.quality_score,
+                sp.notes,
+                sp.created_at,
+                d.drawing_name,
+                d.drawing_number
+            FROM survey_points sp
+            LEFT JOIN drawings d ON sp.drawing_id = d.drawing_id
+            WHERE {where_clause}
+            ORDER BY sp.point_number
+        """
+        points = execute_query(query, tuple(params))
+        return jsonify({
+            'project_id': project_id,
+            'count': len(points),
+            'points': points
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/projects/<project_id>', methods=['PUT'])
 def update_project(project_id):
     """Update an existing project"""
@@ -695,6 +767,15 @@ def get_project_statistics(project_id):
         """
         entity_count = execute_query(entity_count_query, (project_id,))[0]['count']
         
+        # Get survey point count (project-level entities, active only)
+        survey_point_count_query = """
+            SELECT COUNT(*) as count 
+            FROM survey_points 
+            WHERE project_id = %s
+              AND is_active = true
+        """
+        survey_point_count = execute_query(survey_point_count_query, (project_id,))[0]['count']
+        
         # Get reference data counts using efficient COUNT queries (not full entity loads)
         # Single query with UNION ALL for all mapping tables
         # NOTE: Only counts ACTIVE attachments (is_active = true) to reflect current project state.
@@ -764,6 +845,7 @@ def get_project_statistics(project_id):
             'project_name': project_check[0]['project_name'],
             'drawing_count': drawing_count,
             'entity_count': entity_count,
+            'survey_point_count': survey_point_count,
             'reference_data_counts': reference_data_counts,
             'total_reference_data': sum(reference_data_counts.values()),
             'has_spatial_data': has_spatial_data,

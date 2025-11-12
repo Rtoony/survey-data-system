@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block title %}Survey Point Manager{% endblock %}
+
+{% block content %}
+<style>
+.mc-page-header {
+    background: linear-gradient(135deg, #1a2332 0%, #0d1117 100%);
+    border: 2px solid var(--accent-cyan);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 50px rgba(0,255,255,0.3);
+}
+
+.mc-page-header h1 {
+    color: var(--accent-cyan);
+    margin: 0 0 10px 0;
+    font-size: 32px;
+}
+
+.mc-breadcrumb {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+.mc-breadcrumb a {
+    color: var(--accent-cyan);
+    text-decoration: none;
+}
+
+.mc-breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.mc-filters {
+    background: linear-gradient(135deg, #1a2332 0%, #0d1117 100%);
+    border: 2px solid var(--accent-cyan);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 50px rgba(0,255,255,0.3);
+}
+
+.mc-filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+
+.mc-filter-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.mc-filter-group label {
+    color: var(--accent-cyan);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.mc-filter-group input,
+.mc-filter-group select {
+    padding: 10px 15px;
+    background: rgba(0,0,0,0.3);
+    border: 2px solid rgba(0,255,255,0.3);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+.mc-filter-group input:focus,
+.mc-filter-group select:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 15px rgba(0,255,255,0.3);
+}
+
+.mc-table-container {
+    background: linear-gradient(135deg, #1a2332 0%, #0d1117 100%);
+    border: 2px solid var(--accent-cyan);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 50px rgba(0,255,255,0.3);
+}
+
+.mc-table-header {
+    padding: 20px 25px;
+    border-bottom: 2px solid rgba(0,255,255,0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mc-table-header h2 {
+    color: var(--accent-cyan);
+    margin: 0;
+    font-size: 24px;
+}
+
+.mc-stat-badge {
+    background: rgba(0,255,255,0.1);
+    border: 1px solid var(--accent-cyan);
+    border-radius: 20px;
+    padding: 8px 16px;
+    color: var(--accent-cyan);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.mc-table-wrapper {
+    overflow-x: auto;
+    max-height: 600px;
+}
+
+.mc-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.mc-table thead {
+    background: rgba(0,255,255,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.mc-table th {
+    padding: 15px;
+    text-align: left;
+    color: var(--accent-cyan);
+    font-weight: 700;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid var(--accent-cyan);
+    white-space: nowrap;
+}
+
+.mc-table td {
+    padding: 12px 15px;
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(0,255,255,0.1);
+}
+
+.mc-table tbody tr {
+    transition: background 0.3s;
+}
+
+.mc-table tbody tr:hover {
+    background: rgba(0,255,255,0.05);
+}
+
+.mc-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.mc-badge-control {
+    background: rgba(255,215,0,0.2);
+    color: #FFD700;
+    border: 1px solid #FFD700;
+}
+
+.mc-badge-regular {
+    background: rgba(0,255,255,0.1);
+    color: var(--accent-cyan);
+    border: 1px solid var(--accent-cyan);
+}
+
+.mc-no-data {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-dim);
+}
+
+.mc-no-data i {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: 0.3;
+}
+
+.mc-no-data p {
+    font-size: 18px;
+    margin: 0;
+}
+</style>
+
+<div class="mc-page-header">
+    <div class="mc-breadcrumb">
+        <a href="/projects"><i class="fas fa-folder"></i> Projects</a> / 
+        <a href="/projects/{{ project_id }}"><i class="fas fa-project-diagram"></i> <span id="projectName">Loading...</span></a> / 
+        <span><i class="fas fa-map-marker-alt"></i> Survey Points</span>
+    </div>
+    <h1><i class="fas fa-map-marker-alt"></i> Survey Point Manager</h1>
+    <p style="color: var(--text-dim); margin: 0;">View and manage all survey points for this project</p>
+</div>
+
+<div class="mc-filters">
+    <div class="mc-filter-row">
+        <div class="mc-filter-group">
+            <label><i class="fas fa-search"></i> Search Point Number</label>
+            <input type="text" id="searchPoint" placeholder="e.g., 101, 102..." oninput="filterPoints()">
+        </div>
+        <div class="mc-filter-group">
+            <label><i class="fas fa-tag"></i> Point Type</label>
+            <select id="filterType" onchange="filterPoints()">
+                <option value="">All Types</option>
+            </select>
+        </div>
+        <div class="mc-filter-group">
+            <label><i class="fas fa-file-image"></i> Drawing</label>
+            <select id="filterDrawing" onchange="filterPoints()">
+                <option value="">All Drawings</option>
+            </select>
+        </div>
+        <div class="mc-filter-group">
+            <label><i class="fas fa-star"></i> Control Points</label>
+            <select id="filterControl" onchange="filterPoints()">
+                <option value="">All Points</option>
+                <option value="true">Control Points Only</option>
+                <option value="false">Regular Points Only</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="mc-table-container">
+    <div class="mc-table-header">
+        <h2><i class="fas fa-table"></i> Survey Points</h2>
+        <div class="mc-stat-badge">
+            <span id="pointCount">0</span> points
+        </div>
+    </div>
+    
+    <div class="mc-table-wrapper">
+        <table class="mc-table">
+            <thead>
+                <tr>
+                    <th>Point #</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Northing</th>
+                    <th>Easting</th>
+                    <th>Elevation</th>
+                    <th>Drawing</th>
+                    <th>Survey Date</th>
+                    <th>H-Accuracy</th>
+                    <th>V-Accuracy</th>
+                </tr>
+            </thead>
+            <tbody id="pointsTable">
+                <tr>
+                    <td colspan="10" class="mc-no-data">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading survey points...</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const PROJECT_ID = '{{ project_id }}';
+let allPoints = [];
+let projectData = null;
+
+async function loadProjectInfo() {
+    try {
+        const response = await fetch(`/api/projects/${PROJECT_ID}`);
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        projectData = data;
+        document.getElementById('projectName').textContent = data.project_name || 'Unknown Project';
+    } catch (error) {
+        console.error('Error loading project:', error);
+        document.getElementById('projectName').textContent = 'Error Loading Project';
+    }
+}
+
+async function loadSurveyPoints() {
+    try {
+        const response = await fetch(`/api/projects/${PROJECT_ID}/survey-points`);
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        allPoints = data.points || [];
+        
+        populateFilters();
+        renderPoints(allPoints);
+        
+        document.getElementById('pointCount').textContent = allPoints.length.toLocaleString();
+        
+    } catch (error) {
+        console.error('Error loading survey points:', error);
+        document.getElementById('pointsTable').innerHTML = `
+            <tr>
+                <td colspan="10" class="mc-no-data">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Error loading survey points: ${error.message}</p>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function populateFilters() {
+    const types = [...new Set(allPoints.map(p => p.point_type).filter(Boolean))];
+    const drawings = [...new Set(allPoints.map(p => p.drawing_name).filter(Boolean))];
+    
+    const typeSelect = document.getElementById('filterType');
+    types.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        typeSelect.appendChild(option);
+    });
+    
+    const drawingSelect = document.getElementById('filterDrawing');
+    drawings.forEach(drawing => {
+        const option = document.createElement('option');
+        option.value = drawing;
+        option.textContent = drawing;
+        drawingSelect.appendChild(option);
+    });
+}
+
+function renderPoints(points) {
+    const tbody = document.getElementById('pointsTable');
+    
+    if (points.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="10" class="mc-no-data">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <p>No survey points found</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = points.map(point => {
+        const isControl = point.is_control_point;
+        const badge = isControl 
+            ? '<span class="mc-badge mc-badge-control">CONTROL</span>' 
+            : '<span class="mc-badge mc-badge-regular">REGULAR</span>';
+        
+        const formatNumber = (val) => val != null ? Number(val).toFixed(3) : '-';
+        const formatDate = (date) => date ? new Date(date).toLocaleDateString() : '-';
+        
+        return `
+            <tr>
+                <td><strong>${point.point_number}</strong> ${badge}</td>
+                <td>${point.point_type || '-'}</td>
+                <td>${point.point_description || '-'}</td>
+                <td>${formatNumber(point.northing)}</td>
+                <td>${formatNumber(point.easting)}</td>
+                <td>${formatNumber(point.elevation)}</td>
+                <td>${point.drawing_name || 'None'}</td>
+                <td>${formatDate(point.survey_date)}</td>
+                <td>${formatNumber(point.horizontal_accuracy)}</td>
+                <td>${formatNumber(point.vertical_accuracy)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterPoints() {
+    const searchTerm = document.getElementById('searchPoint').value.toLowerCase();
+    const typeFilter = document.getElementById('filterType').value;
+    const drawingFilter = document.getElementById('filterDrawing').value;
+    const controlFilter = document.getElementById('filterControl').value;
+    
+    let filtered = allPoints;
+    
+    if (searchTerm) {
+        filtered = filtered.filter(p => 
+            String(p.point_number).toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    if (typeFilter) {
+        filtered = filtered.filter(p => p.point_type === typeFilter);
+    }
+    
+    if (drawingFilter) {
+        filtered = filtered.filter(p => p.drawing_name === drawingFilter);
+    }
+    
+    if (controlFilter) {
+        const isControl = controlFilter === 'true';
+        filtered = filtered.filter(p => p.is_control_point === isControl);
+    }
+    
+    renderPoints(filtered);
+    document.getElementById('pointCount').textContent = filtered.length.toLocaleString();
+}
+
+loadProjectInfo();
+loadSurveyPoints();
+</script>
+
+{% endblock %}

@@ -371,6 +371,10 @@
                     <div class="mc-stat-value" id="entityCount">-</div>
                     <div class="mc-stat-label">CAD Entities</div>
                 </div>
+                <div class="mc-stat-box" style="cursor: pointer;" onclick="window.location.href='/projects/{{ project_id }}/survey-points';" title="Click to view Survey Point Manager">
+                    <div class="mc-stat-value" id="surveyPointCount">-</div>
+                    <div class="mc-stat-label">Survey Points <i class="fas fa-external-link-alt" style="font-size: 12px; opacity: 0.7;"></i></div>
+                </div>
                 <div class="mc-stat-box">
                     <div class="mc-stat-value" id="refDataCount">-</div>
                     <div class="mc-stat-label">Reference Data</div>
@@ -667,6 +671,7 @@ async function loadStatistics() {
         
         document.getElementById('drawingCount').textContent = data.drawing_count || 0;
         document.getElementById('entityCount').textContent = data.entity_count?.toLocaleString() || 0;
+        document.getElementById('surveyPointCount').textContent = data.survey_point_count?.toLocaleString() || 0;
         document.getElementById('refDataCount').textContent = data.total_reference_data || 0;
         document.getElementById('spatialStatus').innerHTML = data.has_spatial_data 
             ? '<i class="fas fa-check-circle" style="color: var(--accent-green);"></i>' 
