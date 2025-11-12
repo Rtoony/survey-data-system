@@ -2787,14 +2787,60 @@ def save_survey_points():
         # Get target EPSG (database uses SRID 2226)
         target_epsg = '2226'
         
+        # Normalize EPSG codes: extract numeric code from formats like "EPSG:2226" or "2226"
+        # Only strip leading "EPSG:" prefix (case-insensitive), not all occurrences
+        import re
+        
+        def normalize_epsg(code: str) -> str:
+            """
+            Extract numeric EPSG code from various formats:
+            - "2226" → "2226"
+            - "EPSG:2226" → "2226"
+            - "EPSG:EPSG:2226" → "2226" (handles double-prefix bug)
+            - "urn:ogc:def:crs:EPSG::4326" → "4326"
+            
+            Returns the numeric code or empty string if invalid
+            """
+            if not code or not code.strip():
+                return ''
+            
+            code = code.strip()
+            
+            # If it's already just digits, return it
+            if code.isdigit():
+                return code
+            
+            # Split by colon and look for numeric segments from right to left
+            # This handles: "EPSG:2226", "EPSG:EPSG:2226", "urn:ogc:def:crs:EPSG::4326"
+            parts = code.split(':')
+            for part in reversed(parts):
+                part = part.strip()
+                if part.isdigit():
+                    return part
+            
+            # No numeric code found
+            return ''
+        
+        source_epsg_clean = normalize_epsg(source_epsg)
+        target_epsg_clean = normalize_epsg(target_epsg)
+        
+        # Validate EPSG codes are non-empty
+        if not source_epsg_clean:
+            return jsonify({'error': f'Invalid source coordinate system code: "{source_epsg}"'}), 400
+        if not target_epsg_clean:
+            return jsonify({'error': f'Invalid target coordinate system code: "{target_epsg}"'}), 400
+        
         # Create coordinate transformer if coordinate systems differ
         transformer = None
-        if source_epsg != target_epsg:
-            transformer = Transformer.from_crs(
-                f'EPSG:{source_epsg}',
-                f'EPSG:{target_epsg}',
-                always_xy=True
-            )
+        if source_epsg_clean != target_epsg_clean:
+            try:
+                transformer = Transformer.from_crs(
+                    f'EPSG:{source_epsg_clean}',
+                    f'EPSG:{target_epsg_clean}',
+                    always_xy=True
+                )
+            except Exception as e:
+                return jsonify({'error': f'Invalid coordinate system transformation: {str(e)}'}), 400
         
         imported_count = 0
         updated_count = 0

@@ -243,7 +243,10 @@ class PNEZDParser:
                         'drawing_number': row['drawing_number']
                     })
             
-            return {'projects': list(projects.values())}
+            # Only return projects that have at least one drawing
+            projects_with_drawings = [p for p in projects.values() if p['drawings']]
+            
+            return {'projects': projects_with_drawings}
             
         finally:
             cur.close()
