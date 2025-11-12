@@ -357,6 +357,8 @@ class ZStressHarness:
                     except:
                         break
                 if coords:
+                    # COORDINATE TRACKING: Log what we extracted from DXF
+                    print(f"[TEST-EXTRACT] 3DFACE from DXF: {len(coords)} vertices: {coords}")
                     extracted[layer].append({'type': '3dface', 'coords': coords})
         
         # Log entity counts for debugging
@@ -415,7 +417,7 @@ class ZStressHarness:
         y_errors = []
         z_errors = []
         
-        for baseline_pt, extracted_pt in zip(baseline, extracted):
+        for idx, (baseline_pt, extracted_pt) in enumerate(zip(baseline, extracted)):
             # Per-axis deltas
             dx = abs(baseline_pt[0] - extracted_pt[0])
             dy = abs(baseline_pt[1] - extracted_pt[1])
@@ -428,6 +430,13 @@ class ZStressHarness:
             x_errors.append(dx)
             y_errors.append(dy)
             z_errors.append(dz)
+            
+            # COORDINATE TRACKING: Log vertices with significant errors
+            if distance_3d > 1.0:  # More than 1ft error
+                print(f"[COMPARE] Vertex {idx}: LARGE ERROR = {distance_3d:.4f} ft")
+                print(f"[COMPARE]   Baseline:  {baseline_pt}")
+                print(f"[COMPARE]   Extracted: {extracted_pt}")
+                print(f"[COMPARE]   Δx={dx:.4f}, Δy={dy:.4f}, Δz={dz:.4f}")
         
         # Calculate aggregate metrics
         max_error = max(errors_3d)

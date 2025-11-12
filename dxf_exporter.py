@@ -292,6 +292,11 @@ class DXFExporter:
         # Parse WKT to coordinates (includes Z values)
         coords = self._parse_wkt_coords(geom_wkt)
         
+        # COORDINATE TRACKING: Log 3DFACE coordinates at export
+        if entity_type == '3DFACE':
+            print(f"[EXPORT] 3DFACE WKT from DB: {geom_wkt}")
+            print(f"[EXPORT] Parsed coords (len={len(coords)}): {coords}")
+        
         if entity_type == 'LINE' and len(coords) >= 2:
             # Lines support 3D coordinates directly
             layout.add_line(
@@ -363,6 +368,7 @@ class DXFExporter:
                             abs(first[1] - last[1]) < 1e-9 and 
                             abs(first[2] - last[2]) < 1e-9)
                 if is_closed:
+                    print(f"[EXPORT] Removing closing point (first==last)")
                     coords = coords[:-1]  # Drop closing point
             
             # Remove duplicate vertices (Civil 3D duplicates last vertex for triangles)
@@ -373,14 +379,18 @@ class DXFExporter:
                                abs(v2[1] - v3[1]) < 1e-9 and 
                                abs(v2[2] - v3[2]) < 1e-9)
                 if is_duplicate:
+                    print(f"[EXPORT] Removing duplicate v2==v3 (triangle)")
                     coords = coords[:3]  # Remove duplicate, now a true triangle
             
             # Ensure we have exactly 4 points for DXF 3DFACE (duplicate last if triangle)
             if len(coords) == 3:
                 points = coords + [coords[-1]]  # Triangle -> Quad by duplicating last vertex
+                print(f"[EXPORT] Triangle: duplicating last vertex")
             else:
                 points = coords[:4]  # True quad, take first 4
+                print(f"[EXPORT] Quad: using first 4 vertices")
             
+            print(f"[EXPORT] Final points to ezdxf: {points}")
             layout.add_3dface(
                 points=points,
                 dxfattribs={'layer': layer}

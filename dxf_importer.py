@@ -721,6 +721,13 @@ class DXFImporter:
         vtx2 = entity.dxf.vtx2
         vtx3 = entity.dxf.vtx3 if hasattr(entity.dxf, 'vtx3') else vtx2
         
+        # COORDINATE TRACKING: Log what we read from ezdxf
+        print(f"[IMPORT] 3DFACE read from ezdxf:")
+        print(f"[IMPORT]   vtx0: ({vtx0.x}, {vtx0.y}, {vtx0.z})")
+        print(f"[IMPORT]   vtx1: ({vtx1.x}, {vtx1.y}, {vtx1.z})")
+        print(f"[IMPORT]   vtx2: ({vtx2.x}, {vtx2.y}, {vtx2.z})")
+        print(f"[IMPORT]   vtx3: ({vtx3.x}, {vtx3.y}, {vtx3.z})")
+        
         points = [
             f'{vtx0.x} {vtx0.y} {vtx0.z}',
             f'{vtx1.x} {vtx1.y} {vtx1.z}',
@@ -730,6 +737,7 @@ class DXFImporter:
         ]
         
         geometry_wkt = f'POLYGON Z (({", ".join(points)}))'
+        print(f"[IMPORT] WKT to DB: {geometry_wkt}")
         
         cur.execute(f"""
             INSERT INTO drawing_entities (
