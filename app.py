@@ -13603,13 +13603,26 @@ def generate_layer_name():
         object_code = data.get('object', '').strip()
         phase = data.get('phase', '').strip()
         geometry = data.get('geometry', '').strip()
+        attributes = data.get('attributes', [])
         
         if not all([discipline, category, object_code, phase, geometry]):
             return jsonify({
                 'error': 'All components required: discipline, category, object, phase, geometry'
             }), 400
         
-        canonical_name = f"{discipline}-{category}-{object_code}-{phase}-{geometry}"
+        # Build layer name with optional attributes
+        # Format: DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY
+        parts = [discipline, category, object_code]
+        
+        # Add attributes if provided (inserted between type and phase)
+        if attributes:
+            if isinstance(attributes, str):
+                # Split comma-separated string
+                attributes = [attr.strip().upper() for attr in attributes.split(',') if attr.strip()]
+            parts.extend(attributes)
+        
+        parts.extend([phase, geometry])
+        canonical_name = '-'.join(parts)
         
         alias_query = """
             SELECT alias, notes FROM layer_aliases
@@ -13626,6 +13639,7 @@ def generate_layer_name():
                 'discipline': discipline,
                 'category': category,
                 'object': object_code,
+                'attributes': attributes if attributes else [],
                 'phase': phase,
                 'geometry': geometry
             }
