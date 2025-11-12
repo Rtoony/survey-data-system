@@ -607,11 +607,24 @@ class ZStressHarness:
             }
             
             try:
+                # DEBUG: Extract coords before cycle
+                before_coords = self.extract_coords_from_dxf(current_dxf)
+                
                 # Run import-export cycle
                 exported_dxf = self.run_cycle(current_dxf, cycle, project_name, srid)
                 
                 # Extract and compare coordinates
                 extracted_coords = self.extract_coords_from_dxf(exported_dxf)
+                
+                # DEBUG: Log coordinate shift for first point
+                if 'TEST-FLAT-PAD' in before_coords and 'TEST-FLAT-PAD' in extracted_coords:
+                    before_pt = before_coords['TEST-FLAT-PAD'][0]['coords'][0]
+                    after_pt = extracted_coords['TEST-FLAT-PAD'][0]['coords'][0]
+                    dx = after_pt[0] - before_pt[0]
+                    dy = after_pt[1] - before_pt[1]
+                    dz = after_pt[2] - before_pt[2]
+                    if abs(dx) > 1 or abs(dy) > 1 or abs(dz) > 0.01:
+                        print(f"\n  DEBUG Cycle {cycle}: Before={before_pt}, After={after_pt}, Delta=({dx:.6f}, {dy:.6f}, {dz:.6f})")
                 
                 # Calculate errors for each layer
                 total_max_error = 0.0
