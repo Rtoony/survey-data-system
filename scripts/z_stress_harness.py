@@ -259,17 +259,26 @@ class ZStressHarness:
         
         return extracted
     
-    def calculate_errors(self, baseline: List[Tuple], extracted: List[Tuple]) -> Dict:
+    def calculate_errors(self, baseline: List[Tuple], extracted: List[Tuple], srid: int = 0) -> Dict:
         """
-        Calculate 3D distance errors between baseline and extracted coordinates.
+        Calculate per-axis errors (ΔX, ΔY, ΔZ) with SRID-specific tolerances.
         
-        Returns detailed error metrics for validation.
+        Args:
+            baseline: Original coordinates
+            extracted: Coordinates after round-trip
+            srid: Coordinate system for tolerance lookup
+        
+        Returns detailed error metrics including per-axis deltas.
         """
         if len(baseline) != len(extracted):
             return {
                 'max_error': float('inf'),
                 'avg_error': float('inf'),
+                'max_x_error': float('inf'),
+                'max_y_error': float('inf'),
                 'max_z_error': float('inf'),
+                'avg_x_error': float('inf'),
+                'avg_y_error': float('inf'),
                 'avg_z_error': float('inf'),
                 'errors': [],
                 'status': 'FAIL',
@@ -280,36 +289,55 @@ class ZStressHarness:
             return {
                 'max_error': 0.0,
                 'avg_error': 0.0,
+                'max_x_error': 0.0,
+                'max_y_error': 0.0,
                 'max_z_error': 0.0,
+                'avg_x_error': 0.0,
+                'avg_y_error': 0.0,
                 'avg_z_error': 0.0,
                 'errors': [],
                 'status': 'PASS'
             }
         
-        errors = []
+        errors_3d = []
+        x_errors = []
+        y_errors = []
         z_errors = []
         
         for baseline_pt, extracted_pt in zip(baseline, extracted):
+            # Per-axis deltas
+            dx = abs(baseline_pt[0] - extracted_pt[0])
+            dy = abs(baseline_pt[1] - extracted_pt[1])
+            dz = abs(baseline_pt[2] - extracted_pt[2])
+            
             # 3D Euclidean distance
-            dx = baseline_pt[0] - extracted_pt[0]
-            dy = baseline_pt[1] - extracted_pt[1]
-            dz = baseline_pt[2] - extracted_pt[2]
+            distance_3d = math.sqrt(dx*dx + dy*dy + dz*dz)
             
-            distance = math.sqrt(dx*dx + dy*dy + dz*dz)
-            z_error = abs(dz)
-            
-            errors.append(distance)
-            z_errors.append(z_error)
+            errors_3d.append(distance_3d)
+            x_errors.append(dx)
+            y_errors.append(dy)
+            z_errors.append(dz)
         
-        max_error = max(errors)
-        avg_error = sum(errors) / len(errors)
+        # Calculate aggregate metrics
+        max_error = max(errors_3d)
+        avg_error = sum(errors_3d) / len(errors_3d)
+        max_x_error = max(x_errors)
+        max_y_error = max(y_errors)
         max_z_error = max(z_errors)
+        avg_x_error = sum(x_errors) / len(x_errors)
+        avg_y_error = sum(y_errors) / len(y_errors)
         avg_z_error = sum(z_errors) / len(z_errors)
         
-        # Tolerance thresholds
-        if max_error < 0.001:  # Sub-millimeter (excellent)
+        # Apply SRID-specific tolerances
+        tolerances = self.TOLERANCES.get(srid, self.TOLERANCES[0])
+        x_pass = max_x_error <= tolerances['x']
+        y_pass = max_y_error <= tolerances['y']
+        z_pass = max_z_error <= tolerances['z']
+        
+        # Overall status
+        if x_pass and y_pass and z_pass:
             status = 'PASS'
-        elif max_error < 0.01:  # Sub-centimeter (acceptable)
+        elif max_error < 0.01:  # Sub-centimeter (marginal)
             status = 'WARNING'
         else:
             status = 'FAIL'
@@ -317,9 +345,17 @@ class ZStressHarness:
         return {
             'max_error': max_error,
             'avg_error': avg_error,
+            'max_x_error': max_x_error,
+            'max_y_error': max_y_error,
             'max_z_error': max_z_error,
+            'avg_x_error': avg_x_error,
+            'avg_y_error': avg_y_error,
             'avg_z_error': avg_z_error,
-            'count': len(errors),
+            'count': len(errors_3d),
+            'x_pass': x_pass,
+            'y_pass': y_pass,
+            'z_pass': z_pass,
+            'tolerances': tolerances,
             'status': status
         }
     
@@ -437,11 +473,11 @@ class ZStressHarness:
         if user_dxf_path and os.path.exists(user_dxf_path):
             print(f"Using user-provided DXF file: {user_dxf_path}")
             initial_dxf = user_dxf_path
-            fixtures = {'geometries': [], 'source': 'user_upload', 'filename': os.path.basename(user_dxf_path)}
+            fixtures = {'geometries': [], 'source': 'user_upload', 'filename': os.path.basename(user_dxf_path), 'srid': srid}
         else:
-            # Create initial test DXF
+            # Create initial test DXF with SRID-specific coordinates
             initial_dxf = os.path.join(self.output_dir, f'z_stress_initial_{self.test_id}.dxf')
-            fixtures = self.create_test_fixtures(initial_dxf)
+            fixtures = self.create_test_fixtures(initial_dxf, srid)
             
             print("Test fixtures created:")
             for geom in fixtures['geometries']:
@@ -520,7 +556,7 @@ class ZStressHarness:
                         baseline_pts = baseline_entity['coords']
                         extracted_pts = extracted_entity['coords']
                         
-                        error_data = self.calculate_errors(baseline_pts, extracted_pts)
+                        error_data = self.calculate_errors(baseline_pts, extracted_pts, srid)
                         layer_errors.append(error_data)
                         
                         total_max_error = max(total_max_error, error_data['max_error'])
@@ -528,15 +564,28 @@ class ZStressHarness:
                         total_max_z_error = max(total_max_z_error, error_data['max_z_error'])
                         layer_count += 1
                     
-                    # Aggregate layer metrics
+                    # Aggregate layer metrics with per-axis data
                     layer_max = max(e['max_error'] for e in layer_errors)
                     layer_avg = sum(e['avg_error'] for e in layer_errors) / len(layer_errors)
-                    layer_status = 'PASS' if layer_max < tolerance_ft else 'FAIL'
+                    layer_max_x = max(e['max_x_error'] for e in layer_errors)
+                    layer_max_y = max(e['max_y_error'] for e in layer_errors)
+                    layer_max_z = max(e['max_z_error'] for e in layer_errors)
+                    
+                    # Check against SRID-specific tolerances
+                    tolerances = self.TOLERANCES.get(srid, self.TOLERANCES[0])
+                    layer_status = 'PASS' if (layer_max_x <= tolerances['x'] and 
+                                              layer_max_y <= tolerances['y'] and 
+                                              layer_max_z <= tolerances['z']) else 'FAIL'
                     
                     cycle_result['errors_by_layer'][layer] = {
                         'max_error': layer_max,
                         'avg_error': layer_avg,
-                        'max_z_error': max(e['max_z_error'] for e in layer_errors),
+                        'max_x_error': layer_max_x,
+                        'max_y_error': layer_max_y,
+                        'max_z_error': layer_max_z,
+                        'x_pass': layer_max_x <= tolerances['x'],
+                        'y_pass': layer_max_y <= tolerances['y'],
+                        'z_pass': layer_max_z <= tolerances['z'],
                         'status': layer_status
                     }
                 
