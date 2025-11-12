@@ -337,7 +337,7 @@ class ZStressHarness:
         
         return export_path
     
-    def run_stress_test(self, num_cycles: int = 20, srid: int = 0, tolerance_ft: float = 0.001) -> Dict:
+    def run_stress_test(self, num_cycles: int = 20, srid: int = 0, tolerance_ft: float = 0.001, user_dxf_path: str = None) -> Dict:
         """
         Run complete stress test with N import/export cycles.
         
@@ -345,6 +345,7 @@ class ZStressHarness:
             num_cycles: Number of cycles to run (default 20)
             srid: Spatial reference ID (0 = local CAD, 2226 = CA State Plane Zone 2)
             tolerance_ft: Maximum acceptable error in feet (default 0.001 = sub-millimeter)
+            user_dxf_path: Optional path to user-provided DXF file (default None = use test fixtures)
         
         Returns:
             Complete test results with per-cycle metrics and summary
@@ -356,17 +357,25 @@ class ZStressHarness:
         print(f"Cycles: {num_cycles}")
         print(f"SRID: {srid}")
         print(f"Tolerance: {tolerance_ft} ft ({tolerance_ft * 12:.4f} inches)")
+        if user_dxf_path:
+            print(f"User DXF: {os.path.basename(user_dxf_path)}")
         print(f"{'='*80}\n")
         
-        # Create initial test DXF
-        initial_dxf = os.path.join(self.output_dir, f'z_stress_initial_{self.test_id}.dxf')
-        fixtures = self.create_test_fixtures(initial_dxf)
-        
-        print("Test fixtures created:")
-        for geom in fixtures['geometries']:
-            critical_marker = " [CRITICAL]" if geom['critical'] else ""
-            print(f"  - {geom['name']}{critical_marker}: {len(geom['coords'])} vertices")
-        print()
+        # Use user DXF or create test fixtures
+        if user_dxf_path and os.path.exists(user_dxf_path):
+            print(f"Using user-provided DXF file: {user_dxf_path}")
+            initial_dxf = user_dxf_path
+            fixtures = {'geometries': [], 'source': 'user_upload', 'filename': os.path.basename(user_dxf_path)}
+        else:
+            # Create initial test DXF
+            initial_dxf = os.path.join(self.output_dir, f'z_stress_initial_{self.test_id}.dxf')
+            fixtures = self.create_test_fixtures(initial_dxf)
+            
+            print("Test fixtures created:")
+            for geom in fixtures['geometries']:
+                critical_marker = " [CRITICAL]" if geom['critical'] else ""
+                print(f"  - {geom['name']}{critical_marker}: {len(geom['coords'])} vertices")
+            print()
         
         # Extract baseline coordinates
         baseline_coords = self.extract_coords_from_dxf(initial_dxf)

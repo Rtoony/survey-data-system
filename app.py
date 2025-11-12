@@ -6854,18 +6854,44 @@ def run_z_stress_test():
     """Run Z-value elevation preservation stress test"""
     import sys
     import os
+    import tempfile
+    from werkzeug.utils import secure_filename
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     
     from scripts.z_stress_harness import ZStressHarness
     
     try:
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({'error': 'Invalid JSON payload'}), 400
+        user_dxf_path = None
         
-        num_cycles = data.get('num_cycles', 20)
-        srid = data.get('srid', 0)
-        tolerance = data.get('tolerance', 0.001)
+        # Check if this is a file upload or JSON request
+        if 'file' in request.files:
+            # File upload mode
+            file = request.files['file']
+            
+            if file.filename == '':
+                return jsonify({'error': 'No file selected'}), 400
+            
+            if not file.filename.lower().endswith('.dxf'):
+                return jsonify({'error': 'File must be a DXF file'}), 400
+            
+            # Save uploaded file to temp directory
+            filename = secure_filename(file.filename)
+            user_dxf_path = os.path.join(tempfile.gettempdir(), f'upload_{filename}')
+            file.save(user_dxf_path)
+            
+            # Get parameters from form data
+            num_cycles = int(request.form.get('num_cycles', 20))
+            srid = int(request.form.get('srid', 0))
+            tolerance = float(request.form.get('tolerance', 0.001))
+        else:
+            # JSON mode (test fixtures)
+            data = request.get_json(silent=True)
+            if not data:
+                return jsonify({'error': 'Invalid request'}), 400
+            
+            num_cycles = data.get('num_cycles', 20)
+            srid = data.get('srid', 0)
+            tolerance = data.get('tolerance', 0.001)
         
         # Validate parameters
         if num_cycles < 1 or num_cycles > 100:
@@ -6878,18 +6904,34 @@ def run_z_stress_test():
             return jsonify({'error': 'Tolerance must be between 0 and 1 feet'}), 400
         
         # Run the stress test
-        harness = ZStressHarness(DB_CONFIG)
+        harness = ZStressHarness()
         results = harness.run_stress_test(
             num_cycles=num_cycles,
             srid=srid,
-            tolerance_ft=tolerance
+            tolerance_ft=tolerance,
+            user_dxf_path=user_dxf_path
         )
+        
+        # Clean up uploaded file if it exists
+        if user_dxf_path and os.path.exists(user_dxf_path):
+            try:
+                os.remove(user_dxf_path)
+            except:
+                pass
         
         return jsonify(results)
         
     except Exception as e:
         import traceback
         traceback.print_exc()
+        
+        # Clean up uploaded file on error
+        if user_dxf_path and os.path.exists(user_dxf_path):
+            try:
+                os.remove(user_dxf_path)
+            except:
+                pass
+        
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/tools/generate-test-dxf', methods=['POST'])

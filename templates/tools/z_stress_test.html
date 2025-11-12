@@ -16,6 +16,32 @@
         </div>
         <div class="mc-card-content">
             
+            <!-- Data Source Selection -->
+            <div class="section-group">
+                <h3><i class="fas fa-database"></i> Data Source</h3>
+                
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>
+                        <input type="radio" name="dataSource" value="fixtures" checked>
+                        Use Test Fixtures
+                    </label>
+                    <small class="mc-help-text" style="display: block; margin-left: 1.5rem;">Canonical geometries (Z=0 pads, slopes, etc.)</small>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>
+                        <input type="radio" name="dataSource" value="upload">
+                        Upload My DXF File
+                    </label>
+                    <small class="mc-help-text" style="display: block; margin-left: 1.5rem;">Test with your own 3D CAD data</small>
+                </div>
+                
+                <div id="uploadSection" style="display: none; margin-left: 1.5rem; margin-top: 0.5rem;">
+                    <input type="file" id="dxfFile" accept=".dxf" class="form-control" style="padding: 0.5rem;">
+                    <small class="mc-help-text">Select a DXF file with 3D elements</small>
+                </div>
+            </div>
+
             <!-- Test Parameters -->
             <div class="section-group">
                 <h3><i class="fas fa-cog"></i> Parameters</h3>
@@ -228,11 +254,24 @@
 <script>
 let currentTestResults = null;
 
+// Handle data source radio buttons
+document.querySelectorAll('input[name="dataSource"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const uploadSection = document.getElementById('uploadSection');
+        if (this.value === 'upload') {
+            uploadSection.style.display = 'block';
+        } else {
+            uploadSection.style.display = 'none';
+        }
+    });
+});
+
 document.getElementById('runTestBtn').addEventListener('click', async function() {
     const btn = this;
     const numCycles = parseInt(document.getElementById('num_cycles').value);
     const srid = parseInt(document.getElementById('srid').value);
     const tolerance = parseFloat(document.getElementById('tolerance').value);
+    const dataSource = document.querySelector('input[name="dataSource"]:checked').value;
 
     // Hide initial state, show progress
     document.getElementById('initialState').style.display = 'none';
@@ -246,11 +285,33 @@ document.getElementById('runTestBtn').addEventListener('click', async function()
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
 
     try {
-        const response = await fetch('/api/z-stress-test/run', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ num_cycles: numCycles, srid: srid, tolerance: tolerance })
-        });
+        let response;
+        
+        if (dataSource === 'upload') {
+            // File upload mode
+            const fileInput = document.getElementById('dxfFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                throw new Error('Please select a DXF file to upload');
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('num_cycles', numCycles);
+            formData.append('srid', srid);
+            formData.append('tolerance', tolerance);
+            
+            response = await fetch('/api/z-stress-test/run', {
+                method: 'POST',
+                body: formData
+            });
+        } else {
+            // Test fixtures mode
+            response = await fetch('/api/z-stress-test/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ num_cycles: numCycles, srid: srid, tolerance: tolerance })
+            });
+        }
 
         const data = await response.json();
 
