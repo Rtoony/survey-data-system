@@ -452,5 +452,6 @@ class IntelligentObjectCreator:
     
     def __del__(self):
         """Clean up connection if we created it."""
-        if self.should_close_conn and self.conn:
+        # Use hasattr to prevent AttributeError if __init__ failed partway
+        if hasattr(self, 'should_close_conn') and self.should_close_conn and hasattr(self, 'conn') and self.conn:
             self.conn.close()

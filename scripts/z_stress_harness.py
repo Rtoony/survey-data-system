@@ -847,17 +847,21 @@ class ZStressHarness:
         return max_z_error < 0.0001  # Within 0.0001 ft = 0.03mm
     
     def _sanitize_for_json(self, obj):
-        """Recursively sanitize data structure to replace NaN/Infinity with valid JSON values."""
+        """Recursively sanitize data structure to replace NaN/Infinity/numpy types with valid JSON values."""
         if isinstance(obj, dict):
             return {k: self._sanitize_for_json(v) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [self._sanitize_for_json(item) for item in obj]
+        elif isinstance(obj, (bool, type(True))):  # Handle both Python and numpy bools
+            return bool(obj)  # Convert to Python bool
         elif isinstance(obj, float):
             if math.isnan(obj):
                 return 0.0
             elif math.isinf(obj):
                 return 999999.0 if obj > 0 else -999999.0
             return obj
+        elif hasattr(obj, 'item'):  # Handle numpy scalars
+            return obj.item()
         else:
             return obj
     

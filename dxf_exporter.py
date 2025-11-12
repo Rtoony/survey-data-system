@@ -354,16 +354,30 @@ class DXFExporter:
         elif entity_type == '3DFACE' and len(coords) >= 3:
             # Export 3D faces with full vertex elevations
             # POLYGON Z has closing point: triangles=[v0,v1,v2,v0], quads=[v0,v1,v2,v3,v0]
-            # Remove closing point if present (check if first == last)
-            if len(coords) >= 4 and coords[0] == coords[-1]:
-                coords = coords[:-1]  # Drop closing point, leaving unique vertices
+            
+            # DEBUG: Log coords before processing
+            print(f"DEBUG 3DFACE: len={len(coords)}, first={coords[0] if coords else 'N/A'}, last={coords[-1] if coords else 'N/A'}")
+            
+            # Remove closing point if present (check if first == last within tolerance)
+            if len(coords) >= 4:
+                # Compare with tolerance for floating point
+                first, last = coords[0], coords[-1]
+                is_closed = (abs(first[0] - last[0]) < 1e-9 and 
+                            abs(first[1] - last[1]) < 1e-9 and 
+                            abs(first[2] - last[2]) < 1e-9)
+                if is_closed:
+                    print(f"DEBUG 3DFACE: Removing closing point")
+                    coords = coords[:-1]  # Drop closing point, leaving unique vertices
             
             # Ensure we have exactly 4 points (duplicate 3rd if only 3)
             if len(coords) == 3:
                 points = coords + [coords[-1]]  # Triangle -> Quad by duplicating last vertex
+                print(f"DEBUG 3DFACE: Triangle, duplicated last vertex")
             else:
                 points = coords[:4]  # Take first 4 vertices
+                print(f"DEBUG 3DFACE: Quad, taking first 4")
             
+            print(f"DEBUG 3DFACE: Final points={points}")
             layout.add_3dface(
                 points=points,
                 dxfattribs={'layer': layer}
