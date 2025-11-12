@@ -353,31 +353,34 @@ class DXFExporter:
         
         elif entity_type == '3DFACE' and len(coords) >= 3:
             # Export 3D faces with full vertex elevations
-            # POLYGON Z has closing point: triangles=[v0,v1,v2,v0], quads=[v0,v1,v2,v3,v0]
+            # Civil 3D exports triangular faces as POLYGON Z: [v0,v1,v2,v2,v0] (duplicate v2 + closing v0)
+            # Quadrilateral faces as POLYGON Z: [v0,v1,v2,v3,v0] (just closing v0)
             
-            # DEBUG: Log coords before processing
-            print(f"DEBUG 3DFACE: len={len(coords)}, first={coords[0] if coords else 'N/A'}, last={coords[-1] if coords else 'N/A'}")
-            
-            # Remove closing point if present (check if first == last within tolerance)
+            # Remove closing point if present (first == last)
             if len(coords) >= 4:
-                # Compare with tolerance for floating point
                 first, last = coords[0], coords[-1]
                 is_closed = (abs(first[0] - last[0]) < 1e-9 and 
                             abs(first[1] - last[1]) < 1e-9 and 
                             abs(first[2] - last[2]) < 1e-9)
                 if is_closed:
-                    print(f"DEBUG 3DFACE: Removing closing point")
-                    coords = coords[:-1]  # Drop closing point, leaving unique vertices
+                    coords = coords[:-1]  # Drop closing point
             
-            # Ensure we have exactly 4 points (duplicate 3rd if only 3)
+            # Remove duplicate vertices (Civil 3D duplicates last vertex for triangles)
+            # Check if we have 4 vertices but v3 == v2 (triangle stored as quad)
+            if len(coords) == 4:
+                v2, v3 = coords[2], coords[3]
+                is_duplicate = (abs(v2[0] - v3[0]) < 1e-9 and 
+                               abs(v2[1] - v3[1]) < 1e-9 and 
+                               abs(v2[2] - v3[2]) < 1e-9)
+                if is_duplicate:
+                    coords = coords[:3]  # Remove duplicate, now a true triangle
+            
+            # Ensure we have exactly 4 points for DXF 3DFACE (duplicate last if triangle)
             if len(coords) == 3:
                 points = coords + [coords[-1]]  # Triangle -> Quad by duplicating last vertex
-                print(f"DEBUG 3DFACE: Triangle, duplicated last vertex")
             else:
-                points = coords[:4]  # Take first 4 vertices
-                print(f"DEBUG 3DFACE: Quad, taking first 4")
+                points = coords[:4]  # True quad, take first 4
             
-            print(f"DEBUG 3DFACE: Final points={points}")
             layout.add_3dface(
                 points=points,
                 dxfattribs={'layer': layer}
