@@ -41,16 +41,63 @@ from dxf_exporter import DXFExporter
 
 
 class ZStressHarness:
-    """Deterministic stress test harness for Z-value preservation validation."""
+    """Deterministic stress test harness for XYZ coordinate preservation validation."""
+    
+    # SRID-specific tolerances
+    TOLERANCES = {
+        0: {'x': 0.001, 'y': 0.001, 'z': 0.001, 'units': 'ft'},  # LOCAL CAD
+        2226: {'x': 0.001, 'y': 0.001, 'z': 0.001, 'units': 'ft'},  # CA State Plane
+        4326: {'x': 1e-7, 'y': 1e-7, 'z': 0.01, 'units': 'deg/m'}  # WGS84
+    }
+    
+    # Coordinate conversion factors for WGS84 (near San Francisco)
+    FT_TO_LON_DEG = 2.74e-6  # 1 ft ≈ 2.74e-6 degrees longitude at 37°N
+    FT_TO_LAT_DEG = 8.99e-6  # 1 ft ≈ 8.99e-6 degrees latitude
+    FT_TO_METERS = 0.3048    # 1 ft = 0.3048 m
     
     def __init__(self, output_dir: str = None):
         self.output_dir = output_dir or tempfile.gettempdir()
         self.db_config = DB_CONFIG
         self.test_id = datetime.now().strftime('%Y%m%d_%H%M%S')
-        
-    def create_test_fixtures(self, filepath: str) -> Dict:
+    
+    def transform_coords_for_srid(self, coords: List[Tuple[float, float, float]], srid: int) -> List[Tuple[float, float, float]]:
         """
-        Create comprehensive test DXF with canonical geometries.
+        Transform canonical LOCAL coordinates to SRID-specific coordinates.
+        
+        Args:
+            coords: List of (x, y, z) tuples in LOCAL CAD feet
+            srid: Target SRID (0=LOCAL, 2226=STATE_PLANE, 4326=WGS84)
+        
+        Returns:
+            List of transformed (x, y, z) tuples in target coordinate system
+        """
+        if srid == 0:
+            # LOCAL: Use as-is (already in feet)
+            return coords
+        elif srid == 2226:
+            # CA State Plane Zone 2: Offset to realistic State Plane range (6M+ ft)
+            base_x, base_y = 6000000.0, 2100000.0
+            return [(x + base_x, y + base_y, z) for x, y, z in coords]
+        elif srid == 4326:
+            # WGS84: Convert feet to degrees and meters
+            # Base: San Francisco area (-122.4194° lon, 37.7749° lat)
+            base_lon, base_lat = -122.4194, 37.7749
+            return [
+                (base_lon + (x * self.FT_TO_LON_DEG),
+                 base_lat + (y * self.FT_TO_LAT_DEG),
+                 z * self.FT_TO_METERS)  # Convert Z from feet to meters
+                for x, y, z in coords
+            ]
+        else:
+            raise ValueError(f"Unsupported SRID: {srid}")
+        
+    def create_test_fixtures(self, filepath: str, srid: int = 0) -> Dict:
+        """
+        Create comprehensive test DXF with canonical geometries for specified SRID.
+        
+        Args:
+            filepath: Output path for DXF file
+            srid: Spatial Reference ID (0=LOCAL, 2226=STATE_PLANE, 4326=WGS84)
         
         Returns metadata about test geometries for validation.
         """
@@ -64,93 +111,118 @@ class ZStressHarness:
         
         fixtures = {
             'timestamp': datetime.now().isoformat(),
+            'srid': srid,
             'geometries': []
         }
         
-        # 1. CRITICAL: Flat pad at Z=0 (must preserve Z dimension even when zero)
-        flat_pad = [
-            (1000.0, 2000.0, 0.0),
-            (1100.0, 2000.0, 0.0),
-            (1100.0, 2100.0, 0.0),
-            (1000.0, 2100.0, 0.0)
-        ]
-        msp.add_polyline3d(flat_pad + [flat_pad[0]], dxfattribs={'layer': 'TEST-FLAT-PAD'})
-        fixtures['geometries'].append({
-            'name': 'Flat Pad at Z=0',
-            'type': 'polyline3d',
-            'layer': 'TEST-FLAT-PAD',
-            'coords': flat_pad,
-            'critical': True,
-            'description': 'Level pad at elevation 0.0 - CRITICAL Z=0 preservation test'
-        })
+        # Get SRID-specific coordinate base offsets
+        if srid == 0:
+            # LOCAL CAD: Small-scale site engineering (1,000s - 50,000s ft)
+            base_x, base_y = 1000.0, 2000.0
+            coord_name = "LOCAL CAD"
+        elif srid == 2226:
+            # CA State Plane Zone 2: Large-scale coordinates (6M ft typical)
+            base_x, base_y = 6000000.0, 2100000.0
+            coord_name = "CA State Plane Zone 2"
+        elif srid == 4326:
+            # WGS84 Geographic: Decimal degrees (San Francisco area)
+            base_x, base_y = -122.4194, 37.7749  # SF coordinates
+            coord_name = "WGS84 (lat/lon)"
+        else:
+            raise ValueError(f"Unsupported SRID: {srid}")
         
-        # 2. Sloped pipe (1% grade - varying Z values)
-        sloped_pipe = [
-            (1200.0, 2000.0, 100.5),
-            (1300.0, 2000.0, 100.4),
-            (1400.0, 2000.0, 100.3),
-            (1500.0, 2000.0, 100.2)
-        ]
-        msp.add_polyline3d(sloped_pipe, dxfattribs={'layer': 'TEST-SLOPED-PIPE'})
-        fixtures['geometries'].append({
-            'name': 'Sloped Pipe (1% grade)',
-            'type': 'polyline3d',
-            'layer': 'TEST-SLOPED-PIPE',
-            'coords': sloped_pipe,
-            'critical': False,
-            'description': '1% slope pipe - tests varying elevations'
-        })
+        # Define canonical test geometries in LOCAL CAD feet (will be transformed per SRID)
+        canonical_geometries = {
+            'flat_pad': {
+                'coords': [
+                    (1000.0, 2000.0, 0.0),
+                    (1100.0, 2000.0, 0.0),
+                    (1100.0, 2100.0, 0.0),
+                    (1000.0, 2100.0, 0.0)
+                ],
+                'layer': 'TEST-FLAT-PAD',
+                'name': 'Flat Pad at Z=0',
+                'type': 'polyline3d',
+                'critical': True,
+                'description': 'Level pad at elevation 0.0 - CRITICAL Z=0 preservation test'
+            },
+            'sloped_pipe': {
+                'coords': [
+                    (1200.0, 2000.0, 100.5),
+                    (1300.0, 2000.0, 100.4),
+                    (1400.0, 2000.0, 100.3),
+                    (1500.0, 2000.0, 100.2)
+                ],
+                'layer': 'TEST-SLOPED-PIPE',
+                'name': 'Sloped Pipe (1% grade)',
+                'type': 'polyline3d',
+                'critical': False,
+                'description': '1% slope pipe - tests varying elevations'
+            },
+            'survey_points': {
+                'coords': [
+                    (1000.0, 2200.0, 105.234),
+                    (1100.0, 2200.0, 103.567),
+                    (1200.0, 2200.0, 108.901),
+                    (1300.0, 2200.0, 102.345)
+                ],
+                'layer': 'TEST-SURVEY-POINTS',
+                'name': 'Survey Points',
+                'type': 'points',
+                'critical': False,
+                'description': 'Survey control points with high precision'
+            },
+            'large_coords': {
+                'coords': [
+                    (50000.0, 25000.0, 250.0),
+                    (50100.0, 25000.0, 250.5),
+                    (50100.0, 25100.0, 251.0)
+                ],
+                'layer': 'TEST-LARGE-COORDS',
+                'name': 'Large Offset Coordinates',
+                'type': 'polyline3d',
+                'critical': False,
+                'description': f'{coord_name} large-scale coordinates test'
+            },
+            'precision': {
+                'coords': [
+                    (1400.0, 2200.0, 100.0000),
+                    (1450.0, 2200.0, 100.0008),
+                    (1500.0, 2200.0, 100.0016),
+                    (1550.0, 2200.0, 100.0024)
+                ],
+                'layer': 'TEST-PRECISION',
+                'name': 'Sub-millimeter Precision',
+                'type': 'polyline3d',
+                'critical': True,
+                'description': '0.24mm Z increments - tests floating point precision limits'
+            }
+        }
         
-        # 3. Survey points at different elevations (3 decimal precision)
-        survey_points = [
-            (1000.0, 2200.0, 105.234),
-            (1100.0, 2200.0, 103.567),
-            (1200.0, 2200.0, 108.901),
-            (1300.0, 2200.0, 102.345)
-        ]
-        for pt in survey_points:
-            msp.add_point(pt, dxfattribs={'layer': 'TEST-SURVEY-POINTS'})
-        fixtures['geometries'].append({
-            'name': 'Survey Points',
-            'type': 'points',
-            'layer': 'TEST-SURVEY-POINTS',
-            'coords': survey_points,
-            'critical': False,
-            'description': 'Survey control points with 0.001 ft precision'
-        })
-        
-        # 4. Large local CAD coordinates (50,000+ ft scale - typical site engineering)
-        large_coords = [
-            (50000.0, 25000.0, 250.0),
-            (50100.0, 25000.0, 250.5),
-            (50100.0, 25100.0, 251.0)
-        ]
-        msp.add_polyline3d(large_coords, dxfattribs={'layer': 'TEST-LARGE-COORDS'})
-        fixtures['geometries'].append({
-            'name': 'Large Coordinates',
-            'type': 'polyline3d',
-            'layer': 'TEST-LARGE-COORDS',
-            'coords': large_coords,
-            'critical': False,
-            'description': 'Large local CAD coordinates (50K+ ft scale typical for site engineering)'
-        })
-        
-        # 5. Sub-millimeter precision test (0.0008 ft = 0.24 mm increments)
-        precision_test = [
-            (1400.0, 2200.0, 100.0000),
-            (1450.0, 2200.0, 100.0008),
-            (1500.0, 2200.0, 100.0016),
-            (1550.0, 2200.0, 100.0024)
-        ]
-        msp.add_polyline3d(precision_test, dxfattribs={'layer': 'TEST-PRECISION'})
-        fixtures['geometries'].append({
-            'name': 'Sub-millimeter Precision',
-            'type': 'polyline3d',
-            'layer': 'TEST-PRECISION',
-            'coords': precision_test,
-            'critical': True,
-            'description': '0.24mm Z increments - tests floating point precision limits'
-        })
+        # Transform and add geometries to DXF
+        for key, geom in canonical_geometries.items():
+            transformed_coords = self.transform_coords_for_srid(geom['coords'], srid)
+            
+            if geom['type'] == 'polyline3d':
+                if key == 'flat_pad':
+                    # Close the polyline for flat pad
+                    msp.add_polyline3d(transformed_coords + [transformed_coords[0]], 
+                                      dxfattribs={'layer': geom['layer']})
+                else:
+                    msp.add_polyline3d(transformed_coords, dxfattribs={'layer': geom['layer']})
+            elif geom['type'] == 'points':
+                for pt in transformed_coords:
+                    msp.add_point(pt, dxfattribs={'layer': geom['layer']})
+            
+            # Store metadata
+            fixtures['geometries'].append({
+                'name': geom['name'],
+                'type': geom['type'],
+                'layer': geom['layer'],
+                'coords': transformed_coords,
+                'critical': geom['critical'],
+                'description': geom['description']
+            })
         
         doc.saveas(filepath)
         return fixtures
