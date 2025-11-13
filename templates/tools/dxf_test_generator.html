@@ -461,7 +461,15 @@ document.getElementById('generateBtn').addEventListener('click', async function(
         });
         
         if (!response.ok) {
-            throw new Error('Generation failed');
+            const responseText = await response.text();
+            let errorMessage = 'Generation failed';
+            try {
+                const errorData = JSON.parse(responseText);
+                errorMessage = errorData.error || responseText || errorMessage;
+            } catch {
+                errorMessage = responseText || errorMessage;
+            }
+            throw new Error(errorMessage);
         }
         
         // Get the blob and download
@@ -492,7 +500,7 @@ document.getElementById('generateBtn').addEventListener('click', async function(
         statusArea.style.borderColor = 'rgba(255,0,0,0.3)';
         statusArea.querySelector('i').className = 'fas fa-exclamation-circle';
         statusArea.querySelector('i').style.color = 'var(--error-color)';
-        document.getElementById('statusMessage').textContent = 'Error generating DXF file';
+        document.getElementById('statusMessage').textContent = error.message || 'Error generating DXF file';
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalText;
