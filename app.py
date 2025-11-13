@@ -166,6 +166,11 @@ def batch_point_import_tool():
     """Batch Point Import Tool - Import survey points from PNEZD text files (includes Survey Code Import mode)"""
     return render_template('tools/batch_point_import.html')
 
+@app.route('/tools/survey-point-manager')
+def survey_point_manager_tool():
+    """Survey Point Manager - Manage imported survey points with filtering and soft-delete"""
+    return render_template('tools/survey_point_manager.html')
+
 @app.route('/tools/specialized-tools-directory')
 def specialized_tools_directory():
     """Specialized Tools Directory - comprehensive list of interactive management tools"""
@@ -15451,6 +15456,187 @@ def survey_import_commit():
         
         return jsonify(result)
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== SURVEY POINT MANAGER API =====
+
+@app.route('/api/survey-points')
+def get_survey_points():
+    """
+    Get survey points with filtering
+    Query params: project_id, drawing_id, discipline, connectivity, sequence_status, is_active, search
+    """
+    try:
+        # Build dynamic WHERE clause based on query parameters
+        where_conditions = []
+        params = []
+        
+        project_id = request.args.get('project_id')
+        drawing_id = request.args.get('drawing_id')
+        discipline = request.args.get('discipline')
+        connectivity = request.args.get('connectivity')
+        sequence_status = request.args.get('sequence_status')
+        is_active = request.args.get('is_active')
+        search = request.args.get('search')
+        
+        if project_id:
+            where_conditions.append("sp.project_id = %s")
+            params.append(project_id)
+        
+        if drawing_id:
+            where_conditions.append("sp.drawing_id = %s")
+            params.append(drawing_id)
+        
+        if discipline:
+            where_conditions.append("sp.discipline_code = %s")
+            params.append(discipline)
+        
+        if connectivity:
+            where_conditions.append("sp.connectivity_type = %s")
+            params.append(connectivity)
+        
+        if sequence_status == 'connected':
+            where_conditions.append("sp.sequence_id IS NOT NULL")
+        elif sequence_status == 'standalone':
+            where_conditions.append("sp.sequence_id IS NULL")
+        
+        if is_active:
+            where_conditions.append("sp.is_active = %s")
+            params.append(is_active == 'true')
+        
+        if search:
+            where_conditions.append("(sp.point_number ILIKE %s OR sp.code ILIKE %s)")
+            search_pattern = f"%{search}%"
+            params.extend([search_pattern, search_pattern])
+        
+        where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+        
+        query = f"""
+            SELECT 
+                sp.point_id,
+                sp.project_id,
+                sp.drawing_id,
+                sp.point_number,
+                sp.point_description,
+                sp.code,
+                sp.code_id,
+                sp.discipline_code,
+                sp.category_code,
+                sp.feature_type,
+                sp.connectivity_type,
+                sp.layer_name,
+                sp.phase,
+                sp.auto_connected,
+                sp.sequence_id,
+                sp.northing,
+                sp.easting,
+                sp.elevation,
+                sp.coordinate_system,
+                sp.is_active,
+                sp.created_at,
+                sp.updated_at,
+                p.project_number,
+                p.project_name,
+                d.drawing_number,
+                d.drawing_name
+            FROM survey_points sp
+            LEFT JOIN projects p ON sp.project_id = p.project_id
+            LEFT JOIN drawings d ON sp.drawing_id = d.drawing_id
+            WHERE {where_clause}
+            ORDER BY sp.created_at DESC, sp.point_number
+            LIMIT 1000
+        """
+        
+        points = execute_query(query, params)
+        
+        return jsonify({
+            'points': points,
+            'count': len(points)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-points/soft-delete', methods=['POST'])
+def soft_delete_survey_points():
+    """
+    Soft-delete survey points (set is_active = false)
+    Accepts: JSON with point_ids array
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or 'point_ids' not in data:
+            return jsonify({'error': 'point_ids array is required'}), 400
+        
+        point_ids = data['point_ids']
+        
+        if not isinstance(point_ids, list) or len(point_ids) == 0:
+            return jsonify({'error': 'point_ids must be a non-empty array'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE survey_points 
+                    SET is_active = false, updated_at = CURRENT_TIMESTAMP
+                    WHERE point_id = ANY(%s::uuid[])
+                    RETURNING point_id
+                    """,
+                    (point_ids,)
+                )
+                
+                deleted_ids = [row[0] for row in cur.fetchall()]
+                conn.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'deleted_count': len(deleted_ids),
+                    'deleted_ids': deleted_ids
+                })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-points/restore', methods=['POST'])
+def restore_survey_points():
+    """
+    Restore soft-deleted survey points (set is_active = true)
+    Accepts: JSON with point_ids array
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or 'point_ids' not in data:
+            return jsonify({'error': 'point_ids array is required'}), 400
+        
+        point_ids = data['point_ids']
+        
+        if not isinstance(point_ids, list) or len(point_ids) == 0:
+            return jsonify({'error': 'point_ids must be a non-empty array'}), 400
+        
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE survey_points 
+                    SET is_active = true, updated_at = CURRENT_TIMESTAMP
+                    WHERE point_id = ANY(%s::uuid[])
+                    RETURNING point_id
+                    """,
+                    (point_ids,)
+                )
+                
+                restored_ids = [row[0] for row in cur.fetchall()]
+                conn.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'restored_count': len(restored_ids),
+                    'restored_ids': restored_ids
+                })
+    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

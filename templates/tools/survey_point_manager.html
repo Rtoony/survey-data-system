@@ -1,0 +1,735 @@
+{% extends 'base.html' %}
+
+{% block title %}Survey Point Manager{% endblock %}
+
+{% block content %}
+<div class="mc-page">
+    <div class="mc-header">
+        <h1>📍 Survey Point Manager</h1>
+        <p>Manage imported survey points with filtering, editing, and soft-delete capabilities</p>
+    </div>
+
+    <!-- Filter Panel -->
+    <div class="mc-card">
+        <h2>🔍 Filters</h2>
+        <div class="filter-grid">
+            <div class="filter-item">
+                <label for="projectFilter" class="mc-label">Project:</label>
+                <select id="projectFilter" class="mc-select">
+                    <option value="">All Projects</option>
+                </select>
+            </div>
+
+            <div class="filter-item">
+                <label for="drawingFilter" class="mc-label">Drawing:</label>
+                <select id="drawingFilter" class="mc-select">
+                    <option value="">All Drawings</option>
+                </select>
+            </div>
+
+            <div class="filter-item">
+                <label for="disciplineFilter" class="mc-label">Discipline:</label>
+                <select id="disciplineFilter" class="mc-select">
+                    <option value="">All Disciplines</option>
+                    <option value="CIV">CIV - Civil</option>
+                    <option value="SITE">SITE - Site</option>
+                    <option value="SURV">SURV - Survey</option>
+                    <option value="TOPO">TOPO - Topographic</option>
+                </select>
+            </div>
+
+            <div class="filter-item">
+                <label for="connectivityFilter" class="mc-label">Connectivity:</label>
+                <select id="connectivityFilter" class="mc-select">
+                    <option value="">All Types</option>
+                    <option value="NODE">NODE</option>
+                    <option value="LINE">LINE</option>
+                    <option value="EDGE">EDGE</option>
+                    <option value="POINT">POINT</option>
+                    <option value="BREAK">BREAK</option>
+                    <option value="CLOSE">CLOSE</option>
+                </select>
+            </div>
+
+            <div class="filter-item">
+                <label for="sequenceFilter" class="mc-label">Sequence Status:</label>
+                <select id="sequenceFilter" class="mc-select">
+                    <option value="">All Points</option>
+                    <option value="connected">Connected (in sequence)</option>
+                    <option value="standalone">Standalone (no sequence)</option>
+                </select>
+            </div>
+
+            <div class="filter-item">
+                <label for="activeFilter" class="mc-label">Status:</label>
+                <select id="activeFilter" class="mc-select">
+                    <option value="true">Active Only</option>
+                    <option value="false">Inactive Only</option>
+                    <option value="">All Points</option>
+                </select>
+            </div>
+
+            <div class="filter-item">
+                <label for="searchInput" class="mc-label">Search:</label>
+                <input type="text" id="searchInput" class="mc-input" placeholder="Point number or code...">
+            </div>
+
+            <div class="filter-item" style="display:flex; align-items:flex-end;">
+                <button class="mc-btn-primary" id="applyFiltersBtn" style="width:100%;">
+                    Apply Filters
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Summary -->
+    <div class="mc-card" id="statsSection" style="display:none;">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Points</div>
+                <div class="stat-value" id="totalPoints">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Connected</div>
+                <div class="stat-value" id="connectedPoints">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Standalone</div>
+                <div class="stat-value" id="standalonePoints">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Selected</div>
+                <div class="stat-value" id="selectedPoints">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Points Table -->
+    <div class="mc-card" id="pointsTableSection" style="display:none;">
+        <div class="table-header">
+            <h2>Survey Points</h2>
+            <div class="batch-actions">
+                <button class="mc-btn-secondary" id="selectAllBtn">Select All</button>
+                <button class="mc-btn-secondary" id="deselectAllBtn">Deselect All</button>
+                <button class="mc-btn-danger" id="softDeleteBtn" style="display:none;">
+                    🗑️ Soft Delete Selected
+                </button>
+                <button class="mc-btn-accent" id="restoreBtn" style="display:none;">
+                    ↩️ Restore Selected
+                </button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="mc-table" id="pointsTable">
+                <thead>
+                    <tr>
+                        <th style="width:40px;"><input type="checkbox" id="selectAllCheckbox"></th>
+                        <th>Point #</th>
+                        <th>Code</th>
+                        <th>Layer</th>
+                        <th>Connectivity</th>
+                        <th>Coords (N, E, Z)</th>
+                        <th>Project</th>
+                        <th>Drawing</th>
+                        <th>Sequence</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="pointsTableBody">
+                    <!-- Populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Point Details Panel (Modal-style) -->
+    <div id="pointDetailsPanel" class="details-panel" style="display:none;">
+        <div class="details-content">
+            <div class="details-header">
+                <h2>📍 Point Details</h2>
+                <button class="close-btn" onclick="closeDetailsPanel()">✕</button>
+            </div>
+            <div class="details-body" id="detailsBody">
+                <!-- Populated by JavaScript -->
+            </div>
+            <div class="details-footer">
+                <button class="mc-btn-secondary" onclick="closeDetailsPanel()">Close</button>
+                <button class="mc-btn-primary" id="saveDetailsBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- No Data Message -->
+    <div class="mc-card" id="noDataSection" style="display:none;">
+        <div style="text-align:center; padding:3rem;">
+            <div style="font-size:4rem; margin-bottom:1rem;">📭</div>
+            <h3>No Survey Points Found</h3>
+            <p style="color:var(--mc-muted); margin-top:0.5rem;">
+                Try adjusting your filters or import survey data using the <a href="/tools/batch-point-import">Batch Point Import Tool</a>.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Filter Grid */
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.stat-card {
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid var(--mc-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.stat-label {
+    color: var(--mc-muted);
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    color: var(--mc-primary);
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+/* Table Header */
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.batch-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* Table Container */
+.table-container {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* Point Row States */
+tr.inactive-point {
+    opacity: 0.5;
+    background: rgba(128, 128, 128, 0.1);
+}
+
+tr.selected-point {
+    background: rgba(0, 255, 255, 0.1);
+}
+
+/* Connectivity Badges */
+.connectivity-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.connectivity-NODE {
+    background: rgba(255, 0, 255, 0.2);
+    color: var(--mc-secondary);
+}
+
+.connectivity-LINE, .connectivity-EDGE {
+    background: rgba(0, 255, 136, 0.2);
+    color: var(--mc-accent);
+}
+
+.connectivity-POINT {
+    background: rgba(0, 255, 255, 0.2);
+    color: var(--mc-primary);
+}
+
+.connectivity-BREAK, .connectivity-CLOSE {
+    background: rgba(255, 136, 0, 0.2);
+    color: #ff8800;
+}
+
+/* Details Panel */
+.details-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.details-content {
+    background: var(--mc-bg);
+    border: 2px solid var(--mc-primary);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--mc-primary);
+}
+
+.details-header h2 {
+    margin: 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--mc-primary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.close-btn:hover {
+    color: var(--mc-secondary);
+}
+
+.details-body {
+    padding: 1.5rem;
+}
+
+.details-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 1px solid var(--mc-primary);
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.detail-item label {
+    color: var(--mc-muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.detail-item .value {
+    color: var(--mc-text);
+    font-size: 1rem;
+}
+</style>
+
+<script>
+let allPoints = [];
+let selectedPointIds = new Set();
+let currentFilters = {};
+
+// Load initial data
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadProjects();
+    await applyFilters();
+});
+
+// Load projects and drawings
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/batch-point-import/get-drawings');
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Error loading projects:', data.error);
+            return;
+        }
+        
+        const projectFilter = document.getElementById('projectFilter');
+        projectFilter.innerHTML = '<option value="">All Projects</option>';
+        
+        (data.projects || []).forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.project_id;
+            option.textContent = `${project.project_number} - ${project.project_name}`;
+            option.dataset.drawings = JSON.stringify(project.drawings);
+            projectFilter.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading projects:', error);
+    }
+}
+
+// Project change handler - update drawing dropdown
+document.getElementById('projectFilter').addEventListener('change', (e) => {
+    const projectFilter = e.target;
+    const drawingFilter = document.getElementById('drawingFilter');
+    
+    drawingFilter.innerHTML = '<option value="">All Drawings</option>';
+    
+    if (projectFilter.value) {
+        const selectedOption = projectFilter.options[projectFilter.selectedIndex];
+        const drawings = JSON.parse(selectedOption.dataset.drawings || '[]');
+        
+        drawings.forEach(drawing => {
+            const option = document.createElement('option');
+            option.value = drawing.drawing_id;
+            option.textContent = `${drawing.drawing_number} - ${drawing.drawing_name}`;
+            drawingFilter.appendChild(option);
+        });
+    }
+});
+
+// Apply filters button
+document.getElementById('applyFiltersBtn').addEventListener('click', applyFilters);
+
+// Apply filters and fetch points
+async function applyFilters() {
+    const filters = {
+        project_id: document.getElementById('projectFilter').value,
+        drawing_id: document.getElementById('drawingFilter').value,
+        discipline: document.getElementById('disciplineFilter').value,
+        connectivity: document.getElementById('connectivityFilter').value,
+        sequence_status: document.getElementById('sequenceFilter').value,
+        is_active: document.getElementById('activeFilter').value,
+        search: document.getElementById('searchInput').value.trim()
+    };
+    
+    currentFilters = filters;
+    
+    try {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value) params.append(key, value);
+        });
+        
+        const response = await fetch(`/api/survey-points?${params}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error loading points: ' + data.error);
+            return;
+        }
+        
+        allPoints = data.points || [];
+        displayPoints(allPoints);
+        updateStats();
+        
+    } catch (error) {
+        console.error('Error fetching points:', error);
+        alert('Failed to load survey points');
+    }
+}
+
+// Display points in table
+function displayPoints(points) {
+    const tbody = document.getElementById('pointsTableBody');
+    
+    if (points.length === 0) {
+        document.getElementById('pointsTableSection').style.display = 'none';
+        document.getElementById('statsSection').style.display = 'none';
+        document.getElementById('noDataSection').style.display = 'block';
+        return;
+    }
+    
+    document.getElementById('pointsTableSection').style.display = 'block';
+    document.getElementById('statsSection').style.display = 'block';
+    document.getElementById('noDataSection').style.display = 'none';
+    
+    tbody.innerHTML = points.map(point => `
+        <tr class="${point.is_active ? '' : 'inactive-point'} ${selectedPointIds.has(point.point_id) ? 'selected-point' : ''}" data-point-id="${point.point_id}">
+            <td>
+                <input type="checkbox" class="point-checkbox" data-point-id="${point.point_id}" 
+                    ${selectedPointIds.has(point.point_id) ? 'checked' : ''}>
+            </td>
+            <td><strong>${escapeHtml(point.point_number)}</strong></td>
+            <td><code style="font-size:0.85rem;">${escapeHtml(point.code || '')}</code></td>
+            <td><small>${escapeHtml(point.layer_name || '')}</small></td>
+            <td><span class="connectivity-badge connectivity-${point.connectivity_type}">${escapeHtml(point.connectivity_type || '')}</span></td>
+            <td><small>${point.northing ? parseFloat(point.northing).toFixed(2) : ''}, ${point.easting ? parseFloat(point.easting).toFixed(2) : ''}, ${point.elevation ? parseFloat(point.elevation).toFixed(2) : ''}</small></td>
+            <td><small>${escapeHtml(point.project_name || '')}</small></td>
+            <td><small>${escapeHtml(point.drawing_number || '')}</small></td>
+            <td>${point.sequence_id ? '✓' : '−'}</td>
+            <td><span class="badge ${point.is_active ? 'badge-success' : 'badge-danger'}">${point.is_active ? 'Active' : 'Inactive'}</span></td>
+            <td>
+                <button class="mc-btn-xs mc-btn-secondary" onclick="viewPointDetails('${point.point_id}')">View</button>
+            </td>
+        </tr>
+    `).join('');
+    
+    // Attach checkbox listeners
+    document.querySelectorAll('.point-checkbox').forEach(cb => {
+        cb.addEventListener('change', handleCheckboxChange);
+    });
+}
+
+// Handle checkbox selection
+function handleCheckboxChange(e) {
+    const pointId = e.target.dataset.pointId;
+    const row = e.target.closest('tr');
+    
+    if (e.target.checked) {
+        selectedPointIds.add(pointId);
+        row.classList.add('selected-point');
+    } else {
+        selectedPointIds.delete(pointId);
+        row.classList.remove('selected-point');
+    }
+    
+    updateSelectionButtons();
+}
+
+// Select/Deselect all
+document.getElementById('selectAllBtn').addEventListener('click', () => {
+    document.querySelectorAll('.point-checkbox').forEach(cb => {
+        cb.checked = true;
+        selectedPointIds.add(cb.dataset.pointId);
+        cb.closest('tr').classList.add('selected-point');
+    });
+    updateSelectionButtons();
+});
+
+document.getElementById('deselectAllBtn').addEventListener('click', () => {
+    document.querySelectorAll('.point-checkbox').forEach(cb => {
+        cb.checked = false;
+        selectedPointIds.delete(cb.dataset.pointId);
+        cb.closest('tr').classList.remove('selected-point');
+    });
+    updateSelectionButtons();
+});
+
+// Update selection buttons visibility
+function updateSelectionButtons() {
+    const count = selectedPointIds.size;
+    document.getElementById('selectedPoints').textContent = count;
+    
+    const activeFilter = document.getElementById('activeFilter').value;
+    
+    if (count > 0) {
+        if (activeFilter === 'false') {
+            document.getElementById('restoreBtn').style.display = 'block';
+            document.getElementById('softDeleteBtn').style.display = 'none';
+        } else {
+            document.getElementById('softDeleteBtn').style.display = 'block';
+            document.getElementById('restoreBtn').style.display = 'none';
+        }
+    } else {
+        document.getElementById('softDeleteBtn').style.display = 'none';
+        document.getElementById('restoreBtn').style.display = 'none';
+    }
+}
+
+// Update stats
+function updateStats() {
+    const connected = allPoints.filter(p => p.sequence_id).length;
+    const standalone = allPoints.filter(p => !p.sequence_id).length;
+    
+    document.getElementById('totalPoints').textContent = allPoints.length;
+    document.getElementById('connectedPoints').textContent = connected;
+    document.getElementById('standalonePoints').textContent = standalone;
+}
+
+// Soft delete selected points
+document.getElementById('softDeleteBtn').addEventListener('click', async () => {
+    if (selectedPointIds.size === 0) {
+        alert('Please select points to delete');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to soft-delete ${selectedPointIds.size} point(s)? They can be restored later.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/survey-points/soft-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                point_ids: Array.from(selectedPointIds)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error deleting points: ' + data.error);
+            return;
+        }
+        
+        alert(`Successfully deleted ${data.deleted_count} point(s)`);
+        selectedPointIds.clear();
+        await applyFilters();
+        
+    } catch (error) {
+        console.error('Error deleting points:', error);
+        alert('Failed to delete points');
+    }
+});
+
+// Restore selected points
+document.getElementById('restoreBtn').addEventListener('click', async () => {
+    if (selectedPointIds.size === 0) {
+        alert('Please select points to restore');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/survey-points/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                point_ids: Array.from(selectedPointIds)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error restoring points: ' + data.error);
+            return;
+        }
+        
+        alert(`Successfully restored ${data.restored_count} point(s)`);
+        selectedPointIds.clear();
+        await applyFilters();
+        
+    } catch (error) {
+        console.error('Error restoring points:', error);
+        alert('Failed to restore points');
+    }
+});
+
+// View point details
+function viewPointDetails(pointId) {
+    const point = allPoints.find(p => p.point_id === pointId);
+    if (!point) return;
+    
+    const detailsBody = document.getElementById('detailsBody');
+    detailsBody.innerHTML = `
+        <div class="detail-grid">
+            <div class="detail-item">
+                <label>Point Number</label>
+                <div class="value">${escapeHtml(point.point_number)}</div>
+            </div>
+            <div class="detail-item">
+                <label>Code</label>
+                <div class="value"><code>${escapeHtml(point.code || '')}</code></div>
+            </div>
+            <div class="detail-item">
+                <label>Discipline</label>
+                <div class="value">${escapeHtml(point.discipline_code || '')}</div>
+            </div>
+            <div class="detail-item">
+                <label>Category</label>
+                <div class="value">${escapeHtml(point.category_code || '')}</div>
+            </div>
+            <div class="detail-item">
+                <label>Feature Type</label>
+                <div class="value">${escapeHtml(point.feature_type || '')}</div>
+            </div>
+            <div class="detail-item">
+                <label>Connectivity</label>
+                <div class="value"><span class="connectivity-badge connectivity-${point.connectivity_type}">${escapeHtml(point.connectivity_type || '')}</span></div>
+            </div>
+            <div class="detail-item">
+                <label>Layer Name</label>
+                <div class="value">${escapeHtml(point.layer_name || '')}</div>
+            </div>
+            <div class="detail-item">
+                <label>Phase</label>
+                <div class="value">${escapeHtml(point.phase || '')}</div>
+            </div>
+            <div class="detail-item">
+                <label>Northing</label>
+                <div class="value">${point.northing ? parseFloat(point.northing).toFixed(3) : 'N/A'}</div>
+            </div>
+            <div class="detail-item">
+                <label>Easting</label>
+                <div class="value">${point.easting ? parseFloat(point.easting).toFixed(3) : 'N/A'}</div>
+            </div>
+            <div class="detail-item">
+                <label>Elevation</label>
+                <div class="value">${point.elevation ? parseFloat(point.elevation).toFixed(3) : 'N/A'}</div>
+            </div>
+            <div class="detail-item">
+                <label>Coordinate System</label>
+                <div class="value">${escapeHtml(point.coordinate_system || '')}</div>
+            </div>
+            <div class="detail-item">
+                <label>Project</label>
+                <div class="value">${escapeHtml(point.project_name || '')}</div>
+            </div>
+            <div class="detail-item">
+                <label>Drawing</label>
+                <div class="value">${escapeHtml(point.drawing_number || '')} - ${escapeHtml(point.drawing_name || '')}</div>
+            </div>
+            <div class="detail-item">
+                <label>In Sequence?</label>
+                <div class="value">${point.sequence_id ? '✓ Yes' : '✗ No'}</div>
+            </div>
+            <div class="detail-item">
+                <label>Auto-Connected?</label>
+                <div class="value">${point.auto_connected ? '✓ Yes' : '✗ No'}</div>
+            </div>
+            <div class="detail-item">
+                <label>Status</label>
+                <div class="value"><span class="badge ${point.is_active ? 'badge-success' : 'badge-danger'}">${point.is_active ? 'Active' : 'Inactive'}</span></div>
+            </div>
+            <div class="detail-item">
+                <label>Created</label>
+                <div class="value">${point.created_at ? new Date(point.created_at).toLocaleString() : 'N/A'}</div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('pointDetailsPanel').style.display = 'flex';
+    document.getElementById('pointDetailsPanel').dataset.pointId = pointId;
+}
+
+function closeDetailsPanel() {
+    document.getElementById('pointDetailsPanel').style.display = 'none';
+}
+
+// Helper: Escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
