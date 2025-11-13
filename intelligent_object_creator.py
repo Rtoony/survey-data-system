@@ -147,7 +147,17 @@ class IntelligentObjectCreator:
         
         utility_type = props.get('utility_type', 'Unknown')
         diameter = props.get('diameter_inches')
-        network_mode = classification.network_mode
+        
+        # Determine network_mode from properties with intelligent fallback
+        network_mode = props.get('network_mode')
+        if not network_mode:
+            # Infer from utility type
+            if utility_type.lower() in ['storm', 'sanitary', 'sewer']:
+                network_mode = 'GRAVITY'
+            elif utility_type.lower() in ['water', 'potable', 'reuse', 'reclaim']:
+                network_mode = 'PRESSURE'
+            else:
+                network_mode = None  # Skip network association
         
         cur.execute("""
             INSERT INTO utility_lines (
@@ -194,7 +204,17 @@ class IntelligentObjectCreator:
         
         structure_type = props.get('structure_type', 'Unknown')
         utility_type = props.get('utility_type', 'Unknown')
-        network_mode = classification.network_mode
+        
+        # Determine network_mode from properties with intelligent fallback
+        network_mode = props.get('network_mode')
+        if not network_mode:
+            # Infer from utility type
+            if utility_type.lower() in ['storm', 'sanitary', 'sewer']:
+                network_mode = 'GRAVITY'
+            elif utility_type.lower() in ['water', 'potable', 'reuse', 'reclaim']:
+                network_mode = 'PRESSURE'
+            else:
+                network_mode = None  # Skip network association
         
         cur.execute("""
             INSERT INTO utility_structures (
@@ -227,7 +247,17 @@ class IntelligentObjectCreator:
         return None
     
     def _create_bmp(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
-        """Create bmps record."""
+        """Create storm_bmps record.
+        
+        IMPORTANT: storm_bmps.geometry requires MultiPolygon with SRID 3857.
+        DXF imports use SRID 2226, so transformation is required.
+        """
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        
+        # Only accept polygons - storm_bmps requires polygon geometries
+        if geometry_type not in ['POLYGON', 'POLYGON Z']:
+            return None
+        
         if not self.conn:
             return None
         
@@ -235,29 +265,28 @@ class IntelligentObjectCreator:
         props = classification.properties
         
         bmp_type = props.get('bmp_type', 'Unknown')
+        bmp_name = f"{bmp_type} - {entity_data.get('layer_name', 'BMP')}"
         design_volume = props.get('design_volume_cf')
         
         geometry_wkt = entity_data.get('geometry_wkt')
-        area_sqft = None
         
-        geometry_type = entity_data.get('geometry_type', '').upper()
-        if geometry_type in ['POLYGON', 'POLYGON Z']:
-            cur.execute("SELECT ST_Area(ST_GeomFromText(%s, 0))", (geometry_wkt,))
-            area_result = cur.fetchone()
-            if area_result:
-                area_sqft = area_result[0]
-        
+        # Transform geometry from SRID 2226 (CAD) to SRID 3857 (Web Mercator)
+        # and ensure it's a MultiPolygon
         cur.execute("""
-            INSERT INTO bmps (
-                project_id, bmp_type, area_sqft, design_volume_cf,
+            INSERT INTO storm_bmps (
+                project_id, bmp_name, bmp_type, treatment_volume_cf,
                 geometry, attributes
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (
+                %s, %s, %s, %s,
+                ST_Multi(ST_Transform(ST_SetSRID(ST_GeomFromText(%s), 2226), 3857)),
+                %s
+            )
             RETURNING bmp_id
         """, (
             project_id,
+            bmp_name,
             bmp_type,
-            area_sqft,
             design_volume,
             geometry_wkt,
             json.dumps({'source': 'dxf_import', 'layer_name': entity_data.get('layer_name')})
@@ -267,7 +296,7 @@ class IntelligentObjectCreator:
         cur.close()
         
         if result:
-            return ('bmp', str(result[0]), 'bmps')
+            return ('bmp', str(result[0]), 'storm_bmps')
         return None
     
     def _create_surface_model(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
@@ -471,7 +500,18 @@ class IntelligentObjectCreator:
         return None
     
     def _create_grading_feature(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
-        """Create grading_limits record for grading features (swales, berms, pads, etc.)."""
+        """Create grading_limits record for grading features (swales, berms, pads, etc.).
+        
+        IMPORTANT: grading_limits.boundary_geometry requires Polygon type.
+        Linear grading features (swales, berms as lines) are skipped here.
+        """
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        
+        # Only accept polygons - grading_limits.boundary_geometry is Polygon-only
+        if geometry_type not in ['POLYGON', 'POLYGON Z']:
+            # Skip linear grading features - they could be routed to surface_features if needed
+            return None
+        
         if not self.conn:
             return None
         
@@ -480,24 +520,19 @@ class IntelligentObjectCreator:
         
         geometry_wkt = entity_data.get('geometry_wkt')
         layer_name = entity_data.get('layer_name', '')
-        geometry_type = entity_data.get('geometry_type', '').upper()
         
         limit_type = props.get('type', 'Grading')
         limit_name = f"{limit_type} - {layer_name}"
         
-        area_sqft = None
-        area_acres = None
-        
-        if geometry_type in ['POLYGON', 'POLYGON Z']:
-            cur.execute("""
-                SELECT 
-                    ST_Area(ST_GeomFromText(%s, 2226)),
-                    ST_Area(ST_GeomFromText(%s, 2226)) / 43560.0
-            """, (geometry_wkt, geometry_wkt))
-            result = cur.fetchone()
-            if result:
-                area_sqft = result[0]
-                area_acres = result[1]
+        # Calculate area for polygons
+        cur.execute("""
+            SELECT 
+                ST_Area(ST_GeomFromText(%s, 2226)),
+                ST_Area(ST_GeomFromText(%s, 2226)) / 43560.0
+        """, (geometry_wkt, geometry_wkt))
+        result = cur.fetchone()
+        area_sqft = result[0] if result else None
+        area_acres = result[1] if result else None
         
         cur.execute("""
             INSERT INTO grading_limits (

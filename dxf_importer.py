@@ -387,16 +387,37 @@ class DXFImporter:
                     points.append(f'{loc.x} {loc.y} {loc.z}')
                 
                 if len(points) > 0:
-                    return f'LINESTRING Z ({", ".join(points)})'
+                    # Check if polyline is closed (closed flag or first==last vertex)
+                    is_closed = entity.is_closed or (len(points) >= 3 and points[0] == points[-1])
+                    
+                    if is_closed:
+                        # Ensure first and last points match for valid polygon
+                        if points[0] != points[-1]:
+                            points.append(points[0])
+                        return f'POLYGON Z (({", ".join(points)}))'
+                    else:
+                        return f'LINESTRING Z ({", ".join(points)})'
             
             elif entity_type == 'LWPOLYLINE':
                 points = []
-                for x, y in entity.vertices():
-                    z = entity.dxf.elevation if hasattr(entity.dxf, 'elevation') else 0
+                vertices = list(entity.vertices())
+                z = entity.dxf.elevation if hasattr(entity.dxf, 'elevation') else 0
+                
+                for x, y in vertices:
                     points.append(f'{x} {y} {z}')
                 
                 if len(points) > 0:
-                    return f'LINESTRING Z ({", ".join(points)})'
+                    # Check if LWPOLYLINE is closed (closed flag or first==last vertex)
+                    is_closed = entity.closed or (len(vertices) >= 3 and vertices[0] == vertices[-1])
+                    
+                    if is_closed:
+                        # Ensure first and last points match for valid polygon
+                        if vertices[0] != vertices[-1]:
+                            x, y = vertices[0]
+                            points.append(f'{x} {y} {z}')
+                        return f'POLYGON Z (({", ".join(points)}))'
+                    else:
+                        return f'LINESTRING Z ({", ".join(points)})'
             
             elif entity_type == 'ELLIPSE':
                 # Approximate ellipse with points

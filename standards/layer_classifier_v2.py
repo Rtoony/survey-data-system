@@ -235,6 +235,8 @@ class LayerClassifierV2:
             # BMPs
             'BIORT': 'bmp',
             'BIOR': 'bmp',
+            'BIOF': 'bmp',
+            'RAIN': 'bmp',
             'BASIN': 'bmp',
             'POND': 'bmp',
             'INFIL': 'bmp',
@@ -341,6 +343,8 @@ class LayerClassifierV2:
             # BMPs
             'BIORT': 'bmp',
             'BIOR': 'bmp',
+            'BIOF': 'bmp',
+            'RAIN': 'bmp',
             'BASIN': 'bmp',
             'POND': 'bmp',
             'INFIL': 'bmp',
