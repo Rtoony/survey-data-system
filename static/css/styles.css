@@ -193,11 +193,11 @@ h3 {
 }
 
 .header-title i {
-    font-size: 1rem;
+    font-size: 0.85rem;
 }
 
 .header-title h1 {
-    font-size: 1rem;
+    font-size: 0.85rem;
     font-weight: 700;
     margin: 0;
 }
@@ -255,7 +255,7 @@ h3 {
     color: var(--mc-text);
     text-decoration: none;
     font-weight: 500;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     border-bottom: 3px solid transparent;
     transition: var(--mc-transition);
     white-space: nowrap;
@@ -273,7 +273,7 @@ h3 {
 }
 
 .mc-nav-item i {
-    font-size: 0.95rem;
+    font-size: 0.8rem;
 }
 
 .mc-nav-link {
@@ -326,10 +326,10 @@ h3 {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 14px;
+    padding: 8px 14px;
     color: var(--mc-text);
     text-decoration: none;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     transition: var(--mc-transition);
     border-left: 3px solid transparent;
 }
@@ -349,7 +349,7 @@ h3 {
 
 .mc-dropdown-item i {
     min-width: 16px;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     text-align: center;
 }
 
