@@ -14,14 +14,15 @@ import uuid
 # Load environment variables
 load_dotenv()
 
-# Database connection
+# Database connection - use same config as Flask app
 def get_db_connection():
     return psycopg2.connect(
-        host=os.getenv('DB_HOST'),
-        port=os.getenv('DB_PORT'),
-        database=os.getenv('DB_NAME'),
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD')
+        host=os.getenv('PGHOST') or os.getenv('DB_HOST'),
+        port=os.getenv('PGPORT') or os.getenv('DB_PORT', '5432'),
+        database=os.getenv('PGDATABASE') or os.getenv('DB_NAME', 'postgres'),
+        user=os.getenv('PGUSER') or os.getenv('DB_USER', 'postgres'),
+        password=os.getenv('PGPASSWORD') or os.getenv('DB_PASSWORD'),
+        sslmode='require'
     )
 
 def create_test_project():
@@ -149,8 +150,8 @@ def create_test_project():
                 wkt = f'LINESTRING Z ({coords_str})'
             
             cur.execute("""
-                INSERT INTO entities (
-                    entity_id, project_id, layer, entity_type,
+                INSERT INTO drawing_entities (
+                    entity_id, project_id, layer_id, entity_type,
                     geometry, color_aci
                 )
                 VALUES (
@@ -160,7 +161,7 @@ def create_test_project():
             """, (
                 entity_id,
                 project_id,
-                '0',  # Default layer name
+                layer_id,  # Use the layer_id from earlier
                 ent['type'],
                 wkt,
                 ent['color']

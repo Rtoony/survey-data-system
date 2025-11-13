@@ -129,7 +129,11 @@ class DXFExporter:
                     conn.close()
                 
         except Exception as e:
-            stats['errors'].append(f"Export failed: {str(e)}")
+            import traceback
+            error_msg = f"Export failed: {str(e)}\n{traceback.format_exc()}"
+            print(f"DXF EXPORT ERROR: {error_msg}")  # Explicit logging
+            stats['errors'].append(error_msg)
+            raise  # Re-raise to see in logs
         
         # Convert sets to counts
         stats['layers'] = len(stats['layers'])
@@ -231,18 +235,15 @@ class DXFExporter:
             FROM drawing_entities de
             LEFT JOIN layers l ON de.layer_id = l.layer_id
             LEFT JOIN standards_entities se ON de.entity_id = se.entity_id
-            WHERE (de.project_id = %s::uuid OR EXISTS (
-                SELECT 1 FROM drawings d 
-                WHERE d.drawing_id = de.drawing_id AND d.project_id = %s::uuid
-            ))
+            WHERE de.project_id = %s::uuid
             AND de.space_type = %s
         """
         
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (project_id, project_id, space, layer_filter))
+            cur.execute(query, (project_id, space, layer_filter))
         else:
-            cur.execute(query, (project_id, project_id, space))
+            cur.execute(query, (project_id, space))
         
         entities = cur.fetchall()
         
@@ -511,18 +512,15 @@ class DXFExporter:
             FROM drawing_text dt
             LEFT JOIN layers l ON dt.layer_id = l.layer_id
             LEFT JOIN standards_entities se ON dt.entity_id = se.entity_id
-            WHERE (dt.project_id = %s::uuid OR EXISTS (
-                SELECT 1 FROM drawings d 
-                WHERE d.drawing_id = dt.drawing_id AND d.project_id = %s::uuid
-            ))
+            WHERE dt.project_id = %s::uuid
             AND dt.space_type = %s
         """
         
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (project_id, project_id, space, layer_filter))
+            cur.execute(query, (project_id, space, layer_filter))
         else:
-            cur.execute(query, (project_id, project_id, space))
+            cur.execute(query, (project_id, space))
         
         texts = cur.fetchall()
         
@@ -559,18 +557,15 @@ class DXFExporter:
             LEFT JOIN layers l ON dd.layer_id = l.layer_id
             LEFT JOIN drawing_entities de ON dd.entity_id = de.entity_id
             LEFT JOIN standards_entities se ON dd.entity_id = se.entity_id
-            WHERE (dd.project_id = %s::uuid OR EXISTS (
-                SELECT 1 FROM drawings d 
-                WHERE d.drawing_id = dd.drawing_id AND d.project_id = %s::uuid
-            ))
+            WHERE dd.project_id = %s::uuid
             AND dd.space_type = %s
         """
         
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (project_id, project_id, space, layer_filter))
+            cur.execute(query, (project_id, space, layer_filter))
         else:
-            cur.execute(query, (project_id, project_id, space))
+            cur.execute(query, (project_id, space))
         
         dimensions = cur.fetchall()
         
@@ -606,18 +601,15 @@ class DXFExporter:
             FROM drawing_hatches dh
             LEFT JOIN layers l ON dh.layer_id = l.layer_id
             LEFT JOIN standards_entities se ON dh.entity_id = se.entity_id
-            WHERE (dh.project_id = %s::uuid OR EXISTS (
-                SELECT 1 FROM drawings d 
-                WHERE d.drawing_id = dh.drawing_id AND d.project_id = %s::uuid
-            ))
+            WHERE dh.project_id = %s::uuid
             AND dh.space_type = %s
         """
         
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (project_id, project_id, space, layer_filter))
+            cur.execute(query, (project_id, space, layer_filter))
         else:
-            cur.execute(query, (project_id, project_id, space))
+            cur.execute(query, (project_id, space))
         
         hatches = cur.fetchall()
         
@@ -650,15 +642,12 @@ class DXFExporter:
                 FROM block_inserts bi
                 LEFT JOIN layers l ON bi.layer_id = l.layer_id
                 LEFT JOIN standards_entities se ON bi.entity_id = se.entity_id
-                WHERE (bi.project_id = %s::uuid OR EXISTS (
-                    SELECT 1 FROM drawings d 
-                    WHERE d.drawing_id = bi.drawing_id AND d.project_id = %s::uuid
-                ))
+                WHERE bi.project_id = %s::uuid
                 AND bi.space_type = %s
                 LIMIT 0
             """
             
-            cur.execute(query, (project_id, project_id, space))
+            cur.execute(query, (project_id, space))
             
         except Exception:
             pass
