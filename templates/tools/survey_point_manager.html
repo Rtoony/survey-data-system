@@ -21,13 +21,6 @@
             </div>
 
             <div class="filter-item">
-                <label for="drawingFilter" class="mc-label">Drawing:</label>
-                <select id="drawingFilter" class="mc-select">
-                    <option value="">All Drawings</option>
-                </select>
-            </div>
-
-            <div class="filter-item">
                 <label for="disciplineFilter" class="mc-label">Discipline:</label>
                 <select id="disciplineFilter" class="mc-select">
                     <option value="">All Disciplines</option>
@@ -386,33 +379,12 @@ async function loadProjects() {
             const option = document.createElement('option');
             option.value = project.project_id;
             option.textContent = `${project.project_number} - ${project.project_name}`;
-            option.dataset.drawings = JSON.stringify(project.drawings);
             projectFilter.appendChild(option);
         });
     } catch (error) {
         console.error('Error loading projects:', error);
     }
 }
-
-// Project change handler - update drawing dropdown
-document.getElementById('projectFilter').addEventListener('change', (e) => {
-    const projectFilter = e.target;
-    const drawingFilter = document.getElementById('drawingFilter');
-    
-    drawingFilter.innerHTML = '<option value="">All Drawings</option>';
-    
-    if (projectFilter.value) {
-        const selectedOption = projectFilter.options[projectFilter.selectedIndex];
-        const drawings = JSON.parse(selectedOption.dataset.drawings || '[]');
-        
-        drawings.forEach(drawing => {
-            const option = document.createElement('option');
-            option.value = drawing.drawing_id;
-            option.textContent = `${drawing.drawing_number} - ${drawing.drawing_name}`;
-            drawingFilter.appendChild(option);
-        });
-    }
-});
 
 // Apply filters button
 document.getElementById('applyFiltersBtn').addEventListener('click', applyFilters);
@@ -421,7 +393,6 @@ document.getElementById('applyFiltersBtn').addEventListener('click', applyFilter
 async function applyFilters() {
     const filters = {
         project_id: document.getElementById('projectFilter').value,
-        drawing_id: document.getElementById('drawingFilter').value,
         discipline: document.getElementById('disciplineFilter').value,
         connectivity: document.getElementById('connectivityFilter').value,
         sequence_status: document.getElementById('sequenceFilter').value,

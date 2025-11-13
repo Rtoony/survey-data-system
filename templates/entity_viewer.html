@@ -258,12 +258,6 @@
         </div>
 
         <div class="control-group">
-            <label for="drawingSelect">Drawings (Multi-select)</label>
-            <select id="drawingSelect" multiple size="3" style="height: 60px;">
-            </select>
-        </div>
-
-        <div class="control-group">
             <label for="layerSelect">Layers (Multi-select)</label>
             <select id="layerSelect" multiple size="3" style="height: 60px;">
             </select>
@@ -327,7 +321,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function setupEventListeners() {
     document.getElementById('projectSelect').addEventListener('change', onProjectChange);
-    document.getElementById('drawingSelect').addEventListener('change', onFilterChange);
     document.getElementById('layerSelect').addEventListener('change', onFilterChange);
 }
 
@@ -360,7 +353,6 @@ async function onProjectChange(e) {
     }
     
     await loadCatalog();
-    await loadDrawings();
     await loadLayers();
     loadEntities();
 }
@@ -406,27 +398,7 @@ async function loadCatalog() {
     }
 }
 
-async function loadDrawings() {
-    try {
-        const response = await fetch(`/api/projects/${currentProject}/drawings`);
-        const data = await response.json();
-        const drawings = data.drawings || data;
-        
-        const select = document.getElementById('drawingSelect');
-        select.innerHTML = '';
-        
-        if (Array.isArray(drawings)) {
-            drawings.forEach(drawing => {
-                const option = document.createElement('option');
-                option.value = drawing.drawing_id;
-                option.textContent = drawing.drawing_name;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading drawings:', error);
-    }
-}
+// Removed loadDrawings() function - no longer needed in project-level architecture
 
 async function loadLayers() {
     try {
@@ -457,20 +429,14 @@ async function loadEntities() {
     showLoading(true);
     
     try {
-        const drawingSelect = document.getElementById('drawingSelect');
         const layerSelect = document.getElementById('layerSelect');
         
-        const selectedDrawings = Array.from(drawingSelect.selectedOptions).map(opt => opt.value);
         const selectedLayers = Array.from(layerSelect.selectedOptions).map(opt => opt.value);
         
         let url = `/api/entity-viewer/entities?project_id=${currentProject}`;
         
         Array.from(selectedEntityTypes).forEach(type => {
             url += `&entity_type=${type}`;
-        });
-        
-        selectedDrawings.forEach(id => {
-            url += `&drawing_id=${id}`;
         });
         
         selectedLayers.forEach(layer => {

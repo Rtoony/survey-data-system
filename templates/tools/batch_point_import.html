@@ -27,11 +27,11 @@
         
         <div class="config-grid">
             <div class="config-item">
-                <label for="drawingSelect" class="mc-label">Select Drawing:</label>
-                <select id="drawingSelect" class="mc-select" required>
-                    <option value="">-- Select Drawing --</option>
+                <label for="projectSelect" class="mc-label">Select Project:</label>
+                <select id="projectSelect" class="mc-select" required>
+                    <option value="">-- Select Project --</option>
                 </select>
-                <p class="help-text">Points will be imported into the selected drawing</p>
+                <p class="help-text">Points will be imported into the selected project</p>
             </div>
 
             <div class="config-item">
@@ -168,9 +168,9 @@
         <h2>Step 1: Select Drawing</h2>
         <div class="config-grid">
             <div class="config-item">
-                <label for="surveyDrawingSelect" class="mc-label">Select Drawing:</label>
-                <select id="surveyDrawingSelect" class="mc-select" required>
-                    <option value="">-- Select Drawing --</option>
+                <label for="surveyProjectSelect" class="mc-label">Select Project:</label>
+                <select id="surveyProjectSelect" class="mc-select" required>
+                    <option value="">-- Select Project --</option>
                 </select>
                 <p class="help-text">Points and auto-generated polylines will be imported into this drawing</p>
             </div>
@@ -635,38 +635,29 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 async function loadProjectsAndDrawings() {
     try {
-        const response = await fetch('/api/batch-point-import/get-drawings');
+        const response = await fetch('/api/projects');
         const data = await response.json();
         
         if (data.error) {
-            alert('Error loading drawings: ' + data.error);
+            alert('Error loading projects: ' + data.error);
             return;
         }
         
         projects = data.projects || [];
         
-        const drawingSelect = document.getElementById('drawingSelect');
-        drawingSelect.innerHTML = '<option value="">-- Select Drawing --</option>';
+        const projectSelect = document.getElementById('projectSelect');
+        projectSelect.innerHTML = '<option value="">-- Select Project --</option>';
         
         projects.forEach(project => {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = `${project.project_number} - ${project.project_name}`;
-            
-            project.drawings.forEach(drawing => {
-                const option = document.createElement('option');
-                option.value = drawing.drawing_id;
-                option.textContent = `${drawing.drawing_number} - ${drawing.drawing_name}`;
-                optgroup.appendChild(option);
-            });
-            
-            if (project.drawings.length > 0) {
-                drawingSelect.appendChild(optgroup);
-            }
+            const option = document.createElement('option');
+            option.value = project.project_id;
+            option.textContent = `${project.project_number} - ${project.project_name}`;
+            projectSelect.appendChild(option);
         });
         
     } catch (error) {
-        console.error('Error loading drawings:', error);
-        alert('Failed to load drawings');
+        console.error('Error loading projects:', error);
+        alert('Failed to load projects');
     }
 }
 
@@ -739,10 +730,10 @@ function handleFileSelect(e) {
 
 // Parse button handler
 document.getElementById('parseBtn').addEventListener('click', async () => {
-    const drawingId = document.getElementById('drawingSelect').value;
+    const projectId = document.getElementById('projectSelect').value;
     const coordSystem = document.getElementById('coordSystemSelect').value;
     
-    if (!drawingId) {
+    if (!projectId) {
         alert('Please select a drawing');
         return;
     }
@@ -774,7 +765,7 @@ document.getElementById('parseBtn').addEventListener('click', async () => {
         try {
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('drawing_id', drawingId);
+            formData.append('project_id', projectId);
             formData.append('epsg_code', coordSystem);
             
             const response = await fetch('/api/batch-point-import/parse', {
@@ -902,7 +893,7 @@ document.getElementById('importBtn').addEventListener('click', async () => {
     }
     
     const selectedPoints = selectedIndices.map(i => parsedPoints[i]);
-    const drawingId = document.getElementById('drawingSelect').value;
+    const projectId = document.getElementById('projectSelect').value;
     const epsgCode = document.getElementById('coordSystemSelect').value;
     
     try {
@@ -914,7 +905,7 @@ document.getElementById('importBtn').addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 points: selectedPoints,
-                drawing_id: drawingId,
+                project_id: projectId,
                 source_epsg: epsgCode
             })
         });
@@ -974,22 +965,14 @@ async function loadSurveyDrawings() {
             return;
         }
         
-        const drawingSelect = document.getElementById('surveyDrawingSelect');
-        drawingSelect.innerHTML = '<option value="">-- Select Drawing --</option>';
+        const projectSelect = document.getElementById('surveyProjectSelect');
+        projectSelect.innerHTML = '<option value="">-- Select Project --</option>';
         
         (data.projects || []).forEach(project => {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = `${project.project_number} - ${project.project_name}`;
-            
-            project.drawings.forEach(drawing => {
-                const option = document.createElement('option');
-                option.value = drawing.drawing_id;
-                option.textContent = `${drawing.drawing_number} - ${drawing.drawing_name}`;
-                option.dataset.projectId = project.project_id;
-                optgroup.appendChild(option);
-            });
-            
-            drawingSelect.appendChild(optgroup);
+            const option = document.createElement('option');
+            option.value = project.project_id;
+            option.textContent = `${project.project_number} - ${project.project_name}`;
+            projectSelect.appendChild(option);
         });
     } catch (error) {
         console.error('Error loading drawings:', error);
@@ -1030,9 +1013,9 @@ surveyDropZone.addEventListener('drop', (e) => {
 
 // Parse & Preview button
 document.getElementById('surveyParseBtn').addEventListener('click', async () => {
-    const drawingId = document.getElementById('surveyDrawingSelect').value;
+    const projectId = document.getElementById('surveyProjectSelect').value;
     
-    if (!drawingId) {
+    if (!projectId) {
         alert('Please select a drawing first');
         return;
     }
@@ -1166,13 +1149,10 @@ document.getElementById('surveyCommitBtn').addEventListener('click', async () =>
         return;
     }
     
-    const drawingSelect = document.getElementById('surveyDrawingSelect');
-    const selectedOption = drawingSelect.options[drawingSelect.selectedIndex];
-    const projectId = selectedOption.dataset.projectId;
-    const drawingId = drawingSelect.value;
+    const projectId = document.getElementById('surveyProjectSelect').value;
     
-    if (!projectId || !drawingId) {
-        alert('Please select a drawing');
+    if (!projectId) {
+        alert('Please select a project');
         return;
     }
     
@@ -1185,7 +1165,6 @@ document.getElementById('surveyCommitBtn').addEventListener('click', async () =>
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 project_id: projectId,
-                drawing_id: drawingId,
                 preview_data: surveyPreviewData
             })
         });
