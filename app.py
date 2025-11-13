@@ -859,6 +859,243 @@ def get_project_statistics(project_id):
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================
+# GENERIC OBJECTS API ENDPOINTS (Unclassified DXF Entities)
+# ============================================================================
+
+@app.route('/api/projects/<project_id>/generic-objects')
+def get_generic_objects(project_id):
+    """Get all generic objects for a project with optional filtering"""
+    try:
+        review_status = request.args.get('review_status')
+        needs_review = request.args.get('needs_review')
+        
+        query = """
+            SELECT 
+                object_id,
+                object_name,
+                original_layer_name,
+                original_entity_type,
+                classification_confidence,
+                suggested_object_type,
+                needs_review,
+                review_status,
+                reviewed_by,
+                reviewed_at,
+                review_notes,
+                ST_AsGeoJSON(geometry)::json as geometry,
+                source_dxf_handle,
+                import_date,
+                attributes,
+                created_at
+            FROM generic_objects
+            WHERE project_id = %s AND is_active = true
+        """
+        params = [project_id]
+        
+        if review_status:
+            query += " AND review_status = %s"
+            params.append(review_status)
+        
+        if needs_review is not None:
+            query += " AND needs_review = %s"
+            params.append(needs_review.lower() == 'true')
+        
+        query += " ORDER BY created_at DESC"
+        
+        objects = execute_query(query, tuple(params))
+        
+        return jsonify({
+            'project_id': project_id,
+            'count': len(objects),
+            'objects': [{
+                'object_id': str(obj['object_id']),
+                'object_name': obj['object_name'],
+                'original_layer_name': obj['original_layer_name'],
+                'original_entity_type': obj['original_entity_type'],
+                'classification_confidence': float(obj['classification_confidence']) if obj['classification_confidence'] else 0.0,
+                'suggested_object_type': obj['suggested_object_type'],
+                'needs_review': obj['needs_review'],
+                'review_status': obj['review_status'],
+                'reviewed_by': obj['reviewed_by'],
+                'reviewed_at': obj['reviewed_at'].isoformat() if obj['reviewed_at'] else None,
+                'review_notes': obj['review_notes'],
+                'geometry': obj['geometry'],
+                'source_dxf_handle': obj['source_dxf_handle'],
+                'import_date': obj['import_date'].isoformat() if obj['import_date'] else None,
+                'attributes': obj['attributes'],
+                'created_at': obj['created_at'].isoformat() if obj['created_at'] else None
+            } for obj in objects]
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/generic-objects/<object_id>/reclassify', methods=['POST'])
+def reclassify_generic_object(project_id, object_id):
+    """Reclassify a generic object to a specific type"""
+    try:
+        data = request.get_json()
+        if not data or 'target_type' not in data:
+            return jsonify({'error': 'target_type is required'}), 400
+        
+        target_type = data['target_type']
+        notes = data.get('notes', '')
+        
+        # Valid target types
+        valid_types = ['utility_line', 'utility_structure', 'bmp', 'surface_model', 
+                      'alignment', 'survey_point', 'site_tree']
+        
+        if target_type not in valid_types:
+            return jsonify({'error': f'Invalid target_type. Must be one of: {", ".join(valid_types)}'}), 400
+        
+        # Get the generic object
+        obj_query = """
+            SELECT 
+                object_id, project_id, original_layer_name, original_entity_type,
+                ST_AsText(geometry) as geometry_wkt, ST_GeometryType(geometry) as geom_type,
+                source_dxf_handle, attributes
+            FROM generic_objects
+            WHERE object_id = %s AND project_id = %s AND is_active = true
+        """
+        obj = execute_query(obj_query, (object_id, project_id))
+        
+        if not obj:
+            return jsonify({'error': 'Generic object not found'}), 404
+        
+        obj = obj[0]
+        
+        # Create the intelligent object using IntelligentObjectCreator
+        from intelligent_object_creator import IntelligentObjectCreator
+        from layer_classifier import LayerClassification
+        
+        # Build entity_data dict for the creator
+        entity_data = {
+            'layer_name': obj['original_layer_name'],
+            'entity_type': obj['original_entity_type'],
+            'geometry_wkt': obj['geometry_wkt'],
+            'geometry_type': obj['geom_type'].replace('ST_', ''),
+            'dxf_handle': obj['source_dxf_handle'],
+            'attributes': obj['attributes']
+        }
+        
+        # Create a mock classification with 100% confidence for the target type
+        classification = LayerClassification(
+            object_type=target_type,
+            confidence=1.0,
+            properties={},
+            network_mode=None
+        )
+        
+        # Initialize creator and create the specific object
+        creator = IntelligentObjectCreator(get_db_config())
+        
+        # Call the appropriate creation method
+        if target_type == 'utility_line':
+            result = creator._create_utility_line(entity_data, classification, project_id)
+        elif target_type == 'utility_structure':
+            result = creator._create_utility_structure(entity_data, classification, project_id)
+        elif target_type == 'bmp':
+            result = creator._create_bmp(entity_data, classification, project_id)
+        elif target_type == 'surface_model':
+            result = creator._create_surface_model(entity_data, classification, project_id)
+        elif target_type == 'alignment':
+            result = creator._create_alignment(entity_data, classification, project_id)
+        elif target_type == 'survey_point':
+            result = creator._create_survey_point(entity_data, classification, project_id)
+        elif target_type == 'site_tree':
+            result = creator._create_site_tree(entity_data, classification, project_id)
+        
+        if not result:
+            return jsonify({'error': 'Failed to create object of target type'}), 500
+        
+        object_type, new_object_id, table_name = result
+        
+        # Update generic object status to 'reclassified'
+        update_query = """
+            UPDATE generic_objects
+            SET review_status = 'reclassified',
+                needs_review = false,
+                reviewed_at = CURRENT_TIMESTAMP,
+                review_notes = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE object_id = %s
+        """
+        execute_update(update_query, (f'Reclassified to {target_type}. {notes}', object_id))
+        
+        # Create entity link if we have DXF handle
+        if obj['source_dxf_handle']:
+            creator._create_entity_link(
+                project_id, None, obj['source_dxf_handle'], obj['original_entity_type'],
+                obj['original_layer_name'], obj['geometry_wkt'],
+                object_type, new_object_id, table_name
+            )
+        
+        return jsonify({
+            'success': True,
+            'message': f'Object reclassified to {target_type}',
+            'new_object_id': new_object_id,
+            'new_object_type': object_type,
+            'table_name': table_name
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/generic-objects/<object_id>/approve', methods=['POST'])
+def approve_generic_object(project_id, object_id):
+    """Approve a generic object as-is (no reclassification needed)"""
+    try:
+        data = request.get_json() or {}
+        notes = data.get('notes', '')
+        
+        update_query = """
+            UPDATE generic_objects
+            SET review_status = 'approved',
+                needs_review = false,
+                reviewed_at = CURRENT_TIMESTAMP,
+                review_notes = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE object_id = %s AND project_id = %s
+        """
+        execute_update(update_query, (notes, object_id, project_id))
+        
+        return jsonify({
+            'success': True,
+            'message': 'Generic object approved'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/generic-objects/<object_id>/ignore', methods=['POST'])
+def ignore_generic_object(project_id, object_id):
+    """Mark a generic object as ignored/rejected"""
+    try:
+        data = request.get_json() or {}
+        notes = data.get('notes', '')
+        
+        update_query = """
+            UPDATE generic_objects
+            SET review_status = 'ignored',
+                needs_review = false,
+                reviewed_at = CURRENT_TIMESTAMP,
+                review_notes = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE object_id = %s AND project_id = %s
+        """
+        execute_update(update_query, (notes, object_id, project_id))
+        
+        return jsonify({
+            'success': True,
+            'message': 'Generic object marked as ignored'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
 # PROJECT MAPPING API ENDPOINTS (Generic Entity Attachments)
 # ============================================================================
 
