@@ -1,0 +1,955 @@
+{% extends "base.html" %}
+
+{% block title %}Survey Code Tester - ACAD-GIS{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="page-title">📋 Survey Code Testing Interface</h1>
+    <p class="page-subtitle">Test code parsing, preview CAD output, and simulate field shot sequences</p>
+</div>
+
+<div class="tool-tabs">
+    <button class="tab-btn active" data-tab="single">Single Code Test</button>
+    <button class="tab-btn" data-tab="sequence">Field Shot Simulator</button>
+    <button class="tab-btn" data-tab="batch">Batch Validator</button>
+    <button class="tab-btn" data-tab="rules">Connectivity Rules</button>
+</div>
+
+<div id="single-tab" class="tab-content active">
+    <div class="dual-panel-layout">
+        <div class="left-panel">
+            <div class="card">
+                <h2 class="card-title">📝 Code Input</h2>
+                
+                <div class="form-group">
+                    <label for="testCode">Survey Code</label>
+                    <input type="text" id="testCode" placeholder="e.g., CIV-UTIL-STORM-MH" class="input-code">
+                    <small class="form-help">Enter a survey code to test parsing and preview output</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="testPhase">Phase Override (Optional)</label>
+                    <select id="testPhase" class="select-phase">
+                        <option value="">Use Default Phase</option>
+                        <option value="EXIST">Existing (EXIST)</option>
+                        <option value="PROP">Proposed (PROP)</option>
+                        <option value="DEMO">Demolition (DEMO)</option>
+                        <option value="TEMP">Temporary (TEMP)</option>
+                    </select>
+                </div>
+                
+                <button onclick="testCode()" class="btn-primary btn-large">
+                    <i class="fas fa-check-circle"></i> Parse Code
+                </button>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div class="card">
+                <h2 class="card-title">✅ Parsing Results</h2>
+                <div id="parseResults"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="sequence-tab" class="tab-content">
+    <div class="dual-panel-layout">
+        <div class="left-panel">
+            <div class="card">
+                <h2 class="card-title">🎯 Field Shot Sequence</h2>
+                <p class="card-subtitle">Simulate a sequence of survey shots to see auto-connectivity</p>
+                
+                <div id="shotsList"></div>
+                
+                <button onclick="addShot()" class="btn-secondary">
+                    <i class="fas fa-plus"></i> Add Shot
+                </button>
+                <button onclick="clearShots()" class="btn-secondary">
+                    <i class="fas fa-trash"></i> Clear All
+                </button>
+                <button onclick="simulateSequence()" class="btn-primary btn-large" style="margin-top: 1rem;">
+                    <i class="fas fa-play-circle"></i> Simulate Sequence
+                </button>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div class="card">
+                <h2 class="card-title">📊 Simulation Results</h2>
+                <div id="sequenceResults"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="batch-tab" class="tab-content">
+    <div class="dual-panel-layout">
+        <div class="left-panel">
+            <div class="card">
+                <h2 class="card-title">📦 Batch Validation</h2>
+                <p class="card-subtitle">Validate multiple codes at once</p>
+                
+                <div class="form-group">
+                    <label>Input Method</label>
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                        <button onclick="switchBatchInputMethod('manual')" id="manualInputBtn" class="btn-secondary" style="flex: 1;">
+                            <i class="fas fa-keyboard"></i> Manual Entry
+                        </button>
+                        <button onclick="switchBatchInputMethod('upload')" id="uploadInputBtn" class="btn-secondary" style="flex: 1;">
+                            <i class="fas fa-upload"></i> Upload CSV
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="manualInputSection">
+                    <div class="form-group">
+                        <label for="batchCodes">Enter Codes (one per line)</label>
+                        <textarea id="batchCodes" rows="12" placeholder="CIV-UTIL-STORM-MH
+SITE-ROAD-ASPH-EDGE
+SURV-TOPO-GROUND-SHOT
+..." class="textarea-codes"></textarea>
+                    </div>
+                </div>
+                
+                <div id="uploadInputSection" style="display: none;">
+                    <div class="form-group">
+                        <label for="csvUpload">Upload CSV File</label>
+                        <div class="file-upload-zone" id="uploadZone">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--mission-cyan); margin-bottom: 1rem;"></i>
+                            <p>Drag & drop CSV file here or click to browse</p>
+                            <p style="font-size: 0.85rem; color: var(--mission-text-secondary);">CSV should have codes in first column</p>
+                            <input type="file" id="csvUpload" accept=".csv,.txt" style="display: none;" onchange="handleFileUpload(event)">
+                        </div>
+                        <div id="uploadedFileName" style="margin-top: 0.5rem; color: var(--mission-cyan);"></div>
+                    </div>
+                </div>
+                
+                <button onclick="validateBatch()" class="btn-primary btn-large">
+                    <i class="fas fa-check-double"></i> Validate All
+                </button>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div class="card">
+                <h2 class="card-title">📋 Validation Results</h2>
+                <div id="batchResults"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="rules-tab" class="tab-content">
+    <div class="card">
+        <h2 class="card-title">📚 Connectivity Type Reference</h2>
+        <div id="rulesContent"></div>
+    </div>
+</div>
+
+<style>
+.tool-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid var(--mission-dark-cyan);
+}
+
+.tab-btn {
+    padding: 0.75rem 1.5rem;
+    background: var(--mission-bg-dark);
+    color: var(--mission-text-secondary);
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+    background: var(--mission-bg-light);
+    color: var(--mission-cyan);
+}
+
+.tab-btn.active {
+    color: var(--mission-cyan);
+    border-bottom-color: var(--mission-cyan);
+    background: var(--mission-bg-light);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.dual-panel-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+@media (max-width: 1024px) {
+    .dual-panel-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.input-code, .select-phase, .textarea-codes {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--mission-bg-darker);
+    border: 1px solid var(--mission-dark-cyan);
+    color: var(--mission-text);
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+}
+
+.input-code:focus, .select-phase:focus, .textarea-codes:focus {
+    outline: none;
+    border-color: var(--mission-cyan);
+    box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.1);
+}
+
+.btn-large {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.1rem;
+}
+
+.result-valid {
+    padding: 1.5rem;
+    background: var(--mission-bg-darker);
+    border-left: 4px solid var(--mission-success);
+    border-radius: 4px;
+}
+
+.result-invalid {
+    padding: 1.5rem;
+    background: var(--mission-bg-darker);
+    border-left: 4px solid var(--mission-danger);
+    border-radius: 4px;
+}
+
+.property-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.property-item {
+    padding: 0.75rem;
+    background: var(--mission-bg-dark);
+    border-radius: 4px;
+}
+
+.property-label {
+    font-size: 0.75rem;
+    color: var(--mission-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.property-value {
+    color: var(--mission-cyan);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.layer-preview {
+    padding: 1rem;
+    background: var(--mission-bg-dark);
+    border: 2px solid var(--mission-cyan);
+    border-radius: 4px;
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.layer-name {
+    font-family: 'Courier New', monospace;
+    font-size: 1.5rem;
+    color: var(--mission-neon-green);
+    font-weight: bold;
+}
+
+.shot-item {
+    display: grid;
+    grid-template-columns: 80px 1fr 100px 100px 100px 40px;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    align-items: center;
+}
+
+.shot-item input {
+    padding: 0.5rem;
+    background: var(--mission-bg-darker);
+    border: 1px solid var(--mission-dark-cyan);
+    color: var(--mission-text);
+    border-radius: 4px;
+}
+
+.shot-item button {
+    background: var(--mission-danger);
+    border: none;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.connectivity-card {
+    padding: 1.5rem;
+    background: var(--mission-bg-darker);
+    border-left: 4px solid var(--mission-cyan);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.connectivity-type {
+    font-size: 1.25rem;
+    color: var(--mission-cyan);
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.connectivity-behavior {
+    color: var(--mission-text-secondary);
+    margin-bottom: 1rem;
+}
+
+.connectivity-examples {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.example-badge {
+    padding: 0.25rem 0.75rem;
+    background: var(--mission-bg-dark);
+    border: 1px solid var(--mission-dark-cyan);
+    border-radius: 12px;
+    font-size: 0.85rem;
+    color: var(--mission-text);
+}
+
+.polyline-item, .block-item {
+    padding: 1rem;
+    background: var(--mission-bg-dark);
+    border-left: 3px solid var(--mission-neon-green);
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+}
+
+.warning-item {
+    padding: 0.75rem;
+    background: rgba(255, 193, 7, 0.1);
+    border-left: 3px solid #ffc107;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    color: #ffc107;
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-box {
+    padding: 1rem;
+    background: var(--mission-bg-darker);
+    border-radius: 4px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 2rem;
+    color: var(--mission-cyan);
+    font-weight: bold;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--mission-text-secondary);
+    text-transform: uppercase;
+}
+
+.batch-item {
+    padding: 0.75rem;
+    background: var(--mission-bg-dark);
+    border-left: 3px solid var(--mission-success);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.batch-item.invalid {
+    border-left-color: var(--mission-danger);
+}
+
+.batch-code {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: var(--mission-cyan);
+}
+
+.batch-error {
+    color: var(--mission-danger);
+    font-size: 0.9rem;
+}
+
+.file-upload-zone {
+    border: 2px dashed var(--mission-dark-cyan);
+    border-radius: 8px;
+    padding: 3rem 2rem;
+    text-align: center;
+    background: var(--mission-bg-darker);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.file-upload-zone:hover {
+    border-color: var(--mission-cyan);
+    background: var(--mission-bg-dark);
+}
+
+.file-upload-zone.dragover {
+    border-color: var(--mission-cyan);
+    background: rgba(0, 255, 255, 0.1);
+}
+
+.download-results-btn {
+    margin-top: 1rem;
+    background: var(--mission-neon-green);
+    color: #000;
+    font-weight: bold;
+}
+
+.download-results-btn:hover {
+    background: var(--mission-cyan);
+}
+</style>
+
+<script>
+let shots = [];
+let shotCounter = 1;
+let uploadedFile = null;
+let batchResultsToken = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initTabs();
+    loadConnectivityRules();
+    addShot();
+    addShot();
+    addShot();
+    setupFileUpload();
+});
+
+function initTabs() {
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tabName = this.dataset.tab;
+            
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            this.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+        });
+    });
+}
+
+async function testCode() {
+    const code = document.getElementById('testCode').value.trim();
+    const phase = document.getElementById('testPhase').value;
+    const resultsDiv = document.getElementById('parseResults');
+    
+    if (!code) {
+        resultsDiv.innerHTML = '<div class="result-invalid"><strong>Error:</strong> Please enter a code</div>';
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/survey-codes/parse', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({code, phase: phase || null})
+        });
+        
+        const data = await response.json();
+        
+        if (data.valid) {
+            resultsDiv.innerHTML = `
+                <div class="result-valid">
+                    <h3 style="color: var(--mission-success); margin-top: 0;">
+                        <i class="fas fa-check-circle"></i> Valid Code
+                    </h3>
+                    
+                    <div class="property-grid">
+                        <div class="property-item">
+                            <div class="property-label">Code</div>
+                            <div class="property-value">${escapeHtml(data.code)}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Display Name</div>
+                            <div class="property-value">${escapeHtml(data.display_name)}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Discipline</div>
+                            <div class="property-value">${escapeHtml(data.discipline)}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Category</div>
+                            <div class="property-value">${escapeHtml(data.category)}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Feature Type</div>
+                            <div class="property-value">${escapeHtml(data.feature_type)}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Connectivity</div>
+                            <div class="property-value">${escapeHtml(data.connectivity_type)}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Geometry Output</div>
+                            <div class="property-value">${escapeHtml(data.geometry_output)}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Category Group</div>
+                            <div class="property-value">${escapeHtml(data.category_group)}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Auto-Connect</div>
+                            <div class="property-value">${data.auto_connect ? 'Yes' : 'No'}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Create Block</div>
+                            <div class="property-value">${data.create_block ? 'Yes' : 'No'}</div>
+                        </div>
+                    </div>
+                    
+                    ${data.layer_name ? `
+                        <div class="layer-preview">
+                            <div style="font-size: 0.9rem; color: var(--mission-text-secondary); margin-bottom: 0.5rem;">
+                                Generated Layer Name:
+                            </div>
+                            <div class="layer-name">${escapeHtml(data.layer_name)}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <p style="margin-top: 1rem; color: var(--mission-text-secondary);">
+                        <strong>Description:</strong> ${escapeHtml(data.description)}
+                    </p>
+                </div>
+            `;
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="result-invalid">
+                    <h3 style="color: var(--mission-danger); margin-top: 0;">
+                        <i class="fas fa-times-circle"></i> Invalid Code
+                    </h3>
+                    <p>${escapeHtml(data.error)}</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        resultsDiv.innerHTML = `<div class="result-invalid"><strong>Error:</strong> ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+function addShot() {
+    const shotId = shotCounter++;
+    shots.push({id: shotId, point_number: '', code: '', northing: 0, easting: 0, elevation: 0});
+    renderShots();
+}
+
+function removeShot(shotId) {
+    shots = shots.filter(s => s.id !== shotId);
+    renderShots();
+}
+
+function renderShots() {
+    const container = document.getElementById('shotsList');
+    
+    if (shots.length === 0) {
+        container.innerHTML = '<p style="color: var(--mission-text-secondary);">No shots added. Click "Add Shot" to begin.</p>';
+        return;
+    }
+    
+    const labels = `
+        <div style="display: grid; grid-template-columns: 80px 1fr 100px 100px 100px 40px; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--mission-text-secondary);">
+            <div>Point #</div>
+            <div>Survey Code</div>
+            <div>Northing</div>
+            <div>Easting</div>
+            <div>Elevation</div>
+            <div></div>
+        </div>
+    `;
+    
+    const shotsHTML = shots.map(shot => `
+        <div class="shot-item">
+            <input type="text" value="${shot.point_number}" placeholder="101" 
+                   oninput="updateShot(${shot.id}, 'point_number', this.value)">
+            <input type="text" value="${shot.code}" placeholder="CIV-UTIL-STORM-MH" 
+                   oninput="updateShot(${shot.id}, 'code', this.value)">
+            <input type="number" step="0.01" value="${shot.northing}" 
+                   oninput="updateShot(${shot.id}, 'northing', parseFloat(this.value))">
+            <input type="number" step="0.01" value="${shot.easting}" 
+                   oninput="updateShot(${shot.id}, 'easting', parseFloat(this.value))">
+            <input type="number" step="0.01" value="${shot.elevation}" 
+                   oninput="updateShot(${shot.id}, 'elevation', parseFloat(this.value))">
+            <button onclick="removeShot(${shot.id})"><i class="fas fa-trash"></i></button>
+        </div>
+    `).join('');
+    
+    container.innerHTML = labels + shotsHTML;
+}
+
+function updateShot(shotId, field, value) {
+    const shot = shots.find(s => s.id === shotId);
+    if (shot) {
+        shot[field] = value;
+    }
+}
+
+function clearShots() {
+    shots = [];
+    shotCounter = 1;
+    renderShots();
+}
+
+async function simulateSequence() {
+    const resultsDiv = document.getElementById('sequenceResults');
+    
+    if (shots.length === 0) {
+        resultsDiv.innerHTML = '<div class="result-invalid"><strong>Error:</strong> Add at least one shot</div>';
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/survey-codes/simulate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({shots: shots.map(s => ({
+                point_number: s.point_number || `PT${s.id}`,
+                code: s.code,
+                northing: s.northing || 0,
+                easting: s.easting || 0,
+                elevation: s.elevation || 0
+            }))})
+        });
+        
+        const data = await response.json();
+        
+        if (data.valid) {
+            let html = '<div class="result-valid">';
+            
+            html += `<h3 style="color: var(--mission-success); margin-top: 0;">
+                <i class="fas fa-check-circle"></i> Simulation Complete
+            </h3>`;
+            
+            html += `<div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-value">${data.shots.length}</div>
+                    <div class="stat-label">Shots</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">${data.polylines.length}</div>
+                    <div class="stat-label">Polylines</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">${data.blocks.length}</div>
+                    <div class="stat-label">Blocks</div>
+                </div>
+            </div>`;
+            
+            if (data.warnings.length > 0) {
+                html += '<h4 style="color: #ffc107;">⚠️ Warnings</h4>';
+                data.warnings.forEach(warning => {
+                    html += `<div class="warning-item">${escapeHtml(warning)}</div>`;
+                });
+            }
+            
+            if (data.polylines.length > 0) {
+                html += '<h4 style="color: var(--mission-neon-green); margin-top: 1.5rem;">📏 Generated Polylines</h4>';
+                data.polylines.forEach((pl, idx) => {
+                    html += `<div class="polyline-item">
+                        <strong>Polyline ${idx + 1}:</strong> ${escapeHtml(pl.code)}<br>
+                        <strong>Points:</strong> ${pl.points.join(' → ')}<br>
+                        <strong>Type:</strong> ${pl.closed ? 'Closed Polygon' : 'Open Polyline'}
+                    </div>`;
+                });
+            }
+            
+            if (data.blocks.length > 0) {
+                html += '<h4 style="color: var(--mission-neon-green); margin-top: 1.5rem;">🔷 Block Insertions</h4>';
+                data.blocks.forEach((block, idx) => {
+                    html += `<div class="block-item">
+                        <strong>Point:</strong> ${escapeHtml(block.point)}<br>
+                        <strong>Block:</strong> ${escapeHtml(block.block_name)}<br>
+                        <strong>Layer:</strong> ${escapeHtml(block.layer)}
+                    </div>`;
+                });
+            }
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        } else {
+            resultsDiv.innerHTML = `<div class="result-invalid"><strong>Error:</strong> ${escapeHtml(data.error)}</div>`;
+        }
+    } catch (error) {
+        resultsDiv.innerHTML = `<div class="result-invalid"><strong>Error:</strong> ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+async function validateBatch() {
+    const resultsDiv = document.getElementById('batchResults');
+    const manualSection = document.getElementById('manualInputSection');
+    const uploadSection = document.getElementById('uploadInputSection');
+    
+    resultsDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--mission-cyan);"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Validating codes...</div>';
+    
+    try {
+        let data;
+        
+        if (manualSection.style.display !== 'none') {
+            const textarea = document.getElementById('batchCodes');
+            const codes = textarea.value.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            if (codes.length === 0) {
+                resultsDiv.innerHTML = '<div class="result-invalid"><strong>Error:</strong> Enter at least one code</div>';
+                return;
+            }
+            
+            const response = await fetch('/api/survey-codes/batch-validate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({codes})
+            });
+            
+            data = await response.json();
+        } else {
+            if (!uploadedFile) {
+                resultsDiv.innerHTML = '<div class="result-invalid"><strong>Error:</strong> Please select a CSV file</div>';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', uploadedFile);
+            
+            const response = await fetch('/api/survey-codes/batch-validate-upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            data = await response.json();
+        }
+        
+        if (data.error) {
+            resultsDiv.innerHTML = `<div class="result-invalid"><strong>Error:</strong> ${escapeHtml(data.error)}</div>`;
+            return;
+        }
+        
+        batchResultsToken = data.results_token;
+        
+        let html = '<div class="result-valid">';
+        
+        html += `<div class="stats-row">
+            <div class="stat-box">
+                <div class="stat-value">${data.total}</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-box" style="border-left: 3px solid var(--mission-success);">
+                <div class="stat-value" style="color: var(--mission-success);">${data.valid}</div>
+                <div class="stat-label">Valid</div>
+            </div>
+            <div class="stat-box" style="border-left: 3px solid var(--mission-danger);">
+                <div class="stat-value" style="color: var(--mission-danger);">${data.invalid}</div>
+                <div class="stat-label">Invalid</div>
+            </div>
+        </div>`;
+        
+        if (data.filename) {
+            html += `<p style="color: var(--mission-text-secondary); margin-bottom: 1rem;">
+                <strong>File:</strong> ${escapeHtml(data.filename)} | 
+                <strong>Codes Extracted:</strong> ${data.codes_extracted}
+            </p>`;
+        }
+        
+        html += `<button onclick="downloadBatchResults()" class="btn-primary download-results-btn" style="width: 100%;">
+            <i class="fas fa-download"></i> Download Results as CSV
+        </button>`;
+        
+        html += '<h4 style="margin-top: 1.5rem;">Results</h4>';
+        
+        data.results.forEach(result => {
+            if (result.valid) {
+                html += `<div class="batch-item">
+                    <div>
+                        <span class="batch-code">${escapeHtml(result.code)}</span>
+                        <div style="font-size: 0.85rem; color: var(--mission-text-secondary); margin-top: 0.25rem;">
+                            ${escapeHtml(result.display_name)}
+                        </div>
+                    </div>
+                    <span style="color: var(--mission-success);">✓ Valid</span>
+                </div>`;
+            } else {
+                html += `<div class="batch-item invalid">
+                    <div>
+                        <span class="batch-code">${escapeHtml(result.error.split('"')[1] || 'Unknown')}</span>
+                        <div class="batch-error">${escapeHtml(result.error)}</div>
+                    </div>
+                    <span style="color: var(--mission-danger);">✗ Invalid</span>
+                </div>`;
+            }
+        });
+        
+        html += '</div>';
+        resultsDiv.innerHTML = html;
+    } catch (error) {
+        resultsDiv.innerHTML = `<div class="result-invalid"><strong>Error:</strong> ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+function switchBatchInputMethod(method) {
+    const manualSection = document.getElementById('manualInputSection');
+    const uploadSection = document.getElementById('uploadInputSection');
+    const manualBtn = document.getElementById('manualInputBtn');
+    const uploadBtn = document.getElementById('uploadInputBtn');
+    
+    if (method === 'manual') {
+        manualSection.style.display = 'block';
+        uploadSection.style.display = 'none';
+        manualBtn.classList.add('active');
+        uploadBtn.classList.remove('active');
+    } else {
+        manualSection.style.display = 'none';
+        uploadSection.style.display = 'block';
+        manualBtn.classList.remove('active');
+        uploadBtn.classList.add('active');
+    }
+}
+
+function setupFileUpload() {
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('csvUpload');
+    
+    uploadZone.addEventListener('click', () => fileInput.click());
+    
+    uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+    
+    uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('dragover');
+    });
+    
+    uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileUpload({target: fileInput});
+        }
+    });
+}
+
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    const filenameDiv = document.getElementById('uploadedFileName');
+    
+    if (!file) {
+        uploadedFile = null;
+        filenameDiv.textContent = '';
+        return;
+    }
+    
+    if (!file.name.endsWith('.csv') && !file.name.endsWith('.txt')) {
+        filenameDiv.innerHTML = '<span style="color: var(--mission-danger);">✗ Invalid file type. Please select a CSV or TXT file.</span>';
+        uploadedFile = null;
+        return;
+    }
+    
+    uploadedFile = file;
+    const fileSize = (file.size / 1024).toFixed(1);
+    filenameDiv.innerHTML = `<i class="fas fa-file-csv"></i> ${escapeHtml(file.name)} (${fileSize} KB)`;
+}
+
+function downloadBatchResults() {
+    if (!batchResultsToken) {
+        alert('No results available to download');
+        return;
+    }
+    
+    window.location.href = `/api/survey-codes/batch-validate-download/${batchResultsToken}`;
+}
+
+async function loadConnectivityRules() {
+    try {
+        const response = await fetch('/api/survey-codes/connectivity-rules');
+        const rules = await response.json();
+        
+        let html = '';
+        
+        for (const [type, rule] of Object.entries(rules)) {
+            html += `
+                <div class="connectivity-card">
+                    <div class="connectivity-type">${escapeHtml(type)} - ${escapeHtml(rule.name)}</div>
+                    <div class="connectivity-behavior">${escapeHtml(rule.behavior)}</div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem;">
+                        <div class="property-item">
+                            <div class="property-label">Auto-Connect</div>
+                            <div class="property-value">${rule.auto_connect ? 'Yes' : 'No'}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Closes Polygon</div>
+                            <div class="property-value">${rule.closes_polygon ? 'Yes' : 'No'}</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-label">Examples</div>
+                            <div class="property-value">${rule.examples.length}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="connectivity-examples">
+                        ${rule.examples.map(ex => `<span class="example-badge">${escapeHtml(ex)}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        document.getElementById('rulesContent').innerHTML = html;
+    } catch (error) {
+        document.getElementById('rulesContent').innerHTML = `<div class="result-invalid"><strong>Error:</strong> ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+document.getElementById('testCode').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        testCode();
+    }
+});
+</script>
+{% endblock %}

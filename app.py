@@ -181,6 +181,11 @@ def survey_codes_manager():
     """Survey Code Library Manager - CRUD interface for field survey codes"""
     return render_template('tools/survey_codes.html')
 
+@app.route('/tools/survey-code-tester')
+def survey_code_tester():
+    """Survey Code Testing Interface - Test parsing, preview CAD output, simulate field shots"""
+    return render_template('tools/survey_code_tester.html')
+
 @app.route('/project-standards-assignment')
 def project_standards_assignment():
     """Project Standards Assignment page"""
@@ -15183,6 +15188,189 @@ def export_survey_codes_csv():
         output.headers['Content-Disposition'] = 'attachment; filename=survey_codes_library.csv'
         
         return output
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== SURVEY CODE TESTING/PARSING API =====
+
+@app.route('/api/survey-codes/parse', methods=['POST'])
+def parse_survey_code():
+    """Parse a single survey code and return all properties"""
+    from survey_code_parser import SurveyCodeParser
+    
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip()
+        phase = data.get('phase')
+        
+        if not code:
+            return jsonify({'error': 'code is required'}), 400
+        
+        parser = SurveyCodeParser(DB_CONFIG)
+        parsed = parser.parse_code(code)
+        
+        if parsed.get('valid'):
+            layer_name = parser.resolve_layer_name(parsed, phase)
+            parsed['layer_name'] = layer_name
+        
+        return jsonify(parsed)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-codes/simulate', methods=['POST'])
+def simulate_field_sequence():
+    """Simulate a sequence of field shots and determine connectivity"""
+    from survey_code_parser import SurveyCodeParser
+    
+    try:
+        data = request.get_json()
+        shots = data.get('shots', [])
+        
+        if not shots:
+            return jsonify({'error': 'shots array is required'}), 400
+        
+        parser = SurveyCodeParser(DB_CONFIG)
+        result = parser.simulate_field_sequence(shots)
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+batch_results_cache = {}
+
+def process_batch_validation(codes):
+    """Shared helper for batch validation logic"""
+    from survey_code_parser import SurveyCodeParser
+    
+    parser = SurveyCodeParser(DB_CONFIG)
+    result = parser.batch_validate(codes)
+    
+    results_token = str(uuid.uuid4())
+    batch_results_cache[results_token] = result
+    
+    result['results_token'] = results_token
+    return result
+
+@app.route('/api/survey-codes/batch-validate', methods=['POST'])
+def batch_validate_codes():
+    """Validate multiple codes at once (manual entry)"""
+    try:
+        data = request.get_json()
+        codes = data.get('codes', [])
+        
+        if not codes:
+            return jsonify({'error': 'codes array is required'}), 400
+        
+        if len(codes) > 5000:
+            return jsonify({'error': 'Maximum 5,000 codes allowed per batch'}), 400
+        
+        result = process_batch_validation(codes)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-codes/batch-validate-upload', methods=['POST'])
+def batch_validate_upload():
+    """Validate codes from uploaded CSV file"""
+    import csv
+    import io
+    
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file.filename.endswith(('.csv', '.txt')):
+            return jsonify({'error': 'File must be CSV or TXT format'}), 400
+        
+        content = file.read()
+        
+        if len(content) > 2 * 1024 * 1024:
+            return jsonify({'error': 'File size exceeds 2 MB limit'}), 400
+        
+        content_str = content.decode('utf-8-sig')
+        
+        reader = csv.reader(io.StringIO(content_str))
+        codes = []
+        
+        for row_num, row in enumerate(reader, start=1):
+            if row and row[0].strip():
+                code = row[0].strip()
+                if not code.startswith('#'):
+                    codes.append(code)
+            
+            if len(codes) > 5000:
+                return jsonify({'error': 'File contains more than 5,000 codes'}), 400
+        
+        if not codes:
+            return jsonify({'error': 'No valid codes found in file'}), 400
+        
+        result = process_batch_validation(codes)
+        result['filename'] = secure_filename(file.filename)
+        result['codes_extracted'] = len(codes)
+        
+        return jsonify(result)
+    except UnicodeDecodeError:
+        return jsonify({'error': 'File encoding error. Please use UTF-8 encoded CSV'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-codes/batch-validate-download/<token>')
+def batch_validate_download(token):
+    """Download batch validation results as CSV"""
+    import csv
+    import io
+    
+    try:
+        if token not in batch_results_cache:
+            return jsonify({'error': 'Results not found or expired'}), 404
+        
+        data = batch_results_cache[token]
+        
+        si = io.StringIO()
+        writer = csv.writer(si, quoting=csv.QUOTE_MINIMAL)
+        
+        writer.writerow(['Code', 'Valid', 'Display Name', 'Error Message'])
+        
+        for result in data.get('results', []):
+            if result.get('valid'):
+                writer.writerow([
+                    result.get('code', ''),
+                    'TRUE',
+                    result.get('display_name', '').replace('\n', ' ').replace('\r', ''),
+                    ''
+                ])
+            else:
+                error_msg = result.get('error', '').replace('\n', ' ').replace('\r', '')
+                code_from_error = error_msg.split('"')[1] if '"' in error_msg else 'Unknown'
+                writer.writerow([
+                    code_from_error,
+                    'FALSE',
+                    '',
+                    error_msg
+                ])
+        
+        output = make_response(si.getvalue())
+        output.headers['Content-Type'] = 'text/csv'
+        output.headers['Content-Disposition'] = 'attachment; filename=batch_validation_results.csv'
+        
+        return output
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-codes/connectivity-rules')
+def get_connectivity_rules():
+    """Get documentation for connectivity types"""
+    from survey_code_parser import SurveyCodeParser
+    
+    try:
+        parser = SurveyCodeParser(DB_CONFIG)
+        rules = parser.get_connectivity_rules()
+        return jsonify(rules)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
