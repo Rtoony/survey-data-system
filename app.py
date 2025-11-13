@@ -393,12 +393,8 @@ def get_projects():
     """Get all projects"""
     try:
         query = """
-            SELECT 
-                p.*,
-                COUNT(d.drawing_id) as drawing_count
+            SELECT p.*
             FROM projects p
-            LEFT JOIN drawings d ON p.project_id = d.project_id
-            GROUP BY p.project_id
             ORDER BY p.created_at DESC
         """
         projects = execute_query(query)
@@ -454,9 +450,7 @@ def delete_project(project_id):
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
-                # Delete associated drawings first
-                cur.execute('DELETE FROM drawings WHERE project_id = %s', (project_id,))
-                # Delete project
+                # Delete project (cascades will handle related entities)
                 cur.execute('DELETE FROM projects WHERE project_id = %s', (project_id,))
                 conn.commit()
         return jsonify({'success': True})
@@ -494,7 +488,6 @@ def get_project_survey_points(project_id):
     try:
         # Get query parameters for filtering
         point_type = request.args.get('point_type')
-        drawing_id = request.args.get('drawing_id')
         is_control = request.args.get('is_control')
         search = request.args.get('search')
         
@@ -505,10 +498,6 @@ def get_project_survey_points(project_id):
         if point_type:
             where_conditions.append("sp.point_type = %s")
             params.append(point_type)
-        
-        if drawing_id:
-            where_conditions.append("sp.drawing_id = %s")
-            params.append(drawing_id)
         
         if is_control is not None:
             is_control_bool = is_control.lower() == 'true'
@@ -538,11 +527,8 @@ def get_project_survey_points(project_id):
                 sp.vertical_accuracy,
                 sp.quality_score,
                 sp.notes,
-                sp.created_at,
-                d.drawing_name,
-                d.drawing_number
+                sp.created_at
             FROM survey_points sp
-            LEFT JOIN drawings d ON sp.drawing_id = d.drawing_id
             WHERE {where_clause}
             ORDER BY sp.point_number
         """
@@ -680,8 +666,7 @@ def get_project_map_summary(project_id):
                     END
                 ) as extent_geom
                 FROM drawing_entities de
-                JOIN drawings d ON de.drawing_id = d.drawing_id
-                WHERE d.project_id = %s
+                WHERE de.project_id = %s
                   AND de.geometry IS NOT NULL
             ) sub
         """
@@ -720,9 +705,8 @@ def get_project_map_summary(project_id):
                     )
                 )::json as geometry
             FROM drawing_entities de
-            JOIN drawings d ON de.drawing_id = d.drawing_id
             LEFT JOIN layers l ON de.layer_id = l.layer_id
-            WHERE d.project_id = %s
+            WHERE de.project_id = %s
               AND de.geometry IS NOT NULL
             ORDER BY ST_Area(
                 CASE 
@@ -779,18 +763,11 @@ def get_project_statistics(project_id):
         if not project_check:
             return jsonify({'error': 'Project not found'}), 404
         
-        # Get drawing count
-        drawing_count_query = """
-            SELECT COUNT(*) as count FROM drawings WHERE project_id = %s
-        """
-        drawing_count = execute_query(drawing_count_query, (project_id,))[0]['count']
-        
         # Get total entity count across all drawing entities
         entity_count_query = """
             SELECT COUNT(*) as count 
             FROM drawing_entities de
-            JOIN drawings d ON de.drawing_id = d.drawing_id
-            WHERE d.project_id = %s
+            WHERE de.project_id = %s
         """
         entity_count = execute_query(entity_count_query, (project_id,))[0]['count']
         
@@ -851,8 +828,7 @@ def get_project_statistics(project_id):
                     END
                 ) as extent_geom
                 FROM drawing_entities de
-                JOIN drawings d ON de.drawing_id = d.drawing_id
-                WHERE d.project_id = %s
+                WHERE de.project_id = %s
                   AND de.geometry IS NOT NULL
             ) sub
         """
@@ -3513,17 +3489,14 @@ def get_project_compliance(project_id):
             SELECT 
                 pso.override_id,
                 pso.project_id,
-                pso.drawing_id,
                 pso.standard_type,
                 pso.standard_id,
                 pso.override_reason,
                 pso.created_date,
                 pso.created_by,
                 pso.notes,
-                d.drawing_name,
                 'Standard ID: ' || pso.standard_id::text as standard_name
             FROM project_standard_overrides pso
-            LEFT JOIN drawings d ON pso.drawing_id = d.drawing_id
             WHERE pso.project_id = %s
             ORDER BY pso.created_date DESC
         """
@@ -4075,20 +4048,17 @@ def get_usage_summary():
 
 @app.route('/api/usage/top-layers')
 def get_top_layers():
-    """Get most used layers"""
+    """Get most used layers across all projects"""
     try:
         query = """
             SELECT 
                 l.layer_name,
-                ls.category,
-                COUNT(DISTINCT dlu.drawing_id) as drawing_count,
-                SUM(dlu.entity_count) as total_entities
-            FROM drawing_layer_usage dlu
-            LEFT JOIN layers l ON dlu.layer_id = l.layer_id
-            LEFT JOIN layer_standards ls ON l.layer_standard_id = ls.layer_id
+                COUNT(DISTINCT l.project_id) as project_count,
+                COUNT(*) as usage_count
+            FROM layers l
             WHERE l.layer_name IS NOT NULL
-            GROUP BY l.layer_name, ls.category
-            ORDER BY total_entities DESC
+            GROUP BY l.layer_name
+            ORDER BY usage_count DESC
             LIMIT 10
         """
         layers = execute_query(query)
@@ -4137,23 +4107,18 @@ def get_top_blocks():
 
 @app.route('/api/usage/recent-activity')
 def get_usage_recent_activity():
-    """Get recent drawing activity"""
+    """Get recent project activity"""
     try:
         query = """
             SELECT 
-                drawing_id,
-                drawing_name,
-                drawing_number,
-                discipline,
-                entity_count,
-                last_modified_at,
-                last_opened_at
-            FROM drawings
-            WHERE last_modified_at IS NOT NULL OR last_opened_at IS NOT NULL
-            ORDER BY GREATEST(
-                COALESCE(last_modified_at, '1970-01-01'::timestamp),
-                COALESCE(last_opened_at, '1970-01-01'::timestamp)
-            ) DESC
+                project_id,
+                project_name,
+                project_number,
+                created_at,
+                updated_at
+            FROM projects
+            WHERE updated_at IS NOT NULL
+            ORDER BY updated_at DESC
             LIMIT 20
         """
         activity = execute_query(query)
@@ -8221,9 +8186,9 @@ def import_dxf():
             return jsonify({'error': 'File must be a DXF file'}), 400
         
         # Get parameters
-        drawing_id = request.form.get('drawing_id')
-        if not drawing_id:
-            return jsonify({'error': 'drawing_id is required'}), 400
+        project_id = request.form.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
         
         import_modelspace = request.form.get('import_modelspace', 'true') == 'true'
         import_paperspace = request.form.get('import_paperspace', 'true') == 'true'
@@ -8244,7 +8209,7 @@ def import_dxf():
             importer = DXFImporter(DB_CONFIG, create_intelligent_objects=use_intelligent)
             stats = importer.import_dxf(
                 temp_path,
-                drawing_id,
+                project_id,
                 import_modelspace=import_modelspace,
                 import_paperspace=import_paperspace
             )
@@ -8290,13 +8255,13 @@ def import_dxf():
 
 @app.route('/api/dxf/export', methods=['POST'])
 def export_dxf():
-    """Export drawing to DXF file"""
+    """Export project to DXF file"""
     try:
         data = request.get_json()
         
-        drawing_id = data.get('drawing_id')
-        if not drawing_id:
-            return jsonify({'error': 'drawing_id is required'}), 400
+        project_id = data.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
         
         dxf_version = data.get('dxf_version', 'AC1027')
         include_modelspace = data.get('include_modelspace', True)
@@ -8304,13 +8269,13 @@ def export_dxf():
         layer_filter = data.get('layer_filter')
         
         # Generate output file
-        output_filename = f'drawing_{drawing_id}_{uuid.uuid4().hex[:8]}.dxf'
+        output_filename = f'project_{project_id}_{uuid.uuid4().hex[:8]}.dxf'
         output_path = os.path.join('/tmp', output_filename)
         
         # Export DXF
         exporter = DXFExporter(DB_CONFIG)
         stats = exporter.export_dxf(
-            drawing_id,
+            project_id,
             output_path,
             dxf_version=dxf_version,
             include_modelspace=include_modelspace,
@@ -8339,8 +8304,8 @@ def get_export_jobs():
         query = """
             SELECT 
                 ej.id as export_job_id,
-                ej.params->>'drawing_id' as drawing_id,
-                d.drawing_name,
+                ej.params->>'project_id' as project_id,
+                p.project_name,
                 ej.params->>'export_format' as export_format,
                 ej.params->>'dxf_version' as dxf_version,
                 ej.status,
@@ -8351,7 +8316,7 @@ def get_export_jobs():
                 ej.file_size_mb,
                 ej.error_message
             FROM export_jobs ej
-            LEFT JOIN drawings d ON (ej.params->>'drawing_id')::uuid = d.drawing_id
+            LEFT JOIN projects p ON (ej.params->>'project_id')::uuid = p.project_id
             ORDER BY ej.created_at DESC
             LIMIT 50
         """
@@ -14882,19 +14847,6 @@ def get_entity_viewer_catalog():
                         WHERE project_id = %s
                     """
                     result = execute_query(query, (project_id,))
-                elif has_drawing_id:
-                    query = f"""
-                        SELECT 
-                            '{entity_key}' as entity_type,
-                            '{config['category']}' as category,
-                            '{config['type']}' as geometry_type,
-                            '{config['color']}' as color,
-                            COUNT(*) as count
-                        FROM {config['table']} t
-                        JOIN drawings d ON t.drawing_id = d.drawing_id
-                        WHERE d.project_id = %s
-                    """
-                    result = execute_query(query, (project_id,))
                 else:
                     continue
                 
@@ -14913,24 +14865,15 @@ def get_entity_viewer_layers():
     """Get available layers for a project"""
     try:
         project_id = request.args.get('project_id')
-        drawing_ids = request.args.getlist('drawing_id')
         
         query = """
             SELECT DISTINCT l.layer_name
             FROM layers l
-            JOIN drawings d ON l.drawing_id = d.drawing_id
-            WHERE d.project_id = %s
+            WHERE l.project_id = %s
+            ORDER BY l.layer_name
         """
-        params = [project_id]
         
-        if drawing_ids:
-            placeholders = ','.join(['%s'] * len(drawing_ids))
-            query += f" AND l.drawing_id IN ({placeholders})"
-            params.extend(drawing_ids)
-        
-        query += " ORDER BY l.layer_name"
-        
-        layers = execute_query(query, tuple(params))
+        layers = execute_query(query, (project_id,))
         return jsonify({'layers': [l['layer_name'] for l in layers]})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -14941,7 +14884,6 @@ def get_entity_viewer_entities():
     try:
         project_id = request.args.get('project_id')
         entity_types = request.args.getlist('entity_type')
-        drawing_ids = request.args.getlist('drawing_id')
         layer_names = request.args.getlist('layer')
         
         if not project_id:
@@ -14999,38 +14941,6 @@ def get_entity_viewer_entities():
                 """
                 params = [project_id]
                 
-                if drawing_ids and has_drawing_id:
-                    placeholders = ','.join(['%s'] * len(drawing_ids))
-                    query += f" AND t.drawing_id IN ({placeholders})"
-                    params.extend(drawing_ids)
-                
-                if layer_names and has_layer_name:
-                    placeholders = ','.join(['%s'] * len(layer_names))
-                    query += f" AND t.layer_name IN ({placeholders})"
-                    params.extend(layer_names)
-            elif has_drawing_id:
-                query = f"""
-                    SELECT 
-                        '{entity_type}' as entity_type,
-                        t.{config['id_column']}::text as entity_id,
-                        t.{config['label_column']} as label,
-                        {'t.layer_name' if has_layer_name else "'' as layer_name"},
-                        '{config['category']}' as category,
-                        '{config['type']}' as geometry_type,
-                        '{config['color']}' as color,
-                        ST_AsGeoJSON(ST_Transform(t.{geom_col}, 4326))::json as geometry,
-                        ST_GeometryType(t.{geom_col}) as geom_type
-                    FROM {config['table']} t
-                    JOIN drawings d ON t.drawing_id = d.drawing_id
-                    WHERE d.project_id = %s
-                """
-                params = [project_id]
-                
-                if drawing_ids:
-                    placeholders = ','.join(['%s'] * len(drawing_ids))
-                    query += f" AND t.drawing_id IN ({placeholders})"
-                    params.extend(drawing_ids)
-                
                 if layer_names and has_layer_name:
                     placeholders = ','.join(['%s'] * len(layer_names))
                     query += f" AND t.layer_name IN ({placeholders})"
@@ -15051,31 +14961,6 @@ def get_entity_viewer_entities():
                         WHERE t.project_id = %s AND t.{geom_col} IS NOT NULL
                     """
                     bbox_params = [project_id]
-                    
-                    if drawing_ids and has_drawing_id:
-                        placeholders = ','.join(['%s'] * len(drawing_ids))
-                        bbox_query += f" AND t.drawing_id IN ({placeholders})"
-                        bbox_params.extend(drawing_ids)
-                    
-                    if layer_names and has_layer_name:
-                        placeholders = ','.join(['%s'] * len(layer_names))
-                        bbox_query += f" AND t.layer_name IN ({placeholders})"
-                        bbox_params.extend(layer_names)
-                    
-                    bbox_queries.append((bbox_query, tuple(bbox_params)))
-                elif has_drawing_id:
-                    bbox_query = f"""
-                        SELECT ST_Extent(ST_Transform(t.{geom_col}, 4326)) as bbox
-                        FROM {config['table']} t
-                        JOIN drawings d ON t.drawing_id = d.drawing_id
-                        WHERE d.project_id = %s AND t.{geom_col} IS NOT NULL
-                    """
-                    bbox_params = [project_id]
-                    
-                    if drawing_ids:
-                        placeholders = ','.join(['%s'] * len(drawing_ids))
-                        bbox_query += f" AND t.drawing_id IN ({placeholders})"
-                        bbox_params.extend(drawing_ids)
                     
                     if layer_names and has_layer_name:
                         placeholders = ','.join(['%s'] * len(layer_names))
