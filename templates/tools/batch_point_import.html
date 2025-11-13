@@ -6,9 +6,21 @@
 <div class="mc-page">
     <div class="mc-header">
         <h1>📍 Batch Point Import Tool</h1>
-        <p>Import survey points from PNEZD text files (Point, Northing, Easting, Elevation, Description)</p>
+        <p>Import survey points from PNEZD text files with optional code processing and auto-connectivity</p>
     </div>
 
+    <!-- Mode Tabs -->
+    <div class="tab-nav">
+        <button class="tab-btn active" data-mode="basic" onclick="switchMode('basic')">
+            📍 Basic Import
+        </button>
+        <button class="tab-btn" data-mode="survey" onclick="switchMode('survey')">
+            🎯 Survey Code Import (Auto-Connectivity)
+        </button>
+    </div>
+
+    <!-- Basic Import Mode (Existing Functionality) -->
+    <div id="basicMode" style="display:block;">
     <!-- Configuration Section -->
     <div class="mc-card" id="configSection">
         <h2>Step 1: Configure Import</h2>

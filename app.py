@@ -163,7 +163,7 @@ def batch_block_import_tool_redirect():
 
 @app.route('/tools/batch-point-import')
 def batch_point_import_tool():
-    """Batch Point Import Tool - Import survey points from PNEZD text files"""
+    """Batch Point Import Tool - Import survey points from PNEZD text files (includes Survey Code Import mode)"""
     return render_template('tools/batch_point_import.html')
 
 @app.route('/tools/specialized-tools-directory')
@@ -15371,6 +15371,86 @@ def get_connectivity_rules():
         parser = SurveyCodeParser(DB_CONFIG)
         rules = parser.get_connectivity_rules()
         return jsonify(rules)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-import/preview', methods=['POST'])
+def survey_import_preview():
+    """
+    Preview survey data import with code parsing and connectivity analysis
+    
+    Accepts: multipart/form-data with file upload
+    Returns: JSON with parsed points, sequences, line segments, warnings
+    """
+    from survey_import_service import SurveyImportService
+    
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        coordinate_system = request.form.get('coordinate_system', 'SRID_2226')
+        drawing_id = request.form.get('drawing_id')
+        
+        content = file.read().decode('utf-8-sig')
+        
+        service = SurveyImportService(DB_CONFIG)
+        
+        points, parse_errors = service.parse_pnezd_with_codes(content, coordinate_system)
+        
+        if parse_errors and not points:
+            return jsonify({
+                'error': 'Failed to parse file',
+                'details': parse_errors
+            }), 400
+        
+        preview_data = service.generate_preview(points, drawing_id)
+        
+        preview_data['parse_errors'] = parse_errors
+        preview_data['filename'] = secure_filename(file.filename)
+        preview_data['coordinate_system'] = coordinate_system
+        
+        return jsonify(preview_data)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-import/commit', methods=['POST'])
+def survey_import_commit():
+    """
+    Commit survey import to database (transactional)
+    
+    Accepts: JSON with preview_data, project_id, drawing_id
+    Returns: Import summary with counts and IDs
+    """
+    from survey_import_service import SurveyImportService
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        preview_data = data.get('preview_data')
+        project_id = data.get('project_id')
+        drawing_id = data.get('drawing_id')
+        
+        if not preview_data:
+            return jsonify({'error': 'preview_data is required'}), 400
+        
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        service = SurveyImportService(DB_CONFIG)
+        
+        result = service.commit_import(preview_data, project_id, drawing_id)
+        
+        return jsonify(result)
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
