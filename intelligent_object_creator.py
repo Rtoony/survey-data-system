@@ -153,11 +153,14 @@ class IntelligentObjectCreator:
         if not network_mode:
             # Infer from utility type
             if utility_type.lower() in ['storm', 'sanitary', 'sewer']:
-                network_mode = 'GRAVITY'
+                network_mode = 'gravity'
             elif utility_type.lower() in ['water', 'potable', 'reuse', 'reclaim']:
-                network_mode = 'PRESSURE'
+                network_mode = 'pressure'
             else:
                 network_mode = None  # Skip network association
+        elif network_mode:
+            # Normalize to lowercase for database enum compatibility
+            network_mode = network_mode.lower()
         
         cur.execute("""
             INSERT INTO utility_lines (
@@ -210,11 +213,14 @@ class IntelligentObjectCreator:
         if not network_mode:
             # Infer from utility type
             if utility_type.lower() in ['storm', 'sanitary', 'sewer']:
-                network_mode = 'GRAVITY'
+                network_mode = 'gravity'
             elif utility_type.lower() in ['water', 'potable', 'reuse', 'reclaim']:
-                network_mode = 'PRESSURE'
+                network_mode = 'pressure'
             else:
                 network_mode = None  # Skip network association
+        elif network_mode:
+            # Normalize to lowercase for database enum compatibility
+            network_mode = network_mode.lower()
         
         cur.execute("""
             INSERT INTO utility_structures (
@@ -251,11 +257,15 @@ class IntelligentObjectCreator:
         
         IMPORTANT: storm_bmps.geometry requires MultiPolygon with SRID 3857.
         DXF imports use SRID 2226, so transformation is required.
+        
+        NOTE: Accepts both POLYGON and closed LINESTRING geometries.
+        Closed linestrings (where first point == last point) are converted to polygons.
         """
         geometry_type = entity_data.get('geometry_type', '').upper()
+        geometry_wkt = entity_data.get('geometry_wkt')
         
-        # Only accept polygons - storm_bmps requires polygon geometries
-        if geometry_type not in ['POLYGON', 'POLYGON Z']:
+        # Accept polygons or closed linestrings (linestrings can represent polygon boundaries)
+        if geometry_type not in ['POLYGON', 'POLYGON Z', 'LINESTRING', 'LINESTRING Z']:
             return None
         
         if not self.conn:
@@ -264,39 +274,65 @@ class IntelligentObjectCreator:
         cur = self.conn.cursor()
         props = classification.properties
         
-        bmp_type = props.get('bmp_type', 'Unknown')
+        # Extract BMP type from classification properties
+        # Properties use 'object_type' key for the object type code (BIOR, POND, INFIL, etc.)
+        type_code = props.get('object_type', 'UNK')
+        
+        # Map type codes to friendly names
+        type_names = {
+            'BIOR': 'Bioretention',
+            'BIOF': 'Biofilter',
+            'RAIN': 'Rain Garden',
+            'POND': 'Detention Pond',
+            'INFIL': 'Infiltration Basin',
+            'BASIN': 'Detention Basin'
+        }
+        bmp_type = type_names.get(type_code, type_code)
         bmp_name = f"{bmp_type} - {entity_data.get('layer_name', 'BMP')}"
         design_volume = props.get('design_volume_cf')
         
-        geometry_wkt = entity_data.get('geometry_wkt')
+        # For LINESTRING geometries, convert to polygon using ST_MakePolygon if closed
+        if geometry_type in ['LINESTRING', 'LINESTRING Z']:
+            # Check if linestring is closed (first point == last point)
+            # If closed, convert to polygon using ST_MakePolygon
+            geom_sql = "ST_MakePolygon(ST_GeomFromText(%s, 2226))"
+        else:
+            # Already a polygon, use directly
+            geom_sql = "ST_GeomFromText(%s, 2226)"
         
         # Transform geometry from SRID 2226 (CAD) to SRID 3857 (Web Mercator)
+        # Storm_bmps requires 2D geometry, so use ST_Force2D to strip Z coordinates
         # and ensure it's a MultiPolygon
-        cur.execute("""
-            INSERT INTO storm_bmps (
-                project_id, bmp_name, bmp_type, treatment_volume_cf,
-                geometry, attributes
-            )
-            VALUES (
-                %s, %s, %s, %s,
-                ST_Multi(ST_Transform(ST_SetSRID(ST_GeomFromText(%s), 2226), 3857)),
-                %s
-            )
-            RETURNING bmp_id
-        """, (
-            project_id,
-            bmp_name,
-            bmp_type,
-            design_volume,
-            geometry_wkt,
-            json.dumps({'source': 'dxf_import', 'layer_name': entity_data.get('layer_name')})
-        ))
+        try:
+            cur.execute(f"""
+                INSERT INTO storm_bmps (
+                    project_id, bmp_name, bmp_type, treatment_volume_cf,
+                    geometry, attributes
+                )
+                VALUES (
+                    %s, %s, %s, %s,
+                    ST_Multi(ST_Force2D(ST_Transform({geom_sql}, 3857))),
+                    %s
+                )
+                RETURNING bmp_id
+            """, (
+                project_id,
+                bmp_name,
+                bmp_type,
+                design_volume,
+                geometry_wkt,
+                json.dumps({'source': 'dxf_import', 'layer_name': entity_data.get('layer_name')})
+            ))
+            
+            result = cur.fetchone()
+            cur.close()
+            
+            if result:
+                return ('bmp', str(result[0]), 'storm_bmps')
+        except Exception as e:
+            cur.close()
+            return None
         
-        result = cur.fetchone()
-        cur.close()
-        
-        if result:
-            return ('bmp', str(result[0]), 'storm_bmps')
         return None
     
     def _create_surface_model(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:

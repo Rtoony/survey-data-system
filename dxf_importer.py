@@ -311,6 +311,10 @@ class DXFImporter:
                     'entity_type': entity_type
                 }
                 
+                # Insert geometry using ST_GeomFromText
+                # The POLYGON Z WKT format should preserve the polygon type
+                geom_cast = f"ST_GeomFromText(%s, {self.srid})"
+                
                 # Insert entity with NULL drawing_id (project-level import)
                 cur.execute(f"""
                     INSERT INTO drawing_entities (
@@ -318,7 +322,7 @@ class DXFImporter:
                         geometry, dxf_handle, color_aci, lineweight, linetype, 
                         transparency, quality_score, tags, attributes
                     )
-                    VALUES (NULL, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
+                    VALUES (NULL, %s, %s, %s, {geom_cast}, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
                 """, (
                     entity_type, layer_id, space,
                     geometry_wkt, dxf_handle, color_aci, lineweight, linetype,
