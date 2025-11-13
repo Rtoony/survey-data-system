@@ -34,6 +34,7 @@ Preferred communication style: Simple, everyday language.
 - **CAD Layer Naming Standards:** Database-driven classifier for CAD layer names.
 - **Mission Control Design System:** Centralized design system with reusable classes, variables, and a cyan/neon color palette.
 - **Horizontal Navigation Architecture:** Sticky horizontal navbar with 10 dropdown menus and 41 navigation items.
+- **Project-Centric Organization (Nov 2025):** System restructured from drawing-centric to project-centric organization. Entities now link directly to projects rather than through intermediate drawing files, simplifying data retrieval and aligning with real-world civil engineering workflows where projects are the primary unit of work.
 - **Projects Navigation Restructure:** Unified projects functionality under `/projects` route with search, CRUD, and individual project overviews.
 - **Specialized Tools Registry:** Database-driven system linking CAD object types to interactive management tools.
 
