@@ -7687,10 +7687,11 @@ def run_z_stress_test():
 
 @app.route('/api/tools/generate-test-dxf', methods=['POST'])
 def generate_test_dxf():
-    """Generate a test DXF file with sample geometries and network objects"""
+    """Generate a comprehensive test DXF file with all supported entity types"""
     try:
         import ezdxf
         import random
+        import math
         
         data = request.get_json(silent=True)
         if not data:
@@ -7699,6 +7700,11 @@ def generate_test_dxf():
         geometries = data.get('geometries', [])
         networks = data.get('networks', [])
         bmps = data.get('bmps', [])
+        survey = data.get('survey', [])
+        specialized = data.get('specialized', [])
+        roads = data.get('roads', [])
+        grading = data.get('grading', [])
+        generic = data.get('generic', [])
         layer_mode = data.get('layerMode', 'canonical')
         complexity = data.get('complexity', 'basic')
         
@@ -7714,19 +7720,328 @@ def generate_test_dxf():
         # 2286 Chanate Road, Santa Rosa, CA (Lat: 38.4468, Lon: -122.7047)
         base_x = 6359843  # feet
         base_y = 1925319  # feet
+        base_z = 285.5  # feet (approximate elevation in Santa Rosa)
         
         # Create new DXF document (AutoCAD 2013)
         doc = ezdxf.new('AC1027')
         msp = doc.modelspace()
         
-        # Helper function for random offset
+        # Helper functions
         def random_offset():
             return random.uniform(-500, 500)
         
+        def random_elevation(base=base_z):
+            return base + random.uniform(-10, 10)
+        
+        # === SURVEY POINTS ===
+        if 'CTRL' in survey:  # Control Points
+            layer_name = 'SURV-CTRL-MONUMENT-EXST-PT' if layer_mode == 'canonical' else 'Control_Points'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 1})
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                z = random_elevation()
+                msp.add_point((x, y, z), dxfattribs={'layer': layer_name})
+                msp.add_text(f'CP-{100+i}', dxfattribs={
+                    'layer': layer_name, 'height': 2.0, 'insert': (x+2, y+2, z)
+                })
+        
+        if 'BENCH' in survey:  # Benchmarks
+            layer_name = 'SURV-CTRL-BENCH-EXST-PT' if layer_mode == 'canonical' else 'Benchmarks'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 2})
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                z = random_elevation()
+                msp.add_point((x, y, z), dxfattribs={'layer': layer_name})
+                msp.add_text(f'BM-{i+1} EL={z:.2f}', dxfattribs={
+                    'layer': layer_name, 'height': 1.8, 'insert': (x+2, y-2, z)
+                })
+        
+        if 'TOPO' in survey:  # Topographic Shots
+            layer_name = 'SURV-TOPO-SHOT-EXST-PT' if layer_mode == 'canonical' else 'Topo_Shots'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 8})
+            for i in range(count * 3):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                z = random_elevation()
+                msp.add_point((x, y, z), dxfattribs={'layer': layer_name})
+        
+        # === SITE TREES ===
+        if 'TREE' in specialized:
+            layer_name = 'LAND-TREE-OAK-24IN-EXST-PT' if layer_mode == 'canonical' else 'Trees'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 94})
+            if 'TREE_SYMBOL' not in doc.blocks:
+                blk = doc.blocks.new(name='TREE_SYMBOL')
+                blk.add_circle((0, 0), radius=5)
+                blk.add_circle((0, 0), radius=8)
+            species = ['OAK', 'MAPLE', 'PINE', 'ELM', 'BIRCH']
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                z = random_elevation()
+                dbh = random.randint(12, 36)
+                msp.add_blockref('TREE_SYMBOL', (x, y, z), dxfattribs={'layer': layer_name})
+                msp.add_text(f'{species[i % len(species)]}\n{dbh}"DBH', dxfattribs={
+                    'layer': layer_name, 'height': 1.5, 'insert': (x+10, y, z)
+                })
+        
+        # === HORIZONTAL ALIGNMENTS ===
+        if 'ALIGN' in specialized:
+            layer_name = 'CIV-ROAD-CL-NEW-LN' if layer_mode == 'canonical' else 'Road_Centerlines'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 3})
+            for i in range(count):
+                x1 = base_x + random_offset()
+                y1 = base_y + random_offset()
+                z1 = random_elevation()
+                points_3d = [(x1, y1, z1)]
+                for seg in range(4):
+                    x_next = points_3d[-1][0] + random.uniform(80, 150)
+                    y_next = points_3d[-1][1] + random.uniform(-30, 30)
+                    z_next = random_elevation()
+                    points_3d.append((x_next, y_next, z_next))
+                msp.add_polyline3d(points_3d, dxfattribs={'layer': layer_name})
+                msp.add_text(f'ROAD {chr(65+i)}', dxfattribs={
+                    'layer': layer_name, 'height': 4.0, 'insert': (x1-20, y1+10)
+                })
+        
+        # === SURFACE MODELS ===
+        if 'CONTOUR' in specialized:
+            elevations = [280, 282.5, 285, 287.5, 290, 292.5, 295]
+            for elev in elevations:
+                layer_name = f'SITE-GRAD-CNTR-EXST-LN' if layer_mode == 'canonical' else f'Contours'
+                if layer_name not in [layer.dxf.name for layer in doc.layers]:
+                    doc.layers.new(name=layer_name, dxfattribs={'color': 9})
+                x_offset = (elev - 285) * 30
+                points = []
+                for angle in range(0, 360, 30):
+                    radius = 100 + random.uniform(-20, 20)
+                    x = base_x + x_offset + radius * math.cos(math.radians(angle))
+                    y = base_y + radius * math.sin(math.radians(angle))
+                    points.append((x, y, elev))
+                points.append(points[0])
+                msp.add_polyline3d(points, dxfattribs={'layer': layer_name})
+        
+        if 'SPOT' in specialized:
+            layer_name = 'SITE-GRAD-SPOT-EXST-PT' if layer_mode == 'canonical' else 'Spot_Elevations'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 11})
+            for i in range(count * 2):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                z = random_elevation()
+                msp.add_point((x, y, z), dxfattribs={'layer': layer_name})
+                msp.add_text(f'{z:.1f}', dxfattribs={
+                    'layer': layer_name, 'height': 1.5, 'insert': (x+1, y+1)
+                })
+        
+        # === PARCELS ===
+        if 'PARCEL' in specialized:
+            layer_name = 'SURV-BNDY-PROP-EXST-PG' if layer_mode == 'canonical' else 'Property_Lines'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 1})
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                width = random.uniform(150, 300)
+                depth = random.uniform(200, 400)
+                points = [
+                    (x, y), (x + width, y), (x + width, y + depth), (x, y + depth), (x, y)
+                ]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+                msp.add_text(f'APN {1000+i}', dxfattribs={
+                    'layer': layer_name, 'height': 5.0, 'insert': (x + width/2, y + depth/2)
+                })
+        
+        # === ROAD INFRASTRUCTURE ===
+        if 'CURB' in roads:
+            layer_name = 'CIV-ROAD-CURB-6IN-NEW-LN' if layer_mode == 'canonical' else 'Curbs'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 8})
+            for i in range(count):
+                x1 = base_x + random_offset()
+                y1 = base_y + random_offset()
+                length = random.uniform(100, 200)
+                msp.add_line((x1, y1), (x1 + length, y1), dxfattribs={'layer': layer_name})
+        
+        if 'SIDEWALK' in roads:
+            layer_name = 'CIV-ROAD-SDWK-5FT-NEW-PG' if layer_mode == 'canonical' else 'Sidewalks'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 252})
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                length = random.uniform(100, 200)
+                width = 5
+                points = [(x, y), (x + length, y), (x + length, y + width), (x, y + width), (x, y)]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+        
+        if 'STRIPING' in roads:
+            layer_name = 'CIV-ROAD-STRP-YLW-NEW-LN' if layer_mode == 'canonical' else 'Striping'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 2})
+            for i in range(count):
+                x1 = base_x + random_offset()
+                y1 = base_y + random_offset()
+                for dash in range(10):
+                    x_start = x1 + (dash * 15)
+                    msp.add_line((x_start, y1), (x_start + 10, y1), dxfattribs={'layer': layer_name})
+        
+        if 'RAMP' in roads:
+            layer_name = 'CIV-ADA-RAMP-NEW-PG' if layer_mode == 'canonical' else 'ADA_Ramps'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 6})
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                points = [(x, y), (x + 6, y), (x + 6, y + 5), (x, y + 5), (x, y)]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+        
+        # === GRADING FEATURES ===
+        if 'SWALE' in grading:
+            layer_name = 'SITE-GRAD-SWALE-NEW-PG' if layer_mode == 'canonical' else 'Swales'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 93})
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                length = random.uniform(40, 80)
+                width = random.uniform(6, 12)
+                points = [(x, y), (x + length, y), (x + length, y + width), (x, y + width), (x, y)]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+        
+        if 'BERM' in grading:
+            layer_name = 'SITE-GRAD-BERM-4FT-NEW-LN' if layer_mode == 'canonical' else 'Berms'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 30})
+            for i in range(count):
+                x1 = base_x + random_offset()
+                y1 = base_y + random_offset()
+                x2 = x1 + random.uniform(50, 100)
+                y2 = y1 + random.uniform(-20, 20)
+                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': layer_name})
+        
+        if 'PAD' in grading:
+            layer_name = 'SITE-GRAD-PAD-NEW-PG' if layer_mode == 'canonical' else 'Building_Pads'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 5})
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                z = random_elevation()
+                size = random.uniform(40, 80)
+                points = [(x, y), (x + size, y), (x + size, y + size), (x, y + size), (x, y)]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+                msp.add_text(f'PAD {i+1}\nEL={z:.1f}', dxfattribs={
+                    'layer': layer_name, 'height': 3.0, 'insert': (x + size/3, y + size/2)
+                })
+        
+        # === ADDITIONAL UTILITY TYPES ===
+        if 'SANITARY' in networks:
+            pipe_layer = 'CIV-UTIL-SANIT-8IN-NEW-LN' if layer_mode == 'canonical' else 'Sanitary_Sewer'
+            mh_layer = 'CIV-UTIL-SANIT-MH-NEW-PT' if layer_mode == 'canonical' else 'Sanitary_MH'
+            doc.layers.new(name=pipe_layer, dxfattribs={'color': 40})
+            doc.layers.new(name=mh_layer, dxfattribs={'color': 41})
+            if 'SS_MH' not in doc.blocks:
+                blk = doc.blocks.new(name='SS_MH')
+                blk.add_circle((0, 0), radius=2)
+                blk.add_text('SS', dxfattribs={'height': 1.2, 'insert': (-0.8, -0.6)})
+            for i in range(count):
+                x1 = base_x + random_offset()
+                y1 = base_y + random_offset()
+                x2 = x1 + random.uniform(40, 80)
+                y2 = y1 - random.uniform(20, 40)
+                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': pipe_layer})
+                msp.add_blockref('SS_MH', (x1, y1), dxfattribs={'layer': mh_layer})
+        
+        if 'GAS' in networks:
+            layer_name = 'CIV-UTIL-GAS-4IN-NEW-LN' if layer_mode == 'canonical' else 'Gas_Lines'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 1})
+            for i in range(count):
+                x1 = base_x + random_offset()
+                y1 = base_y + random_offset()
+                x2 = x1 + random.uniform(50, 100)
+                y2 = y1 + random.uniform(-20, 20)
+                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': layer_name})
+        
+        if 'ELECTRIC' in networks:
+            layer_name = 'CIV-UTIL-ELEC-NEW-LN' if layer_mode == 'canonical' else 'Electric'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 6})
+            for i in range(count):
+                x1 = base_x + random_offset()
+                y1 = base_y + random_offset()
+                x2 = x1 + random.uniform(60, 120)
+                y2 = y1 + random.uniform(-30, 30)
+                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': layer_name})
+        
+        if 'TELECOM' in networks:
+            layer_name = 'CIV-UTIL-TELE-NEW-LN' if layer_mode == 'canonical' else 'Telecom'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 4})
+            for i in range(count):
+                x1 = base_x + random_offset()
+                y1 = base_y + random_offset()
+                x2 = x1 + random.uniform(50, 100)
+                y2 = y1 + random.uniform(-20, 20)
+                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': layer_name})
+        
+        # === ADDITIONAL UTILITY STRUCTURES ===
+        if 'CLEANOUT' in networks:
+            layer_name = 'CIV-UTIL-CLNOUT-NEW-PT' if layer_mode == 'canonical' else 'Cleanouts'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 3})
+            if 'CO_SYMBOL' not in doc.blocks:
+                blk = doc.blocks.new(name='CO_SYMBOL')
+                blk.add_circle((0, 0), radius=1.5)
+                blk.add_text('CO', dxfattribs={'height': 0.8, 'insert': (-0.6, -0.4)})
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                msp.add_blockref('CO_SYMBOL', (x, y), dxfattribs={'layer': layer_name})
+        
+        if 'METER' in networks:
+            layer_name = 'CIV-UTIL-METER-NEW-PT' if layer_mode == 'canonical' else 'Meters'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 4})
+            if 'METER_SYMBOL' not in doc.blocks:
+                blk = doc.blocks.new(name='METER_SYMBOL')
+                blk.add_lwpolyline([(0, 1.5), (1.5, 0), (0, -1.5), (-1.5, 0), (0, 1.5)])
+                blk.add_text('M', dxfattribs={'height': 0.9, 'insert': (-0.4, -0.45)})
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                msp.add_blockref('METER_SYMBOL', (x, y), dxfattribs={'layer': layer_name})
+        
+        if 'JBOX' in networks:
+            layer_name = 'CIV-UTIL-JBOX-NEW-PT' if layer_mode == 'canonical' else 'Junction_Boxes'
+            doc.layers.new(name=layer_name, dxfattribs={'color': 7})
+            for i in range(count):
+                x = base_x + random_offset()
+                y = base_y + random_offset()
+                size = 2
+                points = [(x-size, y-size), (x+size, y-size), (x+size, y+size), (x-size, y+size), (x-size, y-size)]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+        
+        # === GENERIC/PROBLEMATIC ENTITIES ===
+        if 'PROBLEM' in generic:
+            problematic_layers = [
+                'random-stuff',
+                'MISC_POINTS',
+                'layer1',
+                'Unknown-Objects',
+                'temp_data',
+                'A-SITE-TOPO',
+                'CIV_UTIL_STORM',
+                'ExistingUtilities',
+            ]
+            for problem_layer in problematic_layers[:count]:
+                doc.layers.new(name=problem_layer, dxfattribs={'color': random.randint(1, 255)})
+                for j in range(2):
+                    x = base_x + random_offset()
+                    y = base_y + random_offset()
+                    geom_type = random.choice(['point', 'line', 'poly'])
+                    if geom_type == 'point':
+                        msp.add_point((x, y), dxfattribs={'layer': problem_layer})
+                    elif geom_type == 'line':
+                        msp.add_line((x, y), (x + random.uniform(20, 50), y + random.uniform(-20, 20)), 
+                                   dxfattribs={'layer': problem_layer})
+                    else:
+                        size = random.uniform(10, 30)
+                        pts = [(x, y), (x+size, y), (x+size, y+size), (x, y+size), (x, y)]
+                        msp.add_lwpolyline(pts, close=True, dxfattribs={'layer': problem_layer})
+        
         # Generate basic geometries
-        if 'AXIS' in geometries:  # Lines/Centerlines
+        if 'AXIS' in geometries:
             layer_name = 'CIV-ROAD-CNTR-EXST-AXIS' if layer_mode == 'canonical' else 'Centerlines'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 3})  # Green
+            doc.layers.new(name=layer_name, dxfattribs={'color': 3})
             for i in range(count):
                 x1 = base_x + random_offset()
                 y1 = base_y + random_offset()

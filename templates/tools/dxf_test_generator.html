@@ -96,6 +96,146 @@
                 </div>
             </div>
 
+            <!-- Survey Points Section -->
+            <div class="section-group">
+                <h3><i class="fas fa-map-pin"></i> Survey Points</h3>
+                <p class="mc-help-text">Select survey point types with Z-values</p>
+                <div class="checkbox-grid">
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="survey" value="CTRL" checked>
+                        <span>Control Points</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="survey" value="BENCH">
+                        <span>Benchmarks</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="survey" value="TOPO">
+                        <span>Topo Shots</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Specialized Features Section -->
+            <div class="section-group">
+                <h3><i class="fas fa-tools"></i> Specialized Features</h3>
+                <p class="mc-help-text">Advanced civil/site features</p>
+                <div class="checkbox-grid">
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="specialized" value="TREE" checked>
+                        <span>Site Trees</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="specialized" value="ALIGN">
+                        <span>Alignments</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="specialized" value="CONTOUR">
+                        <span>Contours</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="specialized" value="SPOT">
+                        <span>Spot Elevations</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="specialized" value="PARCEL">
+                        <span>Parcels</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Road Infrastructure Section -->
+            <div class="section-group">
+                <h3><i class="fas fa-road"></i> Road Infrastructure</h3>
+                <p class="mc-help-text">Road and street components</p>
+                <div class="checkbox-grid">
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="road" value="CURB">
+                        <span>Curbs</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="road" value="SIDEWALK">
+                        <span>Sidewalks</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="road" value="STRIPING">
+                        <span>Striping</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="road" value="RAMP">
+                        <span>ADA Ramps</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Grading Features Section -->
+            <div class="section-group">
+                <h3><i class="fas fa-mountain"></i> Grading Features</h3>
+                <p class="mc-help-text">Earthwork and grading elements</p>
+                <div class="checkbox-grid">
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="grading" value="SWALE">
+                        <span>Swales</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="grading" value="BERM">
+                        <span>Berms</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="grading" value="PAD">
+                        <span>Building Pads</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Additional Utilities Section -->
+            <div class="section-group">
+                <h3><i class="fas fa-network-wired"></i> Additional Utilities</h3>
+                <p class="mc-help-text">More utility systems and structures</p>
+                <div class="checkbox-grid">
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="network" value="SANITARY">
+                        <span>Sanitary Sewer</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="network" value="GAS">
+                        <span>Gas</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="network" value="ELECTRIC">
+                        <span>Electric</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="network" value="TELECOM">
+                        <span>Telecom</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="network" value="CLEANOUT">
+                        <span>Cleanouts</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="network" value="METER">
+                        <span>Meters</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="network" value="JBOX">
+                        <span>Junction Boxes</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Generic/Problematic Data Section -->
+            <div class="section-group">
+                <h3><i class="fas fa-exclamation-triangle"></i> Generic/Test Data</h3>
+                <p class="mc-help-text">Intentionally problematic for Object Reclassifier</p>
+                <div class="checkbox-grid">
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="generic" value="PROBLEM" checked>
+                        <span>Malformed Layers</span>
+                    </label>
+                </div>
+            </div>
+
             <button id="generateBtn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
                 <i class="fas fa-magic"></i> Generate Test DXF
             </button>
@@ -253,6 +393,11 @@ function updatePreview() {
     const geometries = Array.from(document.querySelectorAll('input[name="geometry"]:checked')).map(cb => cb.nextElementSibling.textContent);
     const networks = Array.from(document.querySelectorAll('input[name="network"]:checked')).map(cb => cb.nextElementSibling.textContent);
     const bmps = Array.from(document.querySelectorAll('input[name="bmp"]:checked')).map(cb => cb.nextElementSibling.textContent);
+    const survey = Array.from(document.querySelectorAll('input[name="survey"]:checked')).map(cb => cb.nextElementSibling.textContent);
+    const specialized = Array.from(document.querySelectorAll('input[name="specialized"]:checked')).map(cb => cb.nextElementSibling.textContent);
+    const roads = Array.from(document.querySelectorAll('input[name="road"]:checked')).map(cb => cb.nextElementSibling.textContent);
+    const grading = Array.from(document.querySelectorAll('input[name="grading"]:checked')).map(cb => cb.nextElementSibling.textContent);
+    const generic = Array.from(document.querySelectorAll('input[name="generic"]:checked')).map(cb => cb.nextElementSibling.textContent);
     const complexity = document.getElementById('complexity').value;
     
     let preview = '<ul style="margin: 0; padding-left: 1.5rem;">';
@@ -261,10 +406,25 @@ function updatePreview() {
         preview += '<li><strong>Geometry:</strong> ' + geometries.join(', ') + '</li>';
     }
     if (networks.length > 0) {
-        preview += '<li><strong>Networks:</strong> ' + networks.join(', ') + '</li>';
+        preview += '<li><strong>Networks/Utilities:</strong> ' + networks.join(', ') + '</li>';
     }
     if (bmps.length > 0) {
         preview += '<li><strong>BMPs:</strong> ' + bmps.join(', ') + '</li>';
+    }
+    if (survey.length > 0) {
+        preview += '<li><strong>Survey:</strong> ' + survey.join(', ') + '</li>';
+    }
+    if (specialized.length > 0) {
+        preview += '<li><strong>Specialized:</strong> ' + specialized.join(', ') + '</li>';
+    }
+    if (roads.length > 0) {
+        preview += '<li><strong>Roads:</strong> ' + roads.join(', ') + '</li>';
+    }
+    if (grading.length > 0) {
+        preview += '<li><strong>Grading:</strong> ' + grading.join(', ') + '</li>';
+    }
+    if (generic.length > 0) {
+        preview += '<li><strong>Test Data:</strong> ' + generic.join(', ') + '</li>';
     }
     preview += '<li><strong>Complexity:</strong> ' + complexity.charAt(0).toUpperCase() + complexity.slice(1) + '</li>';
     preview += '</ul>';
@@ -284,6 +444,11 @@ document.getElementById('generateBtn').addEventListener('click', async function(
         geometries: Array.from(document.querySelectorAll('input[name="geometry"]:checked')).map(cb => cb.value),
         networks: Array.from(document.querySelectorAll('input[name="network"]:checked')).map(cb => cb.value),
         bmps: Array.from(document.querySelectorAll('input[name="bmp"]:checked')).map(cb => cb.value),
+        survey: Array.from(document.querySelectorAll('input[name="survey"]:checked')).map(cb => cb.value),
+        specialized: Array.from(document.querySelectorAll('input[name="specialized"]:checked')).map(cb => cb.value),
+        roads: Array.from(document.querySelectorAll('input[name="road"]:checked')).map(cb => cb.value),
+        grading: Array.from(document.querySelectorAll('input[name="grading"]:checked')).map(cb => cb.value),
+        generic: Array.from(document.querySelectorAll('input[name="generic"]:checked')).map(cb => cb.value),
         layerMode: document.getElementById('layerMode').value,
         complexity: document.getElementById('complexity').value
     };
