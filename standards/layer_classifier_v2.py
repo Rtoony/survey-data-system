@@ -196,6 +196,7 @@ class LayerClassifierV2:
         # Determine object type for database
         # Map layer object_type to database object classification
         obj_type_map = {
+            # Utilities
             'STORM': 'utility_line',
             'SANIT': 'utility_line',
             'WATER': 'utility_line',
@@ -212,17 +213,35 @@ class LayerClassifierV2:
             'METER': 'utility_structure',
             'HYDRA': 'utility_structure',
             'PUMP': 'utility_structure',
+            # Alignments
             'CL': 'alignment',
+            # Surface/Terrain
             'CNTR': 'contour',
             'SPOT': 'spot_elevation',
+            # Survey
             'MONUMENT': 'survey_point',
             'BENCH': 'survey_point',
             'SHOT': 'survey_point',
+            'PROP': 'parcel',
+            # Grading
+            'PAD': 'grading_feature',
+            'BERM': 'grading_feature',
+            'SWALE': 'grading_feature',
+            'SWAL': 'grading_feature',
+            # Road/Surface Features
+            'CURB': 'surface_feature',
+            'SDWK': 'surface_feature',
+            'STRP': 'surface_feature',
+            # BMPs
             'BIORT': 'bmp',
-            'SWALE': 'bmp',
+            'BIOR': 'bmp',
             'BASIN': 'bmp',
+            'POND': 'bmp',
+            'INFIL': 'bmp',
+            # ADA
             'RAMP': 'ada_feature',
             'PATH': 'ada_feature',
+            # Trees
             'TREE': 'site_tree',
         }
         
@@ -283,6 +302,7 @@ class LayerClassifierV2:
         
         # Map to object type
         obj_type_map = {
+            # Utilities
             'STORM': 'utility_line',
             'SANIT': 'utility_line',
             'WATER': 'utility_line',
@@ -299,16 +319,35 @@ class LayerClassifierV2:
             'METER': 'utility_structure',
             'HYDRA': 'utility_structure',
             'PUMP': 'utility_structure',
+            # Alignments
+            'CL': 'alignment',
+            # Surface/Terrain
             'CNTR': 'contour',
             'SPOT': 'spot_elevation',
+            # Survey
             'MONUMENT': 'survey_point',
             'BENCH': 'survey_point',
             'SHOT': 'survey_point',
+            'PROP': 'parcel',
+            # Grading
+            'PAD': 'grading_feature',
+            'BERM': 'grading_feature',
+            'SWALE': 'grading_feature',
+            'SWAL': 'grading_feature',
+            # Road/Surface Features
+            'CURB': 'surface_feature',
+            'SDWK': 'surface_feature',
+            'STRP': 'surface_feature',
+            # BMPs
             'BIORT': 'bmp',
-            'SWALE': 'bmp',
+            'BIOR': 'bmp',
             'BASIN': 'bmp',
+            'POND': 'bmp',
+            'INFIL': 'bmp',
+            # ADA
             'RAMP': 'ada_feature',
             'PATH': 'ada_feature',
+            # Trees
             'TREE': 'site_tree',
         }
         
