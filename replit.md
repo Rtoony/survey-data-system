@@ -58,6 +58,7 @@ Preferred communication style: Simple, everyday language.
 - **Survey Point Manager:** Comprehensive point management interface for imported survey data with filtering, multi-select, and soft-delete capabilities.
 - **Project Usage Tracking Dashboard:** Analytics on project/layer/block/note usage patterns.
 - **Civil Project Manager:** Comprehensive project overview dashboard with 5 tabs and a metadata-driven CRUD architecture for managing project-specific attachments.
+- **Sheet Note Manager:** Project-centric note management system with two-panel layout (Standard Notes Library and Project Notes). Supports inline editing with automatic modified copy creation for standard notes, custom note creation with required justification, and full deviation tracking. Features source_type-based badges (Standard/Modified/Custom) and project-level note set organization without drawing dependencies.
 - **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance.
 - **Interactive AI Visualizations:** Knowledge Graph Visualization and a Quality Dashboard.
 
