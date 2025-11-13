@@ -1262,7 +1262,7 @@ def get_project_command_center_data(project_id):
             } for row in review_statuses
         }
         
-        # Get quality score statistics
+        # Get quality score statistics (only from tables that have quality_score column)
         quality_query = """
             SELECT 
                 COUNT(*) as total_objects,
@@ -1270,18 +1270,16 @@ def get_project_command_center_data(project_id):
                 SUM(CASE WHEN quality_score < 0.5 THEN 1 ELSE 0 END) as low_quality_count,
                 SUM(CASE WHEN quality_score >= 0.7 THEN 1 ELSE 0 END) as high_quality_count
             FROM (
-                SELECT quality_score FROM drawing_entities WHERE project_id = %s
+                SELECT de.quality_score FROM drawing_entities de WHERE de.project_id = %s
                 UNION ALL
-                SELECT quality_score FROM utility_lines WHERE project_id = %s
+                SELECT ul.quality_score FROM utility_lines ul WHERE ul.project_id = %s
                 UNION ALL
-                SELECT quality_score FROM utility_structures WHERE project_id = %s
+                SELECT us.quality_score FROM utility_structures us WHERE us.project_id = %s
                 UNION ALL
-                SELECT quality_score FROM storm_bmps WHERE project_id = %s
-                UNION ALL
-                SELECT quality_score FROM survey_points WHERE project_id = %s AND is_active = true
+                SELECT sp.quality_score FROM survey_points sp WHERE sp.project_id = %s AND sp.is_active = true
             ) all_objects
         """
-        quality_result = execute_query(quality_query, (project_id,) * 5)
+        quality_result = execute_query(quality_query, (project_id,) * 4)
         quality_stats = quality_result[0] if quality_result else {}
         
         # Get spatial extent
@@ -9301,10 +9299,9 @@ def import_dxf():
         file.save(temp_path)
         
         try:
-            # If pattern_id is provided, use intelligent object creation
-            # NOTE: Currently the DXFImporter uses its own pattern matching logic
-            # The selected pattern_id serves as a hint but automatic detection is used
-            use_intelligent = pattern_id is not None
+            # Enable intelligent object creation when pattern_id is provided
+            # or by default to enable automatic layer-based classification
+            use_intelligent = True  # Enable by default for automatic classification
             
             # Import DXF with intelligent object creation enabled
             importer = DXFImporter(DB_CONFIG, create_intelligent_objects=use_intelligent)
