@@ -15124,6 +15124,68 @@ def toggle_survey_code_favorite(code_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/survey-codes/export')
+def export_survey_codes_csv():
+    """Export survey codes to CSV for data collector import"""
+    import csv
+    import io
+    from flask import make_response
+    
+    try:
+        query = """
+            SELECT code, display_name, description, discipline_code, category_code,
+                   feature_type, connectivity_type, geometry_output, category_group,
+                   auto_connect, create_block, block_name, layer_template, default_phase,
+                   is_favorite, usage_count
+            FROM survey_code_library
+            WHERE is_active = TRUE
+            ORDER BY is_favorite DESC, category_group, sort_order, display_name
+        """
+        
+        codes = execute_query(query)
+        
+        # Create CSV in memory
+        si = io.StringIO()
+        writer = csv.writer(si)
+        
+        # Write header
+        writer.writerow([
+            'Code', 'Display Name', 'Description', 'Discipline', 'Category',
+            'Feature Type', 'Connectivity', 'Geometry', 'Group',
+            'Auto-Connect', 'Create Block', 'Block Name', 'Layer Template', 'Phase',
+            'Favorite', 'Usage Count'
+        ])
+        
+        # Write data rows
+        for code in codes:
+            writer.writerow([
+                code.get('code', ''),
+                code.get('display_name', ''),
+                code.get('description', ''),
+                code.get('discipline_code', ''),
+                code.get('category_code', ''),
+                code.get('feature_type', ''),
+                code.get('connectivity_type', ''),
+                code.get('geometry_output', ''),
+                code.get('category_group', ''),
+                'Yes' if code.get('auto_connect') else 'No',
+                'Yes' if code.get('create_block') else 'No',
+                code.get('block_name', ''),
+                code.get('layer_template', ''),
+                code.get('default_phase', ''),
+                'Yes' if code.get('is_favorite') else 'No',
+                code.get('usage_count', 0)
+            ])
+        
+        # Create response
+        output = make_response(si.getvalue())
+        output.headers['Content-Type'] = 'text/csv'
+        output.headers['Content-Disposition'] = 'attachment; filename=survey_codes_library.csv'
+        
+        return output
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ===== GIS DATA LAYERS API =====
 
 @app.route('/api/gis-data-layers')

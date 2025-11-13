@@ -72,6 +72,9 @@
                     <input type="checkbox" id="favoritesOnly">
                     <i class="fas fa-star"></i> Favorites Only
                 </label>
+                <button class="mc-btn-secondary" onclick="exportToCSV()">
+                    <i class="fas fa-download"></i> Export CSV
+                </button>
                 <button class="mc-btn-primary" onclick="openAddModal()">
                     <i class="fas fa-plus"></i> Add Code
                 </button>
@@ -726,6 +729,10 @@ async function deleteCode(codeId, codeName) {
     } catch (error) {
         alert('Error deleting code: ' + error.message);
     }
+}
+
+function exportToCSV() {
+    window.location.href = '/api/survey-codes/export';
 }
 
 function closeModal() {
