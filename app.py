@@ -861,7 +861,7 @@ def get_project_intelligent_objects_map(project_id):
                         ELSE ST_Transform(geometry, 4326)
                     END
                 )::json as geometry
-            FROM bmps
+            FROM storm_bmps
             WHERE project_id = %s 
               AND geometry IS NOT NULL
               AND ST_IsValid(geometry)
@@ -896,7 +896,7 @@ def get_project_intelligent_objects_map(project_id):
                         ELSE ST_Transform(geometry, 4326)
                     END
                 )::json as geometry
-            FROM alignments
+            FROM horizontal_alignments
             WHERE project_id = %s 
               AND geometry IS NOT NULL
               AND ST_IsValid(geometry)
@@ -988,26 +988,36 @@ def get_project_intelligent_objects_map(project_id):
                 'geometry': obj['geometry']
             })
         
+        # Group objects by table_name for frontend compatibility
+        grouped_objects = {}
+        for obj in all_objects:
+            table_name = obj['properties']['table_name']
+            if table_name not in grouped_objects:
+                grouped_objects[table_name] = []
+            grouped_objects[table_name].append(obj)
+        
         # Calculate summary counts
         summary = {
-            'utility_lines': len([o for o in all_objects if o['properties']['object_type'] == 'utility_line']),
-            'utility_structures': len([o for o in all_objects if o['properties']['object_type'] == 'utility_structure']),
-            'bmps': len([o for o in all_objects if o['properties']['object_type'] == 'bmp']),
-            'alignments': len([o for o in all_objects if o['properties']['object_type'] == 'alignment']),
-            'site_trees': len([o for o in all_objects if o['properties']['object_type'] == 'site_tree']),
-            'generic_objects': len([o for o in all_objects if o['properties']['object_type'] == 'generic_object']),
+            'utility_lines': len(grouped_objects.get('utility_lines', [])),
+            'utility_structures': len(grouped_objects.get('utility_structures', [])),
+            'bmps': len(grouped_objects.get('bmps', [])),
+            'alignments': len(grouped_objects.get('alignments', [])),
+            'site_trees': len(grouped_objects.get('site_trees', [])),
+            'generic_objects': len(grouped_objects.get('generic_objects', [])),
+            'drawing_entities': len(grouped_objects.get('drawing_entities', [])),
             'total': len(all_objects)
         }
         
-        return jsonify({
+        # Return both grouped objects (for iteration) and metadata (for UI)
+        response = {
             'project_id': project_id,
             'project_name': project_check[0]['project_name'],
-            'intelligent_objects': {
-                'type': 'FeatureCollection',
-                'features': all_objects
-            },
             'summary': summary
-        })
+        }
+        # Merge grouped objects into response
+        response.update(grouped_objects)
+        
+        return jsonify(response)
         
     except Exception as e:
         import traceback
@@ -1061,10 +1071,10 @@ def get_project_statistics(project_id):
             FROM utility_structures WHERE project_id = %s
             UNION ALL
             SELECT 'bmps', COUNT(*)
-            FROM bmps WHERE project_id = %s
+            FROM storm_bmps WHERE project_id = %s
             UNION ALL
             SELECT 'alignments', COUNT(*)
-            FROM alignments WHERE project_id = %s
+            FROM horizontal_alignments WHERE project_id = %s
             UNION ALL
             SELECT 'surface_models', COUNT(*)
             FROM surface_models WHERE project_id = %s
@@ -1187,9 +1197,9 @@ def get_project_command_center_data(project_id):
                 client_name,
                 project_number,
                 description,
-                status,
                 tags,
                 attributes,
+                quality_score,
                 created_at,
                 updated_at
             FROM projects 
@@ -1213,10 +1223,10 @@ def get_project_command_center_data(project_id):
             FROM utility_structures WHERE project_id = %s
             UNION ALL
             SELECT 'bmps', COUNT(*)
-            FROM bmps WHERE project_id = %s
+            FROM storm_bmps WHERE project_id = %s
             UNION ALL
             SELECT 'alignments', COUNT(*)
-            FROM alignments WHERE project_id = %s
+            FROM horizontal_alignments WHERE project_id = %s
             UNION ALL
             SELECT 'surface_models', COUNT(*)
             FROM surface_models WHERE project_id = %s
@@ -1266,7 +1276,7 @@ def get_project_command_center_data(project_id):
                 UNION ALL
                 SELECT quality_score FROM utility_structures WHERE project_id = %s
                 UNION ALL
-                SELECT quality_score FROM bmps WHERE project_id = %s
+                SELECT quality_score FROM storm_bmps WHERE project_id = %s
                 UNION ALL
                 SELECT quality_score FROM survey_points WHERE project_id = %s AND is_active = true
             ) all_objects

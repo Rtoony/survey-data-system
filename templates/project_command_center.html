@@ -517,7 +517,11 @@
                 <div id="mapTab" class="tab-pane active">
                     <div id="mapView"></div>
                     <div class="map-controls">
-                        <h4 style="color: var(--mc-accent); margin: 0 0 1rem 0; font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; text-transform: uppercase;">Layer Control</h4>
+                        <h4 style="color: var(--mc-accent); margin: 0 0 0.5rem 0; font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; text-transform: uppercase;">Map Controls</h4>
+                        <button onclick="zoomToProject()" style="width: 100%; padding: 0.5rem; background: rgba(0, 255, 136, 0.2); border: 1px solid var(--mc-accent); border-radius: 4px; color: var(--mc-text); cursor: pointer; margin-bottom: 1rem; font-family: 'Rajdhani', sans-serif; transition: all 0.2s;">
+                            <i class="fas fa-crosshairs"></i> Zoom to Project
+                        </button>
+                        <h5 style="color: var(--mc-primary); margin: 0 0 0.75rem 0; font-family: 'Rajdhani', sans-serif; font-size: 0.85rem; text-transform: uppercase; padding-top: 0.5rem; border-top: 1px solid rgba(0, 255, 255, 0.2);">Layer Control</h5>
                         <div id="layerToggles"></div>
                     </div>
                 </div>
@@ -797,6 +801,14 @@ function fitMapToBounds(bbox) {
         [bbox.max_y, bbox.max_x]
     ];
     map.fitBounds(bounds, { padding: [50, 50] });
+}
+
+function zoomToProject() {
+    if (projectData && projectData.bbox) {
+        fitMapToBounds(projectData.bbox);
+    } else {
+        alert('No spatial data available for this project');
+    }
 }
 
 async function loadMapObjects() {
