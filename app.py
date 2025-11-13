@@ -7733,10 +7733,15 @@ def generate_test_dxf():
         def random_elevation(base=base_z):
             return base + random.uniform(-10, 10)
         
+        def ensure_layer(layer_name, color):
+            """Create a layer if it doesn't already exist"""
+            if layer_name not in doc.layers:
+                doc.layers.new(name=layer_name, dxfattribs={'color': color})
+        
         # === SURVEY POINTS ===
         if 'CTRL' in survey:  # Control Points
             layer_name = 'SURV-CTRL-MONUMENT-EXST-PT' if layer_mode == 'canonical' else 'Control_Points'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 1})
+            ensure_layer(layer_name, 1)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -7748,7 +7753,7 @@ def generate_test_dxf():
         
         if 'BENCH' in survey:  # Benchmarks
             layer_name = 'SURV-CTRL-BENCH-EXST-PT' if layer_mode == 'canonical' else 'Benchmarks'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 2})
+            ensure_layer(layer_name, 2)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -7760,7 +7765,7 @@ def generate_test_dxf():
         
         if 'TOPO' in survey:  # Topographic Shots
             layer_name = 'SURV-TOPO-SHOT-EXST-PT' if layer_mode == 'canonical' else 'Topo_Shots'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 8})
+            ensure_layer(layer_name, 8)
             for i in range(count * 3):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -7770,7 +7775,7 @@ def generate_test_dxf():
         # === SITE TREES ===
         if 'TREE' in specialized:
             layer_name = 'LAND-TREE-OAK-24IN-EXST-PT' if layer_mode == 'canonical' else 'Trees'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 94})
+            ensure_layer(layer_name, 94)
             if 'TREE_SYMBOL' not in doc.blocks:
                 blk = doc.blocks.new(name='TREE_SYMBOL')
                 blk.add_circle((0, 0), radius=5)
@@ -7789,7 +7794,7 @@ def generate_test_dxf():
         # === HORIZONTAL ALIGNMENTS ===
         if 'ALIGN' in specialized:
             layer_name = 'CIV-ROAD-CL-NEW-LN' if layer_mode == 'canonical' else 'Road_Centerlines'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 3})
+            ensure_layer(layer_name, 3)
             for i in range(count):
                 x1 = base_x + random_offset()
                 y1 = base_y + random_offset()
@@ -7810,8 +7815,7 @@ def generate_test_dxf():
             elevations = [280, 282.5, 285, 287.5, 290, 292.5, 295]
             for elev in elevations:
                 layer_name = f'SITE-GRAD-CNTR-EXST-LN' if layer_mode == 'canonical' else f'Contours'
-                if layer_name not in [layer.dxf.name for layer in doc.layers]:
-                    doc.layers.new(name=layer_name, dxfattribs={'color': 9})
+                ensure_layer(layer_name, 9)
                 x_offset = (elev - 285) * 30
                 points = []
                 for angle in range(0, 360, 30):
@@ -7824,7 +7828,7 @@ def generate_test_dxf():
         
         if 'SPOT' in specialized:
             layer_name = 'SITE-GRAD-SPOT-EXST-PT' if layer_mode == 'canonical' else 'Spot_Elevations'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 11})
+            ensure_layer(layer_name, 11)
             for i in range(count * 2):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -7837,7 +7841,7 @@ def generate_test_dxf():
         # === PARCELS ===
         if 'PARCEL' in specialized:
             layer_name = 'SURV-BNDY-PROP-EXST-PG' if layer_mode == 'canonical' else 'Property_Lines'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 1})
+            ensure_layer(layer_name, 1)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -7854,7 +7858,7 @@ def generate_test_dxf():
         # === ROAD INFRASTRUCTURE ===
         if 'CURB' in roads:
             layer_name = 'CIV-ROAD-CURB-6IN-NEW-LN' if layer_mode == 'canonical' else 'Curbs'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 8})
+            ensure_layer(layer_name, 8)
             for i in range(count):
                 x1 = base_x + random_offset()
                 y1 = base_y + random_offset()
@@ -7863,7 +7867,7 @@ def generate_test_dxf():
         
         if 'SIDEWALK' in roads:
             layer_name = 'CIV-ROAD-SDWK-5FT-NEW-PG' if layer_mode == 'canonical' else 'Sidewalks'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 252})
+            ensure_layer(layer_name, 252)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -7874,7 +7878,7 @@ def generate_test_dxf():
         
         if 'STRIPING' in roads:
             layer_name = 'CIV-ROAD-STRP-YLW-NEW-LN' if layer_mode == 'canonical' else 'Striping'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 2})
+            ensure_layer(layer_name, 2)
             for i in range(count):
                 x1 = base_x + random_offset()
                 y1 = base_y + random_offset()
@@ -7884,7 +7888,7 @@ def generate_test_dxf():
         
         if 'RAMP' in roads:
             layer_name = 'CIV-ADA-RAMP-NEW-PG' if layer_mode == 'canonical' else 'ADA_Ramps'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 6})
+            ensure_layer(layer_name, 6)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -7894,7 +7898,7 @@ def generate_test_dxf():
         # === GRADING FEATURES ===
         if 'SWALE' in grading:
             layer_name = 'SITE-GRAD-SWALE-NEW-PG' if layer_mode == 'canonical' else 'Swales'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 93})
+            ensure_layer(layer_name, 93)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -7905,7 +7909,7 @@ def generate_test_dxf():
         
         if 'BERM' in grading:
             layer_name = 'SITE-GRAD-BERM-4FT-NEW-LN' if layer_mode == 'canonical' else 'Berms'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 30})
+            ensure_layer(layer_name, 30)
             for i in range(count):
                 x1 = base_x + random_offset()
                 y1 = base_y + random_offset()
@@ -7915,7 +7919,7 @@ def generate_test_dxf():
         
         if 'PAD' in grading:
             layer_name = 'SITE-GRAD-PAD-NEW-PG' if layer_mode == 'canonical' else 'Building_Pads'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 5})
+            ensure_layer(layer_name, 5)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -7931,8 +7935,8 @@ def generate_test_dxf():
         if 'SANITARY' in networks:
             pipe_layer = 'CIV-UTIL-SANIT-8IN-NEW-LN' if layer_mode == 'canonical' else 'Sanitary_Sewer'
             mh_layer = 'CIV-UTIL-SANIT-MH-NEW-PT' if layer_mode == 'canonical' else 'Sanitary_MH'
-            doc.layers.new(name=pipe_layer, dxfattribs={'color': 40})
-            doc.layers.new(name=mh_layer, dxfattribs={'color': 41})
+            ensure_layer(pipe_layer, 40)
+            ensure_layer(mh_layer, 41)
             if 'SS_MH' not in doc.blocks:
                 blk = doc.blocks.new(name='SS_MH')
                 blk.add_circle((0, 0), radius=2)
@@ -7947,7 +7951,7 @@ def generate_test_dxf():
         
         if 'GAS' in networks:
             layer_name = 'CIV-UTIL-GAS-4IN-NEW-LN' if layer_mode == 'canonical' else 'Gas_Lines'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 1})
+            ensure_layer(layer_name, 1)
             for i in range(count):
                 x1 = base_x + random_offset()
                 y1 = base_y + random_offset()
@@ -7957,7 +7961,7 @@ def generate_test_dxf():
         
         if 'ELECTRIC' in networks:
             layer_name = 'CIV-UTIL-ELEC-NEW-LN' if layer_mode == 'canonical' else 'Electric'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 6})
+            ensure_layer(layer_name, 6)
             for i in range(count):
                 x1 = base_x + random_offset()
                 y1 = base_y + random_offset()
@@ -7967,7 +7971,7 @@ def generate_test_dxf():
         
         if 'TELECOM' in networks:
             layer_name = 'CIV-UTIL-TELE-NEW-LN' if layer_mode == 'canonical' else 'Telecom'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 4})
+            ensure_layer(layer_name, 4)
             for i in range(count):
                 x1 = base_x + random_offset()
                 y1 = base_y + random_offset()
@@ -7978,7 +7982,7 @@ def generate_test_dxf():
         # === ADDITIONAL UTILITY STRUCTURES ===
         if 'CLEANOUT' in networks:
             layer_name = 'CIV-UTIL-CLNOUT-NEW-PT' if layer_mode == 'canonical' else 'Cleanouts'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 3})
+            ensure_layer(layer_name, 3)
             if 'CO_SYMBOL' not in doc.blocks:
                 blk = doc.blocks.new(name='CO_SYMBOL')
                 blk.add_circle((0, 0), radius=1.5)
@@ -7990,7 +7994,7 @@ def generate_test_dxf():
         
         if 'METER' in networks:
             layer_name = 'CIV-UTIL-METER-NEW-PT' if layer_mode == 'canonical' else 'Meters'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 4})
+            ensure_layer(layer_name, 4)
             if 'METER_SYMBOL' not in doc.blocks:
                 blk = doc.blocks.new(name='METER_SYMBOL')
                 blk.add_lwpolyline([(0, 1.5), (1.5, 0), (0, -1.5), (-1.5, 0), (0, 1.5)])
@@ -8002,7 +8006,7 @@ def generate_test_dxf():
         
         if 'JBOX' in networks:
             layer_name = 'CIV-UTIL-JBOX-NEW-PT' if layer_mode == 'canonical' else 'Junction_Boxes'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 7})
+            ensure_layer(layer_name, 7)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -8023,7 +8027,7 @@ def generate_test_dxf():
                 'ExistingUtilities',
             ]
             for problem_layer in problematic_layers[:count]:
-                doc.layers.new(name=problem_layer, dxfattribs={'color': random.randint(1, 255)})
+                ensure_layer(problem_layer, random.randint(1, 255))
                 for j in range(2):
                     x = base_x + random_offset()
                     y = base_y + random_offset()
@@ -8041,7 +8045,7 @@ def generate_test_dxf():
         # Generate basic geometries
         if 'AXIS' in geometries:
             layer_name = 'CIV-ROAD-CNTR-EXST-AXIS' if layer_mode == 'canonical' else 'Centerlines'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 3})
+            ensure_layer(layer_name, 3)
             for i in range(count):
                 x1 = base_x + random_offset()
                 y1 = base_y + random_offset()
@@ -8051,7 +8055,7 @@ def generate_test_dxf():
         
         if 'PT' in geometries:  # Points
             layer_name = 'SURV-CTRL-MONUMENT-EXST-PT' if layer_mode == 'canonical' else 'Points'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 1})  # Red
+            ensure_layer(layer_name, 1)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -8059,7 +8063,7 @@ def generate_test_dxf():
         
         if 'AREA' in geometries:  # Areas/Polygons
             layer_name = 'SITE-GRAD-PAD-EXST-AREA' if layer_mode == 'canonical' else 'Areas'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 5})  # Blue
+            ensure_layer(layer_name, 5)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -8075,7 +8079,7 @@ def generate_test_dxf():
         
         if 'TEXT' in geometries:  # Text Labels
             layer_name = 'SITE-ANNO-LABL-EXST-TEXT' if layer_mode == 'canonical' else 'Labels'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 7})  # White
+            ensure_layer(layer_name, 7)
             labels = ['TEST POINT', 'SAMPLE AREA', 'REFERENCE', 'BENCHMARK', 'CONTROL POINT']
             for i in range(min(count, len(labels))):
                 x = base_x + random_offset()
@@ -8088,7 +8092,7 @@ def generate_test_dxf():
         
         if 'SYMB' in geometries:  # Blocks/Symbols
             layer_name = 'SITE-UTIL-VALVE-EXST-SYMB' if layer_mode == 'canonical' else 'Symbols'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 6})  # Magenta
+            ensure_layer(layer_name, 6)
             # Create a simple block (circle symbol)
             if 'VALVE_SYMBOL' not in doc.blocks:
                 blk = doc.blocks.new(name='VALVE_SYMBOL')
@@ -8102,7 +8106,7 @@ def generate_test_dxf():
         
         if 'HATCH' in geometries:  # Hatches
             layer_name = 'SITE-LAND-GRASS-EXST-HATCH' if layer_mode == 'canonical' else 'Hatches'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 92})  # Light green
+            ensure_layer(layer_name, 92)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -8117,8 +8121,8 @@ def generate_test_dxf():
         if 'GRAV' in networks:  # Gravity Pipe System
             pipe_layer = 'CIV-PIPE-GRAV-EXST-AXIS' if layer_mode == 'canonical' else 'Gravity_Pipes'
             mh_layer = 'CIV-STRC-MH-EXST-SYMB' if layer_mode == 'canonical' else 'Manholes'
-            doc.layers.new(name=pipe_layer, dxfattribs={'color': 2})  # Yellow
-            doc.layers.new(name=mh_layer, dxfattribs={'color': 1})  # Red
+            ensure_layer(pipe_layer, 2)
+            ensure_layer(mh_layer, 1)
             
             # Create simple manhole block
             if 'MH_SYMBOL' not in doc.blocks:
@@ -8144,8 +8148,8 @@ def generate_test_dxf():
         if 'PRES' in networks:  # Pressure Pipe System
             pipe_layer = 'CIV-PIPE-PRES-EXST-AXIS' if layer_mode == 'canonical' else 'Pressure_Pipes'
             valve_layer = 'CIV-STRC-VALVE-EXST-SYMB' if layer_mode == 'canonical' else 'Valves'
-            doc.layers.new(name=pipe_layer, dxfattribs={'color': 4})  # Cyan
-            doc.layers.new(name=valve_layer, dxfattribs={'color': 6})  # Magenta
+            ensure_layer(pipe_layer, 4)
+            ensure_layer(valve_layer, 6)
             
             # Create valve symbol
             if 'VALVE_SYM' not in doc.blocks:
@@ -8167,8 +8171,8 @@ def generate_test_dxf():
         if 'STORM' in networks:  # Storm Drain Network
             pipe_layer = 'CIV-PIPE-STORM-EXST-AXIS' if layer_mode == 'canonical' else 'Storm_Pipes'
             inlet_layer = 'CIV-STRC-INLET-EXST-SYMB' if layer_mode == 'canonical' else 'Inlets'
-            doc.layers.new(name=pipe_layer, dxfattribs={'color': 3})  # Green
-            doc.layers.new(name=inlet_layer, dxfattribs={'color': 5})  # Blue
+            ensure_layer(pipe_layer, 3)
+            ensure_layer(inlet_layer, 5)
             
             # Create inlet symbol
             if 'INLET_SYM' not in doc.blocks:
@@ -8188,8 +8192,8 @@ def generate_test_dxf():
         if 'WATER' in networks:  # Water Distribution
             pipe_layer = 'CIV-PIPE-WATER-EXST-AXIS' if layer_mode == 'canonical' else 'Water_Pipes'
             hydrant_layer = 'CIV-STRC-HYDRANT-EXST-SYMB' if layer_mode == 'canonical' else 'Hydrants'
-            doc.layers.new(name=pipe_layer, dxfattribs={'color': 4})  # Cyan
-            doc.layers.new(name=hydrant_layer, dxfattribs={'color': 1})  # Red
+            ensure_layer(pipe_layer, 4)
+            ensure_layer(hydrant_layer, 1)
             
             # Create hydrant symbol
             if 'HYDRANT_SYM' not in doc.blocks:
@@ -8213,7 +8217,7 @@ def generate_test_dxf():
         # Generate BMP features
         if 'BIOR' in bmps:  # Bioretention
             layer_name = 'SITE-BMP-BIOR-EXST-AREA' if layer_mode == 'canonical' else 'Bioretention'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 82})  # Light green
+            ensure_layer(layer_name, 82)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -8229,7 +8233,7 @@ def generate_test_dxf():
         
         if 'SWAL' in bmps:  # Bioswale
             layer_name = 'SITE-BMP-SWAL-EXST-AXIS' if layer_mode == 'canonical' else 'Bioswale'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 93})  # Light cyan
+            ensure_layer(layer_name, 93)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -8246,7 +8250,7 @@ def generate_test_dxf():
         
         if 'POND' in bmps:  # Detention Pond
             layer_name = 'SITE-BMP-POND-EXST-AREA' if layer_mode == 'canonical' else 'Detention_Pond'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 150})  # Blue
+            ensure_layer(layer_name, 150)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
@@ -8268,7 +8272,7 @@ def generate_test_dxf():
         
         if 'INFIL' in bmps:  # Infiltration Basin
             layer_name = 'SITE-BMP-INFIL-EXST-AREA' if layer_mode == 'canonical' else 'Infiltration'
-            doc.layers.new(name=layer_name, dxfattribs={'color': 52})  # Dark green
+            ensure_layer(layer_name, 52)
             for i in range(count):
                 x = base_x + random_offset()
                 y = base_y + random_offset()
