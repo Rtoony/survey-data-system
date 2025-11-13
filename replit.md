@@ -34,7 +34,7 @@ Preferred communication style: Simple, everyday language.
 - **CAD Layer Naming Standards:** Database-driven classifier for CAD layer names.
 - **Mission Control Design System:** Centralized design system with reusable classes, variables, and a cyan/neon color palette.
 - **Horizontal Navigation Architecture:** Sticky horizontal navbar with 10 dropdown menus and 41 navigation items.
-- **Project-Centric Organization (Nov 2025):** System restructured from drawing-centric to project-centric organization. Entities now link directly to projects rather than through intermediate drawing files, simplifying data retrieval and aligning with real-world civil engineering workflows where projects are the primary unit of work.
+- **Projects Only System (Nov 2025):** Complete migration from "Projects + Drawings" architecture to "Projects Only" system. DXF imports now create entities directly at project level without requiring drawing files. Hybrid intelligent object creation system automatically classifies high-confidence entities (≥0.7 confidence) into specific types (utility_lines, bmps, structures) while flagging low-confidence entities as generic_objects for manual review and reclassification. All entity links support project-level imports (drawing_id can be NULL) with proper unique constraints and database triggers.
 - **Projects Navigation Restructure:** Unified projects functionality under `/projects` route with search, CRUD, and individual project overviews.
 - **Specialized Tools Registry:** Database-driven system linking CAD object types to interactive management tools.
 
@@ -59,6 +59,7 @@ Preferred communication style: Simple, everyday language.
 - **Project Usage Tracking Dashboard:** Analytics on project/layer/block/note usage patterns.
 - **Civil Project Manager:** Comprehensive project overview dashboard with 5 tabs and a metadata-driven CRUD architecture for managing project-specific attachments.
 - **Sheet Note Manager:** Project-centric note management system with two-panel layout (Standard Notes Library and Project Notes). Supports inline editing with automatic modified copy creation for standard notes, custom note creation with required justification, and full deviation tracking. Features source_type-based badges (Standard/Modified/Custom) and project-level note set organization without drawing dependencies.
+- **Object Reclassifier Tool:** Interactive UI for reviewing and reclassifying unclassified or low-confidence DXF entities. Features project-based filtering, confidence threshold controls, real-time statistics, and one-click reclassification to specific object types (utility_line, utility_structure, bmp, alignment, surface_model, survey_point, site_tree). Supports bulk approval, ignore, and custom reclassification with notes tracking.
 - **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance.
 - **Interactive AI Visualizations:** Knowledge Graph Visualization and a Quality Dashboard.
 
@@ -80,3 +81,32 @@ Preferred communication style: Simple, everyday language.
 
 **Related Systems:**
 - ACAD-GIS FastAPI application (main API server).
+
+## Recent Major Changes (November 2025)
+
+### Projects Only System Migration
+
+The system has been completely restructured from a "Projects + Drawings" architecture to a streamlined "Projects Only" system:
+
+**Core Changes:**
+1. **Direct Project-Level Entities:** DXF imports now create entities directly at the project level without requiring intermediate drawing files.
+2. **Hybrid Classification System:** Intelligent object creation with automatic classification for high-confidence entities (≥0.7) and manual review workflow for low-confidence entities.
+3. **Generic Objects Table:** New `generic_objects` table stores unclassified/low-confidence DXF entities with review workflow (pending/approved/reclassified/ignored statuses).
+4. **Flexible Entity Links:** `dxf_entity_links` table updated to support both legacy drawing-level and new project-level imports with drawing_id as nullable.
+5. **Reclassification API:** Complete REST API for listing, reclassifying, approving, and ignoring generic objects with proper status transitions and validation.
+
+**Database Schema Updates:**
+- `generic_objects` table with PostGIS geometry, review workflow, confidence tracking, and full-text search
+- Partial unique index on `dxf_entity_links` for project-level imports: `(project_id, dxf_handle) WHERE drawing_id IS NULL`
+- Updated `IntelligentObjectCreator` to handle low-confidence classifications with ST_GeomFromText(wkt, 2226)
+- All intelligent object tables include proper geometry handling and entity link creation
+
+**New Tools:**
+- **Object Reclassifier UI** (`/tools/object-reclassifier`): Interactive tool for reviewing and categorizing generic objects
+- **Intelligent Objects Map API** (`/api/projects/<id>/intelligent-objects-map`): Separate endpoint for displaying classified objects vs raw DXF geometry
+- **Enhanced Project Statistics** (`/api/projects/<id>/statistics`): Now includes intelligent object counts by type
+
+**Migration Path:**
+- Existing drawing-based projects continue to work (backward compatible)
+- New imports automatically use project-level linking
+- No data loss - unclassified entities saved for manual review instead of being dropped

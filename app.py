@@ -756,6 +756,260 @@ def get_project_map_summary(project_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/projects/<project_id>/intelligent-objects-map')
+def get_project_intelligent_objects_map(project_id):
+    """Get all intelligent objects for map display (separate from raw DXF entities)"""
+    try:
+        project_check = execute_query(
+            "SELECT project_id, project_name FROM projects WHERE project_id = %s",
+            (project_id,)
+        )
+        if not project_check:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        all_objects = []
+        
+        # Fetch utility lines with proper SRID transformation and error handling
+        utility_lines_query = """
+            SELECT 
+                line_id as object_id,
+                'utility_line' as object_type,
+                'utility_lines' as table_name,
+                utility_type,
+                material,
+                diameter_inches,
+                ST_AsGeoJSON(
+                    CASE
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END
+                )::json as geometry
+            FROM utility_lines
+            WHERE project_id = %s 
+              AND geometry IS NOT NULL
+              AND ST_IsValid(geometry)
+            LIMIT 500
+        """
+        utility_lines = execute_query(utility_lines_query, (project_id,))
+        for obj in utility_lines:
+            all_objects.append({
+                'type': 'Feature',
+                'properties': {
+                    'object_id': str(obj['object_id']),
+                    'object_type': obj['object_type'],
+                    'table_name': obj['table_name'],
+                    'utility_type': obj['utility_type'],
+                    'material': obj['material'],
+                    'diameter': obj['diameter_inches']
+                },
+                'geometry': obj['geometry']
+            })
+        
+        # Fetch utility structures
+        structures_query = """
+            SELECT 
+                structure_id as object_id,
+                'utility_structure' as object_type,
+                'utility_structures' as table_name,
+                structure_type,
+                material,
+                ST_AsGeoJSON(
+                    CASE
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END
+                )::json as geometry
+            FROM utility_structures
+            WHERE project_id = %s 
+              AND geometry IS NOT NULL
+              AND ST_IsValid(geometry)
+            LIMIT 500
+        """
+        structures = execute_query(structures_query, (project_id,))
+        for obj in structures:
+            all_objects.append({
+                'type': 'Feature',
+                'properties': {
+                    'object_id': str(obj['object_id']),
+                    'object_type': obj['object_type'],
+                    'table_name': obj['table_name'],
+                    'structure_type': obj['structure_type'],
+                    'material': obj['material']
+                },
+                'geometry': obj['geometry']
+            })
+        
+        # Fetch BMPs
+        bmps_query = """
+            SELECT 
+                bmp_id as object_id,
+                'bmp' as object_type,
+                'bmps' as table_name,
+                bmp_type,
+                bmp_name,
+                ST_AsGeoJSON(
+                    CASE
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END
+                )::json as geometry
+            FROM bmps
+            WHERE project_id = %s 
+              AND geometry IS NOT NULL
+              AND ST_IsValid(geometry)
+            LIMIT 500
+        """
+        bmps = execute_query(bmps_query, (project_id,))
+        for obj in bmps:
+            all_objects.append({
+                'type': 'Feature',
+                'properties': {
+                    'object_id': str(obj['object_id']),
+                    'object_type': obj['object_type'],
+                    'table_name': obj['table_name'],
+                    'bmp_type': obj['bmp_type'],
+                    'bmp_name': obj['bmp_name']
+                },
+                'geometry': obj['geometry']
+            })
+        
+        # Fetch alignments
+        alignments_query = """
+            SELECT 
+                alignment_id as object_id,
+                'alignment' as object_type,
+                'alignments' as table_name,
+                alignment_name,
+                alignment_type,
+                ST_AsGeoJSON(
+                    CASE
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END
+                )::json as geometry
+            FROM alignments
+            WHERE project_id = %s 
+              AND geometry IS NOT NULL
+              AND ST_IsValid(geometry)
+            LIMIT 500
+        """
+        alignments = execute_query(alignments_query, (project_id,))
+        for obj in alignments:
+            all_objects.append({
+                'type': 'Feature',
+                'properties': {
+                    'object_id': str(obj['object_id']),
+                    'object_type': obj['object_type'],
+                    'table_name': obj['table_name'],
+                    'alignment_name': obj['alignment_name'],
+                    'alignment_type': obj['alignment_type']
+                },
+                'geometry': obj['geometry']
+            })
+        
+        # Fetch site trees
+        trees_query = """
+            SELECT 
+                tree_id as object_id,
+                'site_tree' as object_type,
+                'site_trees' as table_name,
+                tree_status,
+                ST_AsGeoJSON(
+                    CASE
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END
+                )::json as geometry
+            FROM site_trees
+            WHERE project_id = %s 
+              AND geometry IS NOT NULL
+              AND ST_IsValid(geometry)
+            LIMIT 500
+        """
+        trees = execute_query(trees_query, (project_id,))
+        for obj in trees:
+            all_objects.append({
+                'type': 'Feature',
+                'properties': {
+                    'object_id': str(obj['object_id']),
+                    'object_type': obj['object_type'],
+                    'table_name': obj['table_name'],
+                    'tree_status': obj['tree_status']
+                },
+                'geometry': obj['geometry']
+            })
+        
+        # Fetch generic objects (ALL review statuses for complete map view)
+        generic_query = """
+            SELECT 
+                object_id,
+                'generic_object' as object_type,
+                'generic_objects' as table_name,
+                object_name,
+                original_layer_name,
+                review_status,
+                classification_confidence,
+                ST_AsGeoJSON(
+                    CASE
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END
+                )::json as geometry
+            FROM generic_objects
+            WHERE project_id = %s 
+              AND geometry IS NOT NULL
+              AND ST_IsValid(geometry)
+            LIMIT 500
+        """
+        generic_objects = execute_query(generic_query, (project_id,))
+        for obj in generic_objects:
+            all_objects.append({
+                'type': 'Feature',
+                'properties': {
+                    'object_id': str(obj['object_id']),
+                    'object_type': obj['object_type'],
+                    'table_name': obj['table_name'],
+                    'object_name': obj['object_name'],
+                    'layer_name': obj['original_layer_name'],
+                    'review_status': obj['review_status'],
+                    'confidence': obj['classification_confidence']
+                },
+                'geometry': obj['geometry']
+            })
+        
+        # Calculate summary counts
+        summary = {
+            'utility_lines': len([o for o in all_objects if o['properties']['object_type'] == 'utility_line']),
+            'utility_structures': len([o for o in all_objects if o['properties']['object_type'] == 'utility_structure']),
+            'bmps': len([o for o in all_objects if o['properties']['object_type'] == 'bmp']),
+            'alignments': len([o for o in all_objects if o['properties']['object_type'] == 'alignment']),
+            'site_trees': len([o for o in all_objects if o['properties']['object_type'] == 'site_tree']),
+            'generic_objects': len([o for o in all_objects if o['properties']['object_type'] == 'generic_object']),
+            'total': len(all_objects)
+        }
+        
+        return jsonify({
+            'project_id': project_id,
+            'project_name': project_check[0]['project_name'],
+            'intelligent_objects': {
+                'type': 'FeatureCollection',
+                'features': all_objects
+            },
+            'summary': summary
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fetching intelligent objects: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/projects/<project_id>/statistics')
 def get_project_statistics(project_id):
     """Get project statistics and KPIs"""
@@ -776,6 +1030,14 @@ def get_project_statistics(project_id):
         """
         entity_count = execute_query(entity_count_query, (project_id,))[0]['count']
         
+        # Get drawing count (legacy, may be 0 for project-only imports)
+        drawing_count_query = """
+            SELECT COUNT(*) as count 
+            FROM drawings 
+            WHERE project_id = %s
+        """
+        drawing_count = execute_query(drawing_count_query, (project_id,))[0]['count']
+        
         # Get survey point count (project-level entities, active only)
         survey_point_count_query = """
             SELECT COUNT(*) as count 
@@ -784,6 +1046,38 @@ def get_project_statistics(project_id):
               AND is_active = true
         """
         survey_point_count = execute_query(survey_point_count_query, (project_id,))[0]['count']
+        
+        # Get intelligent object counts
+        intelligent_objects_query = """
+            SELECT 'utility_lines' as object_type, COUNT(*) as count
+            FROM utility_lines WHERE project_id = %s
+            UNION ALL
+            SELECT 'utility_structures', COUNT(*)
+            FROM utility_structures WHERE project_id = %s
+            UNION ALL
+            SELECT 'bmps', COUNT(*)
+            FROM bmps WHERE project_id = %s
+            UNION ALL
+            SELECT 'alignments', COUNT(*)
+            FROM alignments WHERE project_id = %s
+            UNION ALL
+            SELECT 'surface_models', COUNT(*)
+            FROM surface_models WHERE project_id = %s
+            UNION ALL
+            SELECT 'site_trees', COUNT(*)
+            FROM site_trees WHERE project_id = %s
+            UNION ALL
+            SELECT 'generic_objects', COUNT(*)
+            FROM generic_objects WHERE project_id = %s
+            UNION ALL
+            SELECT 'generic_objects_pending', COUNT(*)
+            FROM generic_objects WHERE project_id = %s AND review_status = 'pending'
+        """
+        intelligent_counts_result = execute_query(intelligent_objects_query, 
+                                                  (project_id, project_id, project_id, 
+                                                   project_id, project_id, project_id,
+                                                   project_id, project_id))
+        intelligent_objects_counts = {row['object_type']: row['count'] for row in intelligent_counts_result}
         
         # Get reference data counts using efficient COUNT queries (not full entity loads)
         # Single query with UNION ALL for all mapping tables
@@ -854,6 +1148,16 @@ def get_project_statistics(project_id):
             'drawing_count': drawing_count,
             'entity_count': entity_count,
             'survey_point_count': survey_point_count,
+            'intelligent_objects_counts': intelligent_objects_counts,
+            'total_intelligent_objects': sum([
+                intelligent_objects_counts.get('utility_lines', 0),
+                intelligent_objects_counts.get('utility_structures', 0),
+                intelligent_objects_counts.get('bmps', 0),
+                intelligent_objects_counts.get('alignments', 0),
+                intelligent_objects_counts.get('surface_models', 0),
+                intelligent_objects_counts.get('site_trees', 0),
+                intelligent_objects_counts.get('generic_objects', 0)
+            ]),
             'reference_data_counts': reference_data_counts,
             'total_reference_data': sum(reference_data_counts.values()),
             'has_spatial_data': has_spatial_data,
@@ -1027,13 +1331,30 @@ def reclassify_generic_object(project_id, object_id):
         """
         execute_update(update_query, (f'Reclassified to {target_type}. {notes}', object_id))
         
-        # Create entity link if we have DXF handle
+        # Update existing entity link to point to new object (CRITICAL for unique constraint compliance)
         if obj['source_dxf_handle']:
-            creator._create_entity_link(
-                project_id, None, obj['source_dxf_handle'], obj['original_entity_type'],
-                obj['original_layer_name'], obj['geometry_wkt'],
-                object_type, new_object_id, table_name
-            )
+            # First try to update existing link
+            link_update_query = """
+                UPDATE dxf_entity_links
+                SET object_table_name = %s,
+                    object_id = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE project_id = %s 
+                  AND dxf_handle = %s
+                  AND object_table_name = 'generic_objects'
+                  AND object_id = %s
+            """
+            rows_updated = execute_update(link_update_query, 
+                                         (table_name, new_object_id, project_id, 
+                                          obj['source_dxf_handle'], object_id))
+            
+            # If no existing link was found, create new one (shouldn't happen but fail-safe)
+            if rows_updated == 0:
+                creator._create_entity_link(
+                    project_id, None, obj['source_dxf_handle'], obj['original_entity_type'],
+                    obj['original_layer_name'], obj['geometry_wkt'],
+                    object_type, new_object_id, table_name
+                )
         
         return jsonify({
             'success': True,

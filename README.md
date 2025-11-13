@@ -16,8 +16,12 @@ ACAD-GIS replaces traditional file-based CAD workflows with a PostgreSQL/PostGIS
 - **Import Template Manager:** Configure client-specific layer mapping patterns with live regex testing
 - **Standards Portal:** Visual documentation of the layer naming system
 
-### 📐 DXF Tools
+### 📐 DXF Tools & Projects Only System
 - **Intelligent Import:** Pattern-based classification creates database objects from CAD entities
+- **Hybrid Classification:** Automatic classification for high-confidence entities (≥0.7), manual review for low-confidence
+- **Generic Objects Workflow:** Unclassified entities saved for review instead of dropped
+- **Object Reclassifier Tool:** Interactive UI for reviewing and reclassifying unclassified DXF entities
+- **Project-Level Linking:** Entities link directly to projects (no drawing files required)
 - **Bidirectional Sync:** Track changes between CAD files and database
 - **Export Engine:** Generate clean DXF files with standard or client-specific layer names
 - **Change Detection:** Geometry hashing detects modifications for merge operations
@@ -86,6 +90,7 @@ Access at `http://localhost:5000`
 
 ### Essential Guides
 - **[CAD Standards Guide](CAD_STANDARDS_GUIDE.md)** - Comprehensive user guide and cheat sheet for the CAD standards system
+- **[Projects Only Migration Guide](PROJECTS_ONLY_MIGRATION_GUIDE.md)** - Complete guide to the new Projects Only system with hybrid classification
 - **[replit.md](replit.md)** - Project overview, architecture, and recent changes
 - **[Database Architecture Guide](DATABASE_ARCHITECTURE_GUIDE.md)** - Technical deep dive into AI-first database design
 - **[AI Optimization Guide](AI_DATABASE_OPTIMIZATION_GUIDE.md)** - ML/AI features and optimization patterns
