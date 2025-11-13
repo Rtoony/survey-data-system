@@ -199,26 +199,26 @@ class DXFExporter:
         """Setup linetypes in DXF document."""
         try:
             cur.execute("""
-                SELECT DISTINCT linetype_name
-                FROM drawing_linetype_usage dlu
-                JOIN drawing_entities de ON de.entity_id = dlu.entity_id
-                WHERE de.project_id = %s::uuid
+                SELECT DISTINCT linetype
+                FROM drawing_entities
+                WHERE project_id = %s::uuid
+                AND linetype IS NOT NULL
+                AND linetype NOT IN ('ByLayer', 'ByBlock', 'Continuous')
             """, (project_id,))
             
             linetypes = cur.fetchall()
             
             for lt in linetypes:
-                linetype_name = lt['linetype_name']
-                if linetype_name not in ['ByLayer', 'ByBlock', 'Continuous']:
-                    try:
-                        if linetype_name not in doc.linetypes:
-                            doc.linetypes.add(
-                                name=linetype_name,
-                                pattern=[0.5, 0.25, -0.25],
-                                description=linetype_name
-                            )
-                    except:
-                        pass
+                linetype_name = lt['linetype']
+                try:
+                    if linetype_name not in doc.linetypes:
+                        doc.linetypes.add(
+                            name=linetype_name,
+                            pattern=[0.5, 0.25, -0.25],
+                            description=linetype_name
+                        )
+                except:
+                    pass
         except Exception:
             pass
     
@@ -231,10 +231,10 @@ class DXFExporter:
                    de.color_aci, de.lineweight, de.attributes,
                    l.layer_name,
                    l.discipline,
-                   se.category, se.object_type, se.phase
+                   se.entity_type as standards_entity_type
             FROM drawing_entities de
             LEFT JOIN layers l ON de.layer_id = l.layer_id
-            LEFT JOIN standards_entities se ON de.entity_id = se.entity_id
+            LEFT JOIN standards_entities se ON de.standards_entity_id = se.entity_id
             WHERE de.project_id = %s::uuid
             AND de.space_type = %s
         """
@@ -507,12 +507,11 @@ class DXFExporter:
                    dt.text_height, dt.rotation_angle, dt.text_style,
                    dt.horizontal_justification, dt.vertical_justification,
                    l.layer_name,
-                   l.discipline,
-                   se.category, se.object_type, se.phase
+                   l.discipline
             FROM drawing_text dt
+            JOIN drawing_entities de ON dt.entity_id = de.entity_id
             LEFT JOIN layers l ON dt.layer_id = l.layer_id
-            LEFT JOIN standards_entities se ON dt.entity_id = se.entity_id
-            WHERE dt.project_id = %s::uuid
+            WHERE de.project_id = %s::uuid
             AND dt.space_type = %s
         """
         
@@ -551,13 +550,11 @@ class DXFExporter:
                    ST_AsText(de.geometry) as geom_wkt,
                    dd.dimension_text, dd.dimension_style,
                    l.layer_name,
-                   l.discipline,
-                   se.category, se.object_type, se.phase
+                   l.discipline
             FROM drawing_dimensions dd
+            JOIN drawing_entities de ON dd.entity_id = de.entity_id
             LEFT JOIN layers l ON dd.layer_id = l.layer_id
-            LEFT JOIN drawing_entities de ON dd.entity_id = de.entity_id
-            LEFT JOIN standards_entities se ON dd.entity_id = se.entity_id
-            WHERE dd.project_id = %s::uuid
+            WHERE de.project_id = %s::uuid
             AND dd.space_type = %s
         """
         
@@ -596,12 +593,11 @@ class DXFExporter:
                    ST_AsText(dh.boundary_geometry) as boundary_wkt,
                    dh.hatch_scale, dh.hatch_angle,
                    l.layer_name,
-                   l.discipline,
-                   se.category, se.object_type, se.phase
+                   l.discipline
             FROM drawing_hatches dh
+            JOIN drawing_entities de ON dh.entity_id = de.entity_id
             LEFT JOIN layers l ON dh.layer_id = l.layer_id
-            LEFT JOIN standards_entities se ON dh.entity_id = se.entity_id
-            WHERE dh.project_id = %s::uuid
+            WHERE de.project_id = %s::uuid
             AND dh.space_type = %s
         """
         
@@ -637,12 +633,11 @@ class DXFExporter:
                 SELECT bi.insert_x, bi.insert_y, bi.insert_z,
                        bi.scale_x, bi.scale_y, bi.rotation,
                        l.layer_name,
-                       l.discipline,
-                       se.category, se.object_type, se.phase
+                       l.discipline
                 FROM block_inserts bi
+                JOIN drawing_entities de ON bi.entity_id = de.entity_id
                 LEFT JOIN layers l ON bi.layer_id = l.layer_id
-                LEFT JOIN standards_entities se ON bi.entity_id = se.entity_id
-                WHERE bi.project_id = %s::uuid
+                WHERE de.project_id = %s::uuid
                 AND bi.space_type = %s
                 LIMIT 0
             """
