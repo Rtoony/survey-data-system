@@ -1808,6 +1808,8 @@ COMMENT ON TABLE public.layer_standards IS 'Layer standards - AI-optimized with 
 CREATE TABLE public.layers (
     layer_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
+    project_id uuid,
+    drawing_id uuid,
     layer_name character varying(255) NOT NULL,
     layer_standard_id uuid,
     color integer,
@@ -5516,6 +5518,13 @@ CREATE INDEX idx_layers_usage ON public.layers USING btree (usage_frequency DESC
 
 
 --
+-- Name: idx_layers_project_layer_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_layers_project_layer_unique ON public.layers USING btree (project_id, layer_name) WHERE (drawing_id IS NULL);
+
+
+--
 -- Name: idx_linetype_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8619,6 +8628,14 @@ ALTER TABLE ONLY public.layer_standards
 
 ALTER TABLE ONLY public.layers
     ADD CONSTRAINT layers_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.standards_entities(entity_id) ON DELETE SET NULL;
+
+
+--
+-- Name: layers layers_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.layers
+    ADD CONSTRAINT layers_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id) ON DELETE CASCADE;
 
 
 --
