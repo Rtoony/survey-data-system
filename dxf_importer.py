@@ -217,7 +217,11 @@ class DXFImporter:
             linetype = layer.dxf.linetype if hasattr(layer.dxf, 'linetype') else 'Continuous'
             
             layer_id, layer_standard_id = resolver.get_or_create_layer(
-                layer_name, None, color_aci, linetype
+                layer_name, 
+                project_id=project_id, 
+                drawing_id=None,
+                color_aci=color_aci, 
+                linetype=linetype
             )
     
     def _import_linetypes(self, doc,
@@ -287,7 +291,13 @@ class DXFImporter:
         transparency = entity.dxf.transparency if hasattr(entity.dxf, 'transparency') else 0
         
         # Resolve layer to get layer_id (no drawing association)
-        layer_id, _ = resolver.get_or_create_layer(layer_name, None, color_aci, linetype)
+        layer_id, _ = resolver.get_or_create_layer(
+            layer_name, 
+            project_id=project_id, 
+            drawing_id=None,
+            color_aci=color_aci, 
+            linetype=linetype
+        )
         
         # Convert entity to WKT geometry
         geometry_wkt = self._entity_to_wkt(entity)
@@ -418,7 +428,11 @@ class DXFImporter:
         dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
         
         # Resolve layer to get layer_id (no drawing association)
-        layer_id, _ = resolver.get_or_create_layer(layer_name, None)
+        layer_id, _ = resolver.get_or_create_layer(
+            layer_name, 
+            project_id=project_id, 
+            drawing_id=None
+        )
         
         # Get text properties
         text_content = entity.dxf.text if entity_type == 'TEXT' else entity.text
@@ -477,7 +491,11 @@ class DXFImporter:
         dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
         
         # Resolve layer to get layer_id (no drawing association)
-        layer_id, _ = resolver.get_or_create_layer(layer_name, None)
+        layer_id, _ = resolver.get_or_create_layer(
+            layer_name, 
+            project_id=project_id, 
+            drawing_id=None
+        )
         
         # Get measurement and text
         dimension_text = entity.dxf.text if hasattr(entity.dxf, 'text') else ''
@@ -519,7 +537,11 @@ class DXFImporter:
         dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
         
         # Resolve layer to get layer_id (no drawing association)
-        layer_id, _ = resolver.get_or_create_layer(layer_name, None)
+        layer_id, _ = resolver.get_or_create_layer(
+            layer_name, 
+            project_id=project_id, 
+            drawing_id=None
+        )
         
         # Get hatch boundary
         try:
@@ -580,7 +602,11 @@ class DXFImporter:
         dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
         
         # Resolve layer to get layer_id (no drawing association)
-        layer_id, _ = resolver.get_or_create_layer(layer_name, None)
+        layer_id, _ = resolver.get_or_create_layer(
+            layer_name, 
+            project_id=project_id, 
+            drawing_id=None
+        )
         
         # Get transformation
         scale_x = entity.dxf.xscale if hasattr(entity.dxf, 'xscale') else 1.0
@@ -667,7 +693,13 @@ class DXFImporter:
         color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
-        layer_id, _ = resolver.get_or_create_layer(layer_name, None, color_aci, linetype)
+        layer_id, _ = resolver.get_or_create_layer(
+            layer_name, 
+            project_id=project_id, 
+            drawing_id=None,
+            color_aci=color_aci, 
+            linetype=linetype
+        )
         
         geometry_wkt = f'POINT Z ({location.x} {location.y} {location.z})'
         
@@ -697,7 +729,13 @@ class DXFImporter:
         color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
-        layer_id, _ = resolver.get_or_create_layer(layer_name, None, color_aci, linetype)
+        layer_id, _ = resolver.get_or_create_layer(
+            layer_name, 
+            project_id=project_id, 
+            drawing_id=None,
+            color_aci=color_aci, 
+            linetype=linetype
+        )
         
         vtx0 = entity.dxf.vtx0
         vtx1 = entity.dxf.vtx1
@@ -748,7 +786,13 @@ class DXFImporter:
         color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
-        layer_id, _ = resolver.get_or_create_layer(layer_name, None, color_aci, linetype)
+        layer_id, _ = resolver.get_or_create_layer(
+            layer_name, 
+            project_id=project_id, 
+            drawing_id=None,
+            color_aci=color_aci, 
+            linetype=linetype
+        )
         
         try:
             if hasattr(entity, 'get_attribs_and_values'):
@@ -788,7 +832,13 @@ class DXFImporter:
         color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
-        layer_id, _ = resolver.get_or_create_layer(layer_name, None, color_aci, linetype)
+        layer_id, _ = resolver.get_or_create_layer(
+            layer_name, 
+            project_id=project_id, 
+            drawing_id=None,
+            color_aci=color_aci, 
+            linetype=linetype
+        )
         
         try:
             points = []
@@ -832,7 +882,13 @@ class DXFImporter:
         color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
-        layer_id, _ = resolver.get_or_create_layer(layer_name, None, color_aci, linetype)
+        layer_id, _ = resolver.get_or_create_layer(
+            layer_name, 
+            project_id=project_id, 
+            drawing_id=None,
+            color_aci=color_aci, 
+            linetype=linetype
+        )
         
         try:
             points = []
