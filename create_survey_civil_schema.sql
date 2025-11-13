@@ -44,7 +44,6 @@ ON CONFLICT (epsg_code) DO NOTHING;
 CREATE TABLE IF NOT EXISTS survey_points (
     point_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     
     -- Point Identification
     point_number VARCHAR(50) NOT NULL,
@@ -84,7 +83,6 @@ CREATE TABLE IF NOT EXISTS survey_points (
 );
 
 CREATE INDEX IF NOT EXISTS idx_survey_points_project ON survey_points(project_id);
-CREATE INDEX IF NOT EXISTS idx_survey_points_drawing ON survey_points(drawing_id);
 CREATE INDEX IF NOT EXISTS idx_survey_points_geom ON survey_points USING GIST(geometry);
 CREATE INDEX IF NOT EXISTS idx_survey_points_type ON survey_points(point_type);
 CREATE INDEX IF NOT EXISTS idx_survey_points_code ON survey_points(point_code);
@@ -139,7 +137,6 @@ CREATE TABLE IF NOT EXISTS site_trees (
     tree_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     tree_number VARCHAR(50),
     species VARCHAR(100),
     common_name VARCHAR(100),
@@ -159,7 +156,6 @@ CREATE TABLE IF NOT EXISTS utility_structures (
     structure_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     structure_number VARCHAR(50),
     structure_type VARCHAR(100),
     utility_system VARCHAR(100),
@@ -181,7 +177,6 @@ CREATE TABLE IF NOT EXISTS surface_features (
     feature_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
     survey_point_id UUID REFERENCES survey_points(point_id) ON DELETE SET NULL,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     feature_type VARCHAR(100),
     geometry GEOMETRY(GeometryZ, 2226) NOT NULL,
     material VARCHAR(100),
@@ -333,7 +328,6 @@ CREATE INDEX IF NOT EXISTS idx_earthwork_balance_alignment ON earthwork_balance(
 CREATE TABLE IF NOT EXISTS utility_lines (
     line_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     line_number VARCHAR(50),
     utility_system VARCHAR(100) NOT NULL,
     line_type VARCHAR(100),
@@ -397,7 +391,6 @@ CREATE INDEX IF NOT EXISTS idx_utility_lines_to ON utility_lines(to_structure_id
 CREATE TABLE IF NOT EXISTS parcels (
     parcel_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     parcel_number VARCHAR(100) UNIQUE,
     parcel_name VARCHAR(255),
     owner_name VARCHAR(255),
@@ -432,7 +425,6 @@ CREATE TABLE IF NOT EXISTS parcel_corners (
 CREATE TABLE IF NOT EXISTS easements (
     easement_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     easement_number VARCHAR(100),
     easement_type VARCHAR(100),
     easement_purpose TEXT,
@@ -451,7 +443,6 @@ CREATE TABLE IF NOT EXISTS easements (
 CREATE TABLE IF NOT EXISTS right_of_way (
     row_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     row_name VARCHAR(255) NOT NULL,
     row_type VARCHAR(50),
     ownership VARCHAR(255),
@@ -481,7 +472,6 @@ CREATE INDEX IF NOT EXISTS idx_row_geom ON right_of_way USING GIST(boundary_geom
 CREATE TABLE IF NOT EXISTS survey_observations (
     observation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     session_id VARCHAR(100),
     observation_type VARCHAR(50) NOT NULL,
     observation_date DATE,
@@ -547,7 +537,6 @@ CREATE INDEX IF NOT EXISTS idx_traverse_loops_project ON traverse_loops(project_
 CREATE TABLE IF NOT EXISTS grading_limits (
     limit_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     limit_name VARCHAR(255) NOT NULL,
     limit_type VARCHAR(50),                            -- 'Grading', 'Clearing', 'Disturbance', 'Paving', 'No-Work Zone'
     boundary_geometry GEOMETRY(PolygonZ, 2226) NOT NULL,
@@ -589,7 +578,6 @@ CREATE TABLE IF NOT EXISTS pavement_sections (
 CREATE TABLE IF NOT EXISTS surface_models (
     surface_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(project_id) ON DELETE CASCADE,
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE SET NULL,
     surface_name VARCHAR(255) NOT NULL,
     surface_type VARCHAR(50),                          -- 'Existing Ground', 'Proposed Grade', 'Top of Curb', 'Pavement'
     description TEXT,

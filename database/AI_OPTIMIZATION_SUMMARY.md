@@ -170,7 +170,7 @@ Every entity tracked for quality based on:
 ## Next Steps for AI/ML Usage
 
 ### 1. Data Population
-Start loading your CAD standards, survey data, and drawings into the new schema.
+Start loading your CAD standards, survey data, and project entities into the new schema.
 
 ### 2. Generate Embeddings
 Use OpenAI, Cohere, or local models to create embeddings for all entities:

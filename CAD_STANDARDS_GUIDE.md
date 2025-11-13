@@ -147,7 +147,7 @@ Go to **Map Viewer** (`/map-viewer`)
 
 Go to **DXF Tools** (`/dxf-tools`)
 
-1. **Select or Create a Drawing** in the database
+1. **Select or Create a Project** in the database
 2. **Choose Your DXF File** from your computer
 3. **Select Import Pattern** (optional but recommended)
    - Pick your client's pattern from the dropdown

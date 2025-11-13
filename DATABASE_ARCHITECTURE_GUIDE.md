@@ -29,7 +29,7 @@ This document explains the complete architectural transformation of ACAD-GIS fro
 CAD systems (AutoCAD, Civil 3D, MicroStation) store data in **binary files** (DWG, DXF, DGN):
 
 ```
-drawing.dwg → [Binary blob of lines, arcs, text, blocks]
+project.dwg → [Binary blob of lines, arcs, text, blocks]
 ```
 
 **Limitations:**
@@ -291,9 +291,8 @@ Utilities (9 tables):
 ├── utility_devices          → Valves, meters
 └── ... (6 more)
 
-Construction Documents (15 tables):
+Construction Documents (14 tables):
 ├── projects                 → Project metadata
-├── drawings                 → Drawing files
 ├── sheets                   → Individual sheets
 ├── sheet_notes             → Standardized notes
 └── ... (11 more)
@@ -917,10 +916,10 @@ SELECT * FROM entities WHERE quality_score > 0.8;
 
 ### Application 2: AI-Powered QA/QC
 
-**Tool:** Automated drawing checker
+**Tool:** Automated CAD checker
 
 **How it works:**
-1. Import DXF into database (geometric + semantic data)
+1. Import DXF into database at project level (geometric + semantic data)
 2. Generate embeddings for all elements
 3. Check against standards using hybrid search
 4. Spatial analysis: Check clearances with PostGIS

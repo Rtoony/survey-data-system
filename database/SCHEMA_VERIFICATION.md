@@ -18,7 +18,7 @@ October 30, 2025
   - `network_metrics`
   - `temporal_changes`
   - `classification_confidence`
-- **Domain Tables**: 72 tables (projects, drawings, CAD standards, survey/civil, etc.)
+- **Domain Tables**: 71 tables (projects, CAD standards, survey/civil, etc.)
 
 ### Materialized Views
 - `mv_survey_points_enriched` - Survey points with spatial context
@@ -90,9 +90,8 @@ All spatial tables include:
 3. `temporal_changes` - Change tracking
 4. `classification_confidence` - ML predictions
 
-### Projects & Drawings
+### Projects
 1. `projects` - Project management
-2. `drawings` - Drawing metadata
 
 ### CAD Standards
 1. `layer_standards` - Layer definitions
@@ -114,24 +113,23 @@ All spatial tables include:
 8. `drawing_scale_standards` - Scale standards
 
 ### DXF Tools
-1. `layers` - Drawing-specific layers
+1. `layers` - Project-level CAD layers
 2. `block_inserts` - Block placements
-3. `drawing_entities` - Drawing primitives
-4. `drawing_text` - Text annotations
-5. `drawing_dimensions` - Dimensions
-6. `drawing_hatches` - Hatch fills
+3. `cad_entities` - CAD primitives
+4. `cad_text` - Text annotations
+5. `cad_dimensions` - Dimensions
+6. `cad_hatches` - Hatch fills
 7. `layout_viewports` - Viewport configurations
 8. `export_jobs` - DXF export tracking
 
 ### Sheet Management
 1. `sheet_sets` - Sheet set organization
 2. `sheets` - Individual sheets
-3. `sheet_drawing_assignments` - Sheet-drawing links
-4. `sheet_revisions` - Revision tracking
-5. `sheet_relationships` - Sheet dependencies
-6. `sheet_note_sets` - Note libraries
-7. `project_sheet_notes` - Project notes
-8. `sheet_note_assignments` - Note-sheet links
+3. `sheet_revisions` - Revision tracking
+4. `sheet_relationships` - Sheet dependencies
+5. `sheet_note_sets` - Note libraries
+6. `project_sheet_notes` - Project notes
+7. `sheet_note_assignments` - Note-sheet links
 
 ### Survey & Civil (29 tables)
 **Survey & Control:**

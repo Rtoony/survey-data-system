@@ -31,15 +31,13 @@ CREATE TABLE IF NOT EXISTS drawings (
 -- 3. Layers table (drawing layers)
 CREATE TABLE IF NOT EXISTS layers (
     layer_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     layer_name VARCHAR(255) NOT NULL,
     layer_standard_id UUID,
     color INTEGER,
     linetype VARCHAR(100),
     lineweight INTEGER,
     is_frozen BOOLEAN DEFAULT FALSE,
-    is_locked BOOLEAN DEFAULT FALSE,
-    UNIQUE(drawing_id, layer_name)
+    is_locked BOOLEAN DEFAULT FALSE
 );
 
 -- 4. Layer Standards table (CAD standards reference)
@@ -67,7 +65,6 @@ CREATE TABLE IF NOT EXISTS block_standards (
 -- 6. Block Inserts table (block instances in drawings)
 CREATE TABLE IF NOT EXISTS block_inserts (
     insert_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     block_name VARCHAR(255) NOT NULL,
     insertion_point GEOMETRY(PointZ) NOT NULL,
     scale_x NUMERIC(10, 4) DEFAULT 1.0,
@@ -81,7 +78,6 @@ CREATE TABLE IF NOT EXISTS block_inserts (
 -- 7. Drawing Entities table (CAD primitives: lines, polylines, arcs, circles, etc.)
 CREATE TABLE IF NOT EXISTS drawing_entities (
     entity_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     layer_id UUID REFERENCES layers(layer_id),
     entity_type VARCHAR(50) NOT NULL,
     space_type VARCHAR(20) DEFAULT 'MODEL',
@@ -98,7 +94,6 @@ CREATE TABLE IF NOT EXISTS drawing_entities (
 -- 8. Drawing Text table (text annotations)
 CREATE TABLE IF NOT EXISTS drawing_text (
     text_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     layer_id UUID REFERENCES layers(layer_id),
     space_type VARCHAR(20) DEFAULT 'MODEL',
     text_content TEXT NOT NULL,
@@ -128,7 +123,6 @@ CREATE TABLE IF NOT EXISTS dimension_styles (
 -- 10. Drawing Dimensions table (dimension annotations)
 CREATE TABLE IF NOT EXISTS drawing_dimensions (
     dimension_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     layer_id UUID REFERENCES layers(layer_id),
     dimension_style_id UUID REFERENCES dimension_styles(dimension_style_id),
     space_type VARCHAR(20) DEFAULT 'MODEL',
@@ -153,7 +147,6 @@ CREATE TABLE IF NOT EXISTS hatch_patterns (
 -- 12. Drawing Hatches table (hatch/fill instances)
 CREATE TABLE IF NOT EXISTS drawing_hatches (
     hatch_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     layer_id UUID REFERENCES layers(layer_id),
     pattern_id UUID REFERENCES hatch_patterns(pattern_id),
     space_type VARCHAR(20) DEFAULT 'MODEL',
@@ -169,7 +162,6 @@ CREATE TABLE IF NOT EXISTS drawing_hatches (
 -- 13. Layout Viewports table (paperspace viewport configurations)
 CREATE TABLE IF NOT EXISTS layout_viewports (
     viewport_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     layout_name VARCHAR(255) NOT NULL,
     viewport_geometry GEOMETRY(PolygonZ) NOT NULL,
     view_center GEOMETRY(PointZ),
@@ -183,7 +175,6 @@ CREATE TABLE IF NOT EXISTS layout_viewports (
 -- 14. Export Jobs table (DXF/DWG export operation tracking)
 CREATE TABLE IF NOT EXISTS export_jobs (
     export_job_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     export_format VARCHAR(20) NOT NULL,
     dxf_version VARCHAR(20),
     output_file_path TEXT,
@@ -200,35 +191,23 @@ CREATE TABLE IF NOT EXISTS export_jobs (
 -- 15. Drawing Layer Usage table (track active layers per drawing)
 CREATE TABLE IF NOT EXISTS drawing_layer_usage (
     usage_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     layer_name VARCHAR(255) NOT NULL,
-    entity_count INTEGER DEFAULT 0,
-    UNIQUE(drawing_id, layer_name)
+    entity_count INTEGER DEFAULT 0
 );
 
 -- 16. Drawing Linetype Usage table (track active linetypes per drawing)
 CREATE TABLE IF NOT EXISTS drawing_linetype_usage (
     usage_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    drawing_id UUID REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     linetype_name VARCHAR(255) NOT NULL,
-    entity_count INTEGER DEFAULT 0,
-    UNIQUE(drawing_id, linetype_name)
+    entity_count INTEGER DEFAULT 0
 );
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_drawings_project ON drawings(project_id);
-CREATE INDEX IF NOT EXISTS idx_layers_drawing ON layers(drawing_id);
-CREATE INDEX IF NOT EXISTS idx_entities_drawing ON drawing_entities(drawing_id);
 CREATE INDEX IF NOT EXISTS idx_entities_layer ON drawing_entities(layer_id);
 CREATE INDEX IF NOT EXISTS idx_entities_geometry ON drawing_entities USING GIST(geometry);
-CREATE INDEX IF NOT EXISTS idx_text_drawing ON drawing_text(drawing_id);
 CREATE INDEX IF NOT EXISTS idx_text_geometry ON drawing_text USING GIST(insertion_point);
-CREATE INDEX IF NOT EXISTS idx_dimensions_drawing ON drawing_dimensions(drawing_id);
-CREATE INDEX IF NOT EXISTS idx_hatches_drawing ON drawing_hatches(drawing_id);
 CREATE INDEX IF NOT EXISTS idx_hatches_geometry ON drawing_hatches USING GIST(boundary_geometry);
-CREATE INDEX IF NOT EXISTS idx_block_inserts_drawing ON block_inserts(drawing_id);
-CREATE INDEX IF NOT EXISTS idx_viewports_drawing ON layout_viewports(drawing_id);
-CREATE INDEX IF NOT EXISTS idx_export_jobs_drawing ON export_jobs(drawing_id);
 
 -- Insert sample data for testing
 INSERT INTO projects (project_name, client_name) 

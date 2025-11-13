@@ -289,32 +289,6 @@ END;
 $$;
 
 
---
--- Name: drawingent_search_trigger(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.drawingent_search_trigger() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    NEW.search_vector := setweight(to_tsvector('english', COALESCE(NEW.entity_type, '')), 'A');
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: drawingtext_search_trigger(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.drawingtext_search_trigger() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    NEW.search_vector := setweight(to_tsvector('english', COALESCE(NEW.text_content, '')), 'A');
-    RETURN NEW;
-END;
-$$;
 
 
 --
@@ -763,20 +737,6 @@ END;
 $$;
 
 
---
--- Name: sheetdrawing_search_trigger(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.sheetdrawing_search_trigger() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    NEW.search_vector := 
-        setweight(to_tsvector('english', COALESCE(NEW.layout_name, '')), 'A') ||
-        setweight(to_tsvector('english', COALESCE(NEW.notes, '')), 'B');
-    RETURN NEW;
-END;
-$$;
 
 
 --
@@ -1222,7 +1182,6 @@ COMMENT ON TABLE public.block_definitions IS 'Block definitions - AI-optimized w
 CREATE TABLE public.block_inserts (
     insert_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
-    drawing_id uuid,
     layer_id uuid,
     block_name character varying(255) NOT NULL,
     insertion_point public.geometry(PointZ) NOT NULL,
@@ -1511,210 +1470,6 @@ CREATE TABLE public.dimension_styles (
 );
 
 
---
--- Name: drawing_dimensions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drawing_dimensions (
-    dimension_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    entity_id uuid,
-    drawing_id uuid,
-    layer_id uuid,
-    dimension_type character varying(50) NOT NULL,
-    space_type character varying(20) DEFAULT 'MODEL'::character varying,
-    measured_value numeric(15,6),
-    dimension_text text,
-    dimension_style character varying(100),
-    dxf_handle character varying(100),
-    quality_score numeric(3,2) DEFAULT 0.0,
-    tags text[],
-    attributes jsonb,
-    search_vector tsvector,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
-
---
--- Name: drawing_entities; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drawing_entities (
-    entity_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    standards_entity_id uuid,
-    drawing_id uuid,
-    layer_id uuid,
-    entity_type character varying(50) NOT NULL,
-    space_type character varying(20) DEFAULT 'MODEL'::character varying,
-    geometry public.geometry(GeometryZ) NOT NULL,
-    dxf_handle character varying(100),
-    color_aci integer,
-    linetype character varying(100),
-    lineweight integer,
-    transparency integer,
-    quality_score numeric(3,2) DEFAULT 0.0,
-    tags text[],
-    attributes jsonb,
-    search_vector tsvector,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
-
---
--- Name: drawing_hatches; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drawing_hatches (
-    hatch_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    entity_id uuid,
-    drawing_id uuid,
-    layer_id uuid,
-    hatch_pattern character varying(100),
-    hatch_scale numeric(10,4),
-    hatch_angle numeric(10,4),
-    space_type character varying(20) DEFAULT 'MODEL'::character varying,
-    boundary_geometry public.geometry(GeometryZ),
-    dxf_handle character varying(100),
-    quality_score numeric(3,2) DEFAULT 0.0,
-    tags text[],
-    attributes jsonb,
-    search_vector tsvector,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
-
---
--- Name: drawing_layer_usage; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drawing_layer_usage (
-    usage_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    drawing_id uuid,
-    entity_count integer DEFAULT 0,
-    layer_id uuid,
-    layer_standard_id uuid
-);
-
-
---
--- Name: TABLE drawing_layer_usage; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.drawing_layer_usage IS 'Tracks which layers are actively used in each drawing';
-
-
---
--- Name: drawing_linetype_usage; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drawing_linetype_usage (
-    usage_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    drawing_id uuid,
-    linetype_name character varying(255) NOT NULL,
-    usage_count integer DEFAULT 0,
-    linetype_standard_id uuid
-);
-
-
---
--- Name: TABLE drawing_linetype_usage; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.drawing_linetype_usage IS 'Tracks which linetypes are actively used in each drawing';
-
-
---
--- Name: drawing_scale_standards; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drawing_scale_standards (
-    scale_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    entity_id uuid,
-    scale_name character varying(100) NOT NULL,
-    scale_ratio character varying(50) NOT NULL,
-    scale_factor numeric(12,6) NOT NULL,
-    drawing_type character varying(100),
-    use_case text,
-    quality_score numeric(3,2) DEFAULT 0.0,
-    tags text[],
-    attributes jsonb,
-    search_vector tsvector,
-    usage_frequency integer DEFAULT 0,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
-
---
--- Name: drawing_text; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drawing_text (
-    text_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    entity_id uuid,
-    drawing_id uuid,
-    layer_id uuid,
-    space_type character varying(20) DEFAULT 'MODEL'::character varying,
-    text_content text NOT NULL,
-    insertion_point public.geometry(PointZ) NOT NULL,
-    text_height numeric(10,4),
-    rotation_angle numeric(10,4) DEFAULT 0.0,
-    text_style character varying(100),
-    horizontal_justification character varying(50),
-    vertical_justification character varying(50),
-    dxf_handle character varying(100),
-    quality_score numeric(3,2) DEFAULT 0.0,
-    tags text[],
-    attributes jsonb,
-    search_vector tsvector,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
-
---
--- Name: drawings; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.drawings (
-    drawing_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    project_id uuid NOT NULL,
-    drawing_name character varying(255) NOT NULL,
-    drawing_number character varying(100),
-    drawing_path text,
-    file_size bigint,
-    file_hash character varying(64),
-    sheet_title character varying(255),
-    scale character varying(50),
-    discipline character varying(50),
-    drawing_type character varying(100),
-    entity_id uuid,
-    quality_score numeric(4,3),
-    complexity_score numeric(4,3),
-    tags text[],
-    attributes jsonb DEFAULT '{}'::jsonb,
-    bbox_min_x numeric(15,4),
-    bbox_min_y numeric(15,4),
-    bbox_max_x numeric(15,4),
-    bbox_max_y numeric(15,4),
-    search_vector tsvector,
-    entity_count integer DEFAULT 0,
-    layer_count integer DEFAULT 0,
-    block_count integer DEFAULT 0,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    last_opened_at timestamp without time zone,
-    last_modified_at timestamp without time zone
-);
-
-
---
--- Name: TABLE drawings; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.drawings IS 'Drawings table - AI-optimized with entity linking, complexity scoring, and semantic search';
 
 
 --
@@ -1776,7 +1531,6 @@ CREATE TABLE public.easements (
     easement_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
     project_id uuid,
-    drawing_id uuid,
     easement_number character varying(100),
     easement_type character varying(100),
     easement_purpose text,
@@ -1904,7 +1658,6 @@ COMMENT ON TABLE public.entity_relationships IS 'Graph edges for GraphRAG - expl
 CREATE TABLE public.export_jobs (
     job_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
-    drawing_id uuid,
     job_name character varying(255) NOT NULL,
     job_type character varying(50),
     export_format character varying(50),
@@ -1930,7 +1683,6 @@ CREATE TABLE public.grading_limits (
     limit_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
     project_id uuid,
-    drawing_id uuid,
     limit_name character varying(255) NOT NULL,
     limit_type character varying(50),
     boundary_geometry public.geometry(PolygonZ,2226) NOT NULL,
@@ -2056,7 +1808,6 @@ COMMENT ON TABLE public.layer_standards IS 'Layer standards - AI-optimized with 
 CREATE TABLE public.layers (
     layer_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
-    drawing_id uuid,
     layer_name character varying(255) NOT NULL,
     layer_standard_id uuid,
     color integer,
@@ -2084,7 +1835,6 @@ CREATE TABLE public.layers (
 CREATE TABLE public.layout_viewports (
     viewport_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
-    drawing_id uuid,
     layout_name character varying(255) NOT NULL,
     viewport_number integer,
     center_point public.geometry(PointZ),
@@ -2228,7 +1978,6 @@ CREATE TABLE public.survey_points (
     point_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
     project_id uuid,
-    drawing_id uuid,
     point_number character varying(50) NOT NULL,
     point_description text,
     point_code character varying(50),
@@ -2434,7 +2183,6 @@ CREATE TABLE public.parcels (
     parcel_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
     project_id uuid,
-    drawing_id uuid,
     parcel_number character varying(100),
     parcel_name character varying(255),
     owner_name character varying(255),
@@ -2632,7 +2380,6 @@ CREATE TABLE public.right_of_way (
     row_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
     project_id uuid,
-    drawing_id uuid,
     row_name character varying(255) NOT NULL,
     row_type character varying(50),
     ownership character varying(255),
@@ -2673,48 +2420,6 @@ CREATE TABLE public.sheet_category_standards (
 --
 
 COMMENT ON TABLE public.sheet_category_standards IS 'Standard sheet categories with hierarchy ordering';
-
-
---
--- Name: sheet_drawing_assignments; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sheet_drawing_assignments (
-    assignment_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    entity_id uuid,
-    sheet_id uuid NOT NULL,
-    drawing_id uuid,
-    layout_name character varying(255),
-    assigned_by character varying(200),
-    assigned_date timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    notes text,
-    quality_score numeric(3,2) DEFAULT 0.0,
-    tags text[],
-    attributes jsonb,
-    search_vector tsvector,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
-
---
--- Name: sheet_note_assignments; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sheet_note_assignments (
-    assignment_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    entity_id uuid,
-    project_note_id uuid NOT NULL,
-    drawing_id uuid NOT NULL,
-    layout_name character varying(100) DEFAULT 'Model'::character varying,
-    legend_sequence integer NOT NULL,
-    quality_score numeric(3,2) DEFAULT 0.0,
-    tags text[],
-    attributes jsonb,
-    search_vector tsvector,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
 
 
 --
@@ -2781,33 +2486,6 @@ CREATE TABLE public.sheet_revisions (
 
 
 --
--- Name: sheet_sets; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sheet_sets (
-    set_id uuid DEFAULT gen_random_uuid() NOT NULL,
-    entity_id uuid,
-    project_id uuid NOT NULL,
-    set_name character varying(200) NOT NULL,
-    set_number character varying(50),
-    phase character varying(100),
-    discipline character varying(100),
-    issue_date date,
-    status character varying(50) DEFAULT 'draft'::character varying,
-    recipient text,
-    transmittal_notes text,
-    is_active boolean DEFAULT true,
-    quality_score numeric(3,2) DEFAULT 0.0,
-    tags text[],
-    attributes jsonb,
-    search_vector tsvector,
-    usage_frequency integer DEFAULT 0,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
-
---
 -- Name: sheet_templates; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2859,7 +2537,6 @@ CREATE TABLE public.site_trees (
     entity_id uuid,
     project_id uuid,
     survey_point_id uuid,
-    drawing_id uuid,
     tree_number character varying(50),
     species character varying(100),
     common_name character varying(100),
@@ -2952,7 +2629,6 @@ CREATE TABLE public.surface_features (
     entity_id uuid,
     project_id uuid,
     survey_point_id uuid,
-    drawing_id uuid,
     feature_type character varying(100),
     geometry public.geometry(GeometryZ,2226) NOT NULL,
     material character varying(100),
@@ -2977,7 +2653,6 @@ CREATE TABLE public.surface_models (
     surface_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
     project_id uuid,
-    drawing_id uuid,
     surface_name character varying(255) NOT NULL,
     surface_type character varying(50),
     description text,
@@ -3037,7 +2712,6 @@ CREATE TABLE public.survey_observations (
     observation_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
     project_id uuid,
-    drawing_id uuid,
     session_id character varying(100),
     observation_type character varying(50) NOT NULL,
     observation_date date,
@@ -3230,7 +2904,6 @@ CREATE TABLE public.utility_lines (
     line_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
     project_id uuid,
-    drawing_id uuid,
     line_number character varying(50),
     utility_system character varying(100) NOT NULL,
     line_type character varying(100),
@@ -3319,7 +2992,6 @@ CREATE TABLE public.utility_structures (
     entity_id uuid,
     project_id uuid,
     survey_point_id uuid,
-    drawing_id uuid,
     structure_number character varying(50),
     structure_type character varying(100),
     utility_system character varying(100),
@@ -3597,27 +3269,11 @@ ALTER TABLE ONLY public.drawing_hatches
 
 
 --
--- Name: drawing_layer_usage drawing_layer_usage_drawing_layer_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.drawing_layer_usage
-    ADD CONSTRAINT drawing_layer_usage_drawing_layer_key UNIQUE (drawing_id, layer_id);
-
-
---
 -- Name: drawing_layer_usage drawing_layer_usage_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.drawing_layer_usage
     ADD CONSTRAINT drawing_layer_usage_pkey PRIMARY KEY (usage_id);
-
-
---
--- Name: drawing_linetype_usage drawing_linetype_usage_drawing_id_linetype_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.drawing_linetype_usage
-    ADD CONSTRAINT drawing_linetype_usage_drawing_id_linetype_name_key UNIQUE (drawing_id, linetype_name);
 
 
 --
@@ -3650,14 +3306,6 @@ ALTER TABLE ONLY public.drawing_scale_standards
 
 ALTER TABLE ONLY public.drawing_text
     ADD CONSTRAINT drawing_text_pkey PRIMARY KEY (text_id);
-
-
---
--- Name: drawings drawings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.drawings
-    ADD CONSTRAINT drawings_pkey PRIMARY KEY (drawing_id);
 
 
 --
@@ -3794,14 +3442,6 @@ ALTER TABLE ONLY public.layer_standards
 
 ALTER TABLE ONLY public.layer_standards
     ADD CONSTRAINT layer_standards_pkey PRIMARY KEY (layer_id);
-
-
---
--- Name: layers layers_drawing_id_layer_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.layers
-    ADD CONSTRAINT layers_drawing_id_layer_name_key UNIQUE (drawing_id, layer_name);
 
 
 --
@@ -4511,13 +4151,6 @@ CREATE INDEX idx_blockinsert_attributes ON public.block_inserts USING gin (attri
 
 
 --
--- Name: idx_blockinsert_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_blockinsert_drawing ON public.block_inserts USING btree (drawing_id);
-
-
---
 -- Name: idx_blockinsert_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5015,13 +4648,6 @@ CREATE INDEX idx_dimension_attributes ON public.drawing_dimensions USING gin (at
 
 
 --
--- Name: idx_dimension_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_dimension_drawing ON public.drawing_dimensions USING btree (drawing_id);
-
-
---
 -- Name: idx_dimension_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5068,13 +4694,6 @@ CREATE INDEX idx_dimension_type ON public.drawing_dimensions USING btree (dimens
 --
 
 CREATE INDEX idx_drawingent_attributes ON public.drawing_entities USING gin (attributes);
-
-
---
--- Name: idx_drawingent_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_drawingent_drawing ON public.drawing_entities USING btree (drawing_id);
 
 
 --
@@ -5222,13 +4841,6 @@ CREATE INDEX idx_drawings_type ON public.drawings USING btree (drawing_type);
 --
 
 CREATE INDEX idx_drawingtext_attributes ON public.drawing_text USING gin (attributes);
-
-
---
--- Name: idx_drawingtext_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_drawingtext_drawing ON public.drawing_text USING btree (drawing_id);
 
 
 --
@@ -5386,13 +4998,6 @@ CREATE INDEX idx_easement_attributes ON public.easements USING gin (attributes);
 
 
 --
--- Name: idx_easement_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_easement_drawing ON public.easements USING btree (drawing_id);
-
-
---
 -- Name: idx_easement_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5547,13 +5152,6 @@ CREATE INDEX idx_exportjobs_attributes ON public.export_jobs USING gin (attribut
 
 
 --
--- Name: idx_exportjobs_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_exportjobs_drawing ON public.export_jobs USING btree (drawing_id);
-
-
---
 -- Name: idx_exportjobs_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5600,13 +5198,6 @@ CREATE INDEX idx_exportjobs_type ON public.export_jobs USING btree (job_type);
 --
 
 CREATE INDEX idx_gradlimit_attributes ON public.grading_limits USING gin (attributes);
-
-
---
--- Name: idx_gradlimit_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_gradlimit_drawing ON public.grading_limits USING btree (drawing_id);
 
 
 --
@@ -5792,13 +5383,6 @@ CREATE INDEX idx_hatches_attributes ON public.drawing_hatches USING gin (attribu
 
 
 --
--- Name: idx_hatches_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_hatches_drawing ON public.drawing_hatches USING btree (drawing_id);
-
-
---
 -- Name: idx_hatches_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5887,13 +5471,6 @@ CREATE INDEX idx_layers_attributes ON public.layers USING gin (attributes);
 --
 
 CREATE INDEX idx_layers_discipline ON public.layers USING btree (discipline);
-
-
---
--- Name: idx_layers_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_layers_drawing ON public.layers USING btree (drawing_id);
 
 
 --
@@ -6233,13 +5810,6 @@ CREATE INDEX idx_noteassign_attributes ON public.sheet_note_assignments USING gi
 
 
 --
--- Name: idx_noteassign_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_noteassign_drawing ON public.sheet_note_assignments USING btree (drawing_id);
-
-
---
 -- Name: idx_noteassign_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6335,13 +5905,6 @@ CREATE INDEX idx_notesets_usage ON public.sheet_note_sets USING btree (usage_fre
 --
 
 CREATE INDEX idx_parcel_attributes ON public.parcels USING gin (attributes);
-
-
---
--- Name: idx_parcel_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_parcel_drawing ON public.parcels USING btree (drawing_id);
 
 
 --
@@ -6807,13 +6370,6 @@ CREATE INDEX idx_row_attributes ON public.right_of_way USING gin (attributes);
 
 
 --
--- Name: idx_row_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_row_drawing ON public.right_of_way USING btree (drawing_id);
-
-
---
 -- Name: idx_row_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6930,13 +6486,6 @@ CREATE INDEX idx_scale_usage ON public.drawing_scale_standards USING btree (usag
 --
 
 CREATE INDEX idx_sheetdrawing_attributes ON public.sheet_drawing_assignments USING gin (attributes);
-
-
---
--- Name: idx_sheetdrawing_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_sheetdrawing_drawing ON public.sheet_drawing_assignments USING btree (drawing_id);
 
 
 --
@@ -7241,13 +6790,6 @@ CREATE INDEX idx_surface_attributes ON public.surface_models USING gin (attribut
 
 
 --
--- Name: idx_surface_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_surface_drawing ON public.surface_models USING btree (drawing_id);
-
-
---
 -- Name: idx_surface_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7301,13 +6843,6 @@ CREATE INDEX idx_surface_usage ON public.surface_models USING btree (usage_frequ
 --
 
 CREATE INDEX idx_surfacefeat_attributes ON public.surface_features USING gin (attributes);
-
-
---
--- Name: idx_surfacefeat_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_surfacefeat_drawing ON public.surface_features USING btree (drawing_id);
 
 
 --
@@ -7381,13 +6916,6 @@ CREATE INDEX idx_surveyobs_attributes ON public.survey_observations USING gin (a
 
 
 --
--- Name: idx_surveyobs_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_surveyobs_drawing ON public.survey_observations USING btree (drawing_id);
-
-
---
 -- Name: idx_surveyobs_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7455,13 +6983,6 @@ CREATE INDEX idx_surveypts_attributes ON public.survey_points USING gin (attribu
 --
 
 CREATE INDEX idx_surveypts_code ON public.survey_points USING btree (point_code);
-
-
---
--- Name: idx_surveypts_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_surveypts_drawing ON public.survey_points USING btree (drawing_id);
 
 
 --
@@ -7745,13 +7266,6 @@ CREATE INDEX idx_trees_attributes ON public.site_trees USING gin (attributes);
 
 
 --
--- Name: idx_trees_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_trees_drawing ON public.site_trees USING btree (drawing_id);
-
-
---
 -- Name: idx_trees_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7934,13 +7448,6 @@ CREATE INDEX idx_utilline_attributes ON public.utility_lines USING gin (attribut
 
 
 --
--- Name: idx_utilline_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_utilline_drawing ON public.utility_lines USING btree (drawing_id);
-
-
---
 -- Name: idx_utilline_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8081,13 +7588,6 @@ CREATE INDEX idx_utilstruct_attributes ON public.utility_structures USING gin (a
 
 
 --
--- Name: idx_utilstruct_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_utilstruct_drawing ON public.utility_structures USING btree (drawing_id);
-
-
---
 -- Name: idx_utilstruct_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8162,13 +7662,6 @@ CREATE INDEX idx_utilstruct_usage ON public.utility_structures USING btree (usag
 --
 
 CREATE INDEX idx_viewports_attributes ON public.layout_viewports USING gin (attributes);
-
-
---
--- Name: idx_viewports_drawing; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_viewports_drawing ON public.layout_viewports USING btree (drawing_id);
 
 
 --
@@ -8438,27 +7931,6 @@ CREATE TRIGGER detail_search_update BEFORE INSERT OR UPDATE ON public.detail_sta
 
 
 --
--- Name: drawing_dimensions dimension_search_update; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER dimension_search_update BEFORE INSERT OR UPDATE ON public.drawing_dimensions FOR EACH ROW EXECUTE FUNCTION public.dimension_search_trigger();
-
-
---
--- Name: drawing_entities drawingent_search_update; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER drawingent_search_update BEFORE INSERT OR UPDATE ON public.drawing_entities FOR EACH ROW EXECUTE FUNCTION public.drawingent_search_trigger();
-
-
---
--- Name: drawing_text drawingtext_search_update; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER drawingtext_search_update BEFORE INSERT OR UPDATE ON public.drawing_text FOR EACH ROW EXECUTE FUNCTION public.drawingtext_search_trigger();
-
-
---
 -- Name: earthwork_quantities earthwork_search_update; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -8578,24 +8050,10 @@ CREATE TRIGGER row_search_update BEFORE INSERT OR UPDATE ON public.right_of_way 
 
 
 --
--- Name: drawing_scale_standards scale_search_update; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER scale_search_update BEFORE INSERT OR UPDATE ON public.drawing_scale_standards FOR EACH ROW EXECUTE FUNCTION public.scale_search_trigger();
-
-
---
 -- Name: sheets sheet_search_update; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER sheet_search_update BEFORE INSERT OR UPDATE ON public.sheets FOR EACH ROW EXECUTE FUNCTION public.sheet_search_trigger();
-
-
---
--- Name: sheet_drawing_assignments sheetdrawing_search_update; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER sheetdrawing_search_update BEFORE INSERT OR UPDATE ON public.sheet_drawing_assignments FOR EACH ROW EXECUTE FUNCTION public.sheetdrawing_search_trigger();
 
 
 --
@@ -8610,13 +8068,6 @@ CREATE TRIGGER sheetrel_search_update BEFORE INSERT OR UPDATE ON public.sheet_re
 --
 
 CREATE TRIGGER sheetrev_search_update BEFORE INSERT OR UPDATE ON public.sheet_revisions FOR EACH ROW EXECUTE FUNCTION public.sheetrev_search_trigger();
-
-
---
--- Name: sheet_sets sheetset_search_update; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER sheetset_search_update BEFORE INSERT OR UPDATE ON public.sheet_sets FOR EACH ROW EXECUTE FUNCTION public.sheetset_search_trigger();
 
 
 --
@@ -8787,14 +8238,6 @@ ALTER TABLE ONLY public.block_definitions
 
 
 --
--- Name: block_inserts block_inserts_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.block_inserts
-    ADD CONSTRAINT block_inserts_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE CASCADE;
-
-
---
 -- Name: block_inserts block_inserts_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8931,14 +8374,6 @@ ALTER TABLE ONLY public.detail_standards
 
 
 --
--- Name: drawing_dimensions drawing_dimensions_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.drawing_dimensions
-    ADD CONSTRAINT drawing_dimensions_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE CASCADE;
-
-
---
 -- Name: drawing_dimensions drawing_dimensions_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8955,14 +8390,6 @@ ALTER TABLE ONLY public.drawing_dimensions
 
 
 --
--- Name: drawing_entities drawing_entities_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.drawing_entities
-    ADD CONSTRAINT drawing_entities_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE CASCADE;
-
-
---
 -- Name: drawing_entities drawing_entities_layer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8976,14 +8403,6 @@ ALTER TABLE ONLY public.drawing_entities
 
 ALTER TABLE ONLY public.drawing_entities
     ADD CONSTRAINT drawing_entities_standards_entity_id_fkey FOREIGN KEY (standards_entity_id) REFERENCES public.standards_entities(entity_id) ON DELETE SET NULL;
-
-
---
--- Name: drawing_hatches drawing_hatches_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.drawing_hatches
-    ADD CONSTRAINT drawing_hatches_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE CASCADE;
 
 
 --
@@ -9008,14 +8427,6 @@ ALTER TABLE ONLY public.drawing_hatches
 
 ALTER TABLE ONLY public.drawing_scale_standards
     ADD CONSTRAINT drawing_scale_standards_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.standards_entities(entity_id) ON DELETE SET NULL;
-
-
---
--- Name: drawing_text drawing_text_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.drawing_text
-    ADD CONSTRAINT drawing_text_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE CASCADE;
 
 
 --
@@ -9083,14 +8494,6 @@ ALTER TABLE ONLY public.earthwork_quantities
 
 
 --
--- Name: easements easements_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.easements
-    ADD CONSTRAINT easements_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
-
-
---
 -- Name: easements easements_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9147,27 +8550,11 @@ ALTER TABLE ONLY public.entity_relationships
 
 
 --
--- Name: export_jobs export_jobs_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.export_jobs
-    ADD CONSTRAINT export_jobs_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE CASCADE;
-
-
---
 -- Name: export_jobs export_jobs_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.export_jobs
     ADD CONSTRAINT export_jobs_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.standards_entities(entity_id) ON DELETE SET NULL;
-
-
---
--- Name: grading_limits grading_limits_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.grading_limits
-    ADD CONSTRAINT grading_limits_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
 
 
 --
@@ -9227,27 +8614,11 @@ ALTER TABLE ONLY public.layer_standards
 
 
 --
--- Name: layers layers_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.layers
-    ADD CONSTRAINT layers_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE CASCADE;
-
-
---
 -- Name: layers layers_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.layers
     ADD CONSTRAINT layers_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.standards_entities(entity_id) ON DELETE SET NULL;
-
-
---
--- Name: layout_viewports layout_viewports_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.layout_viewports
-    ADD CONSTRAINT layout_viewports_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE CASCADE;
 
 
 --
@@ -9304,14 +8675,6 @@ ALTER TABLE ONLY public.parcel_corners
 
 ALTER TABLE ONLY public.parcel_corners
     ADD CONSTRAINT parcel_corners_survey_point_id_fkey FOREIGN KEY (survey_point_id) REFERENCES public.survey_points(point_id) ON DELETE SET NULL;
-
-
---
--- Name: parcels parcels_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.parcels
-    ADD CONSTRAINT parcels_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
 
 
 --
@@ -9411,14 +8774,6 @@ ALTER TABLE ONLY public.projects
 
 
 --
--- Name: right_of_way right_of_way_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.right_of_way
-    ADD CONSTRAINT right_of_way_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
-
-
---
 -- Name: right_of_way right_of_way_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9435,14 +8790,6 @@ ALTER TABLE ONLY public.right_of_way
 
 
 --
--- Name: sheet_drawing_assignments sheet_drawing_assignments_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sheet_drawing_assignments
-    ADD CONSTRAINT sheet_drawing_assignments_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
-
-
---
 -- Name: sheet_drawing_assignments sheet_drawing_assignments_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9456,14 +8803,6 @@ ALTER TABLE ONLY public.sheet_drawing_assignments
 
 ALTER TABLE ONLY public.sheet_drawing_assignments
     ADD CONSTRAINT sheet_drawing_assignments_sheet_id_fkey FOREIGN KEY (sheet_id) REFERENCES public.sheets(sheet_id) ON DELETE CASCADE;
-
-
---
--- Name: sheet_note_assignments sheet_note_assignments_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sheet_note_assignments
-    ADD CONSTRAINT sheet_note_assignments_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE CASCADE;
 
 
 --
@@ -9571,14 +8910,6 @@ ALTER TABLE ONLY public.sheets
 
 
 --
--- Name: site_trees site_trees_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.site_trees
-    ADD CONSTRAINT site_trees_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
-
-
---
 -- Name: site_trees site_trees_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9619,14 +8950,6 @@ ALTER TABLE ONLY public.standard_notes
 
 
 --
--- Name: surface_features surface_features_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.surface_features
-    ADD CONSTRAINT surface_features_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
-
-
---
 -- Name: surface_features surface_features_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9648,14 +8971,6 @@ ALTER TABLE ONLY public.surface_features
 
 ALTER TABLE ONLY public.surface_features
     ADD CONSTRAINT surface_features_survey_point_id_fkey FOREIGN KEY (survey_point_id) REFERENCES public.survey_points(point_id) ON DELETE SET NULL;
-
-
---
--- Name: surface_models surface_models_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.surface_models
-    ADD CONSTRAINT surface_models_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
 
 
 --
@@ -9699,14 +9014,6 @@ ALTER TABLE ONLY public.survey_observations
 
 
 --
--- Name: survey_observations survey_observations_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.survey_observations
-    ADD CONSTRAINT survey_observations_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
-
-
---
 -- Name: survey_observations survey_observations_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9736,14 +9043,6 @@ ALTER TABLE ONLY public.survey_observations
 
 ALTER TABLE ONLY public.survey_observations
     ADD CONSTRAINT survey_observations_target_point_id_fkey FOREIGN KEY (target_point_id) REFERENCES public.survey_points(point_id) ON DELETE SET NULL;
-
-
---
--- Name: survey_points survey_points_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.survey_points
-    ADD CONSTRAINT survey_points_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
 
 
 --
@@ -9851,14 +9150,6 @@ ALTER TABLE ONLY public.typical_sections
 
 
 --
--- Name: utility_lines utility_lines_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.utility_lines
-    ADD CONSTRAINT utility_lines_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
-
-
---
 -- Name: utility_lines utility_lines_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9920,14 +9211,6 @@ ALTER TABLE ONLY public.utility_service_connections
 
 ALTER TABLE ONLY public.utility_service_connections
     ADD CONSTRAINT utility_service_connections_structure_id_fkey FOREIGN KEY (structure_id) REFERENCES public.utility_structures(structure_id) ON DELETE SET NULL;
-
-
---
--- Name: utility_structures utility_structures_drawing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.utility_structures
-    ADD CONSTRAINT utility_structures_drawing_id_fkey FOREIGN KEY (drawing_id) REFERENCES public.drawings(drawing_id) ON DELETE SET NULL;
 
 
 --

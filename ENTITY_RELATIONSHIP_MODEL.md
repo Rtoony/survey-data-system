@@ -24,23 +24,15 @@ projects
 **Purpose:** The organizational unit for all work. Everything belongs to a project.
 
 **Relationships:**
-- Has many: drawings, sheets, survey points, utilities, parcels
+- Has many: sheets, survey points, utilities, parcels, CAD entities
 - Belongs to: client (optional)
 - Can have many: clients, vendors, municipalities (via junction tables)
 
 ---
 
-### Level 2: Drawings & Sheet Sets
+### Level 2: Sheet Sets
 
 ```
-drawings
-├── drawing_id (UUID)
-├── project_id → projects.project_id
-├── drawing_number
-├── drawing_title
-├── file_path
-└── dxf_metadata (JSONB)
-
 sheet_sets
 ├── set_id (UUID)
 ├── project_id → projects.project_id
@@ -55,48 +47,48 @@ sheets
 └── layout_name
 ```
 
-**Purpose:** Organize construction documents and CAD files.
+**Purpose:** Organize construction documents.
 
 **Relationships:**
-- `drawings` → Many layers, blocks, entities per drawing
 - `sheets` → Many viewports, notes, references per sheet
 - `sheet_revisions` → Track changes to individual sheets
 
 ---
 
-### Level 3: CAD Content (Per Drawing)
+### Level 3: CAD Content (Project-Level)
 
 ```
 layers
 ├── layer_id (UUID)
-├── drawing_id → drawings.drawing_id
+├── project_id → projects.project_id
 ├── layer_name
 ├── entity_id → standards_entities.entity_id
 └── layer_standard_id → layer_standards.layer_standard_id
 
 block_inserts
 ├── block_insert_id (UUID)
-├── drawing_id → drawings.drawing_id
+├── project_id → projects.project_id
 ├── block_definition_id → block_definitions.block_definition_id
 ├── entity_id → standards_entities.entity_id
 ├── geometry (PostGIS PointZ)
 └── attributes (JSONB)
 
-drawing_entities
+cad_entities
 ├── entity_id (UUID)
-├── drawing_id → drawings.drawing_id
+├── project_id → projects.project_id
 ├── layer_id → layers.layer_id
 ├── entity_type (LINE, POLYLINE, ARC, CIRCLE, etc.)
 ├── geometry (PostGIS Geometry)
 └── dxf_data (JSONB)
 ```
 
-**Purpose:** Store actual CAD primitives and their organization.
+**Purpose:** Store actual CAD primitives and their organization at the project level.
 
 **Relationships:**
-- All entities reference their parent `drawing_id`
+- All entities reference their parent `project_id`
 - All entities reference their `layer_id`
 - Many entities have `entity_id` linking to unified registry
+- **Note:** DXF import/export now happens at project level; entities can be imported with drawing_id = NULL
 
 ---
 
@@ -137,7 +129,7 @@ standards_entities (The Central Registry)
 **CAD Content:**
 - Layers (instances)
 - Block inserts (instances)
-- Significant drawing entities
+- Significant CAD entities
 
 ### Why This Matters
 
@@ -205,7 +197,7 @@ ST_Intersects(pipe.geometry, parcel.geometry)
 **Definition:** Parent-child organizational structure.
 
 **Examples:**
-- Project → Drawing → Layer → Entity
+- Project → Entity (direct relationship)
 - Standard library → Project instance → Modified copy
 - Sheet set → Sheet → Revision
 
@@ -295,12 +287,9 @@ project_standard_assignments
 ```
 projects
   ↓ (1:N)
-  ├── drawings
-  │     ↓ (1:N)
-  │     ├── layers
-  │     ├── block_inserts
-  │     ├── drawing_entities
-  │     └── drawing_text
+  ├── layers (project-level CAD layers)
+  ├── block_inserts (project-level block instances)
+  ├── cad_entities (project-level CAD primitives)
   │
   ├── sheet_sets
   │     ↓ (1:N)
@@ -327,11 +316,11 @@ discipline_standards
 
 layer_standards
   ↓ (1:N)
-  └── layers (instances per drawing)
+  └── layers (instances per project)
 
 block_definitions
   ↓ (1:N)
-  └── block_inserts (instances per drawing)
+  └── block_inserts (instances per project)
 
 detail_standards
   ↓ (1:N)
@@ -475,23 +464,25 @@ control_point_membership
 ```
 dxf_entity_links
 ├── link_id (UUID)
-├── drawing_id
+├── project_id → projects.project_id
 ├── dxf_handle (unique identifier in DXF file)
 ├── database_table (which table stores this entity)
 ├── database_id (UUID in that table)
 ├── geometry_hash (SHA256 of coordinates)
 ├── attributes_hash (SHA256 of properties)
+├── import_source (filename or identifier)
 └── last_sync_at
 ```
 
-**Purpose:** Track which DXF entities map to which database records.
+**Purpose:** Track which DXF entities map to which database records at the project level.
 
 **Workflow:**
-1. **Import:** Create link record for each imported DXF entity
-2. **Re-import:** Check if DXF handle exists
+1. **Import:** Create link record for each imported DXF entity (links to project, not drawing)
+2. **Re-import:** Check if DXF handle exists for this project
 3. **Compare:** Hash current geometry vs. stored hash
 4. **Update:** If changed, update database record
 5. **Delete Detection:** DXF entities missing from file
+6. **Note:** Multiple DXF files can be imported to the same project; entities stored with project_id
 
 ---
 
@@ -559,14 +550,10 @@ GROUP BY entity_id;
                           ┌─────────────────┼─────────────────┐
                           ↓                 ↓                 ↓
                   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-                  │drawings      │  │sheets        │  │civil         │
-                  │(CAD files)   │  │(documents)   │  │engineering   │
-                  └──────────────┘  └──────────────┘  │(survey/GIS)  │
-                          ↓                           └──────────────┘
-                  ┌──────────────┐
-                  │layers        │
-                  │blocks        │
-                  │entities      │
+                  │CAD entities  │  │sheets        │  │civil         │
+                  │(layers,      │  │(documents)   │  │engineering   │
+                  │blocks,       │  └──────────────┘  │(survey/GIS)  │
+                  │primitives)   │                     └──────────────┘
                   └──────────────┘
 ```
 

@@ -344,9 +344,6 @@
             <button class="mc-tab-button active" data-tab="overview">
                 <i class="fas fa-chart-line"></i> Overview
             </button>
-            <button class="mc-tab-button" data-tab="drawings">
-                <i class="fas fa-file-image"></i> Drawings
-            </button>
             <button class="mc-tab-button" data-tab="reference-data">
                 <i class="fas fa-database"></i> Reference Data
             </button>
@@ -363,10 +360,6 @@
                 <i class="fas fa-chart-bar"></i> Project Metrics
             </h2>
             <div class="mc-stat-grid" id="statsGrid">
-                <div class="mc-stat-box">
-                    <div class="mc-stat-value" id="drawingCount">-</div>
-                    <div class="mc-stat-label">Drawings</div>
-                </div>
                 <div class="mc-stat-box">
                     <div class="mc-stat-value" id="entityCount">-</div>
                     <div class="mc-stat-label">CAD Entities</div>
@@ -414,13 +407,6 @@
                     <div class="mc-stat-label">GIS Layers</div>
                 </div>
             </div>
-        </div>
-
-        <div class="mc-tab-content" id="tab-drawings">
-            <h2 style="color: var(--accent-cyan); margin: 0 0 20px 0;">
-                <i class="fas fa-file-image"></i> Associated Drawings
-            </h2>
-            <div id="drawingsList"></div>
         </div>
 
         <div class="mc-tab-content" id="tab-reference-data">
@@ -669,7 +655,6 @@ async function loadStatistics() {
             throw new Error(data.error);
         }
         
-        document.getElementById('drawingCount').textContent = data.drawing_count || 0;
         document.getElementById('entityCount').textContent = data.entity_count?.toLocaleString() || 0;
         document.getElementById('surveyPointCount').textContent = data.survey_point_count?.toLocaleString() || 0;
         document.getElementById('refDataCount').textContent = data.total_reference_data || 0;
@@ -789,53 +774,6 @@ async function initializeMap(mapData) {
         `;
         document.getElementById('mapPlaceholder').style.display = 'flex';
         document.getElementById('projectMap').style.display = 'none';
-    }
-}
-
-async function loadDrawings() {
-    try {
-        const response = await fetch(`/api/projects/${projectId}/drawings`);
-        const data = await response.json();
-        
-        const drawingsDiv = document.getElementById('drawingsList');
-        const drawingCount = document.getElementById('drawingCount');
-        
-        drawingCount.textContent = data.drawings.length;
-        
-        if (data.drawings.length === 0) {
-            drawingsDiv.innerHTML = `
-                <div class="mc-empty-state">
-                    <i class="fas fa-inbox"></i>
-                    <p>No drawings associated with this project</p>
-                </div>
-            `;
-            return;
-        }
-        
-        drawingsDiv.innerHTML = `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Drawing Name</th>
-                        <th>Drawing Number</th>
-                        <th>Type</th>
-                        <th>Created</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.drawings.map(d => `
-                        <tr>
-                            <td><strong>${d.drawing_name || '-'}</strong></td>
-                            <td>${d.drawing_number || '-'}</td>
-                            <td>${d.drawing_type || '-'}</td>
-                            <td>${formatDate(d.created_at)}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-    } catch (error) {
-        console.error('Error loading drawings:', error);
     }
 }
 
@@ -1258,10 +1196,6 @@ function init() {
     loadProjectData()
         .then(() => console.log('✓ Project data loaded'))
         .catch(err => console.error('✗ Project data error:', err));
-    
-    loadDrawings()
-        .then(() => console.log('✓ Drawings loaded'))
-        .catch(err => console.error('✗ Drawings error:', err));
     
     loadReferenceData()
         .then(() => console.log('✓ Reference data loaded'))

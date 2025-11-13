@@ -304,7 +304,6 @@ function renderProjects(projects) {
                         </th>
                         <th>Project Name</th>
                         <th>Client</th>
-                        <th>Drawings</th>
                         <th>Created</th>
                         <th style="text-align: center;">Actions</th>
                     </tr>
@@ -321,7 +320,6 @@ function renderProjects(projects) {
                             </td>
                             <td><strong>${p.project_name || '-'}</strong></td>
                             <td>${p.client_name || '-'}</td>
-                            <td><span class="badge">${p.drawing_count || 0}</span></td>
                             <td>${formatDate(p.created_at)}</td>
                             <td style="text-align: center;">
                                 <button 

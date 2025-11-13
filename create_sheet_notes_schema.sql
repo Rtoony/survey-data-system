@@ -44,7 +44,6 @@ CREATE TABLE IF NOT EXISTS project_sheet_notes (
 CREATE TABLE IF NOT EXISTS sheet_note_assignments (
     assignment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_note_id UUID NOT NULL REFERENCES project_sheet_notes(project_note_id) ON DELETE CASCADE,
-    drawing_id UUID NOT NULL REFERENCES drawings(drawing_id) ON DELETE CASCADE,
     layout_name VARCHAR(100) DEFAULT 'Model',
     legend_sequence INTEGER NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -73,7 +72,6 @@ CREATE INDEX IF NOT EXISTS idx_sheet_note_sets_project ON sheet_note_sets(projec
 CREATE INDEX IF NOT EXISTS idx_project_sheet_notes_set ON project_sheet_notes(set_id);
 CREATE INDEX IF NOT EXISTS idx_project_sheet_notes_note ON project_sheet_notes(standard_note_id);
 CREATE INDEX IF NOT EXISTS idx_sheet_note_assignments_note ON sheet_note_assignments(project_note_id);
-CREATE INDEX IF NOT EXISTS idx_sheet_note_assignments_drawing ON sheet_note_assignments(drawing_id);
 CREATE INDEX IF NOT EXISTS idx_standard_notes_category ON standard_notes(note_category);
 CREATE INDEX IF NOT EXISTS idx_standard_notes_discipline ON standard_notes(discipline);
 

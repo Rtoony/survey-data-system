@@ -31,7 +31,7 @@ ACAD-GIS replaces traditional file-based CAD workflows with a PostgreSQL/PostGIS
 
 ### 🔧 Civil Engineering Tools
 - **Gravity Pipe Network Editor:** Interactive SVG diagrams with auto-connection and classification
-- **Sheet Note Manager:** Construction drawing notes database
+- **Sheet Note Manager:** Construction sheet notes database
 - **Sheet Set Manager:** Deliverables tracking
 - **Survey & Civil Schema:** Comprehensive database for civil/survey workflows
 
@@ -77,7 +77,7 @@ Access at `http://localhost:5000`
 
 ### 4. Import Your First DXF
 1. Go to **DXF Tools**
-2. Create or select a drawing
+2. Create or select a project
 3. Choose an import pattern (optional)
 4. Upload your DXF file
 5. View classification statistics

@@ -142,7 +142,7 @@ CREATE TABLE block_name_mappings (
 
 ### 2. Detail Name Mappings
 
-**Purpose:** Map construction detail drawing references.
+**Purpose:** Map construction detail references.
 
 ```sql
 CREATE TABLE detail_name_mappings (
@@ -299,7 +299,7 @@ def translate_database_to_dxf(canonical_name, entity_type, client_id):
 Standards don't exist in isolation. They have **cross-references**:
 
 - A keynote references a specific block
-- A detail drawing shows a specific material
+- A detail shows a specific material
 - A hatch pattern represents a material
 - A block references a specification section
 
@@ -369,7 +369,7 @@ WHERE pcm.project_id = 'proj-123'
 
 ### Relationship Type 2: Keynote ↔ Detail
 
-**Use Case:** Keynote "2.05" references detail drawing "SD-STORM-INLET-01"
+**Use Case:** Keynote "2.05" references detail "SD-STORM-INLET-01"
 
 ```sql
 INSERT INTO project_context_mappings 
@@ -466,10 +466,10 @@ entity_id: "entity-xyz-789"
 
 ```sql
 INSERT INTO block_inserts 
-(block_insert_id, drawing_id, block_definition_id, entity_id, 
+(block_insert_id, project_id, block_definition_id, entity_id, 
  geometry, rotation, scale_x, scale_y)
 VALUES 
-(gen_random_uuid(), 'drawing-456', 'block-abc-123', 'entity-xyz-789',
+(gen_random_uuid(), 'project-456', 'block-abc-123', 'entity-xyz-789',
  ST_GeomFromText('POINT Z (6123456.7 2089123.4 125.5)', 2226),
  0.0, 1.0, 1.0);
 ```
@@ -523,7 +523,7 @@ SELECT
     bi.scale_y
 FROM block_inserts bi
 JOIN block_definitions bd ON bi.block_definition_id = bd.block_definition_id
-WHERE bi.drawing_id = 'drawing-456';
+WHERE bi.project_id = 'project-456';
 ```
 
 **Step 2: Translate Names**

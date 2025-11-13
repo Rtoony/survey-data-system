@@ -118,7 +118,7 @@
                 <!-- LAYERS TAB -->
                 <div id="tab-layers" class="tab-content">
                     <div class="section">
-                        <h3><i class="fas fa-folder-open"></i> Project Viewer</h3>
+                        <h3><i class="fas fa-folder-open"></i> Project Entities</h3>
                         
                         <label style="color: #aaa; font-size: 11px; margin-bottom: 5px; display: block;">Select Project:</label>
                         <select id="project-select" onchange="selectProject(this.value)" style="margin-bottom: 10px; width: 100%;">
@@ -136,12 +136,8 @@
                             </label>
                         </div>
                         
-                        <div id="drawings-container" style="font-size: 11px; max-height: 300px; overflow-y: auto;">
-                            <div class="skeleton-loader">
-                                <div class="skeleton-line"></div>
-                                <div class="skeleton-line"></div>
-                                <div class="skeleton-line"></div>
-                            </div>
+                        <div id="project-layers-container" style="font-size: 11px; max-height: 300px; overflow-y: auto;">
+                            <div style="color: #888; text-align: center; padding: 10px;">Select a project to view layers</div>
                         </div>
                     </div>
                     
@@ -780,72 +776,45 @@
             flex: 1;
         }
         
-        /* Accordion styles for drawings */
-        .drawing-item {
-            margin-bottom: 8px;
+        /* Layer item styles */
+        .layer-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            margin-bottom: 4px;
+            background: rgba(0, 255, 255, 0.05);
             border: 1px solid rgba(0, 255, 255, 0.2);
             border-radius: 4px;
-            overflow: hidden;
-        }
-        
-        .drawing-header {
-            background: rgba(0, 255, 255, 0.1);
-            padding: 8px 10px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            font-size: 11px;
             transition: background 0.2s;
         }
         
-        .drawing-header:hover {
-            background: rgba(0, 255, 255, 0.2);
+        .layer-item:hover {
+            background: rgba(0, 255, 255, 0.15);
         }
         
-        .drawing-title {
-            font-weight: bold;
-            color: #00ffff;
-            font-size: 12px;
-        }
-        
-        .drawing-count {
-            color: #888;
-            font-size: 10px;
-        }
-        
-        .drawing-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-            padding: 0 10px;
-        }
-        
-        .drawing-content.open {
-            max-height: 500px;
-            padding: 10px;
-        }
-        
-        .entity-type-item {
-            display: flex;
-            align-items: center;
-            padding: 4px 0;
-            font-size: 11px;
-        }
-        
-        .entity-type-item input[type="checkbox"] {
+        .layer-item input[type="checkbox"] {
+            margin: 0;
             margin-right: 8px;
             cursor: pointer;
+            flex-shrink: 0;
         }
         
-        .entity-type-label {
+        .layer-item-label {
             flex: 1;
             cursor: pointer;
+            color: #fff;
         }
         
-        .entity-type-count {
+        .layer-item-count {
             color: #888;
             font-size: 10px;
             margin-left: 5px;
+        }
+        
+        .layer-loading {
+            color: #00ffff;
+            font-size: 10px;
         }
         
         /* Legend Items */
@@ -875,26 +844,26 @@
         
         /* Scrollbar styling */
         .tab-content-wrapper::-webkit-scrollbar,
-        #drawings-container::-webkit-scrollbar,
+        #project-layers-container::-webkit-scrollbar,
         #gis-layers-container::-webkit-scrollbar {
             width: 6px;
         }
         
         .tab-content-wrapper::-webkit-scrollbar-track,
-        #drawings-container::-webkit-scrollbar-track,
+        #project-layers-container::-webkit-scrollbar-track,
         #gis-layers-container::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.3);
         }
         
         .tab-content-wrapper::-webkit-scrollbar-thumb,
-        #drawings-container::-webkit-scrollbar-thumb,
+        #project-layers-container::-webkit-scrollbar-thumb,
         #gis-layers-container::-webkit-scrollbar-thumb {
             background: rgba(0, 255, 255, 0.3);
             border-radius: 3px;
         }
         
         .tab-content-wrapper::-webkit-scrollbar-thumb:hover,
-        #drawings-container::-webkit-scrollbar-thumb:hover,
+        #project-layers-container::-webkit-scrollbar-thumb:hover,
         #gis-layers-container::-webkit-scrollbar-thumb:hover {
             background: rgba(0, 255, 255, 0.5);
         }
@@ -1619,24 +1588,24 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                 const select = document.getElementById('project-select');
                 if (projectsData.length === 0) {
                     select.innerHTML = '<option value="">No projects available</option>';
-                    document.getElementById('drawings-container').innerHTML = 
+                    document.getElementById('project-layers-container').innerHTML = 
                         '<div style="color: #888; text-align: center; padding: 10px;">No projects available</div>';
                     return;
                 }
                 
                 select.innerHTML = '<option value="">Select a project...</option>' +
                     projectsData.map(project => 
-                        `<option value="${project.project_id}">${project.project_name} (${project.drawings.length} drawings)</option>`
+                        `<option value="${project.project_id}">${project.project_name}</option>`
                     ).join('');
                 
-                document.getElementById('drawings-container').innerHTML = 
-                    '<div style="color: #888; text-align: center; padding: 10px;">Select a project to view drawings</div>';
+                document.getElementById('project-layers-container').innerHTML = 
+                    '<div style="color: #888; text-align: center; padding: 10px;">Select a project to view layers</div>';
                 
                 console.log(`Loaded ${projectsData.length} projects`);
             } catch (e) {
                 console.error('Error loading project structure:', e);
                 document.getElementById('project-select').innerHTML = '<option value="">Error loading projects</option>';
-                document.getElementById('drawings-container').innerHTML = 
+                document.getElementById('project-layers-container').innerHTML = 
                     '<div style="color: #ff4444; text-align: center; padding: 10px;">Error loading projects</div>';
             }
         }
@@ -1660,12 +1629,15 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
             }
         }
         
-        function selectProject(projectId) {
+        async function selectProject(projectId) {
             if (!projectId) {
                 selectedProject = null;
                 document.getElementById('btn-zoom-project').disabled = true;
-                document.getElementById('drawings-container').innerHTML = 
-                    '<div style="color: #888; text-align: center; padding: 10px;">Select a project to view drawings</div>';
+                document.getElementById('project-layers-container').innerHTML = 
+                    '<div style="color: #888; text-align: center; padding: 10px;">Select a project to view layers</div>';
+                
+                Object.values(activeEntityLayers).forEach(layer => map.removeLayer(layer));
+                activeEntityLayers = {};
                 return;
             }
             
@@ -1673,56 +1645,42 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
             if (!selectedProject) return;
             
             document.getElementById('btn-zoom-project').disabled = false;
-            buildDrawingsAccordion(selectedProject.drawings);
+            
+            Object.values(activeEntityLayers).forEach(layer => map.removeLayer(layer));
+            activeEntityLayers = {};
+            
+            await loadProjectLayers(projectId);
         }
         
-        function buildDrawingsAccordion(drawings) {
-            const container = document.getElementById('drawings-container');
+        async function loadProjectLayers(projectId) {
+            const container = document.getElementById('project-layers-container');
             
-            if (!drawings || drawings.length === 0) {
-                container.innerHTML = '<div style="color: #888; text-align: center; padding: 10px;">No drawings in this project</div>';
-                return;
-            }
-            
-            container.innerHTML = drawings.map(drawing => {
-                const totalEntities = drawing.total_entities || 0;
+            try {
+                container.innerHTML = '<div style="text-align: center; padding: 10px;"><i class="fas fa-spinner fa-spin"></i> Loading layers...</div>';
                 
-                return `
-                    <div class="drawing-item">
-                        <div class="drawing-header" onclick="toggleDrawing('${drawing.drawing_id}')">
-                            <div>
-                                <div class="drawing-title">${drawing.drawing_name}</div>
-                                <div class="drawing-count">${totalEntities} entities</div>
-                            </div>
-                            <i class="fas fa-chevron-down" id="chevron-${drawing.drawing_id}"></i>
-                        </div>
-                        <div class="drawing-content" id="content-${drawing.drawing_id}">
-                            ${drawing.entity_types.map(et => `
-                                <div class="entity-type-item">
-                                    <input type="checkbox" id="entity-${drawing.drawing_id}-${et.type}" 
-                                           onchange="toggleEntityType('${drawing.drawing_id}', '${et.type}', this.checked)">
-                                    <label class="entity-type-label" for="entity-${drawing.drawing_id}-${et.type}">
-                                        ${et.type}
-                                        <span class="entity-type-count">(${et.count})</span>
-                                    </label>
-                                </div>
-                            `).join('')}
-                        </div>
+                const res = await fetch(`/api/map-viewer/project-layers/${projectId}`);
+                const data = await res.json();
+                
+                if (!data.layers || data.layers.length === 0) {
+                    container.innerHTML = '<div style="color: #888; text-align: center; padding: 10px;">No layers found in this project</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.layers.map(layer => `
+                    <div class="layer-item">
+                        <input type="checkbox" id="layer-${layer.layer_name}" 
+                               onchange="toggleProjectLayer('${projectId}', '${layer.layer_name}', this.checked)">
+                        <label class="layer-item-label" for="layer-${layer.layer_name}">
+                            ${layer.layer_name}
+                            <span class="layer-item-count">(${layer.entity_count})</span>
+                        </label>
                     </div>
-                `;
-            }).join('');
-        }
-        
-        function toggleDrawing(drawingId) {
-            const content = document.getElementById(`content-${drawingId}`);
-            const chevron = document.getElementById(`chevron-${drawingId}`);
-            
-            if (content.classList.contains('open')) {
-                content.classList.remove('open');
-                chevron.style.transform = 'rotate(0deg)';
-            } else {
-                content.classList.add('open');
-                chevron.style.transform = 'rotate(180deg)';
+                `).join('');
+                
+                console.log(`Loaded ${data.layers.length} layers for project ${projectId}`);
+            } catch (error) {
+                console.error('Error loading project layers:', error);
+                container.innerHTML = '<div style="color: #ff4444; text-align: center; padding: 10px;">Error loading layers</div>';
             }
         }
         
@@ -1744,27 +1702,35 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
             return cleanedGeoJSON;
         }
         
-        async function toggleEntityType(drawingId, entityType, checked) {
-            const layerKey = `${drawingId}_${entityType}`;
+        async function toggleProjectLayer(projectId, layerName, checked) {
+            const layerKey = `${projectId}_${layerName}`;
             
             if (checked) {
                 try {
-                    console.log(`Loading ${entityType} entities for drawing ${drawingId}...`);
+                    console.log(`Loading layer ${layerName} for project ${projectId}...`);
                     
-                    const res = await fetch(`/api/map-viewer/project-entities/${drawingId}?entity_type=${entityType}`);
+                    const checkbox = document.getElementById(`layer-${layerName}`);
+                    const label = checkbox.nextElementSibling;
+                    const originalHTML = label.innerHTML;
+                    label.innerHTML = originalHTML.replace('</span>', ' <i class="fas fa-spinner fa-spin layer-loading"></i></span>');
+                    
+                    const res = await fetch(`/api/map-viewer/project-entities/${projectId}?layer=${encodeURIComponent(layerName)}`);
                     const geojson = await res.json();
                     
+                    label.innerHTML = originalHTML;
+                    
                     if (!geojson.features || geojson.features.length === 0) {
-                        console.log(`No ${entityType} entities found`);
-                        document.getElementById(`entity-${drawingId}-${entityType}`).checked = false;
+                        console.log(`No entities found in layer ${layerName}`);
+                        checkbox.checked = false;
+                        alert(`No entities found in layer "${layerName}"`);
                         return;
                     }
                     
                     const firstFeature = geojson.features[0];
                     if (firstFeature && firstFeature.properties && firstFeature.properties.srid === 0) {
-                        alert(`⚠️ Local CAD Coordinates Detected\n\nThis drawing uses local CAD coordinates (SRID 0) and cannot be displayed on a geographic map.\n\nFound ${geojson.count} ${entityType} entities.\n\nTo view these entities:\n• Export to DXF and open in AutoCAD\n• Or use a CAD viewer that supports local coordinates`);
-                        console.log(`${entityType} entities use SRID 0 (local coordinates) - cannot display on geographic map`);
-                        document.getElementById(`entity-${drawingId}-${entityType}`).checked = false;
+                        alert(`⚠️ Local CAD Coordinates Detected\n\nLayer "${layerName}" uses local CAD coordinates (SRID 0) and cannot be displayed on a geographic map.\n\nFound ${geojson.features.length} entities.\n\nTo view these entities:\n• Export to DXF and open in AutoCAD\n• Or use a CAD viewer that supports local coordinates`);
+                        console.log(`Layer ${layerName} uses SRID 0 (local coordinates) - cannot display on geographic map`);
+                        checkbox.checked = false;
                         return;
                     }
                     
@@ -1839,22 +1805,19 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
                     entitiesLayer.addTo(map);
                     activeEntityLayers[layerKey] = entitiesLayer;
                     
-                    const bounds = entitiesLayer.getBounds();
-                    console.log(`Loaded ${geojson.features.length} ${entityType} entities`);
-                    console.log(`  Entity layer bounds:`, bounds);
-                    console.log(`  Map center:`, map.getCenter());
-                    console.log(`  Map zoom:`, map.getZoom());
-                    console.log(`  Map bounds:`, map.getBounds());
+                    console.log(`Loaded ${geojson.features.length} entities from layer ${layerName}`);
                     
                 } catch (error) {
-                    console.error(`Error loading ${entityType} entities:`, error);
-                    document.getElementById(`entity-${drawingId}-${entityType}`).checked = false;
+                    console.error(`Error loading layer ${layerName}:`, error);
+                    const checkbox = document.getElementById(`layer-${layerName}`);
+                    checkbox.checked = false;
+                    alert(`Error loading layer "${layerName}": ${error.message}`);
                 }
             } else {
                 if (activeEntityLayers[layerKey]) {
                     map.removeLayer(activeEntityLayers[layerKey]);
                     delete activeEntityLayers[layerKey];
-                    console.log(`Removed ${entityType} entities for drawing ${drawingId}`);
+                    console.log(`Removed layer ${layerName}`);
                 }
             }
         }

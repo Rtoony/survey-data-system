@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-header">
     <h1><i class="fas fa-file-export"></i> DXF Import/Export</h1>
-    <p>Import CAD drawings into the database or export stored drawings to DXF files</p>
+    <p>Import CAD files into projects or export project entities to DXF files</p>
 </div>
 
 <div class="tools-container">
@@ -18,11 +18,11 @@
         
         <div class="tool-body">
             <div class="form-group">
-                <label for="importDrawingSelect">Select Drawing</label>
-                <select id="importDrawingSelect" class="form-control">
-                    <option value="">Loading drawings...</option>
+                <label for="importProjectSelect">Select Project</label>
+                <select id="importProjectSelect" class="form-control">
+                    <option value="">Loading projects...</option>
                 </select>
-                <small>Choose which drawing to associate imported entities with</small>
+                <small>Choose which project to import entities into</small>
             </div>
 
             <div class="form-group">
@@ -77,16 +77,16 @@
     <div class="tool-card">
         <div class="tool-header">
             <h2><i class="fas fa-file-export"></i> Export to DXF File</h2>
-            <p>Export stored drawing entities to a DXF file</p>
+            <p>Export project entities to a DXF file</p>
         </div>
         
         <div class="tool-body">
             <div class="form-group">
-                <label for="exportDrawingSelect">Select Drawing</label>
-                <select id="exportDrawingSelect" class="form-control">
-                    <option value="">Loading drawings...</option>
+                <label for="exportProjectSelect">Select Project</label>
+                <select id="exportProjectSelect" class="form-control">
+                    <option value="">Loading projects...</option>
                 </select>
-                <small>Choose which drawing to export</small>
+                <small>Choose which project to export</small>
             </div>
 
             <div class="form-group">
@@ -134,7 +134,7 @@
             <thead>
                 <tr>
                     <th>Job ID</th>
-                    <th>Drawing</th>
+                    <th>Project</th>
                     <th>Format</th>
                     <th>Version</th>
                     <th>Status</th>
@@ -434,7 +434,7 @@ tbody tr:hover {
 </style>
 
 <script>
-let drawings = [];
+let projects = [];
 let jobs = [];
 
 // Load import patterns
@@ -478,35 +478,35 @@ function populateImportPatternSelect() {
     select.innerHTML = '<option value="">Use Standard Format</option>' + options;
 }
 
-// Load drawings on page load
-async function loadDrawings() {
+// Load projects on page load
+async function loadProjects() {
     try {
-        const response = await fetch('/api/dxf/drawings');
+        const response = await fetch('/api/projects');
         const data = await response.json();
         
         if (data.error) {
-            console.error('Error loading drawings:', data.error);
+            console.error('Error loading projects:', data.error);
             return;
         }
         
-        drawings = data.drawings;
-        populateDrawingSelects();
+        projects = data.projects;
+        populateProjectSelects();
     } catch (error) {
-        console.error('Failed to load drawings:', error);
+        console.error('Failed to load projects:', error);
     }
 }
 
-function populateDrawingSelects() {
-    const importSelect = document.getElementById('importDrawingSelect');
-    const exportSelect = document.getElementById('exportDrawingSelect');
+function populateProjectSelects() {
+    const importSelect = document.getElementById('importProjectSelect');
+    const exportSelect = document.getElementById('exportProjectSelect');
     
-    const options = drawings.map(d => {
-        const entityInfo = d.entity_count > 0 ? ` (${d.entity_count} entities)` : ' (empty)';
-        return `<option value="${d.drawing_id}">${d.drawing_name} - ${d.project_name || 'No Project'}${entityInfo}</option>`;
+    const options = projects.map(p => {
+        const projectNum = p.project_number ? ` (${p.project_number})` : '';
+        return `<option value="${p.project_id}">${p.project_name}${projectNum}</option>`;
     }).join('');
     
-    importSelect.innerHTML = '<option value="">Select a drawing...</option>' + options;
-    exportSelect.innerHTML = '<option value="">Select a drawing...</option>' + options;
+    importSelect.innerHTML = '<option value="">Select a project...</option>' + options;
+    exportSelect.innerHTML = '<option value="">Select a project...</option>' + options;
 }
 
 // Load export jobs
@@ -547,7 +547,7 @@ function displayExportJobs() {
         return `
             <tr>
                 <td>#${job.export_job_id}</td>
-                <td>${job.drawing_name || 'Unknown'}</td>
+                <td>${job.project_name || 'Unknown'}</td>
                 <td>${job.export_format}</td>
                 <td>${job.dxf_version}</td>
                 <td><span class="status-badge ${statusClass}">${job.status}</span></td>
@@ -560,32 +560,32 @@ function displayExportJobs() {
 }
 
 // Enable/disable buttons based on selection
-document.getElementById('importDrawingSelect').addEventListener('change', (e) => {
+document.getElementById('importProjectSelect').addEventListener('change', (e) => {
     const fileInput = document.getElementById('dxfFileInput');
     const importBtn = document.getElementById('importButton');
     importBtn.disabled = !e.target.value || !fileInput.files.length;
 });
 
 document.getElementById('dxfFileInput').addEventListener('change', (e) => {
-    const drawingSelect = document.getElementById('importDrawingSelect');
+    const projectSelect = document.getElementById('importProjectSelect');
     const importBtn = document.getElementById('importButton');
-    importBtn.disabled = !e.target.files.length || !drawingSelect.value;
+    importBtn.disabled = !e.target.files.length || !projectSelect.value;
 });
 
-document.getElementById('exportDrawingSelect').addEventListener('change', (e) => {
+document.getElementById('exportProjectSelect').addEventListener('change', (e) => {
     document.getElementById('exportButton').disabled = !e.target.value;
 });
 
 // Import DXF
 document.getElementById('importButton').addEventListener('click', async () => {
-    const drawingId = document.getElementById('importDrawingSelect').value;
+    const projectId = document.getElementById('importProjectSelect').value;
     const fileInput = document.getElementById('dxfFileInput');
     const importModelspace = document.getElementById('importModelspace').checked;
     const importPaperspace = document.getElementById('importPaperspace').checked;
     const patternId = document.getElementById('importPatternSelect').value;
     
     const file = fileInput.files[0];
-    if (!file || !drawingId) return;
+    if (!file || !projectId) return;
     
     // Show progress
     const progressDiv = document.getElementById('importProgress');
@@ -599,7 +599,7 @@ document.getElementById('importButton').addEventListener('click', async () => {
     // Create form data
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('drawing_id', drawingId);
+    formData.append('project_id', projectId);
     formData.append('import_modelspace', importModelspace);
     formData.append('import_paperspace', importPaperspace);
     
@@ -635,8 +635,8 @@ document.getElementById('importButton').addEventListener('click', async () => {
             document.getElementById('importPreview').style.display = 'block';
         }
         
-        // Reload drawings and jobs
-        await loadDrawings();
+        // Reload projects and jobs
+        await loadProjects();
         await loadExportJobs();
         
     } catch (error) {
@@ -701,12 +701,12 @@ function displayImportResults(stats) {
 
 // Export DXF
 document.getElementById('exportButton').addEventListener('click', async () => {
-    const drawingId = document.getElementById('exportDrawingSelect').value;
+    const projectId = document.getElementById('exportProjectSelect').value;
     const dxfVersion = document.getElementById('dxfVersionSelect').value;
     const includeModelspace = document.getElementById('exportModelspace').checked;
     const includePaperspace = document.getElementById('exportPaperspace').checked;
     
-    if (!drawingId) return;
+    if (!projectId) return;
     
     // Show progress
     const progressDiv = document.getElementById('exportProgress');
@@ -722,7 +722,7 @@ document.getElementById('exportButton').addEventListener('click', async () => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                drawing_id: parseInt(drawingId),
+                project_id: parseInt(projectId),
                 dxf_version: dxfVersion,
                 include_modelspace: includeModelspace,
                 include_paperspace: includePaperspace
@@ -761,7 +761,7 @@ document.getElementById('exportButton').addEventListener('click', async () => {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    loadDrawings();
+    loadProjects();
     loadExportJobs();
     loadImportPatterns();
 });

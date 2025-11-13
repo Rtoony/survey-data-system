@@ -63,10 +63,17 @@ class MapExportService:
         
         return (minx_ft, miny_ft, maxx_ft, maxy_ft)
     
-    def fetch_drawing_entities_by_layer(self, bbox_2226: Tuple) -> Dict[str, List[Dict]]:
+    def fetch_drawing_entities_by_layer(self, bbox_2226: Tuple, project_id: str = None) -> Dict[str, List[Dict]]:
         """
-        Fetch all drawing entities within bounding box, grouped by layer name
-        Returns: Dict with layer names as keys, lists of GeoJSON features as values
+        Fetch all drawing entities within bounding box, grouped by layer name.
+        Optionally filter by project_id.
+        
+        Args:
+            bbox_2226: Bounding box in EPSG:2226 coordinates (minx, miny, maxx, maxy)
+            project_id: Optional UUID of the project to filter entities
+            
+        Returns: 
+            Dict with layer names as keys, lists of GeoJSON features as values
         """
         if not self.db_conn:
             print("No database connection provided, skipping drawing entities")
@@ -77,30 +84,56 @@ class MapExportService:
         try:
             with self.db_conn.cursor(cursor_factory=RealDictCursor) as cur:
                 # Query all drawing entities within bbox, grouped by layer
-                query = """
-                    SELECT 
-                        l.layer_name,
-                        e.entity_id,
-                        e.entity_type,
-                        e.color_aci,
-                        e.linetype,
-                        e.lineweight,
-                        ST_AsGeoJSON(e.geometry) as geometry_json,
-                        ST_SRID(e.geometry) as srid
-                    FROM drawing_entities e
-                    LEFT JOIN layers l ON e.layer_id = l.layer_id
-                    WHERE ST_Intersects(
-                        e.geometry,
-                        ST_MakeEnvelope(%s, %s, %s, %s, 2226)
-                    )
-                    AND e.entity_type NOT IN ('TEXT', 'MTEXT', 'HATCH', 'ATTDEF', 'ATTRIB')
-                    ORDER BY l.layer_name, e.entity_type
-                """
+                # Filter by project_id if provided
+                if project_id:
+                    query = """
+                        SELECT 
+                            l.layer_name,
+                            e.entity_id,
+                            e.entity_type,
+                            e.color_aci,
+                            e.linetype,
+                            e.lineweight,
+                            ST_AsGeoJSON(e.geometry) as geometry_json,
+                            ST_SRID(e.geometry) as srid
+                        FROM drawing_entities e
+                        LEFT JOIN layers l ON e.layer_id = l.layer_id
+                        WHERE e.project_id = %s
+                        AND ST_Intersects(
+                            e.geometry,
+                            ST_MakeEnvelope(%s, %s, %s, %s, 2226)
+                        )
+                        AND e.entity_type NOT IN ('TEXT', 'MTEXT', 'HATCH', 'ATTDEF', 'ATTRIB')
+                        ORDER BY l.layer_name, e.entity_type
+                    """
+                    cur.execute(query, (project_id, minx, miny, maxx, maxy))
+                else:
+                    # No project filter - get all entities in bbox
+                    query = """
+                        SELECT 
+                            l.layer_name,
+                            e.entity_id,
+                            e.entity_type,
+                            e.color_aci,
+                            e.linetype,
+                            e.lineweight,
+                            ST_AsGeoJSON(e.geometry) as geometry_json,
+                            ST_SRID(e.geometry) as srid
+                        FROM drawing_entities e
+                        LEFT JOIN layers l ON e.layer_id = l.layer_id
+                        WHERE ST_Intersects(
+                            e.geometry,
+                            ST_MakeEnvelope(%s, %s, %s, %s, 2226)
+                        )
+                        AND e.entity_type NOT IN ('TEXT', 'MTEXT', 'HATCH', 'ATTDEF', 'ATTRIB')
+                        ORDER BY l.layer_name, e.entity_type
+                    """
+                    cur.execute(query, (minx, miny, maxx, maxy))
                 
-                cur.execute(query, (minx, miny, maxx, maxy))
                 entities = cur.fetchall()
                 
-                print(f"Found {len(entities)} drawing entities in bbox")
+                print(f"Found {len(entities)} drawing entities in bbox" + 
+                      (f" for project {project_id}" if project_id else ""))
                 
                 # Group by layer name
                 layers_data = {}

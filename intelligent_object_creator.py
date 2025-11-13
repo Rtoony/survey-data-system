@@ -33,14 +33,14 @@ class IntelligentObjectCreator:
         self.classifier = LayerClassifier()
         self.should_close_conn = conn is None
     
-    def create_from_entity(self, entity_data: Dict, drawing_id: str, project_id: str) -> Optional[Tuple[str, str, str]]:
+    def create_from_entity(self, entity_data: Dict, project_id: str, drawing_id: Optional[str] = None) -> Optional[Tuple[str, str, str]]:
         """
         Create intelligent object from DXF entity data.
         
         Args:
             entity_data: Dict with entity info (type, layer, geometry, handle, etc.)
-            drawing_id: UUID of drawing
             project_id: UUID of project
+            drawing_id: Optional UUID of drawing (None for project-level entities)
             
         Returns:
             Tuple of (object_type, object_id, table_name) or None
@@ -85,9 +85,11 @@ class IntelligentObjectCreator:
                 entity_type = entity_data.get('entity_type', 'UNKNOWN')
                 geometry_wkt = entity_data.get('geometry_wkt', '')
                 
-                if dxf_handle and geometry_wkt:
+                # Only create entity link if we have a drawing_id (legacy support)
+                # Project-level imports pass None for drawing_id and don't create entity links
+                if dxf_handle and geometry_wkt and drawing_id:
                     self._create_entity_link(
-                        drawing_id, dxf_handle, entity_type,
+                        project_id, drawing_id, dxf_handle, entity_type,
                         layer_name, geometry_wkt,
                         object_type, object_id, table_name
                     )
@@ -378,20 +380,29 @@ class IntelligentObjectCreator:
             return ('site_tree', str(result[0]), 'site_trees')
         return None
     
-    def _create_entity_link(self, drawing_id: str, dxf_handle: str, entity_type: str,
+    def _create_entity_link(self, project_id: str, drawing_id: str, dxf_handle: str, entity_type: str,
                            layer_name: str, geometry_wkt: str,
                            object_type: str, object_id: str, table_name: str):
-        """Create link between DXF entity and intelligent object."""
+        """
+        Create link between DXF entity and intelligent object.
+        
+        Args:
+            project_id: UUID of the project
+            drawing_id: UUID of the drawing
+            dxf_handle: DXF entity handle
+            entity_type: Type of DXF entity
+            layer_name: Layer name
+            geometry_wkt: WKT representation of geometry
+            object_type: Type of intelligent object created
+            object_id: UUID of intelligent object
+            table_name: Database table name for the object
+        """
         if not self.conn:
             return
         
         cur = self.conn.cursor()
         
         geometry_hash = hashlib.sha256(geometry_wkt.encode()).hexdigest() if geometry_wkt else None
-        
-        cur.execute("SELECT project_id FROM drawings WHERE drawing_id = %s", (drawing_id,))
-        result = cur.fetchone()
-        project_id = str(result[0]) if result else None
         
         cur.execute("""
             INSERT INTO dxf_entity_links (

@@ -67,7 +67,7 @@
                 </div>
             </div>
 
-            <div class="mc-nav-item mc-has-dropdown {% if (request.path == '/data-manager' or request.path.startswith('/data-manager/')) and request.path not in ['/data-manager/drawings', '/data-manager/sheet-sets', '/data-manager/block-mappings', '/data-manager/detail-mappings', '/data-manager/hatch-mappings', '/data-manager/material-mappings', '/data-manager/note-mappings'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if (request.path == '/data-manager' or request.path.startswith('/data-manager/')) and request.path not in ['/data-manager/block-mappings', '/data-manager/detail-mappings', '/data-manager/hatch-mappings', '/data-manager/material-mappings', '/data-manager/note-mappings'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-edit"></i>
                     <span>Data Manager</span>
@@ -161,7 +161,7 @@
                 </div>
             </div>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/project-operations', '/projects', '/data-manager/drawings', '/data-manager/sheet-sets', '/project-standards-assignment', '/project-compliance'] or request.path.startswith('/projects/') %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/project-operations', '/projects', '/project-standards-assignment', '/project-compliance'] or request.path.startswith('/projects/') %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-folder"></i>
                     <span>Projects</span>
@@ -175,14 +175,6 @@
                     <a href="/projects" class="mc-dropdown-item {% if request.path == '/projects' or request.path.startswith('/projects/') %}active{% endif %}">
                         <i class="fas fa-briefcase"></i>
                         Projects
-                    </a>
-                    <a href="/data-manager/drawings" class="mc-dropdown-item {% if request.path == '/data-manager/drawings' %}active{% endif %}">
-                        <i class="fas fa-file-image"></i>
-                        Drawings
-                    </a>
-                    <a href="/data-manager/sheet-sets" class="mc-dropdown-item {% if request.path == '/data-manager/sheet-sets' %}active{% endif %}">
-                        <i class="fas fa-folder-open"></i>
-                        Sheet Sets
                     </a>
                     <div class="mc-dropdown-divider"></div>
                     <a href="/project-standards-assignment" class="mc-dropdown-item {% if request.path == '/project-standards-assignment' %}active{% endif %}">

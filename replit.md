@@ -55,7 +55,7 @@ Preferred communication style: Simple, everyday language.
 - **Survey Code Library Manager:** AI-first survey point code system replacing arbitrary text descriptions with structured, machine-parsable codes that drive automatic CAD generation.
 - **Survey Code Testing Interface:** Comprehensive 4-tab testing and validation system for survey codes, including single code parsing, field shot simulation, batch validation, and connectivity rules documentation.
 - **Survey Point Manager:** Comprehensive point management interface for imported survey data with filtering, multi-select, and soft-delete capabilities.
-- **Drawing Usage Tracking Dashboard:** Analytics on drawing/layer/block/note usage patterns.
+- **Project Usage Tracking Dashboard:** Analytics on project/layer/block/note usage patterns.
 - **Civil Project Manager:** Comprehensive project overview dashboard with 5 tabs and a metadata-driven CRUD architecture for managing project-specific attachments.
 - **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance.
 - **Interactive AI Visualizations:** Knowledge Graph Visualization and a Quality Dashboard.

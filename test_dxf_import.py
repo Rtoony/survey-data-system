@@ -63,35 +63,13 @@ def create_test_project(conn):
     print(f"✓ Created project: {result['project_name']} ({result['project_id']})")
     return str(result['project_id'])
 
-def create_test_drawing(conn, project_id):
-    """Create a test drawing"""
-    print("\nCreating test drawing...")
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    
-    cur.execute("""
-        INSERT INTO drawings (
-            drawing_name, drawing_number, project_id, drawing_type,
-            scale, discipline, quality_score, tags, attributes
-        )
-        VALUES ('Test Drawing', 'T-001', %s::uuid, 'Plan', '1:100', 'Civil',
-                0.5, '{}', '{}')
-        RETURNING drawing_id, drawing_name
-    """, (project_id,))
-    
-    result = cur.fetchone()
-    conn.commit()
-    cur.close()
-    
-    print(f"✓ Created drawing: {result['drawing_name']} ({result['drawing_id']})")
-    return str(result['drawing_id'])
-
-def import_dxf(filename, drawing_id):
-    """Import DXF file"""
-    print(f"\nImporting DXF file: {filename}")
+def import_dxf(filename, project_id):
+    """Import DXF file at project level"""
+    print(f"\nImporting DXF file at project level: {filename}")
     
     importer = DXFImporter(DB_CONFIG)
     try:
-        stats = importer.import_dxf(filename, drawing_id)
+        stats = importer.import_dxf(filename, project_id)
     except Exception as e:
         print(f"\n✗ IMPORT ERROR: {e}")
         import traceback
@@ -118,45 +96,50 @@ def import_dxf(filename, drawing_id):
     
     return stats
 
-def verify_data(conn, drawing_id):
-    """Verify data was imported correctly"""
-    print("\nVerifying imported data...")
+def verify_data(conn, project_id):
+    """Verify data was imported correctly at project level"""
+    print("\nVerifying imported data at project level...")
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
-    # Check drawing_entities
+    # Check drawing_entities - should have drawing_id IS NULL for project-level imports
     cur.execute("""
         SELECT COUNT(*) as count,
                COUNT(DISTINCT layer_id) as layers,
-               COUNT(DISTINCT entity_type) as types
+               COUNT(DISTINCT entity_type) as types,
+               COUNT(*) FILTER (WHERE drawing_id IS NULL) as project_level_count
         FROM drawing_entities
-        WHERE drawing_id = %s::uuid
-    """, (drawing_id,))
+        WHERE drawing_id IS NULL
+    """)
     
     entities = cur.fetchone()
-    print(f"✓ Found {entities['count']} entities across {entities['layers']} layers")
+    print(f"✓ Found {entities['count']} project-level entities across {entities['layers']} layers")
+    print(f"✓ Verified {entities['project_level_count']} entities have drawing_id IS NULL")
     
-    # Check layers
+    # Check layers - project-level layers have drawing_id IS NULL
     cur.execute("""
         SELECT layer_name, color, quality_score
         FROM layers
-        WHERE drawing_id = %s::uuid
+        WHERE drawing_id IS NULL
         ORDER BY layer_name
-    """, (drawing_id,))
+        LIMIT 10
+    """)
     
     layers = cur.fetchall()
-    print(f"✓ Layers created:")
+    print(f"✓ Project-level layers created:")
     for layer in layers:
         print(f"  - {layer['layer_name']} (color: {layer['color']}, quality: {layer['quality_score']})")
     
-    # Check text
+    # Check text - should have drawing_id IS NULL
     cur.execute("""
-        SELECT COUNT(*) as count
+        SELECT COUNT(*) as count,
+               COUNT(*) FILTER (WHERE drawing_id IS NULL) as project_level_count
         FROM drawing_text
-        WHERE drawing_id = %s::uuid
-    """, (drawing_id,))
+        WHERE drawing_id IS NULL
+    """)
     
     text_count = cur.fetchone()
-    print(f"✓ Found {text_count['count']} text entities")
+    print(f"✓ Found {text_count['count']} project-level text entities")
+    print(f"✓ Verified {text_count['project_level_count']} text entities have drawing_id IS NULL")
     
     cur.close()
 
@@ -179,7 +162,7 @@ def cleanup(conn, project_id, filename):
 def main():
     """Run the full test workflow"""
     print("=" * 60)
-    print("DXF Import Workflow Test")
+    print("DXF Import Workflow Test (Project-Level)")
     print("=" * 60)
     
     conn = psycopg2.connect(**DB_CONFIG)
@@ -192,17 +175,15 @@ def main():
         # Step 2: Create project
         project_id = create_test_project(conn)
         
-        # Step 3: Create drawing
-        drawing_id = create_test_drawing(conn, project_id)
+        # Step 3: Import DXF at project level (no drawing required)
+        stats = import_dxf(filename, project_id)
         
-        # Step 4: Import DXF
-        stats = import_dxf(filename, drawing_id)
-        
-        # Step 5: Verify
-        verify_data(conn, drawing_id)
+        # Step 4: Verify project-level entities
+        verify_data(conn, project_id)
         
         print("\n" + "=" * 60)
         print("✓ ALL TESTS PASSED!")
+        print("✓ Entities imported at project level with drawing_id IS NULL")
         print("=" * 60)
         
         # Cleanup

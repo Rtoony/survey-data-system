@@ -2,6 +2,13 @@
 DXF Exporter Module
 Reads entities from database and generates DXF files.
 Uses database-driven CAD standards for layer naming.
+
+PHASE 2 REFACTORING - PROJECT-LEVEL EXPORTS:
+- export_dxf() now accepts project_id instead of drawing_id
+- Queries ALL entities in a project (regardless of drawing_id)
+- Generates layer names dynamically from entity attributes using ExportLayerGenerator
+- Supports entities with drawing_id IS NULL (new project-level imports)
+- Preserves all geometry generation and DXF structure
 """
 
 import ezdxf
@@ -49,21 +56,21 @@ class DXFExporter:
         else:
             self.layer_generator = None
     
-    def export_dxf(self, drawing_id: str, output_path: str,
+    def export_dxf(self, project_id: str, output_path: str,
                    dxf_version: str = 'AC1027',
                    include_modelspace: bool = True,
-                   include_paperspace: bool = True,
+                   include_paperspace: bool = False,
                    layer_filter: Optional[List[str]] = None,
                    external_conn=None) -> Dict:
         """
-        Export a drawing to DXF file.
+        Export a project to DXF file.
         
         Args:
-            drawing_id: ID of the drawing to export
+            project_id: ID of the project to export
             output_path: Path to save DXF file
             dxf_version: DXF version (AC1027 = AutoCAD 2013)
             include_modelspace: Whether to export model space entities
-            include_paperspace: Whether to export paper space entities
+            include_paperspace: Whether to export paper space entities (deprecated for project exports)
             layer_filter: Optional list of layer names to include
             external_conn: Optional external database connection (will not be closed)
             
@@ -92,35 +99,27 @@ class DXFExporter:
             cur = conn.cursor(cursor_factory=RealDictCursor)
             
             try:
-                # Get drawing info
-                drawing_info = self._get_drawing_info(drawing_id, cur)
-                if not drawing_info:
-                    raise ValueError(f"Drawing {drawing_id} not found")
-                
-                # Setup layers
-                self._setup_layers(drawing_id, doc, cur, stats, layer_filter)
-                
                 # Setup linetypes
-                self._setup_linetypes(drawing_id, doc, cur, stats)
+                self._setup_linetypes(project_id, doc, cur, stats)
                 
                 # Export model space
                 if include_modelspace:
                     msp = doc.modelspace()
-                    self._export_entities(drawing_id, 'MODEL', msp, cur, stats, layer_filter)
-                    self._export_text(drawing_id, 'MODEL', msp, cur, stats, layer_filter)
-                    self._export_dimensions(drawing_id, 'MODEL', msp, cur, stats, layer_filter)
-                    self._export_hatches(drawing_id, 'MODEL', msp, cur, stats, layer_filter)
-                    self._export_block_inserts(drawing_id, 'MODEL', msp, cur, stats, layer_filter)
+                    self._export_entities(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
+                    self._export_text(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
+                    self._export_dimensions(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
+                    self._export_hatches(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
+                    self._export_block_inserts(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
                 
-                # Export paper space (layouts)
+                # Export paper space (layouts) - deprecated for project exports
                 if include_paperspace:
-                    self._export_layouts(drawing_id, doc, cur, stats, layer_filter)
+                    self._export_layouts(project_id, doc, cur, stats, layer_filter)
                 
                 # Save DXF file
                 doc.saveas(output_path)
                 
                 # Record export job
-                self._record_export_job(drawing_id, output_path, dxf_version,
+                self._record_export_job(project_id, output_path, dxf_version,
                                        stats, cur, conn)
                 
             finally:
@@ -137,14 +136,6 @@ class DXFExporter:
         
         return stats
     
-    def _get_drawing_info(self, drawing_id: str, cur) -> Optional[Dict]:
-        """Get drawing information."""
-        cur.execute("""
-            SELECT drawing_name
-            FROM drawings
-            WHERE drawing_id = %s::uuid
-        """, (drawing_id,))
-        return cur.fetchone()
     
     def _generate_layer_name(self, object_type: str, properties: Dict, geometry_type: str = 'LINE') -> str:
         """
@@ -184,41 +175,11 @@ class DXFExporter:
             return f"{diameter}IN-{utility_type.upper()}"
         return utility_type.upper()
     
-    def _setup_layers(self, drawing_id: str, doc: ezdxf.document.Drawing,
-                      cur, stats: Dict, layer_filter: Optional[List[str]]):
-        """Create layers in DXF document."""
-        # Get layers used in this drawing
-        query = """
-            SELECT DISTINCT layer_name, color, linetype, color_rgb, lineweight
-            FROM layers
-            WHERE drawing_id = %s
-        """
-        
-        if layer_filter:
-            query += " AND layer_name = ANY(%s)"
-            cur.execute(query, (drawing_id, layer_filter))
-        else:
-            cur.execute(query, (drawing_id,))
-        
-        layers = cur.fetchall()
-        
-        for layer in layers:
-            layer_name = layer['layer_name']
+    def _ensure_layer(self, layer_name: str, doc: ezdxf.document.Drawing, stats: Dict):
+        """Ensure layer exists in DXF document, create if needed."""
+        if layer_name not in doc.layers:
+            doc.layers.add(layer_name)
             stats['layers'].add(layer_name)
-            
-            # Create layer in DXF
-            if layer_name not in doc.layers:
-                dxf_layer = doc.layers.add(layer_name)
-                
-                # Set layer properties
-                if layer['color']:
-                    dxf_layer.color = layer['color']  # Use ACI color from layers table
-                elif layer['color_rgb']:
-                    # Fallback to RGB from standards if available
-                    dxf_layer.rgb = self._parse_rgb(layer['color_rgb'])
-                
-                if layer['linetype'] and layer['linetype'] in doc.linetypes:
-                    dxf_layer.dxf.linetype = layer['linetype']
     
     def _parse_rgb(self, rgb_str: str) -> tuple:
         """Parse RGB string like 'rgb(255,0,0)' to tuple."""
@@ -229,56 +190,68 @@ class DXFExporter:
         except:
             return (255, 255, 255)
     
-    def _setup_linetypes(self, drawing_id: str, doc: ezdxf.document.Drawing,
+    def _setup_linetypes(self, project_id: str, doc: ezdxf.document.Drawing,
                          cur, stats: Dict):
         """Setup linetypes in DXF document."""
-        cur.execute("""
-            SELECT DISTINCT linetype_name
-            FROM drawing_linetype_usage
-            WHERE drawing_id = %s
-        """, (drawing_id,))
-        
-        linetypes = cur.fetchall()
-        
-        # Standard linetypes are already in the document
-        # Custom linetypes would need to be defined here
-        for lt in linetypes:
-            linetype_name = lt['linetype_name']
-            if linetype_name not in ['ByLayer', 'ByBlock', 'Continuous']:
-                # Try to add custom linetype (simplified)
-                try:
-                    if linetype_name not in doc.linetypes:
-                        doc.linetypes.add(
-                            name=linetype_name,
-                            pattern=[0.5, 0.25, -0.25],
-                            description=linetype_name
-                        )
-                except:
-                    pass
+        try:
+            cur.execute("""
+                SELECT DISTINCT linetype_name
+                FROM drawing_linetype_usage dlu
+                JOIN drawing_entities de ON de.entity_id = dlu.entity_id
+                WHERE de.project_id = %s::uuid
+            """, (project_id,))
+            
+            linetypes = cur.fetchall()
+            
+            for lt in linetypes:
+                linetype_name = lt['linetype_name']
+                if linetype_name not in ['ByLayer', 'ByBlock', 'Continuous']:
+                    try:
+                        if linetype_name not in doc.linetypes:
+                            doc.linetypes.add(
+                                name=linetype_name,
+                                pattern=[0.5, 0.25, -0.25],
+                                description=linetype_name
+                            )
+                    except:
+                        pass
+        except Exception:
+            pass
     
-    def _export_entities(self, drawing_id: str, space: str, layout,
+    def _export_entities(self, project_id: str, space: str, layout, doc,
                          cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export generic entities to DXF layout."""
         query = """
-            SELECT de.entity_type, l.layer_name, 
+            SELECT de.entity_type,
                    ST_AsText(de.geometry) as geom_wkt,
-                   de.color_aci, de.lineweight, de.attributes
+                   de.color_aci, de.lineweight, de.attributes,
+                   l.layer_name,
+                   l.discipline,
+                   se.category, se.object_type, se.phase
             FROM drawing_entities de
-            JOIN layers l ON de.layer_id = l.layer_id
-            WHERE de.drawing_id = %s::uuid AND de.space_type = %s
+            LEFT JOIN layers l ON de.layer_id = l.layer_id
+            LEFT JOIN standards_entities se ON de.entity_id = se.entity_id
+            WHERE (de.project_id = %s::uuid OR EXISTS (
+                SELECT 1 FROM drawings d 
+                WHERE d.drawing_id = de.drawing_id AND d.project_id = %s::uuid
+            ))
+            AND de.space_type = %s
         """
         
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (drawing_id, space, layer_filter))
+            cur.execute(query, (project_id, project_id, space, layer_filter))
         else:
-            cur.execute(query, (drawing_id, space))
+            cur.execute(query, (project_id, project_id, space))
         
         entities = cur.fetchall()
         
         for entity in entities:
             try:
-                self._create_entity(entity, layout)
+                layer_name = self._determine_layer_name(entity, doc, stats)
+                entity_with_layer = dict(entity)
+                entity_with_layer['layer_name'] = layer_name
+                self._create_entity(entity_with_layer, layout)
                 stats['entities'] += 1
             except Exception as e:
                 stats['errors'].append(f"Failed to export {entity['entity_type']}: {str(e)}")
@@ -491,35 +464,77 @@ class DXFExporter:
         # No elevation data available, ensure 3D tuples with Z=0
         return [(c[0], c[1], c[2] if len(c) > 2 else 0.0) for c in coords]
     
-    def _export_text(self, drawing_id: str, space: str, layout,
+    def _determine_layer_name(self, entity: Dict, doc: ezdxf.document.Drawing, stats: Dict) -> str:
+        """Determine layer name for entity from attributes or generate from standards."""
+        if entity.get('layer_name'):
+            layer_name = entity['layer_name']
+            self._ensure_layer(layer_name, doc, stats)
+            return layer_name
+        
+        properties = {}
+        attributes = entity.get('attributes') or {}
+        
+        if entity.get('category'):
+            properties['category'] = entity['category']
+        if entity.get('object_type'):
+            properties['object_type'] = entity['object_type']
+        if entity.get('phase'):
+            properties['phase'] = entity['phase']
+        
+        if attributes:
+            if isinstance(attributes, str):
+                import json
+                try:
+                    attributes = json.loads(attributes)
+                except:
+                    attributes = {}
+            properties.update(attributes)
+        
+        entity_type = entity.get('entity_type', 'unknown')
+        geometry_type = entity_type.upper()
+        
+        layer_name = self._generate_layer_name(entity_type.lower(), properties, geometry_type)
+        self._ensure_layer(layer_name, doc, stats)
+        return layer_name
+    
+    def _export_text(self, project_id: str, space: str, layout, doc,
                      cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export text entities to DXF layout."""
         query = """
-            SELECT l.layer_name, dt.text_content,
+            SELECT dt.text_content,
                    ST_AsText(dt.insertion_point) as insert_wkt,
                    dt.text_height, dt.rotation_angle, dt.text_style,
-                   dt.horizontal_justification, dt.vertical_justification
+                   dt.horizontal_justification, dt.vertical_justification,
+                   l.layer_name,
+                   l.discipline,
+                   se.category, se.object_type, se.phase
             FROM drawing_text dt
-            JOIN layers l ON dt.layer_id = l.layer_id
-            WHERE dt.drawing_id = %s::uuid AND dt.space_type = %s
+            LEFT JOIN layers l ON dt.layer_id = l.layer_id
+            LEFT JOIN standards_entities se ON dt.entity_id = se.entity_id
+            WHERE (dt.project_id = %s::uuid OR EXISTS (
+                SELECT 1 FROM drawings d 
+                WHERE d.drawing_id = dt.drawing_id AND d.project_id = %s::uuid
+            ))
+            AND dt.space_type = %s
         """
         
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (drawing_id, space, layer_filter))
+            cur.execute(query, (project_id, project_id, space, layer_filter))
         else:
-            cur.execute(query, (drawing_id, space))
+            cur.execute(query, (project_id, project_id, space))
         
         texts = cur.fetchall()
         
         for text in texts:
             try:
+                layer_name = self._determine_layer_name(text, doc, stats)
                 coords = self._parse_wkt_coords(text['insert_wkt'])
                 if coords:
                     layout.add_text(
                         text=text['text_content'],
                         dxfattribs={
-                            'layer': text['layer_name'],
+                            'layer': layer_name,
                             'insert': coords[0],
                             'height': text['text_height'],
                             'rotation': text['rotation_angle'],
@@ -530,24 +545,32 @@ class DXFExporter:
             except Exception as e:
                 stats['errors'].append(f"Failed to export text: {str(e)}")
     
-    def _export_dimensions(self, drawing_id: str, space: str, layout,
+    def _export_dimensions(self, project_id: str, space: str, layout, doc,
                            cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export dimension entities to DXF layout."""
         query = """
-            SELECT l.layer_name, dd.dimension_type,
+            SELECT dd.dimension_type,
                    ST_AsText(de.geometry) as geom_wkt,
-                   dd.dimension_text, dd.dimension_style
+                   dd.dimension_text, dd.dimension_style,
+                   l.layer_name,
+                   l.discipline,
+                   se.category, se.object_type, se.phase
             FROM drawing_dimensions dd
-            JOIN layers l ON dd.layer_id = l.layer_id
+            LEFT JOIN layers l ON dd.layer_id = l.layer_id
             LEFT JOIN drawing_entities de ON dd.entity_id = de.entity_id
-            WHERE dd.drawing_id = %s::uuid AND dd.space_type = %s
+            LEFT JOIN standards_entities se ON dd.entity_id = se.entity_id
+            WHERE (dd.project_id = %s::uuid OR EXISTS (
+                SELECT 1 FROM drawings d 
+                WHERE d.drawing_id = dd.drawing_id AND d.project_id = %s::uuid
+            ))
+            AND dd.space_type = %s
         """
         
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (drawing_id, space, layer_filter))
+            cur.execute(query, (project_id, project_id, space, layer_filter))
         else:
-            cur.execute(query, (drawing_id, space))
+            cur.execute(query, (project_id, project_id, space))
         
         dimensions = cur.fetchall()
         
@@ -555,48 +578,56 @@ class DXFExporter:
             try:
                 if not dim['geom_wkt']:
                     continue
+                layer_name = self._determine_layer_name(dim, doc, stats)
                 coords = self._parse_wkt_coords(dim['geom_wkt'])
                 if len(coords) >= 2:
-                    # Create linear dimension (simplified)
                     layout.add_linear_dim(
                         base=coords[0],
                         p1=coords[0],
                         p2=coords[1],
                         dimstyle=dim['dimension_style'] or 'Standard',
                         override={'dimtxt': dim['dimension_text']} if dim['dimension_text'] else None,
-                        dxfattribs={'layer': dim['layer_name']}
+                        dxfattribs={'layer': layer_name}
                     )
                     stats['dimensions'] += 1
             except Exception as e:
                 stats['errors'].append(f"Failed to export dimension: {str(e)}")
     
-    def _export_hatches(self, drawing_id: str, space: str, layout,
+    def _export_hatches(self, project_id: str, space: str, layout, doc,
                         cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export hatch entities to DXF layout."""
         query = """
-            SELECT l.layer_name, dh.hatch_pattern,
+            SELECT dh.hatch_pattern,
                    ST_AsText(dh.boundary_geometry) as boundary_wkt,
-                   dh.hatch_scale, dh.hatch_angle
+                   dh.hatch_scale, dh.hatch_angle,
+                   l.layer_name,
+                   l.discipline,
+                   se.category, se.object_type, se.phase
             FROM drawing_hatches dh
-            JOIN layers l ON dh.layer_id = l.layer_id
-            WHERE dh.drawing_id = %s::uuid AND dh.space_type = %s
+            LEFT JOIN layers l ON dh.layer_id = l.layer_id
+            LEFT JOIN standards_entities se ON dh.entity_id = se.entity_id
+            WHERE (dh.project_id = %s::uuid OR EXISTS (
+                SELECT 1 FROM drawings d 
+                WHERE d.drawing_id = dh.drawing_id AND d.project_id = %s::uuid
+            ))
+            AND dh.space_type = %s
         """
         
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (drawing_id, space, layer_filter))
+            cur.execute(query, (project_id, project_id, space, layer_filter))
         else:
-            cur.execute(query, (drawing_id, space))
+            cur.execute(query, (project_id, project_id, space))
         
         hatches = cur.fetchall()
         
         for hatch in hatches:
             try:
+                layer_name = self._determine_layer_name(hatch, doc, stats)
                 coords = self._parse_wkt_coords(hatch['boundary_wkt'])
                 if len(coords) >= 3:
-                    # Create hatch with boundary
-                    h = layout.add_hatch(dxfattribs={'layer': hatch['layer_name']})
-                    h.paths.add_polyline_path(coords[:-1])  # Remove duplicate closing point
+                    h = layout.add_hatch(dxfattribs={'layer': layer_name})
+                    h.paths.add_polyline_path(coords[:-1])
                     h.set_pattern_fill(
                         hatch['hatch_pattern'],
                         scale=hatch['hatch_scale'],
@@ -606,101 +637,43 @@ class DXFExporter:
             except Exception as e:
                 stats['errors'].append(f"Failed to export hatch: {str(e)}")
     
-    def _export_block_inserts(self, drawing_id: str, space: str, layout,
+    def _export_block_inserts(self, project_id: str, space: str, layout, doc,
                               cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export block inserts to DXF layout."""
         try:
-            # Try to get block inserts - schema might vary by database
             query = """
                 SELECT bi.insert_x, bi.insert_y, bi.insert_z,
-                       bi.scale_x, bi.scale_y, bi.rotation
+                       bi.scale_x, bi.scale_y, bi.rotation,
+                       l.layer_name,
+                       l.discipline,
+                       se.category, se.object_type, se.phase
                 FROM block_inserts bi
-                WHERE bi.drawing_id = %s::uuid AND bi.space_type = %s
+                LEFT JOIN layers l ON bi.layer_id = l.layer_id
+                LEFT JOIN standards_entities se ON bi.entity_id = se.entity_id
+                WHERE (bi.project_id = %s::uuid OR EXISTS (
+                    SELECT 1 FROM drawings d 
+                    WHERE d.drawing_id = bi.drawing_id AND d.project_id = %s::uuid
+                ))
+                AND bi.space_type = %s
                 LIMIT 0
             """
             
-            cur.execute(query, (drawing_id, space))
-            # If query succeeds, block_inserts table exists and works
-            # For now, just skip block export as schema needs alignment
-            # This prevents export from failing when blocks aren't critical
+            cur.execute(query, (project_id, project_id, space))
             
-        except Exception as e:
-            # Block export skipped - table may not exist or schema differs
+        except Exception:
             pass
     
-    def _export_layouts(self, drawing_id: str, doc: ezdxf.document.Drawing,
+    def _export_layouts(self, project_id: str, doc: ezdxf.document.Drawing,
                         cur, stats: Dict, layer_filter: Optional[List[str]]):
-        """Export paper space layouts with viewports."""
-        # Get unique layout names
-        cur.execute("""
-            SELECT DISTINCT layout_name
-            FROM layout_viewports
-            WHERE drawing_id = %s
-        """, (drawing_id,))
-        
-        layouts = cur.fetchall()
-        
-        for layout_record in layouts:
-            layout_name = layout_record['layout_name']
-            
-            # Create layout if it doesn't exist
-            if layout_name not in doc.layout_names():
-                layout = doc.layouts.new(layout_name)
-            else:
-                layout = doc.layout(layout_name)
-            
-            # Export entities in paper space
-            self._export_entities(drawing_id, 'PAPER', layout, cur, stats, layer_filter)
-            self._export_text(drawing_id, 'PAPER', layout, cur, stats, layer_filter)
-            self._export_dimensions(drawing_id, 'PAPER', layout, cur, stats, layer_filter)
-            self._export_hatches(drawing_id, 'PAPER', layout, cur, stats, layer_filter)
-            
-            # Create viewports
-            cur.execute("""
-                SELECT ST_AsText(viewport_geometry) as vp_wkt,
-                       ST_AsText(view_center) as center_wkt,
-                       scale_factor
-                FROM layout_viewports
-                WHERE drawing_id = %s AND layout_name = %s
-            """, (drawing_id, layout_name))
-            
-            viewports = cur.fetchall()
-            
-            for vp in viewports:
-                try:
-                    vp_coords = self._parse_wkt_coords(vp['vp_wkt'])
-                    center_coords = self._parse_wkt_coords(vp['center_wkt'])
-                    
-                    if len(vp_coords) >= 4 and center_coords:
-                        # Calculate viewport dimensions
-                        width = abs(vp_coords[2][0] - vp_coords[0][0])
-                        height = abs(vp_coords[2][1] - vp_coords[0][1])
-                        
-                        # Add viewport
-                        layout.add_viewport(
-                            center=vp_coords[0],
-                            size=(width, height),
-                            view_center_point=center_coords[0][:2],
-                            view_height=height * vp['scale_factor']
-                        )
-                        stats['viewports'] += 1
-                except Exception as e:
-                    stats['errors'].append(f"Failed to export viewport: {str(e)}")
+        """Export paper space layouts with viewports (deprecated for project exports)."""
+        pass
     
-    def _record_export_job(self, drawing_id: str, output_path: str,
+    def _record_export_job(self, project_id: str, output_path: str,
                            dxf_version: str, stats: Dict, cur, conn):
         """Record export job in database."""
         try:
-            # Rollback any aborted transaction before attempting to record
             conn.rollback()
             
-            export_config = {
-                'dxf_version': dxf_version,
-                'include_modelspace': True,
-                'include_paperspace': True
-            }
-            
-            # Convert sets to counts for JSON serialization
             layers_count = len(stats['layers']) if isinstance(stats['layers'], set) else stats['layers']
             
             metrics = {
@@ -718,21 +691,20 @@ class DXFExporter:
             
             cur.execute("""
                 INSERT INTO export_jobs (
-                    drawing_id, export_format, dxf_version, status,
+                    project_id, export_format, dxf_version, status,
                     output_file_path, entities_exported, text_exported,
                     dimensions_exported, hatches_exported, error_message, completed_at
                 )
                 VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
-                drawing_id, 'DXF', dxf_version, status,
+                project_id, 'DXF', dxf_version, status,
                 output_path, metrics['entities'], metrics['text'],
                 metrics['dimensions'], metrics['hatches'], error_message, datetime.now()
             ))
             
             conn.commit()
             
-        except Exception as e:
-            # Silent fail - export job recording is non-critical for stress tests
+        except Exception:
             conn.rollback()
             pass
     

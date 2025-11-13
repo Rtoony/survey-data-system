@@ -65,7 +65,7 @@ When re-importing modified DXF files:
 | **ARCH** | Architectural | Buildings, structures | Building elements |
 | **UTIL** | Utility | General utilities | When not civil-led |
 | **ANNO** | Annotation | Notes, labels, dimensions | Text, callouts |
-| **XREF** | External Reference | Referenced drawings | XREF boundaries |
+| **XREF** | External Reference | Referenced DXF files | XREF boundaries |
 
 ### Category Codes (by Discipline)
 

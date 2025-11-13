@@ -787,8 +787,7 @@ async function loadProjects() {
                 const popupContent = `
                     <strong>${props.project_name}</strong><br>
                     Project #: ${props.project_number || 'N/A'}<br>
-                    Client: ${props.client_name || 'N/A'}<br>
-                    Drawings: ${props.drawing_count}
+                    Client: ${props.client_name || 'N/A'}
                 `;
                 layer.bindPopup(popupContent);
             }
