@@ -117,11 +117,11 @@
                 <input type="text" id="newSetName" placeholder="e.g., General Notes Set A">
             </div>
             <div class="form-group">
-                <label>Description:</label>
+                <label>Description (optional):</label>
                 <textarea id="newSetDescription" placeholder="Optional description"></textarea>
             </div>
             <div class="form-group">
-                <label>Discipline:</label>
+                <label>Discipline (optional):</label>
                 <input type="text" id="newSetDiscipline" placeholder="e.g., Civil, Structural">
             </div>
         </div>
@@ -950,8 +950,8 @@ async function createNoteSet() {
             body: JSON.stringify({
                 project_id: currentProject,
                 set_name: name,
-                description: description,
-                discipline: discipline
+                description: description || null,
+                discipline: discipline || null
             })
         });
         

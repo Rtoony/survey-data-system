@@ -9322,10 +9322,7 @@ def get_sheet_note_sets():
                 set_name,
                 description,
                 discipline,
-                phase,
-                status,
-                issued_date,
-                issued_to,
+                is_active,
                 created_at,
                 updated_at
             FROM sheet_note_sets
@@ -9349,7 +9346,6 @@ def create_sheet_note_set():
         set_name = data.get('set_name')
         description = data.get('description')
         discipline = data.get('discipline')
-        phase = data.get('phase')
         
         if not project_id or not set_name:
             return jsonify({'error': 'project_id and set_name are required'}), 400
@@ -9360,10 +9356,10 @@ def create_sheet_note_set():
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
                     INSERT INTO sheet_note_sets 
-                    (set_id, project_id, set_name, description, discipline, phase, status, created_at, updated_at)
-                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, 'Draft', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    (set_id, project_id, set_name, description, discipline, created_at, updated_at)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     RETURNING *
-                """, (set_id, project_id, set_name, description, discipline, phase))
+                """, (set_id, project_id, set_name, description, discipline))
                 
                 new_set = dict(cur.fetchone())
                 conn.commit()
@@ -9391,18 +9387,9 @@ def update_sheet_note_set(set_id):
         if 'discipline' in data:
             update_parts.append('discipline = %s')
             params.append(data['discipline'])
-        if 'phase' in data:
-            update_parts.append('phase = %s')
-            params.append(data['phase'])
-        if 'status' in data:
-            update_parts.append('status = %s')
-            params.append(data['status'])
-        if 'issued_date' in data:
-            update_parts.append('issued_date = %s')
-            params.append(data['issued_date'])
-        if 'issued_to' in data:
-            update_parts.append('issued_to = %s')
-            params.append(data['issued_to'])
+        if 'is_active' in data:
+            update_parts.append('is_active = %s')
+            params.append(data['is_active'])
         
         if not update_parts:
             return jsonify({'error': 'No fields to update'}), 400
