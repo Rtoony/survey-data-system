@@ -84,9 +84,9 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Major Changes (November 2025)
 
-### Projects Only System Migration
+### Projects Only System Migration (COMPLETED)
 
-The system has been completely restructured from a "Projects + Drawings" architecture to a streamlined "Projects Only" system:
+The system has been completely migrated from a "Projects + Drawings" architecture to a streamlined "Projects Only" system. All drawing-centric UI elements and APIs have been replaced with project-centric equivalents:
 
 **Core Changes:**
 1. **Direct Project-Level Entities:** DXF imports now create entities directly at the project level without requiring intermediate drawing files.
@@ -110,3 +110,18 @@ The system has been completely restructured from a "Projects + Drawings" archite
 - Existing drawing-based projects continue to work (backward compatible)
 - New imports automatically use project-level linking
 - No data loss - unclassified entities saved for manual review instead of being dropped
+
+**UI/API Migration (November 2025):**
+- **Usage Dashboard:** All drawing-centric metrics replaced with project-centric equivalents
+  - "Total Drawings" → "Total Projects"
+  - "Avg Entities/Drawing" → "Avg Entities/Project"
+  - "Most Accessed Drawings" → "Most Active Projects"
+  - "Recent Drawing Activity" → "Recent Project Activity"
+- **API Endpoints Updated:**
+  - `/api/usage/summary`: Now returns `total_projects`, `avg_entities_per_project`
+  - `/api/usage/top-projects`: New endpoint replacing top-drawings
+  - `/api/usage/recent-activity`: Enhanced with entity counts per project
+  - `/api/projects/<id>/statistics`: Removed `drawing_count`, consolidated intelligent object counts using efficient UNION ALL query
+  - `/api/usage/top-layers`: Verified to return project-centric metrics
+- **Database Queries:** All APIs now query `projects`, `drawing_entities`, and intelligent object tables directly, avoiding deprecated `drawings` table
+- **Project Overview:** Map placeholder text updated to reference DXF imports instead of drawings

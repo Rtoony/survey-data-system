@@ -1045,13 +1045,36 @@ def get_project_statistics(project_id):
         """
         entity_count = execute_query(entity_count_query, (project_id,))[0]['count']
         
-        # Get drawing count (legacy, may be 0 for project-only imports)
-        drawing_count_query = """
-            SELECT COUNT(*) as count 
-            FROM drawings 
-            WHERE project_id = %s
+        # Get intelligent object counts by type
+        intelligent_objects_query = """
+            SELECT 
+                COUNT(DISTINCT CASE WHEN table_name = 'utility_lines' THEN object_id END) as utility_lines_count,
+                COUNT(DISTINCT CASE WHEN table_name = 'utility_structures' THEN object_id END) as utility_structures_count,
+                COUNT(DISTINCT CASE WHEN table_name = 'bmps' THEN object_id END) as bmps_count,
+                COUNT(DISTINCT CASE WHEN table_name = 'alignments' THEN object_id END) as alignments_count,
+                COUNT(DISTINCT CASE WHEN table_name = 'surface_models' THEN object_id END) as surface_models_count,
+                COUNT(DISTINCT CASE WHEN table_name = 'site_trees' THEN object_id END) as site_trees_count,
+                COUNT(DISTINCT CASE WHEN table_name = 'generic_objects' THEN object_id END) as generic_objects_count,
+                COUNT(DISTINCT CASE WHEN table_name = 'generic_objects_pending' THEN object_id END) as generic_objects_pending_count
+            FROM (
+                SELECT line_id as object_id, 'utility_lines' as table_name FROM utility_lines WHERE project_id = %s
+                UNION ALL
+                SELECT structure_id, 'utility_structures' FROM utility_structures WHERE project_id = %s
+                UNION ALL
+                SELECT bmp_id, 'bmps' FROM storm_bmps WHERE project_id = %s
+                UNION ALL
+                SELECT alignment_id, 'alignments' FROM horizontal_alignments WHERE project_id = %s
+                UNION ALL
+                SELECT model_id, 'surface_models' FROM surface_models WHERE project_id = %s
+                UNION ALL
+                SELECT tree_id, 'site_trees' FROM site_trees WHERE project_id = %s
+                UNION ALL
+                SELECT object_id, 'generic_objects' FROM generic_objects WHERE project_id = %s
+                UNION ALL
+                SELECT object_id, 'generic_objects_pending' FROM generic_objects WHERE project_id = %s AND review_status = 'pending'
+            ) all_objects
         """
-        drawing_count = execute_query(drawing_count_query, (project_id,))[0]['count']
+        intelligent_counts = execute_query(intelligent_objects_query, (project_id, project_id, project_id, project_id, project_id, project_id, project_id, project_id))[0]
         
         # Get survey point count (project-level entities, active only)
         survey_point_count_query = """
@@ -1062,37 +1085,6 @@ def get_project_statistics(project_id):
         """
         survey_point_count = execute_query(survey_point_count_query, (project_id,))[0]['count']
         
-        # Get intelligent object counts
-        intelligent_objects_query = """
-            SELECT 'utility_lines' as object_type, COUNT(*) as count
-            FROM utility_lines WHERE project_id = %s
-            UNION ALL
-            SELECT 'utility_structures', COUNT(*)
-            FROM utility_structures WHERE project_id = %s
-            UNION ALL
-            SELECT 'bmps', COUNT(*)
-            FROM storm_bmps WHERE project_id = %s
-            UNION ALL
-            SELECT 'alignments', COUNT(*)
-            FROM horizontal_alignments WHERE project_id = %s
-            UNION ALL
-            SELECT 'surface_models', COUNT(*)
-            FROM surface_models WHERE project_id = %s
-            UNION ALL
-            SELECT 'site_trees', COUNT(*)
-            FROM site_trees WHERE project_id = %s
-            UNION ALL
-            SELECT 'generic_objects', COUNT(*)
-            FROM generic_objects WHERE project_id = %s
-            UNION ALL
-            SELECT 'generic_objects_pending', COUNT(*)
-            FROM generic_objects WHERE project_id = %s AND review_status = 'pending'
-        """
-        intelligent_counts_result = execute_query(intelligent_objects_query, 
-                                                  (project_id, project_id, project_id, 
-                                                   project_id, project_id, project_id,
-                                                   project_id, project_id))
-        intelligent_objects_counts = {row['object_type']: row['count'] for row in intelligent_counts_result}
         
         # Get reference data counts using efficient COUNT queries (not full entity loads)
         # Single query with UNION ALL for all mapping tables
@@ -1160,18 +1152,26 @@ def get_project_statistics(project_id):
         return jsonify({
             'project_id': project_id,
             'project_name': project_check[0]['project_name'],
-            'drawing_count': drawing_count,
             'entity_count': entity_count,
             'survey_point_count': survey_point_count,
-            'intelligent_objects_counts': intelligent_objects_counts,
+            'intelligent_objects_counts': {
+                'utility_lines': intelligent_counts.get('utility_lines_count', 0),
+                'utility_structures': intelligent_counts.get('utility_structures_count', 0),
+                'bmps': intelligent_counts.get('bmps_count', 0),
+                'alignments': intelligent_counts.get('alignments_count', 0),
+                'surface_models': intelligent_counts.get('surface_models_count', 0),
+                'site_trees': intelligent_counts.get('site_trees_count', 0),
+                'generic_objects': intelligent_counts.get('generic_objects_count', 0),
+                'generic_objects_pending': intelligent_counts.get('generic_objects_pending_count', 0)
+            },
             'total_intelligent_objects': sum([
-                intelligent_objects_counts.get('utility_lines', 0),
-                intelligent_objects_counts.get('utility_structures', 0),
-                intelligent_objects_counts.get('bmps', 0),
-                intelligent_objects_counts.get('alignments', 0),
-                intelligent_objects_counts.get('surface_models', 0),
-                intelligent_objects_counts.get('site_trees', 0),
-                intelligent_objects_counts.get('generic_objects', 0)
+                intelligent_counts.get('utility_lines_count', 0),
+                intelligent_counts.get('utility_structures_count', 0),
+                intelligent_counts.get('bmps_count', 0),
+                intelligent_counts.get('alignments_count', 0),
+                intelligent_counts.get('surface_models_count', 0),
+                intelligent_counts.get('site_trees_count', 0),
+                intelligent_counts.get('generic_objects_count', 0)
             ]),
             'reference_data_counts': reference_data_counts,
             'total_reference_data': sum(reference_data_counts.values()),
@@ -4779,15 +4779,19 @@ def delete_dimension_style(dimension_style_id):
 
 @app.route('/api/usage/summary')
 def get_usage_summary():
-    """Get summary usage statistics"""
+    """Get summary usage statistics for Projects Only system"""
     try:
         query = """
             WITH stats AS (
                 SELECT 
-                    (SELECT COUNT(*) FROM drawings) as total_drawings,
-                    (SELECT COUNT(DISTINCT layer_id) FROM drawing_layer_usage) as unique_layers,
-                    (SELECT SUM(block_count) FROM drawings) as total_block_instances,
-                    (SELECT ROUND(AVG(entity_count)) FROM drawings) as avg_entities_per_drawing
+                    (SELECT COUNT(*) FROM projects) as total_projects,
+                    (SELECT COUNT(DISTINCT layer_id) FROM layers) as unique_layers,
+                    (SELECT COUNT(*) FROM block_instances) as total_block_instances,
+                    (SELECT ROUND(AVG(entity_count)) FROM (
+                        SELECT project_id, COUNT(*) as entity_count
+                        FROM drawing_entities
+                        GROUP BY project_id
+                    ) proj_entities) as avg_entities_per_project
             )
             SELECT * FROM stats
         """
@@ -4857,22 +4861,50 @@ def get_top_blocks():
 
 @app.route('/api/usage/recent-activity')
 def get_usage_recent_activity():
-    """Get recent project activity"""
+    """Get recent project activity with entity counts"""
     try:
         query = """
             SELECT 
-                project_id,
-                project_name,
-                project_number,
-                created_at,
-                updated_at
-            FROM projects
-            WHERE updated_at IS NOT NULL
-            ORDER BY updated_at DESC
+                p.project_id,
+                p.project_name,
+                p.project_number,
+                p.created_at,
+                p.updated_at,
+                COUNT(DISTINCT de.entity_id) as entity_count
+            FROM projects p
+            LEFT JOIN drawing_entities de ON p.project_id = de.project_id
+            WHERE p.updated_at IS NOT NULL
+            GROUP BY p.project_id, p.project_name, p.project_number, p.created_at, p.updated_at
+            ORDER BY p.updated_at DESC
             LIMIT 20
         """
         activity = execute_query(query)
         return jsonify({'activity': activity})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage/top-projects')
+def get_top_projects():
+    """Get most active projects by entity count"""
+    try:
+        query = """
+            SELECT 
+                p.project_id,
+                p.project_name,
+                p.project_number,
+                COUNT(DISTINCT de.entity_id) as entity_count,
+                COUNT(DISTINCT l.layer_id) as layer_count,
+                p.updated_at as last_modified
+            FROM projects p
+            LEFT JOIN drawing_entities de ON p.project_id = de.project_id
+            LEFT JOIN layers l ON p.project_id = l.project_id
+            GROUP BY p.project_id, p.project_name, p.project_number, p.updated_at
+            HAVING COUNT(DISTINCT de.entity_id) > 0
+            ORDER BY entity_count DESC
+            LIMIT 10
+        """
+        projects = execute_query(query)
+        return jsonify({'projects': projects})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

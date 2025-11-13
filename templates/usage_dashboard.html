@@ -5,13 +5,13 @@
 {% block content %}
 <div class="page-header">
     <h2 class="orbitron"><i class="fas fa-chart-line neon-cyan"></i> Usage Tracking Dashboard</h2>
-    <p class="subtitle">Monitor drawing and standards usage patterns across projects</p>
+    <p class="subtitle">Monitor project and standards usage patterns</p>
 </div>
 
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-value" id="totalDrawings">-</div>
-        <div class="stat-label">Total Drawings</div>
+        <div class="stat-value" id="totalProjects">-</div>
+        <div class="stat-label">Total Projects</div>
     </div>
     <div class="stat-card">
         <div class="stat-value" id="totalLayers">-</div>
@@ -23,31 +23,31 @@
     </div>
     <div class="stat-card">
         <div class="stat-value" id="avgEntities">-</div>
-        <div class="stat-label">Avg Entities/Drawing</div>
+        <div class="stat-label">Avg Entities/Project</div>
     </div>
 </div>
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
     <div class="panel">
-        <h3 class="orbitron"><i class="fas fa-file-alt"></i> Most Accessed Drawings</h3>
-        <div id="topDrawingsLoading" style="text-align: center; padding: 40px;">
+        <h3 class="orbitron"><i class="fas fa-briefcase"></i> Most Active Projects</h3>
+        <div id="topProjectsLoading" style="text-align: center; padding: 40px;">
             <i class="fas fa-spinner fa-spin"></i> Loading...
         </div>
-        <div id="topDrawingsTable" style="display: none;">
+        <div id="topProjectsTable" style="display: none;">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Drawing</th>
+                        <th>Project</th>
                         <th>Entities</th>
                         <th>Layers</th>
-                        <th>Last Opened</th>
+                        <th>Last Modified</th>
                     </tr>
                 </thead>
-                <tbody id="topDrawingsBody"></tbody>
+                <tbody id="topProjectsBody"></tbody>
             </table>
         </div>
-        <div id="topDrawingsEmpty" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
-            No drawing data available
+        <div id="topProjectsEmpty" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
+            No project data available
         </div>
     </div>
 
@@ -61,8 +61,8 @@
                 <thead>
                     <tr>
                         <th>Layer Name</th>
-                        <th>Drawings</th>
-                        <th>Total Entities</th>
+                        <th>Projects</th>
+                        <th>Usage Count</th>
                         <th>Category</th>
                     </tr>
                 </thead>
@@ -122,7 +122,7 @@
 </div>
 
 <div class="panel">
-    <h3 class="orbitron"><i class="fas fa-history"></i> Recent Drawing Activity</h3>
+    <h3 class="orbitron"><i class="fas fa-history"></i> Recent Project Activity</h3>
     <div id="recentActivityLoading" style="text-align: center; padding: 40px;">
         <i class="fas fa-spinner fa-spin"></i> Loading...
     </div>
@@ -130,12 +130,11 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Drawing Name</th>
-                    <th>Drawing Number</th>
-                    <th>Discipline</th>
-                    <th>Last Modified</th>
-                    <th>Last Opened</th>
+                    <th>Project Name</th>
+                    <th>Project Number</th>
                     <th>Entities</th>
+                    <th>Created</th>
+                    <th>Last Modified</th>
                 </tr>
             </thead>
             <tbody id="recentActivityBody"></tbody>
@@ -192,7 +191,7 @@ async function loadDashboard() {
     try {
         await Promise.all([
             loadSummaryStats(),
-            loadTopDrawings(),
+            loadTopProjects(),
             loadTopLayers(),
             loadTopNotes(),
             loadTopBlocks(),
@@ -213,44 +212,44 @@ async function loadSummaryStats() {
             return;
         }
         
-        document.getElementById('totalDrawings').textContent = data.total_drawings || 0;
+        document.getElementById('totalProjects').textContent = data.total_projects || 0;
         document.getElementById('totalLayers').textContent = data.unique_layers || 0;
         document.getElementById('totalBlocks').textContent = data.total_block_instances || 0;
-        document.getElementById('avgEntities').textContent = data.avg_entities_per_drawing || 0;
+        document.getElementById('avgEntities').textContent = data.avg_entities_per_project || 0;
     } catch (error) {
         console.error('Failed to load summary stats:', error);
     }
 }
 
-async function loadTopDrawings() {
+async function loadTopProjects() {
     try {
-        const response = await fetch('/api/usage/top-drawings');
+        const response = await fetch('/api/usage/top-projects');
         const data = await response.json();
         
-        document.getElementById('topDrawingsLoading').style.display = 'none';
+        document.getElementById('topProjectsLoading').style.display = 'none';
         
-        if (data.error || !data.drawings || data.drawings.length === 0) {
-            document.getElementById('topDrawingsEmpty').style.display = 'block';
+        if (data.error || !data.projects || data.projects.length === 0) {
+            document.getElementById('topProjectsEmpty').style.display = 'block';
             return;
         }
         
-        const tbody = document.getElementById('topDrawingsBody');
-        tbody.innerHTML = data.drawings.map(d => `
+        const tbody = document.getElementById('topProjectsBody');
+        tbody.innerHTML = data.projects.map(p => `
             <tr>
-                <td><strong>${d.drawing_name || 'Unnamed'}</strong><br>
-                    <small style="color: var(--text-secondary);">${d.drawing_number || '-'}</small>
+                <td><strong>${p.project_name || 'Unnamed'}</strong><br>
+                    <small style="color: var(--text-secondary);">${p.project_number || '-'}</small>
                 </td>
-                <td>${d.entity_count || 0}</td>
-                <td>${d.layer_count || 0}</td>
-                <td class="timestamp">${d.last_opened_at ? new Date(d.last_opened_at).toLocaleDateString() : 'Never'}</td>
+                <td>${p.entity_count || 0}</td>
+                <td>${p.layer_count || 0}</td>
+                <td class="timestamp">${p.last_modified ? new Date(p.last_modified).toLocaleDateString() : 'Never'}</td>
             </tr>
         `).join('');
         
-        document.getElementById('topDrawingsTable').style.display = 'block';
+        document.getElementById('topProjectsTable').style.display = 'block';
     } catch (error) {
-        document.getElementById('topDrawingsLoading').style.display = 'none';
-        document.getElementById('topDrawingsEmpty').style.display = 'block';
-        console.error('Failed to load top drawings:', error);
+        document.getElementById('topProjectsLoading').style.display = 'none';
+        document.getElementById('topProjectsEmpty').style.display = 'block';
+        console.error('Failed to load top projects:', error);
     }
 }
 
@@ -270,8 +269,8 @@ async function loadTopLayers() {
         tbody.innerHTML = data.layers.map(l => `
             <tr>
                 <td><strong>${l.layer_name || 'Unknown'}</strong></td>
-                <td><span class="usage-badge">${l.drawing_count || 0}</span></td>
-                <td>${l.total_entities || 0}</td>
+                <td><span class="usage-badge">${l.project_count || 0}</span></td>
+                <td>${l.usage_count || 0}</td>
                 <td>${l.category || '-'}</td>
             </tr>
         `).join('');
@@ -357,12 +356,11 @@ async function loadRecentActivity() {
         const tbody = document.getElementById('recentActivityBody');
         tbody.innerHTML = data.activity.map(a => `
             <tr>
-                <td><strong>${a.drawing_name || 'Unnamed'}</strong></td>
-                <td>${a.drawing_number || '-'}</td>
-                <td>${a.discipline || '-'}</td>
-                <td class="timestamp">${a.last_modified_at ? new Date(a.last_modified_at).toLocaleString() : '-'}</td>
-                <td class="timestamp">${a.last_opened_at ? new Date(a.last_opened_at).toLocaleString() : 'Never'}</td>
+                <td><strong>${a.project_name || 'Unnamed'}</strong></td>
+                <td>${a.project_number || '-'}</td>
                 <td>${a.entity_count || 0}</td>
+                <td class="timestamp">${a.created_at ? new Date(a.created_at).toLocaleDateString() : '-'}</td>
+                <td class="timestamp">${a.updated_at ? new Date(a.updated_at).toLocaleDateString() : 'Never'}</td>
             </tr>
         `).join('');
         
