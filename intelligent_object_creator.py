@@ -96,6 +96,21 @@ class IntelligentObjectCreator:
             elif classification.object_type == 'site_tree':
                 result = self._create_site_tree(entity_data, classification, project_id)
             
+            elif classification.object_type == 'parcel':
+                result = self._create_parcel(entity_data, classification, project_id)
+            
+            elif classification.object_type == 'grading_feature':
+                result = self._create_grading_feature(entity_data, classification, project_id)
+            
+            elif classification.object_type in ['surface_feature', 'ada_feature']:
+                result = self._create_surface_feature(entity_data, classification, project_id)
+            
+            elif classification.object_type == 'contour':
+                result = self._create_contour(entity_data, classification, project_id)
+            
+            elif classification.object_type == 'spot_elevation':
+                result = self._create_spot_elevation(entity_data, classification, project_id)
+            
             if result:
                 object_type, object_id, table_name = result
                 dxf_handle = entity_data.get('dxf_handle', '')
@@ -114,6 +129,8 @@ class IntelligentObjectCreator:
             
         except Exception as e:
             print(f"Error creating intelligent object: {e}")
+            if self.conn:
+                self.conn.rollback()
             return None
     
     def _create_utility_line(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
@@ -394,6 +411,240 @@ class IntelligentObjectCreator:
         
         if result:
             return ('site_tree', str(result[0]), 'site_trees')
+        return None
+    
+    def _create_parcel(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
+        """Create parcels record."""
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        if geometry_type not in ['POLYGON', 'POLYGON Z']:
+            return None
+        
+        if not self.conn:
+            return None
+        
+        cur = self.conn.cursor()
+        props = classification.properties
+        
+        geometry_wkt = entity_data.get('geometry_wkt')
+        layer_name = entity_data.get('layer_name', '')
+        
+        parcel_name = f"Parcel - {layer_name}"
+        
+        area_sqft = None
+        area_acres = None
+        perimeter = None
+        
+        cur.execute("""
+            SELECT 
+                ST_Area(ST_GeomFromText(%s, 2226)),
+                ST_Area(ST_GeomFromText(%s, 2226)) / 43560.0,
+                ST_Perimeter(ST_GeomFromText(%s, 2226))
+        """, (geometry_wkt, geometry_wkt, geometry_wkt))
+        result = cur.fetchone()
+        if result:
+            area_sqft = result[0]
+            area_acres = result[1]
+            perimeter = result[2]
+        
+        cur.execute("""
+            INSERT INTO parcels (
+                project_id, parcel_name, boundary_geometry,
+                area_sqft, area_acres, perimeter, attributes
+            )
+            VALUES (%s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s, %s)
+            RETURNING parcel_id
+        """, (
+            project_id,
+            parcel_name,
+            geometry_wkt,
+            area_sqft,
+            area_acres,
+            perimeter,
+            json.dumps({'source': 'dxf_import', 'layer_name': layer_name, 'phase': props.get('phase', 'EXIST')})
+        ))
+        
+        result = cur.fetchone()
+        cur.close()
+        
+        if result:
+            return ('parcel', str(result[0]), 'parcels')
+        return None
+    
+    def _create_grading_feature(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
+        """Create grading_limits record for grading features (swales, berms, pads, etc.)."""
+        if not self.conn:
+            return None
+        
+        cur = self.conn.cursor()
+        props = classification.properties
+        
+        geometry_wkt = entity_data.get('geometry_wkt')
+        layer_name = entity_data.get('layer_name', '')
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        
+        limit_type = props.get('type', 'Grading')
+        limit_name = f"{limit_type} - {layer_name}"
+        
+        area_sqft = None
+        area_acres = None
+        
+        if geometry_type in ['POLYGON', 'POLYGON Z']:
+            cur.execute("""
+                SELECT 
+                    ST_Area(ST_GeomFromText(%s, 2226)),
+                    ST_Area(ST_GeomFromText(%s, 2226)) / 43560.0
+            """, (geometry_wkt, geometry_wkt))
+            result = cur.fetchone()
+            if result:
+                area_sqft = result[0]
+                area_acres = result[1]
+        
+        cur.execute("""
+            INSERT INTO grading_limits (
+                project_id, limit_name, limit_type, boundary_geometry,
+                area_sqft, area_acres, attributes
+            )
+            VALUES (%s, %s, %s, ST_GeomFromText(%s, 2226), %s, %s, %s)
+            RETURNING limit_id
+        """, (
+            project_id,
+            limit_name,
+            limit_type,
+            geometry_wkt,
+            area_sqft,
+            area_acres,
+            json.dumps({'source': 'dxf_import', 'layer_name': layer_name, 'phase': props.get('phase', 'EXIST')})
+        ))
+        
+        result = cur.fetchone()
+        cur.close()
+        
+        if result:
+            return ('grading_feature', str(result[0]), 'grading_limits')
+        return None
+    
+    def _create_surface_feature(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
+        """Create surface_features record for road features, ADA features, etc."""
+        if not self.conn:
+            return None
+        
+        cur = self.conn.cursor()
+        props = classification.properties
+        
+        geometry_wkt = entity_data.get('geometry_wkt')
+        layer_name = entity_data.get('layer_name', '')
+        
+        feature_type = props.get('type', classification.object_type)
+        
+        cur.execute("""
+            INSERT INTO surface_features (
+                project_id, feature_type, geometry, attributes
+            )
+            VALUES (%s, %s, ST_GeomFromText(%s, 2226), %s)
+            RETURNING feature_id
+        """, (
+            project_id,
+            feature_type,
+            geometry_wkt,
+            json.dumps({
+                'source': 'dxf_import',
+                'layer_name': layer_name,
+                'phase': props.get('phase', 'EXIST'),
+                'object_type': classification.object_type
+            })
+        ))
+        
+        result = cur.fetchone()
+        cur.close()
+        
+        if result:
+            return ('surface_feature', str(result[0]), 'surface_features')
+        return None
+    
+    def _create_contour(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
+        """Create surface_models record for contour lines."""
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        if geometry_type not in ['LINESTRING', 'LINESTRING Z']:
+            return None
+        
+        if not self.conn:
+            return None
+        
+        cur = self.conn.cursor()
+        props = classification.properties
+        
+        layer_name = entity_data.get('layer_name', '')
+        surface_name = f"Contours - {layer_name}"
+        
+        cur.execute("""
+            SELECT surface_id FROM surface_models
+            WHERE project_id = %s AND surface_name = %s
+        """, (project_id, surface_name))
+        
+        result = cur.fetchone()
+        
+        if not result:
+            cur.execute("""
+                INSERT INTO surface_models (
+                    project_id, surface_name, surface_type, attributes
+                )
+                VALUES (%s, %s, %s, %s)
+                RETURNING surface_id
+            """, (
+                project_id,
+                surface_name,
+                'Contour',
+                json.dumps({'source': 'dxf_import', 'layer_name': layer_name, 'phase': props.get('phase', 'EXIST')})
+            ))
+            result = cur.fetchone()
+        
+        cur.close()
+        
+        if result:
+            return ('contour', str(result[0]), 'surface_models')
+        return None
+    
+    def _create_spot_elevation(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
+        """Create surface_models record for spot elevations."""
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        if geometry_type not in ['POINT', 'POINT Z']:
+            return None
+        
+        if not self.conn:
+            return None
+        
+        cur = self.conn.cursor()
+        props = classification.properties
+        
+        layer_name = entity_data.get('layer_name', '')
+        surface_name = f"Spot Elevations - {layer_name}"
+        
+        cur.execute("""
+            SELECT surface_id FROM surface_models
+            WHERE project_id = %s AND surface_name = %s
+        """, (project_id, surface_name))
+        
+        result = cur.fetchone()
+        
+        if not result:
+            cur.execute("""
+                INSERT INTO surface_models (
+                    project_id, surface_name, surface_type, attributes
+                )
+                VALUES (%s, %s, %s, %s)
+                RETURNING surface_id
+            """, (
+                project_id,
+                surface_name,
+                'Spot Elevation',
+                json.dumps({'source': 'dxf_import', 'layer_name': layer_name, 'phase': props.get('phase', 'EXIST')})
+            ))
+            result = cur.fetchone()
+        
+        cur.close()
+        
+        if result:
+            return ('spot_elevation', str(result[0]), 'surface_models')
         return None
     
     def _create_generic_object(self, entity_data: Dict, classification: Optional[LayerClassification], project_id: str) -> Optional[Tuple]:
