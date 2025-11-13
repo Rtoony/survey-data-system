@@ -191,7 +191,7 @@ class DXFImporter:
                 }
                 
                 # Attempt to create intelligent object (no drawing_id needed)
-                result = creator.create_from_entity(entity_data, None, project_id)
+                result = creator.create_from_entity(entity_data, project_id, None)
                 
                 if result:
                     created_count += 1
