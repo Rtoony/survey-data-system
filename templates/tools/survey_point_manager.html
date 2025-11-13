@@ -361,10 +361,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     await applyFilters();
 });
 
-// Load projects and drawings
+// Load projects
 async function loadProjects() {
     try {
-        const response = await fetch('/api/batch-point-import/get-drawings');
+        const response = await fetch('/api/projects');
         const data = await response.json();
         
         if (data.error) {
