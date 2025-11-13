@@ -149,23 +149,24 @@ def create_test_project():
                 wkt = f'LINESTRING Z ({coords_str})'
             
             cur.execute("""
-                INSERT INTO drawing_entities (
-                    entity_id, drawing_id, layer_id, entity_type,
+                INSERT INTO entities (
+                    entity_id, project_id, layer, entity_type,
                     geometry, color_aci
                 )
                 VALUES (
-                    %s, NULL, %s, %s,
+                    %s, %s, %s, %s,
                     ST_GeomFromText(%s, 0), %s
                 )
             """, (
                 entity_id,
-                layer_id,
+                project_id,
+                '0',  # Default layer name
                 ent['type'],
                 wkt,
                 ent['color']
             ))
             entity_count += 1
-            print(f"  ✓ Created {ent['type']}: {ent['name']} (project-level, drawing_id IS NULL)")
+            print(f"  ✓ Created {ent['type']}: {ent['name']} (project-level)")
         
         # Commit all changes
         conn.commit()
@@ -176,11 +177,11 @@ def create_test_project():
         print(f"  - Location: Santa Rosa, Sonoma County")
         print(f"  - Coordinates: EPSG:2226 (CA State Plane Zone 2)")
         print(f"  - Center: ({center_x}, {center_y}) feet")
-        print(f"  - All entities have drawing_id IS NULL (project-level)")
+        print(f"  - All entities linked directly to project (no drawings)")
         print(f"\nNext steps:")
         print(f"  1. Go to Map Viewer and look for 'Sonoma County Test Site' project")
         print(f"  2. The project-level entities should be visible near downtown Santa Rosa")
-        print(f"  3. All entities should have drawing_id IS NULL in the database")
+        print(f"  3. Export to DXF and re-import to test round-trip workflow")
         
         return project_id
         
