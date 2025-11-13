@@ -73,7 +73,10 @@ class ConnectivityProcessor:
                 point['sequence_id'] = current_sequence['sequence_id']
                 
             elif connectivity == 'EDGE':
-                if current_sequence is None:
+                if current_sequence is None or current_sequence['code'] != code:
+                    if current_sequence:
+                        sequences.append(current_sequence)
+                    
                     sequence_counter += 1
                     current_sequence = {
                         'sequence_id': str(uuid.uuid4()),
@@ -207,19 +210,20 @@ class SurveyImportService:
         Returns:
             Tuple of (parsed_points, errors)
         """
-        from batch_pnezd_parser import BatchPNEZDParser
+        from batch_pnezd_parser import PNEZDParser
         
-        pnezd_parser = BatchPNEZDParser(self.db_config)
+        pnezd_parser = PNEZDParser(self.db_config)
         
-        parsed_data = pnezd_parser.parse_file(file_content, delimiter)
-        
-        if not parsed_data['valid']:
-            return [], [parsed_data.get('error', 'Unknown parsing error')]
+        parsed_data = pnezd_parser.parse_file(file_content, 'uploaded_file.txt')
         
         points = []
         errors = []
         
-        for record in parsed_data.get('records', []):
+        if parsed_data.get('error_count', 0) > 0:
+            for err in parsed_data.get('errors', []):
+                errors.append(f"Line {err.get('line')}: {err.get('error')}")
+        
+        for record in parsed_data.get('points', []):
             point_number = record.get('point_number')
             northing = record.get('northing')
             easting = record.get('easting')
@@ -312,35 +316,7 @@ class SurveyImportService:
             
             import_batch_id = str(uuid.uuid4())
             
-            points_inserted = []
-            for point in preview_data.get('points', []):
-                cursor.execute("""
-                    INSERT INTO survey_points (
-                        point_id, project_id, drawing_id, point_number, point_description,
-                        geometry, northing, easting, elevation, coordinate_system,
-                        code, code_id, discipline_code, category_code, feature_type,
-                        connectivity_type, layer_name, phase, auto_connected,
-                        parsed_attributes, is_active, created_at
-                    ) VALUES (
-                        %s, %s, %s, %s, %s,
-                        ST_SetSRID(ST_MakePoint(%s, %s, %s), 2226), %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s,
-                        %s, TRUE, CURRENT_TIMESTAMP
-                    )
-                    RETURNING point_id
-                """, (
-                    point['point_id'], project_id, drawing_id, point['point_number'], point.get('display_name'),
-                    point['easting'], point['northing'], point['elevation'], point['northing'], point['easting'], point['elevation'], point.get('coordinate_system'),
-                    point['code'], point.get('code_id'), point.get('discipline_code'), point.get('category_code'), point.get('feature_type'),
-                    point.get('connectivity_type'), point.get('layer_name'), point.get('phase'), point.get('auto_connected'),
-                    psycopg2.extras.Json(point.get('parsed_attributes', {}))
-                ))
-                
-                result = cursor.fetchone()
-                if result:
-                    points_inserted.append(result['point_id'])
-            
+            # Step 1: Insert sequences FIRST (before points can reference them)
             sequences_inserted = []
             for sequence in preview_data.get('sequences', []):
                 cursor.execute("""
@@ -368,6 +344,37 @@ class SurveyImportService:
                 if result:
                     sequences_inserted.append(result['sequence_id'])
             
+            # Step 2: Insert points (with sequence_id foreign keys)
+            points_inserted = []
+            for point in preview_data.get('points', []):
+                cursor.execute("""
+                    INSERT INTO survey_points (
+                        point_id, project_id, drawing_id, point_number, point_description,
+                        geometry, northing, easting, elevation, coordinate_system,
+                        code, code_id, discipline_code, category_code, feature_type,
+                        connectivity_type, layer_name, phase, auto_connected, sequence_id,
+                        parsed_attributes, is_active, created_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s,
+                        ST_SetSRID(ST_MakePoint(%s, %s, %s), 2226), %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s,
+                        %s, TRUE, CURRENT_TIMESTAMP
+                    )
+                    RETURNING point_id
+                """, (
+                    point['point_id'], project_id, drawing_id, point['point_number'], point.get('display_name'),
+                    point['easting'], point['northing'], point['elevation'], point['northing'], point['easting'], point['elevation'], point.get('coordinate_system'),
+                    point['code'], point.get('code_id'), point.get('discipline_code'), point.get('category_code'), point.get('feature_type'),
+                    point.get('connectivity_type'), point.get('layer_name'), point.get('phase'), point.get('auto_connected'), point.get('sequence_id'),
+                    psycopg2.extras.Json(point.get('parsed_attributes', {}))
+                ))
+                
+                result = cursor.fetchone()
+                if result:
+                    points_inserted.append(result['point_id'])
+            
+            # Step 3: Insert line segments last
             segments_inserted = []
             for segment in preview_data.get('line_segments', []):
                 cursor.execute("""
@@ -377,7 +384,7 @@ class SurveyImportService:
                         attributes, created_at
                     ) VALUES (
                         %s, %s, %s, %s, %s,
-                        %s, %s, ST_GeomFromText(%s, 2226), %s, %s,
+                        %s, %s, ST_GeomFromText(%s, 2226), %s::uuid[], %s,
                         %s, CURRENT_TIMESTAMP
                     )
                     RETURNING segment_id

@@ -161,6 +161,184 @@
     </div>
 </div>
 
+<!-- Survey Code Import Mode (Auto-Connectivity) -->
+<div id="surveyMode" style="display:none;">
+    <!-- Configuration Section -->
+    <div class="mc-card">
+        <h2>Step 1: Select Drawing</h2>
+        <div class="config-grid">
+            <div class="config-item">
+                <label for="surveyDrawingSelect" class="mc-label">Select Drawing:</label>
+                <select id="surveyDrawingSelect" class="mc-select" required>
+                    <option value="">-- Select Drawing --</option>
+                </select>
+                <p class="help-text">Points and auto-generated polylines will be imported into this drawing</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="mc-card">
+        <h2>Step 2: Upload PNEZD File with Survey Codes</h2>
+        <div class="upload-zone" id="surveyDropZone">
+            <div class="upload-icon">🎯</div>
+            <p class="upload-text">Drag & drop PNEZD file with survey codes</p>
+            <p class="upload-subtext">or</p>
+            <button class="mc-btn-primary" onclick="document.getElementById('surveyFileInput').click()">
+                Browse Files
+            </button>
+            <input type="file" id="surveyFileInput" accept=".txt,.csv" style="display:none;">
+            <p class="upload-hint">Format: PointNumber,Northing,Easting,Elevation,Code<br>
+            Codes like CIV-UTIL-STORM-MH, SITE-ROAD-ASPH-LINE will auto-generate polylines based on connectivity rules</p>
+        </div>
+        
+        <div id="surveyFilePreview" style="display:none; margin-top:1rem;">
+            <p><strong>Selected:</strong> <span id="surveyFileName"></span></p>
+            <button class="mc-btn-primary" id="surveyParseBtn">
+                Parse & Preview
+            </button>
+        </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div class="mc-card" id="surveyProgressSection" style="display:none;">
+        <h2>Processing Survey Data...</h2>
+        <div class="progress-bar">
+            <div class="progress-fill" id="surveyProgressFill"></div>
+        </div>
+        <p id="surveyProgressText">Parsing codes and generating connectivity...</p>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="mc-card" id="surveyPreviewSection" style="display:none;">
+        <div class="preview-header">
+            <h2>Step 3: Review Auto-Connectivity Preview</h2>
+            <div class="preview-stats">
+                <span id="surveyTotalPoints" class="stat-badge">0 points</span>
+                <span id="surveySequences" class="stat-badge stat-new">0 sequences</span>
+                <span id="surveyLineSegments" class="stat-badge stat-existing">0 line segments</span>
+                <span id="surveyWarnings" class="stat-badge stat-error" style="display:none;">0 warnings</span>
+            </div>
+        </div>
+
+        <!-- Warnings (if any) -->
+        <div id="surveyWarningsSection" style="display:none;">
+            <h3 style="color: var(--mc-warning);">⚠️ Connectivity Warnings</h3>
+            <div id="surveyWarningsList" class="errors-list"></div>
+        </div>
+
+        <!-- Preview Tabs -->
+        <div class="tab-nav" style="margin-top:1.5rem;">
+            <button class="tab-btn active" onclick="switchPreviewTab('points')">
+                📍 Points (<span id="pointsTabCount">0</span>)
+            </button>
+            <button class="tab-btn" onclick="switchPreviewTab('sequences')">
+                🔗 Sequences (<span id="sequencesTabCount">0</span>)
+            </button>
+            <button class="tab-btn" onclick="switchPreviewTab('segments')">
+                📐 Line Segments (<span id="segmentsTabCount">0</span>)
+            </button>
+        </div>
+
+        <!-- Points Tab -->
+        <div id="pointsPreviewTab" class="preview-tab" style="display:block;">
+            <div class="table-container" style="max-height:400px; overflow-y:auto;">
+                <table class="mc-table">
+                    <thead>
+                        <tr>
+                            <th>Point #</th>
+                            <th>Code</th>
+                            <th>Layer</th>
+                            <th>Connectivity</th>
+                            <th>Coords (N, E, Z)</th>
+                            <th>Sequence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="surveyPointsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Sequences Tab -->
+        <div id="sequencesPreviewTab" class="preview-tab" style="display:none;">
+            <div class="table-container" style="max-height:400px; overflow-y:auto;">
+                <table class="mc-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Code</th>
+                            <th>Feature Type</th>
+                            <th>Connectivity</th>
+                            <th>Points</th>
+                            <th>Closed?</th>
+                        </tr>
+                    </thead>
+                    <tbody id="surveySequencesTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Line Segments Tab -->
+        <div id="segmentsPreviewTab" class="preview-tab" style="display:none;">
+            <div class="table-container" style="max-height:400px; overflow-y:auto;">
+                <table class="mc-table">
+                    <thead>
+                        <tr>
+                            <th>Feature Type</th>
+                            <th>Layer</th>
+                            <th>Connectivity</th>
+                            <th>Point Count</th>
+                            <th>Closed?</th>
+                            <th>Geometry</th>
+                        </tr>
+                    </thead>
+                    <tbody id="surveySegmentsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Import Actions -->
+        <div class="import-actions" style="margin-top:1.5rem;">
+            <button class="mc-btn-secondary" onclick="location.reload()">Cancel</button>
+            <button class="mc-btn-primary" id="surveyCommitBtn">
+                ✅ Commit Import to Database
+            </button>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="mc-card" id="surveyResultsSection" style="display:none;">
+        <h2>✅ Survey Import Complete</h2>
+        <div class="results-summary">
+            <div class="result-item">
+                <span class="result-label">Points Imported:</span>
+                <span class="result-value" id="surveyPointsImported">0</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Sequences Created:</span>
+                <span class="result-value" id="surveySequencesCreated">0</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Line Segments Created:</span>
+                <span class="result-value" id="surveySegmentsCreated">0</span>
+            </div>
+        </div>
+        <div style="margin-top:1.5rem; padding:1rem; background:rgba(0,255,255,0.1); border-radius:8px;">
+            <p><strong>🎯 Auto-Connectivity Applied:</strong></p>
+            <p style="margin-top:0.5rem; color:var(--mc-muted);">
+                Survey codes were parsed and polylines were automatically generated based on connectivity rules (NODE, LINE, EDGE, BREAK, CLOSE).
+                Points are stored with 3D PostGIS geometry and linked to their sequences.
+            </p>
+        </div>
+        <button class="mc-btn-primary" onclick="location.reload()">
+            Import More Survey Data
+        </button>
+    </div>
+</div>
+
 <style>
 /* Config Grid */
 .config-grid {
@@ -763,5 +941,285 @@ document.getElementById('importBtn').addEventListener('click', async () => {
         document.getElementById('importBtn').textContent = 'Import Selected Points';
     }
 });
+
+// ===========================
+// Survey Mode (Auto-Connectivity)
+// ===========================
+let surveyPreviewData = null;
+let surveySelectedFile = null;
+
+// Mode switching
+function switchMode(mode) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    if (mode === 'basic') {
+        document.getElementById('basicMode').style.display = 'block';
+        document.getElementById('surveyMode').style.display = 'none';
+    } else if (mode === 'survey') {
+        document.getElementById('basicMode').style.display = 'none';
+        document.getElementById('surveyMode').style.display = 'block';
+        loadSurveyDrawings();
+    }
+}
+
+// Load drawings for survey mode
+async function loadSurveyDrawings() {
+    try {
+        const response = await fetch('/api/batch-point-import/get-drawings');
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error loading drawings: ' + data.error);
+            return;
+        }
+        
+        const drawingSelect = document.getElementById('surveyDrawingSelect');
+        drawingSelect.innerHTML = '<option value="">-- Select Drawing --</option>';
+        
+        (data.projects || []).forEach(project => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = `${project.project_number} - ${project.project_name}`;
+            
+            project.drawings.forEach(drawing => {
+                const option = document.createElement('option');
+                option.value = drawing.drawing_id;
+                option.textContent = `${drawing.drawing_number} - ${drawing.drawing_name}`;
+                option.dataset.projectId = project.project_id;
+                optgroup.appendChild(option);
+            });
+            
+            drawingSelect.appendChild(optgroup);
+        });
+    } catch (error) {
+        console.error('Error loading drawings:', error);
+    }
+}
+
+// Survey file upload handlers
+const surveyFileInput = document.getElementById('surveyFileInput');
+const surveyDropZone = document.getElementById('surveyDropZone');
+
+surveyFileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        surveySelectedFile = e.target.files[0];
+        document.getElementById('surveyFileName').textContent = surveySelectedFile.name;
+        document.getElementById('surveyFilePreview').style.display = 'block';
+    }
+});
+
+surveyDropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    surveyDropZone.classList.add('drag-over');
+});
+
+surveyDropZone.addEventListener('dragleave', () => {
+    surveyDropZone.classList.remove('drag-over');
+});
+
+surveyDropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    surveyDropZone.classList.remove('drag-over');
+    
+    if (e.dataTransfer.files.length > 0) {
+        surveySelectedFile = e.dataTransfer.files[0];
+        document.getElementById('surveyFileName').textContent = surveySelectedFile.name;
+        document.getElementById('surveyFilePreview').style.display = 'block';
+    }
+});
+
+// Parse & Preview button
+document.getElementById('surveyParseBtn').addEventListener('click', async () => {
+    const drawingId = document.getElementById('surveyDrawingSelect').value;
+    
+    if (!drawingId) {
+        alert('Please select a drawing first');
+        return;
+    }
+    
+    if (!surveySelectedFile) {
+        alert('Please select a file first');
+        return;
+    }
+    
+    // Show progress
+    document.getElementById('surveyProgressSection').style.display = 'block';
+    document.getElementById('surveyProgressFill').style.width = '50%';
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', surveySelectedFile);
+        formData.append('coordinate_system', 'SRID_2226'); // Always State Plane for now
+        
+        const response = await fetch('/api/survey-import/preview', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error parsing file: ' + data.error);
+            document.getElementById('surveyProgressSection').style.display = 'none';
+            return;
+        }
+        
+        surveyPreviewData = data;
+        
+        // Hide progress, show preview
+        document.getElementById('surveyProgressSection').style.display = 'none';
+        document.getElementById('surveyPreviewSection').style.display = 'block';
+        
+        // Display preview data
+        displaySurveyPreview(data);
+        
+    } catch (error) {
+        console.error('Error parsing file:', error);
+        alert('Failed to parse file');
+        document.getElementById('surveyProgressSection').style.display = 'none';
+    }
+});
+
+// Display preview data
+function displaySurveyPreview(data) {
+    // Update stats
+    document.getElementById('surveyTotalPoints').textContent = `${data.points.length} points`;
+    document.getElementById('surveySequences').textContent = `${data.sequences.length} sequences`;
+    document.getElementById('surveyLineSegments').textContent = `${data.line_segments.length} line segments`;
+    
+    document.getElementById('pointsTabCount').textContent = data.points.length;
+    document.getElementById('sequencesTabCount').textContent = data.sequences.length;
+    document.getElementById('segmentsTabCount').textContent = data.line_segments.length;
+    
+    // Show warnings if any
+    if (data.warnings && data.warnings.length > 0) {
+        document.getElementById('surveyWarnings').textContent = `${data.warnings.length} warnings`;
+        document.getElementById('surveyWarnings').style.display = 'inline-block';
+        document.getElementById('surveyWarningsSection').style.display = 'block';
+        
+        const warningsList = document.getElementById('surveyWarningsList');
+        warningsList.innerHTML = data.warnings.map(w => 
+            `<div class="error-item">⚠️ ${escapeHtml(w)}</div>`
+        ).join('');
+    }
+    
+    // Populate Points table
+    const pointsBody = document.getElementById('surveyPointsTableBody');
+    pointsBody.innerHTML = data.points.map(pt => `
+        <tr>
+            <td>${escapeHtml(pt.point_number)}</td>
+            <td><code>${escapeHtml(pt.code || '')}</code></td>
+            <td><small>${escapeHtml(pt.layer_name || '')}</small></td>
+            <td><span class="badge-${pt.connectivity_type}">${escapeHtml(pt.connectivity_type || '')}</span></td>
+            <td><small>${pt.northing.toFixed(2)}, ${pt.easting.toFixed(2)}, ${pt.elevation.toFixed(2)}</small></td>
+            <td>${pt.sequence_id ? '✓' : '−'}</td>
+        </tr>
+    `).join('');
+    
+    // Populate Sequences table
+    const seqBody = document.getElementById('surveySequencesTableBody');
+    seqBody.innerHTML = data.sequences.map((seq, idx) => `
+        <tr>
+            <td>${idx + 1}</td>
+            <td><code>${escapeHtml(seq.code)}</code></td>
+            <td>${escapeHtml(seq.feature_type || '')}</td>
+            <td>${escapeHtml(seq.connectivity_type)}</td>
+            <td>${seq.points.length}</td>
+            <td>${seq.is_closed ? '✓' : '✗'}</td>
+        </tr>
+    `).join('');
+    
+    // Populate Line Segments table
+    const segBody = document.getElementById('surveySegmentsTableBody');
+    segBody.innerHTML = data.line_segments.map(seg => `
+        <tr>
+            <td>${escapeHtml(seg.feature_type || '')}</td>
+            <td><small>${escapeHtml(seg.layer_name || '')}</small></td>
+            <td>${escapeHtml(seg.connectivity_type)}</td>
+            <td>${seg.point_count}</td>
+            <td>${seg.is_closed ? '✓' : '✗'}</td>
+            <td><small>${escapeHtml(seg.geometry_wkt.substring(0, 50))}...</small></td>
+        </tr>
+    `).join('');
+}
+
+// Preview tab switching
+function switchPreviewTab(tabName) {
+    document.querySelectorAll('.preview-tab').forEach(tab => tab.style.display = 'none');
+    
+    if (tabName === 'points') {
+        document.getElementById('pointsPreviewTab').style.display = 'block';
+    } else if (tabName === 'sequences') {
+        document.getElementById('sequencesPreviewTab').style.display = 'block';
+    } else if (tabName === 'segments') {
+        document.getElementById('segmentsPreviewTab').style.display = 'block';
+    }
+    
+    event.target.closest('.tab-nav').querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+// Commit import
+document.getElementById('surveyCommitBtn').addEventListener('click', async () => {
+    if (!surveyPreviewData) {
+        alert('No preview data available');
+        return;
+    }
+    
+    const drawingSelect = document.getElementById('surveyDrawingSelect');
+    const selectedOption = drawingSelect.options[drawingSelect.selectedIndex];
+    const projectId = selectedOption.dataset.projectId;
+    const drawingId = drawingSelect.value;
+    
+    if (!projectId || !drawingId) {
+        alert('Please select a drawing');
+        return;
+    }
+    
+    try {
+        document.getElementById('surveyCommitBtn').disabled = true;
+        document.getElementById('surveyCommitBtn').textContent = 'Committing...';
+        
+        const response = await fetch('/api/survey-import/commit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_id: projectId,
+                drawing_id: drawingId,
+                preview_data: surveyPreviewData
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error committing import: ' + data.error);
+            return;
+        }
+        
+        // Show results
+        document.getElementById('surveyPreviewSection').style.display = 'none';
+        document.getElementById('surveyResultsSection').style.display = 'block';
+        
+        document.getElementById('surveyPointsImported').textContent = data.points_inserted || 0;
+        document.getElementById('surveySequencesCreated').textContent = data.sequences_created || 0;
+        document.getElementById('surveySegmentsCreated').textContent = data.line_segments_created || 0;
+        
+    } catch (error) {
+        console.error('Error committing import:', error);
+        alert('Failed to commit import');
+    } finally {
+        document.getElementById('surveyCommitBtn').disabled = false;
+        document.getElementById('surveyCommitBtn').textContent = '✅ Commit Import to Database';
+    }
+});
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 </script>
 {% endblock %}
