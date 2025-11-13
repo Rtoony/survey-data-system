@@ -1,0 +1,17 @@
+Ok, now we need to talk about the next "phase" of switching this tool to a "Project" only tool that no longer cares or considers "drawings". We made all the backend connection and changes to the database, and we updated SOME of the tools that were affected. But there are a few more tools that need some changes/fixes to get them operational within our new system.
+
+The tools I want to "bring up to speed" are the:
+
+DXF Test Generator: I would like this to actually create a test file that I can import into my projects and test, including the "Specialized tool" data. It doesn't have to be fancy or realistic, just testable.
+
+Map viewer: This tool used to work with the old system of Projects+Drawings. It now needs to be updated to work with our new Projects only system. Within a project, I want the ability to "show" the entity layers by filtering between "Object" type and not geometry entity type. Any other adjustments that need to be made to conform to new system.
+
+Entity Viewer: This tool also needs to be updated in a similar way to Map Viewer.
+
+Project Manager: WE need to add Sheet Notes, Details, Materials, etc to the project metrics. And any other changes to bring this tool up to speed. Maybe a link to the Sheet Note Manager for the project.
+
+DXF Tools: These tools need to work with the new system, but things have changed a bit with the "Projects Only" approach. Since DXF files used to be imported into a "Drawing" and now they dont, I need to verify HOW the data from a DXF is being ingested into our tables. I want objects to be separated out from the DXF import and the contents "categorized" by the layer+entity type of the objects in the DXF. Any objects that can not be determined or categorized within our system, should be ingested but labeled as "Unspecified". I then want to have a Project Tool that I can use to "Categorized" the "Unspecified" objects into one of our standard Object categories.
+
+
+
+Does all this make sense? I want to fix the tools, but I think we need to decide, figure out, walk through the current process for importing DXF files within our new "Project Only" system first.
