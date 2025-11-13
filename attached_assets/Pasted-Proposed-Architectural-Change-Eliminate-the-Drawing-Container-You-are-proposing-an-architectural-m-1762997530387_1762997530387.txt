@@ -1,0 +1,19 @@
+Proposed Architectural Change: Eliminate the Drawing Container
+You are proposing an architectural modification to the explicit hierarchical structure of the ACAD-GIS system by removing the dedicated Drawing table (Level 2) and streamlining the data flow:
+1. Simplified Data Hierarchy
+The current required hierarchy (Project $\to$ Drawing $\to$ Layer $\to$ Entity) would be simplified to a Project $\to$ Entity (Object Class) model.
+Project as Direct Container: The Project (Level 1) would become the immediate container for all imported CAD entities and their canonical identities.
+Direct-to-Object-Class Import: Instead of importing DXF data into a Drawing record, the DXF entities would be imported directly to their relevant Object Classes (Domain Tables)—such as utility_lines, survey_points, or utility_structures.
+2. Entity Classification and Storage
+The mechanism for classification, which uses Layer Name Pattern Matching, would remain the core import engine:
+Intelligent Classification: The DXF Import Workflow would continue to use Pattern Matching to parse unstructured client layer names (like S-UTIL-STORM-12) into standardized components (Discipline, Category, Object Type, Phase, Geometry).
+Routing to Object Class: These parsed components determine the appropriate Domain Table (Object Class) where the intelligent object is stored.
+Canonical Identity: Every entity still receives a permanent canonical identity (entity_id) in the standards_entities table.
+3. Depiction and Export Mapping via Entity Attributes
+Under your proposed system, the visual representation (how the entity appears in the exported DXF file) would be managed strictly by entity attributes and properties, bypassing the need for a file-centric Drawing context:
+Attribute-Driven Export: Export data would rely on the structured properties already stored in the database columns, such as discipline, category, type, and phase.
+Tagging for Depiction: Entities could be "tagged" or use existing attributes (such as the tags TEXT[] array or attributes JSONB field present in all domain tables) to dictate how they should be represented (e.g., layer name, color, block attributes) during the Standard Layer Name Generation process.
+Single Source of Truth: This reinforces the Database-First philosophy, where the entity's properties, not its file origin, dictate its appearance in any resulting DXF export.
+Rationale for the Proposed Change (Implied)
+The rationale behind this proposal is that since the system only exports DXF files for incorporation into external CAD production workflows, maintaining a database record representing the external "Drawing" is unnecessary overhead. The Project container is sufficient to organize and manage all entities and their representations, and the ability of entities to be represented in multiple plan sets (as you noted) is better handled by flexible tagging than by a fixed Drawing hierarchy.
+
