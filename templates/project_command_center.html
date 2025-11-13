@@ -1,0 +1,887 @@
+{% extends "base.html" %}
+
+{% block title %}Project Command Center{% endblock %}
+
+{% block extra_head %}
+<!-- Leaflet CSS and JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+      crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+{% endblock %}
+
+{% block content %}
+<style>
+    .command-center-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 120px);
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    /* Health Ribbon at top */
+    .health-ribbon {
+        background: linear-gradient(135deg, rgba(0, 20, 40, 0.95) 0%, rgba(0, 40, 60, 0.95) 100%);
+        border: 1px solid var(--mc-primary);
+        border-radius: 8px;
+        padding: 1.5rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 2rem;
+    }
+
+    .health-metric {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .health-metric-value {
+        font-size: 2.5rem;
+        font-family: 'Orbitron', monospace;
+        color: var(--mc-accent);
+        font-weight: bold;
+        text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+    }
+
+    .health-metric-label {
+        font-family: 'Rajdhani', sans-serif;
+        color: var(--mc-primary);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .health-metric-sublabel {
+        font-size: 0.75rem;
+        color: rgba(0, 255, 255, 0.6);
+    }
+
+    /* Three-panel layout */
+    .command-center-main {
+        display: grid;
+        grid-template-columns: 280px 1fr 320px;
+        gap: 1rem;
+        flex: 1;
+        min-height: 0;
+    }
+
+    /* Command Strip (Left Panel) */
+    .command-strip {
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid var(--mc-primary);
+        border-radius: 8px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        overflow-y: auto;
+    }
+
+    .command-strip h3 {
+        color: var(--mc-primary);
+        font-family: 'Orbitron', monospace;
+        font-size: 1.1rem;
+        margin: 0 0 1rem 0;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
+    .command-category {
+        margin-bottom: 1.5rem;
+    }
+
+    .command-category-title {
+        color: var(--mc-accent);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(0, 255, 136, 0.3);
+    }
+
+    .command-button {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: rgba(0, 20, 40, 0.7);
+        border: 1px solid rgba(0, 255, 255, 0.3);
+        border-radius: 4px;
+        color: var(--mc-text);
+        text-decoration: none;
+        transition: all 0.2s;
+        margin-bottom: 0.5rem;
+        font-family: 'Rajdhani', sans-serif;
+        cursor: pointer;
+    }
+
+    .command-button:hover {
+        border-color: var(--mc-accent);
+        background: rgba(0, 255, 136, 0.15);
+        transform: translateX(5px);
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+    }
+
+    .command-button i {
+        color: var(--mc-primary);
+        font-size: 1.1rem;
+        width: 20px;
+        text-align: center;
+    }
+
+    .command-button-text {
+        flex: 1;
+        font-size: 0.9rem;
+    }
+
+    .command-button-badge {
+        background: rgba(255, 0, 0, 0.8);
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+
+    /* Center Panel (Map + Objects) */
+    .center-panel {
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid var(--mc-primary);
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .center-panel-tabs {
+        display: flex;
+        border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+        background: rgba(0, 20, 40, 0.7);
+    }
+
+    .center-tab {
+        padding: 1rem 2rem;
+        border: none;
+        background: transparent;
+        color: rgba(0, 255, 255, 0.6);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-bottom: 2px solid transparent;
+    }
+
+    .center-tab.active {
+        color: var(--mc-accent);
+        border-bottom-color: var(--mc-accent);
+        background: rgba(0, 255, 136, 0.1);
+    }
+
+    .center-tab:hover {
+        color: var(--mc-primary);
+        background: rgba(0, 255, 255, 0.05);
+    }
+
+    .center-content {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .tab-pane {
+        display: none;
+        height: 100%;
+    }
+
+    .tab-pane.active {
+        display: block;
+    }
+
+    /* Map View */
+    #mapView {
+        height: 100%;
+        width: 100%;
+    }
+
+    .map-controls {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid var(--mc-primary);
+        border-radius: 8px;
+        padding: 1rem;
+        max-width: 300px;
+    }
+
+    .layer-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+        background: rgba(0, 20, 40, 0.5);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .layer-toggle:hover {
+        background: rgba(0, 255, 136, 0.1);
+    }
+
+    .layer-toggle input[type="checkbox"] {
+        cursor: pointer;
+    }
+
+    .layer-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .layer-label {
+        flex: 1;
+        color: var(--mc-text);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.9rem;
+    }
+
+    .layer-count {
+        color: var(--mc-primary);
+        font-size: 0.85rem;
+    }
+
+    /* Object List View */
+    .objects-list {
+        height: 100%;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+
+    .object-filters {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-group label {
+        color: var(--mc-primary);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+    }
+
+    .filter-group select,
+    .filter-group input {
+        background: rgba(0, 20, 40, 0.9);
+        border: 1px solid var(--mc-primary);
+        color: var(--mc-text);
+        padding: 0.5rem;
+        border-radius: 4px;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .object-card {
+        background: rgba(0, 20, 40, 0.7);
+        border: 1px solid rgba(0, 255, 255, 0.3);
+        border-radius: 4px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        transition: all 0.2s;
+    }
+
+    .object-card:hover {
+        border-color: var(--mc-accent);
+        background: rgba(0, 255, 136, 0.05);
+    }
+
+    .object-type-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-family: 'Rajdhani', sans-serif;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Context Panel (Right Side) */
+    .context-panel {
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid var(--mc-primary);
+        border-radius: 8px;
+        padding: 1.5rem;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .context-section {
+        border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+        padding-bottom: 1rem;
+    }
+
+    .context-section:last-child {
+        border-bottom: none;
+    }
+
+    .context-section h4 {
+        color: var(--mc-accent);
+        font-family: 'Orbitron', monospace;
+        font-size: 0.95rem;
+        margin: 0 0 1rem 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .context-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        gap: 1rem;
+    }
+
+    .context-label {
+        color: var(--mc-primary);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+    }
+
+    .context-value {
+        color: var(--mc-text);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.9rem;
+        text-align: right;
+        word-break: break-word;
+    }
+
+    .activity-timeline {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .activity-item {
+        position: relative;
+        padding-left: 1.5rem;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-left: 2px solid rgba(0, 255, 255, 0.3);
+    }
+
+    .activity-item::before {
+        content: '';
+        position: absolute;
+        left: -5px;
+        top: 0;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--mc-accent);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    }
+
+    .activity-time {
+        color: var(--mc-primary);
+        font-size: 0.75rem;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .activity-desc {
+        color: var(--mc-text);
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+    }
+
+    /* Loading State */
+    .loading-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--mc-primary);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1.2rem;
+    }
+
+    /* Responsive adjustments for very wide screens */
+    @media (min-width: 2000px) {
+        .command-center-main {
+            grid-template-columns: 320px 1fr 400px;
+        }
+
+        .health-ribbon {
+            grid-template-columns: repeat(6, 1fr);
+        }
+    }
+</style>
+
+<div class="command-center-container">
+    <!-- Health Ribbon -->
+    <div class="health-ribbon">
+        <div class="health-metric">
+            <div class="health-metric-value" id="classificationPct">--</div>
+            <div class="health-metric-label">Classified</div>
+            <div class="health-metric-sublabel">AI Classification Rate</div>
+        </div>
+        <div class="health-metric">
+            <div class="health-metric-value" id="totalObjects">--</div>
+            <div class="health-metric-label">Total Objects</div>
+            <div class="health-metric-sublabel">All Project Entities</div>
+        </div>
+        <div class="health-metric">
+            <div class="health-metric-value" id="pendingReview">--</div>
+            <div class="health-metric-label">Pending Review</div>
+            <div class="health-metric-sublabel">Needs Classification</div>
+        </div>
+        <div class="health-metric">
+            <div class="health-metric-value" id="qualityScore">--</div>
+            <div class="health-metric-label">Quality Score</div>
+            <div class="health-metric-sublabel">Average Data Quality</div>
+        </div>
+        <div class="health-metric">
+            <div class="health-metric-value" id="surveyPoints">--</div>
+            <div class="health-metric-label">Survey Points</div>
+            <div class="health-metric-sublabel">Active Points</div>
+        </div>
+        <div class="health-metric">
+            <div class="health-metric-value" id="dxfEntities">--</div>
+            <div class="health-metric-label">DXF Entities</div>
+            <div class="health-metric-sublabel">Raw Geometry</div>
+        </div>
+    </div>
+
+    <!-- Three-Panel Layout -->
+    <div class="command-center-main">
+        <!-- Left: Command Strip -->
+        <div class="command-strip">
+            <h3><i class="fas fa-rocket"></i> Quick Actions</h3>
+            
+            <div class="command-category">
+                <div class="command-category-title">Import/Export</div>
+                <a href="/dxf-tools?project={{ project_id }}" class="command-button">
+                    <i class="fas fa-file-import"></i>
+                    <span class="command-button-text">DXF Tools</span>
+                </a>
+                <a href="#" class="command-button" onclick="alert('Coming soon!'); return false;">
+                    <i class="fas fa-download"></i>
+                    <span class="command-button-text">Export Project</span>
+                </a>
+            </div>
+
+            <div class="command-category">
+                <div class="command-category-title">Classification</div>
+                <a href="/tools/object-reclassifier?project={{ project_id }}" class="command-button" id="reclassifierBtn">
+                    <i class="fas fa-random"></i>
+                    <span class="command-button-text">Object Reclassifier</span>
+                    <span class="command-button-badge" id="reclassifierBadge" style="display:none;">0</span>
+                </a>
+            </div>
+
+            <div class="command-category">
+                <div class="command-category-title">Network Management</div>
+                <a href="/gravity-network-manager?project={{ project_id }}" class="command-button">
+                    <i class="fas fa-water"></i>
+                    <span class="command-button-text">Gravity Network</span>
+                </a>
+                <a href="/pressure-network-manager?project={{ project_id }}" class="command-button">
+                    <i class="fas fa-tint"></i>
+                    <span class="command-button-text">Pressure Network</span>
+                </a>
+                <a href="/bmp-manager?project={{ project_id }}" class="command-button">
+                    <i class="fas fa-leaf"></i>
+                    <span class="command-button-text">BMP Manager</span>
+                </a>
+            </div>
+
+            <div class="command-category">
+                <div class="command-category-title">Survey & Points</div>
+                <a href="/projects/{{ project_id }}/survey-points" class="command-button">
+                    <i class="fas fa-map-pin"></i>
+                    <span class="command-button-text">Survey Points</span>
+                </a>
+                <a href="/tools/survey-codes" class="command-button">
+                    <i class="fas fa-list-check"></i>
+                    <span class="command-button-text">Survey Code Library</span>
+                </a>
+            </div>
+
+            <div class="command-category">
+                <div class="command-category-title">Documentation</div>
+                <a href="/sheet-notes?project={{ project_id }}" class="command-button">
+                    <i class="fas fa-sticky-note"></i>
+                    <span class="command-button-text">Sheet Notes</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Center: Map + Objects -->
+        <div class="center-panel">
+            <div class="center-panel-tabs">
+                <button class="center-tab active" onclick="switchTab('map')">
+                    <i class="fas fa-map"></i> Map View
+                </button>
+                <button class="center-tab" onclick="switchTab('objects')">
+                    <i class="fas fa-th-list"></i> Objects List
+                </button>
+            </div>
+
+            <div class="center-content">
+                <!-- Map Tab -->
+                <div id="mapTab" class="tab-pane active">
+                    <div id="mapView"></div>
+                    <div class="map-controls">
+                        <h4 style="color: var(--mc-accent); margin: 0 0 1rem 0; font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; text-transform: uppercase;">Layer Control</h4>
+                        <div id="layerToggles"></div>
+                    </div>
+                </div>
+
+                <!-- Objects Tab -->
+                <div id="objectsTab" class="tab-pane">
+                    <div class="objects-list">
+                        <div class="object-filters">
+                            <div class="filter-group">
+                                <label>Object Type</label>
+                                <select id="typeFilter">
+                                    <option value="all">All Types</option>
+                                    <option value="utility_lines">Utility Lines</option>
+                                    <option value="utility_structures">Utility Structures</option>
+                                    <option value="bmps">BMPs</option>
+                                    <option value="alignments">Alignments</option>
+                                    <option value="surface_models">Surface Models</option>
+                                    <option value="site_trees">Site Trees</option>
+                                    <option value="survey_points">Survey Points</option>
+                                    <option value="generic_objects">Generic Objects</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Review Status</label>
+                                <select id="statusFilter">
+                                    <option value="all">All Status</option>
+                                    <option value="pending">Pending Review</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="reclassified">Reclassified</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="objectsList">
+                            <div class="loading-indicator">
+                                <i class="fas fa-spinner fa-spin"></i> Loading objects...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Project Context -->
+        <div class="context-panel">
+            <div class="context-section">
+                <h4><i class="fas fa-info-circle"></i> Project Info</h4>
+                <div class="context-item">
+                    <span class="context-label">Project</span>
+                    <span class="context-value" id="projectName">--</span>
+                </div>
+                <div class="context-item">
+                    <span class="context-label">Client</span>
+                    <span class="context-value" id="clientName">--</span>
+                </div>
+                <div class="context-item">
+                    <span class="context-label">Project #</span>
+                    <span class="context-value" id="projectNumber">--</span>
+                </div>
+                <div class="context-item">
+                    <span class="context-label">Status</span>
+                    <span class="context-value" id="projectStatus">--</span>
+                </div>
+            </div>
+
+            <div class="context-section">
+                <h4><i class="fas fa-layer-group"></i> Object Summary</h4>
+                <div id="objectSummary"></div>
+            </div>
+
+            <div class="context-section">
+                <h4><i class="fas fa-map-marked-alt"></i> Spatial Extent</h4>
+                <div class="context-item">
+                    <span class="context-label">Coordinate System</span>
+                    <span class="context-value">EPSG:2226</span>
+                </div>
+                <div class="context-item">
+                    <span class="context-label">Has Geometry</span>
+                    <span class="context-value" id="hasGeometry">--</span>
+                </div>
+            </div>
+
+            <div class="context-section">
+                <h4><i class="fas fa-clock"></i> Recent Activity</h4>
+                <ul class="activity-timeline" id="activityTimeline">
+                    <li class="activity-item">
+                        <div class="activity-time">Loading...</div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const projectId = '{{ project_id }}';
+let map = null;
+let projectData = null;
+let layers = {};
+
+// Color scheme for object types
+const objectColors = {
+    'utility_lines': '#00BFFF',      // Deep Sky Blue
+    'utility_structures': '#FF6B00', // Orange
+    'bmps': '#00FF88',               // Spring Green
+    'alignments': '#FF00FF',         // Magenta
+    'surface_models': '#FFD700',     // Gold
+    'site_trees': '#32CD32',         // Lime Green
+    'survey_points': '#FF1493',      // Deep Pink
+    'generic_objects': '#FF4444',    // Red
+    'drawing_entities': '#888888'    // Gray
+};
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMap();
+    loadProjectData();
+});
+
+function initializeMap() {
+    map = L.map('mapView', {
+        preferCanvas: true,
+        zoomControl: true
+    }).setView([37.7749, -122.4194], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Initialize empty layer groups
+    for (const type in objectColors) {
+        layers[type] = L.layerGroup().addTo(map);
+    }
+}
+
+async function loadProjectData() {
+    try {
+        const response = await fetch(`/api/projects/${projectId}/command-center`);
+        if (!response.ok) throw new Error('Failed to load project data');
+        
+        projectData = await response.json();
+        updateHealthRibbon(projectData);
+        updateProjectContext(projectData);
+        updateLayerToggles(projectData);
+        updateObjectSummary(projectData);
+        
+        // Load map data
+        if (projectData.bbox) {
+            fitMapToBounds(projectData.bbox);
+            loadMapObjects();
+        }
+    } catch (error) {
+        console.error('Error loading project data:', error);
+    }
+}
+
+function updateHealthRibbon(data) {
+    const health = data.health_metrics || {};
+    document.getElementById('classificationPct').textContent = 
+        (health.classification_percentage || 0).toFixed(1) + '%';
+    document.getElementById('totalObjects').textContent = 
+        (data.total_objects || 0).toLocaleString();
+    document.getElementById('pendingReview').textContent = 
+        (health.pending_review || 0).toLocaleString();
+    document.getElementById('qualityScore').textContent = 
+        (health.avg_quality_score || 0).toFixed(2);
+    document.getElementById('surveyPoints').textContent = 
+        (data.object_counts?.survey_points || 0).toLocaleString();
+    document.getElementById('dxfEntities').textContent = 
+        (data.object_counts?.drawing_entities || 0).toLocaleString();
+
+    // Update reclassifier badge
+    if (health.pending_review > 0) {
+        document.getElementById('reclassifierBadge').textContent = health.pending_review;
+        document.getElementById('reclassifierBadge').style.display = 'inline-block';
+    }
+}
+
+function updateProjectContext(data) {
+    const project = data.project || {};
+    document.getElementById('projectName').textContent = project.project_name || 'Unknown';
+    document.getElementById('clientName').textContent = project.client_name || 'N/A';
+    document.getElementById('projectNumber').textContent = project.project_number || 'N/A';
+    document.getElementById('projectStatus').textContent = project.status || 'Active';
+    document.getElementById('hasGeometry').textContent = data.has_spatial_data ? 'Yes' : 'No';
+
+    // Update activity timeline
+    const timeline = document.getElementById('activityTimeline');
+    timeline.innerHTML = `
+        <li class="activity-item">
+            <div class="activity-time">Recent</div>
+            <div class="activity-desc">Project created ${new Date(project.created_at).toLocaleDateString()}</div>
+        </li>
+        <li class="activity-item">
+            <div class="activity-time">Latest</div>
+            <div class="activity-desc">Last updated ${new Date(project.updated_at).toLocaleDateString()}</div>
+        </li>
+    `;
+}
+
+function updateLayerToggles(data) {
+    const counts = data.object_counts || {};
+    const togglesContainer = document.getElementById('layerToggles');
+    togglesContainer.innerHTML = '';
+
+    for (const [type, color] of Object.entries(objectColors)) {
+        const count = counts[type] || 0;
+        if (count === 0 && type !== 'generic_objects') continue; // Skip empty layers except generic
+
+        const toggle = document.createElement('div');
+        toggle.className = 'layer-toggle';
+        toggle.innerHTML = `
+            <input type="checkbox" id="layer_${type}" checked onchange="toggleLayer('${type}')">
+            <div class="layer-color" style="background-color: ${color};"></div>
+            <div class="layer-label">${formatTypeName(type)}</div>
+            <div class="layer-count">${count}</div>
+        `;
+        togglesContainer.appendChild(toggle);
+    }
+}
+
+function updateObjectSummary(data) {
+    const counts = data.object_counts || {};
+    const summaryContainer = document.getElementById('objectSummary');
+    summaryContainer.innerHTML = '';
+
+    for (const [type, count] of Object.entries(counts)) {
+        if (count === 0) continue;
+        
+        const item = document.createElement('div');
+        item.className = 'context-item';
+        item.innerHTML = `
+            <span class="context-label">${formatTypeName(type)}</span>
+            <span class="context-value">${count}</span>
+        `;
+        summaryContainer.appendChild(item);
+    }
+}
+
+function formatTypeName(type) {
+    return type.split('_').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+}
+
+function fitMapToBounds(bbox) {
+    const bounds = [
+        [bbox.min_y, bbox.min_x],
+        [bbox.max_y, bbox.max_x]
+    ];
+    map.fitBounds(bounds, { padding: [50, 50] });
+}
+
+async function loadMapObjects() {
+    try {
+        const response = await fetch(`/api/projects/${projectId}/intelligent-objects-map`);
+        if (!response.ok) throw new Error('Failed to load map objects');
+        
+        const data = await response.json();
+        
+        // Clear existing layers
+        for (const layer of Object.values(layers)) {
+            layer.clearLayers();
+        }
+
+        // Add objects to map
+        for (const [type, objects] of Object.entries(data)) {
+            if (!layers[type]) continue;
+            
+            objects.forEach(obj => {
+                if (!obj.geometry) return;
+                
+                const geojson = L.geoJSON(obj.geometry, {
+                    style: {
+                        color: objectColors[type] || '#888888',
+                        weight: 2,
+                        opacity: 0.8
+                    },
+                    pointToLayer: (feature, latlng) => {
+                        return L.circleMarker(latlng, {
+                            radius: 5,
+                            fillColor: objectColors[type] || '#888888',
+                            color: '#fff',
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                    }
+                });
+                
+                geojson.bindPopup(`
+                    <strong>${formatTypeName(type)}</strong><br>
+                    ${obj.name || obj.object_name || 'Unnamed'}<br>
+                    ${obj.review_status ? `Status: ${obj.review_status}` : ''}
+                `);
+                
+                geojson.addTo(layers[type]);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading map objects:', error);
+    }
+}
+
+function toggleLayer(type) {
+    const checkbox = document.getElementById(`layer_${type}`);
+    if (checkbox.checked) {
+        map.addLayer(layers[type]);
+    } else {
+        map.removeLayer(layers[type]);
+    }
+}
+
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.center-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    // Update tab content
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    document.getElementById(tabName + 'Tab').classList.add('active');
+
+    // Resize map when switching to map tab
+    if (tabName === 'map' && map) {
+        setTimeout(() => map.invalidateSize(), 100);
+    }
+}
+</script>
+
+{% endblock %}

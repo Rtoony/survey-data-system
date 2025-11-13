@@ -97,6 +97,11 @@ def project_survey_points(project_id):
     """Project Survey Point Manager page"""
     return render_template('project_survey_points.html', project_id=project_id)
 
+@app.route('/projects/<project_id>/command-center')
+def project_command_center(project_id):
+    """Project Command Center - central hub for project operations"""
+    return render_template('project_command_center.html', project_id=project_id)
+
 @app.route('/standards-library')
 def standards_library():
     """Standards Library landing page"""
@@ -1165,6 +1170,178 @@ def get_project_statistics(project_id):
         })
         
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/command-center')
+def get_project_command_center_data(project_id):
+    """
+    Get comprehensive project data for Command Center hub.
+    Combines stats, health metrics, context, and tool links.
+    """
+    try:
+        # Get project basic info
+        project_query = """
+            SELECT 
+                project_id,
+                project_name,
+                client_name,
+                project_number,
+                description,
+                status,
+                tags,
+                attributes,
+                created_at,
+                updated_at
+            FROM projects 
+            WHERE project_id = %s
+        """
+        project = execute_query(project_query, (project_id,))
+        if not project:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        project_info = project[0]
+        
+        # Get object counts by type
+        object_counts_query = """
+            SELECT 'drawing_entities' as object_type, COUNT(*) as count
+            FROM drawing_entities WHERE project_id = %s
+            UNION ALL
+            SELECT 'utility_lines', COUNT(*)
+            FROM utility_lines WHERE project_id = %s
+            UNION ALL
+            SELECT 'utility_structures', COUNT(*)
+            FROM utility_structures WHERE project_id = %s
+            UNION ALL
+            SELECT 'bmps', COUNT(*)
+            FROM bmps WHERE project_id = %s
+            UNION ALL
+            SELECT 'alignments', COUNT(*)
+            FROM alignments WHERE project_id = %s
+            UNION ALL
+            SELECT 'surface_models', COUNT(*)
+            FROM surface_models WHERE project_id = %s
+            UNION ALL
+            SELECT 'site_trees', COUNT(*)
+            FROM site_trees WHERE project_id = %s
+            UNION ALL
+            SELECT 'survey_points', COUNT(*)
+            FROM survey_points WHERE project_id = %s AND is_active = true
+            UNION ALL
+            SELECT 'generic_objects', COUNT(*)
+            FROM generic_objects WHERE project_id = %s
+        """
+        counts_result = execute_query(object_counts_query, 
+                                      (project_id,) * 9)
+        object_counts = {row['object_type']: row['count'] for row in counts_result}
+        
+        # Get generic object review status breakdown
+        review_status_query = """
+            SELECT 
+                review_status,
+                COUNT(*) as count,
+                AVG(classification_confidence) as avg_confidence
+            FROM generic_objects
+            WHERE project_id = %s
+            GROUP BY review_status
+        """
+        review_statuses = execute_query(review_status_query, (project_id,))
+        review_status_breakdown = {
+            row['review_status']: {
+                'count': row['count'],
+                'avg_confidence': float(row['avg_confidence']) if row['avg_confidence'] else 0.0
+            } for row in review_statuses
+        }
+        
+        # Get quality score statistics
+        quality_query = """
+            SELECT 
+                COUNT(*) as total_objects,
+                AVG(quality_score) as avg_quality,
+                SUM(CASE WHEN quality_score < 0.5 THEN 1 ELSE 0 END) as low_quality_count,
+                SUM(CASE WHEN quality_score >= 0.7 THEN 1 ELSE 0 END) as high_quality_count
+            FROM (
+                SELECT quality_score FROM drawing_entities WHERE project_id = %s
+                UNION ALL
+                SELECT quality_score FROM utility_lines WHERE project_id = %s
+                UNION ALL
+                SELECT quality_score FROM utility_structures WHERE project_id = %s
+                UNION ALL
+                SELECT quality_score FROM bmps WHERE project_id = %s
+                UNION ALL
+                SELECT quality_score FROM survey_points WHERE project_id = %s AND is_active = true
+            ) all_objects
+        """
+        quality_result = execute_query(quality_query, (project_id,) * 5)
+        quality_stats = quality_result[0] if quality_result else {}
+        
+        # Get spatial extent
+        bbox_query = """
+            SELECT 
+                ST_XMin(extent_geom) as min_x,
+                ST_YMin(extent_geom) as min_y,
+                ST_XMax(extent_geom) as max_x,
+                ST_YMax(extent_geom) as max_y
+            FROM (
+                SELECT ST_Extent(
+                    CASE 
+                        WHEN ST_SRID(de.geometry) = 0 THEN ST_Transform(ST_SetSRID(de.geometry, 2226), 4326)
+                        WHEN ST_SRID(de.geometry) = 2226 THEN ST_Transform(de.geometry, 4326)
+                        ELSE ST_Transform(de.geometry, 4326)
+                    END
+                ) as extent_geom
+                FROM drawing_entities de
+                WHERE de.project_id = %s AND de.geometry IS NOT NULL
+            ) sub
+        """
+        bbox_result = execute_query(bbox_query, (project_id,))
+        bbox = None
+        if bbox_result and bbox_result[0]['min_x']:
+            bbox = {
+                'min_x': float(bbox_result[0]['min_x']),
+                'min_y': float(bbox_result[0]['min_y']),
+                'max_x': float(bbox_result[0]['max_x']),
+                'max_y': float(bbox_result[0]['max_y'])
+            }
+        
+        # Calculate health metrics
+        total_classified = sum([
+            object_counts.get('utility_lines', 0),
+            object_counts.get('utility_structures', 0),
+            object_counts.get('bmps', 0),
+            object_counts.get('alignments', 0),
+            object_counts.get('surface_models', 0),
+            object_counts.get('site_trees', 0)
+        ])
+        total_generic = object_counts.get('generic_objects', 0)
+        total_objects = total_classified + total_generic
+        classification_pct = (total_classified / total_objects * 100) if total_objects > 0 else 0
+        
+        pending_review_count = review_status_breakdown.get('pending', {}).get('count', 0)
+        
+        health_metrics = {
+            'classification_percentage': round(classification_pct, 1),
+            'total_classified': total_classified,
+            'total_generic': total_generic,
+            'pending_review': pending_review_count,
+            'avg_quality_score': float(quality_stats.get('avg_quality', 0)) if quality_stats.get('avg_quality') else 0,
+            'low_quality_count': quality_stats.get('low_quality_count', 0),
+            'high_quality_count': quality_stats.get('high_quality_count', 0)
+        }
+        
+        return jsonify({
+            'project': project_info,
+            'object_counts': object_counts,
+            'total_objects': total_objects,
+            'review_status_breakdown': review_status_breakdown,
+            'health_metrics': health_metrics,
+            'quality_stats': quality_stats,
+            'bbox': bbox,
+            'has_spatial_data': bbox is not None
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================
