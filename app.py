@@ -9168,16 +9168,17 @@ def create_modified_copy(project_note_id):
     try:
         data = request.get_json()
         
-        deviation_category = data.get('deviation_category')
+        deviation_category_id = data.get('deviation_category_id')
         deviation_reason = data.get('deviation_reason')
-        conformance_status = data.get('conformance_status')
-        standardization_status = data.get('standardization_status')
+        conformance_status_id = data.get('conformance_status_id')
+        standardization_status_id = data.get('standardization_status_id')
         standardization_note = data.get('standardization_note')
         custom_title = data.get('custom_title')
         custom_text = data.get('custom_text')
+        display_code = data.get('display_code')
         
-        if not deviation_category or not deviation_reason or not conformance_status:
-            return jsonify({'error': 'deviation_category, deviation_reason, and conformance_status are required'}), 400
+        if not deviation_category_id or not deviation_reason or not conformance_status_id:
+            return jsonify({'error': 'deviation_category_id, deviation_reason, and conformance_status_id are required'}), 400
         
         new_note_id = str(uuid.uuid4())
         
@@ -9204,23 +9205,22 @@ def create_modified_copy(project_note_id):
                 if not standard_data:
                     return jsonify({'error': 'Standard note not found'}), 404
                 
-                # Get deviation category ID
-                cur.execute("SELECT category_id FROM deviation_categories WHERE category_code = %s", (deviation_category,))
-                category = cur.fetchone()
-                if not category:
-                    return jsonify({'error': 'Invalid deviation_category'}), 400
+                # Validate deviation category ID exists
+                cur.execute("SELECT 1 FROM deviation_categories WHERE category_id = %s::uuid AND is_active = TRUE", (deviation_category_id,))
+                if not cur.fetchone():
+                    return jsonify({'error': 'Invalid or inactive deviation_category_id'}), 400
                 
-                # Get conformance status ID
-                cur.execute("SELECT status_id FROM conformance_statuses WHERE status_code = %s", (conformance_status,))
-                status = cur.fetchone()
-                if not status:
-                    return jsonify({'error': 'Invalid conformance_status'}), 400
+                # Validate conformance status ID exists
+                cur.execute("SELECT 1 FROM conformance_statuses WHERE status_id = %s::uuid AND is_active = TRUE", (conformance_status_id,))
+                if not cur.fetchone():
+                    return jsonify({'error': 'Invalid or inactive conformance_status_id'}), 400
                 
                 # Get standardization status ID
-                if standardization_status:
-                    cur.execute("SELECT status_id FROM standardization_statuses WHERE status_code = %s", (standardization_status,))
-                    std_status = cur.fetchone()
-                    std_status_id = std_status['status_id'] if std_status else None
+                if standardization_status_id:
+                    cur.execute("SELECT 1 FROM standardization_statuses WHERE status_id = %s::uuid AND is_active = TRUE", (standardization_status_id,))
+                    if not cur.fetchone():
+                        return jsonify({'error': 'Invalid or inactive standardization_status_id'}), 400
+                    std_status_id = standardization_status_id
                 else:
                     # Default to NOT_NOMINATED
                     cur.execute("SELECT status_id FROM standardization_statuses WHERE status_code = 'NOT_NOMINATED'")
@@ -9230,19 +9230,22 @@ def create_modified_copy(project_note_id):
                 cur.execute('SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order FROM project_sheet_notes WHERE set_id = %s::uuid', (note_info['set_id'],))
                 next_sort_order = cur.fetchone()['next_order']
                 
-                # Generate new display code (original code + -M suffix)
-                base_code = note_info['display_code']
-                new_display_code = f"{base_code}-M"
-                
-                # Check if display code already exists, increment if needed
-                counter = 1
-                while True:
-                    cur.execute('SELECT 1 FROM project_sheet_notes WHERE set_id = %s::uuid AND display_code = %s', 
-                               (note_info['set_id'], new_display_code))
-                    if not cur.fetchone():
-                        break
-                    counter += 1
-                    new_display_code = f"{base_code}-M{counter}"
+                # Use provided display code or generate new one (original code + -M suffix)
+                if display_code:
+                    new_display_code = display_code
+                else:
+                    base_code = note_info['display_code']
+                    new_display_code = f"{base_code}-M"
+                    
+                    # Check if display code already exists, increment if needed
+                    counter = 1
+                    while True:
+                        cur.execute('SELECT 1 FROM project_sheet_notes WHERE set_id = %s::uuid AND display_code = %s', 
+                                   (note_info['set_id'], new_display_code))
+                        if not cur.fetchone():
+                            break
+                        counter += 1
+                        new_display_code = f"{base_code}-M{counter}"
                 
                 # Use provided custom title/text or copy from standard
                 final_title = custom_title if custom_title else standard_data['note_title']
@@ -9266,7 +9269,7 @@ def create_modified_copy(project_note_id):
                     new_note_id, note_info['set_id'], note_info['standard_note_id'], 
                     note_info['standard_note_id'], new_display_code,
                     final_title, final_text, next_sort_order,
-                    category['category_id'], deviation_reason, status['status_id'],
+                    deviation_category_id, deviation_reason, conformance_status_id,
                     std_status_id, standardization_note
                 ))
                 

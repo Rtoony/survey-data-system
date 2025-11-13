@@ -1080,7 +1080,7 @@ async function deleteProjectNote(projectNoteId) {
 
 async function loadDeviationCategories() {
     try {
-        const response = await fetch('/api/deviation-categories');
+        const response = await fetch('/api/conformance/deviation-categories');
         const data = await response.json();
         
         const select = document.getElementById('deviationCategory');
@@ -1101,14 +1101,14 @@ async function loadDeviationCategories() {
 
 async function loadConformanceStatuses() {
     try {
-        const response = await fetch('/api/conformance-statuses');
+        const response = await fetch('/api/conformance/statuses');
         const data = await response.json();
         
         const select = document.getElementById('conformanceStatus');
         select.innerHTML = '<option value="">Select status...</option>';
         
-        if (data.statuses) {
-            data.statuses.forEach(status => {
+        if (data.conformance_statuses) {
+            data.conformance_statuses.forEach(status => {
                 const option = document.createElement('option');
                 option.value = status.status_id;
                 option.textContent = `${status.status_code} - ${status.status_name}`;
