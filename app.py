@@ -9300,6 +9300,156 @@ def create_modified_copy(project_note_id):
         return jsonify({'error': str(e)}), 500
 
 # ==========================
+# SHEET NOTE SETS API
+# ==========================
+
+@app.route('/api/sheet-note-sets', methods=['GET'])
+def get_sheet_note_sets():
+    """Get all sheet note sets for a project"""
+    try:
+        project_id = request.args.get('project_id')
+        
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        query = """
+            SELECT 
+                set_id,
+                project_id,
+                set_name,
+                description,
+                discipline,
+                phase,
+                status,
+                issued_date,
+                issued_to,
+                created_at,
+                updated_at
+            FROM sheet_note_sets
+            WHERE project_id = %s::uuid
+            ORDER BY created_at DESC
+        """
+        
+        sets = execute_query(query, (project_id,))
+        return jsonify({'sets': sets})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-note-sets', methods=['POST'])
+def create_sheet_note_set():
+    """Create a new sheet note set"""
+    try:
+        data = request.get_json()
+        
+        project_id = data.get('project_id')
+        set_name = data.get('set_name')
+        description = data.get('description')
+        discipline = data.get('discipline')
+        phase = data.get('phase')
+        
+        if not project_id or not set_name:
+            return jsonify({'error': 'project_id and set_name are required'}), 400
+        
+        set_id = str(uuid.uuid4())
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO sheet_note_sets 
+                    (set_id, project_id, set_name, description, discipline, phase, status, created_at, updated_at)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, 'Draft', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    RETURNING *
+                """, (set_id, project_id, set_name, description, discipline, phase))
+                
+                new_set = dict(cur.fetchone())
+                conn.commit()
+                cache.clear()
+                return jsonify({'set': new_set}), 201
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-note-sets/<set_id>', methods=['PUT'])
+def update_sheet_note_set(set_id):
+    """Update an existing sheet note set"""
+    try:
+        data = request.get_json()
+        
+        update_parts = []
+        params = []
+        
+        if 'set_name' in data:
+            update_parts.append('set_name = %s')
+            params.append(data['set_name'])
+        if 'description' in data:
+            update_parts.append('description = %s')
+            params.append(data['description'])
+        if 'discipline' in data:
+            update_parts.append('discipline = %s')
+            params.append(data['discipline'])
+        if 'phase' in data:
+            update_parts.append('phase = %s')
+            params.append(data['phase'])
+        if 'status' in data:
+            update_parts.append('status = %s')
+            params.append(data['status'])
+        if 'issued_date' in data:
+            update_parts.append('issued_date = %s')
+            params.append(data['issued_date'])
+        if 'issued_to' in data:
+            update_parts.append('issued_to = %s')
+            params.append(data['issued_to'])
+        
+        if not update_parts:
+            return jsonify({'error': 'No fields to update'}), 400
+        
+        update_parts.append('updated_at = CURRENT_TIMESTAMP')
+        params.append(set_id)
+        
+        query = f"""
+            UPDATE sheet_note_sets
+            SET {', '.join(update_parts)}
+            WHERE set_id = %s::uuid
+            RETURNING *
+        """
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, params)
+                updated_set = cur.fetchone()
+                
+                if not updated_set:
+                    return jsonify({'error': 'Sheet note set not found'}), 404
+                
+                conn.commit()
+                cache.clear()
+                return jsonify({'set': dict(updated_set)})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sheet-note-sets/<set_id>', methods=['DELETE'])
+def delete_sheet_note_set(set_id):
+    """Delete a sheet note set"""
+    try:
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Check if set exists
+                cur.execute('SELECT 1 FROM sheet_note_sets WHERE set_id = %s::uuid', (set_id,))
+                if not cur.fetchone():
+                    return jsonify({'error': 'Sheet note set not found'}), 404
+                
+                # Delete (cascades to project_sheet_notes and sheet_note_assignments)
+                cur.execute('DELETE FROM sheet_note_sets WHERE set_id = %s::uuid', (set_id,))
+                conn.commit()
+                cache.clear()
+                return jsonify({'message': 'Sheet note set deleted successfully'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ==========================
 # SHEET SET MANAGER API
 # ==========================
 
