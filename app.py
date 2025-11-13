@@ -186,6 +186,11 @@ def survey_code_tester():
     """Survey Code Testing Interface - Test parsing, preview CAD output, simulate field shots"""
     return render_template('tools/survey_code_tester.html')
 
+@app.route('/tools/object-reclassifier')
+def object_reclassifier_tool():
+    """Object Reclassifier - Review and reclassify unclassified DXF entities"""
+    return render_template('tools/object_reclassifier.html')
+
 @app.route('/project-standards-assignment')
 def project_standards_assignment():
     """Project Standards Assignment page"""

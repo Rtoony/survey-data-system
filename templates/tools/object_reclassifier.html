@@ -1,0 +1,541 @@
+{% extends "base.html" %}
+
+{% block title %}Object Reclassifier{% endblock %}
+
+{% block content %}
+<div class="mc-page-header">
+    <h1><i class="fas fa-exchange-alt"></i> Object Reclassifier</h1>
+    <p>Review and reclassify unclassified or low-confidence DXF entities</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 300px 1fr; gap: 2rem; margin-bottom: 2rem;">
+    <!-- Left Panel: Project Selection & Filters -->
+    <div class="mc-card">
+        <div class="mc-card-header">
+            <h2><i class="fas fa-filter"></i> Filters</h2>
+        </div>
+        <div class="mc-card-content">
+            <!-- Project Selection -->
+            <div class="mc-form-group">
+                <label for="projectSelect">Project:</label>
+                <select id="projectSelect" class="mc-select">
+                    <option value="">Select a project...</option>
+                </select>
+            </div>
+
+            <!-- Review Status Filter -->
+            <div class="mc-form-group">
+                <label for="statusFilter">Review Status:</label>
+                <select id="statusFilter" class="mc-select">
+                    <option value="pending">Pending Review</option>
+                    <option value="all">All Objects</option>
+                    <option value="approved">Approved</option>
+                    <option value="reclassified">Reclassified</option>
+                    <option value="ignored">Ignored</option>
+                </select>
+            </div>
+
+            <!-- Confidence Threshold -->
+            <div class="mc-form-group">
+                <label for="confidenceFilter">Min Confidence:</label>
+                <input type="range" id="confidenceFilter" min="0" max="1" step="0.1" value="0" class="mc-slider">
+                <span id="confidenceValue">0.0</span>
+            </div>
+
+            <button id="loadBtn" class="btn btn-primary" style="width: 100%;">
+                <i class="fas fa-sync"></i> Load Objects
+            </button>
+
+            <!-- Stats Section -->
+            <div id="statsArea" style="margin-top: 2rem; padding: 1rem; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 4px; display: none;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: var(--accent-color);">Statistics</h4>
+                <div class="stat-item">
+                    <span>Total:</span>
+                    <strong id="statTotal">0</strong>
+                </div>
+                <div class="stat-item">
+                    <span>Pending:</span>
+                    <strong id="statPending">0</strong>
+                </div>
+                <div class="stat-item">
+                    <span>Reclassified:</span>
+                    <strong id="statReclassified">0</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Object List & Actions -->
+    <div class="mc-card">
+        <div class="mc-card-header">
+            <h2><i class="fas fa-list"></i> Generic Objects</h2>
+            <span id="objectCount" class="mc-badge">0 objects</span>
+        </div>
+        <div class="mc-card-content">
+            <div id="objectsContainer">
+                <p class="text-dim" style="text-align: center; padding: 3rem;">
+                    Select a project and click "Load Objects" to begin
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reclassification Modal -->
+<div id="reclassifyModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-exchange-alt"></i> Reclassify Object</h3>
+            <button class="modal-close" onclick="closeReclassifyModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="mc-form-group">
+                <label>Current Layer:</label>
+                <div id="modalLayerName" class="info-display"></div>
+            </div>
+
+            <div class="mc-form-group">
+                <label>Entity Type:</label>
+                <div id="modalEntityType" class="info-display"></div>
+            </div>
+
+            <div class="mc-form-group">
+                <label>Suggested Type:</label>
+                <div id="modalSuggestedType" class="info-display"></div>
+            </div>
+
+            <div class="mc-form-group">
+                <label>Confidence:</label>
+                <div id="modalConfidence" class="info-display"></div>
+            </div>
+
+            <div class="mc-form-group">
+                <label for="targetType">Reclassify As:</label>
+                <select id="targetType" class="mc-select">
+                    <option value="">-- Select Target Type --</option>
+                    <option value="utility_line">Utility Line</option>
+                    <option value="utility_structure">Utility Structure</option>
+                    <option value="bmp">BMP (Stormwater Feature)</option>
+                    <option value="surface_model">Surface Model</option>
+                    <option value="alignment">Alignment/Centerline</option>
+                    <option value="survey_point">Survey Point</option>
+                    <option value="site_tree">Site Tree</option>
+                </select>
+            </div>
+
+            <div class="mc-form-group">
+                <label for="reclassifyNotes">Notes (optional):</label>
+                <textarea id="reclassifyNotes" class="mc-textarea" rows="3" placeholder="Add any notes about this reclassification..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeReclassifyModal()" class="btn btn-secondary">Cancel</button>
+            <button onclick="submitReclassification()" class="btn btn-primary">
+                <i class="fas fa-check"></i> Reclassify
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    font-size: 0.85rem;
+}
+
+.object-card {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: rgba(0,255,255,0.03);
+    border: 1px solid rgba(0,255,255,0.1);
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.object-card:hover {
+    background: rgba(0,255,255,0.08);
+    border-color: rgba(0,255,255,0.3);
+}
+
+.object-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.object-name {
+    font-weight: 600;
+    color: var(--accent-color);
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-pending { background: rgba(255,165,0,0.2); color: #ffa500; }
+.status-approved { background: rgba(0,255,0,0.2); color: #00ff00; }
+.status-reclassified { background: rgba(0,191,255,0.2); color: #00bfff; }
+.status-ignored { background: rgba(128,128,128,0.2); color: #999; }
+
+.object-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-label {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    margin-bottom: 0.1rem;
+}
+
+.detail-value {
+    font-family: 'Courier New', monospace;
+    color: var(--text-color);
+}
+
+.confidence-bar {
+    height: 4px;
+    background: rgba(0,255,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.confidence-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff4444, #ffaa00, #00ff00);
+    transition: width 0.3s;
+}
+
+.object-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+.info-display {
+    padding: 0.75rem;
+    background: rgba(0,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border: 1px solid rgba(0,255,255,0.3);
+    border-radius: 8px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(0,255,255,0.2);
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--accent-color);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: var(--accent-color);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 1px solid rgba(0,255,255,0.2);
+}
+
+.mc-slider {
+    width: 100%;
+}
+</style>
+
+<script>
+let currentProjectId = null;
+let currentObjects = [];
+let selectedObjectId = null;
+
+// Load projects on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadProjects();
+    
+    document.getElementById('confidenceFilter').addEventListener('input', function(e) {
+        document.getElementById('confidenceValue').textContent = parseFloat(e.target.value).toFixed(1);
+    });
+});
+
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/projects');
+        const data = await response.json();
+        
+        const select = document.getElementById('projectSelect');
+        select.innerHTML = '<option value="">Select a project...</option>';
+        
+        data.projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.project_id;
+            option.textContent = `${project.project_name} (${project.project_number || 'No Number'})`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading projects:', error);
+    }
+}
+
+document.getElementById('loadBtn').addEventListener('click', async function() {
+    const projectId = document.getElementById('projectSelect').value;
+    if (!projectId) {
+        alert('Please select a project first');
+        return;
+    }
+    
+    currentProjectId = projectId;
+    const status = document.getElementById('statusFilter').value;
+    const minConfidence = parseFloat(document.getElementById('confidenceFilter').value);
+    
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    
+    try {
+        let url = `/api/projects/${projectId}/generic-objects?`;
+        if (status !== 'all') {
+            url += `status=${status}&`;
+        }
+        if (minConfidence > 0) {
+            url += `min_confidence=${minConfidence}`;
+        }
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        currentObjects = data.objects || [];
+        displayObjects(currentObjects);
+        updateStats(data.summary || {});
+        
+    } catch (error) {
+        console.error('Error loading objects:', error);
+        alert('Error loading objects');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync"></i> Load Objects';
+    }
+});
+
+function displayObjects(objects) {
+    const container = document.getElementById('objectsContainer');
+    
+    if (objects.length === 0) {
+        container.innerHTML = '<p class="text-dim" style="text-align: center; padding: 3rem;">No objects found with current filters</p>';
+        document.getElementById('objectCount').textContent = '0 objects';
+        return;
+    }
+    
+    document.getElementById('objectCount').textContent = `${objects.length} object${objects.length !== 1 ? 's' : ''}`;
+    
+    container.innerHTML = objects.map(obj => `
+        <div class="object-card">
+            <div class="object-header">
+                <div class="object-name">${obj.object_name || 'Unnamed Object'}</div>
+                <span class="status-badge status-${obj.review_status}">${obj.review_status}</span>
+            </div>
+            
+            <div class="confidence-bar">
+                <div class="confidence-fill" style="width: ${(obj.classification_confidence * 100).toFixed(0)}%"></div>
+            </div>
+            
+            <div class="object-details">
+                <div class="detail-item">
+                    <span class="detail-label">Layer</span>
+                    <span class="detail-value">${obj.original_layer_name || 'N/A'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Entity Type</span>
+                    <span class="detail-value">${obj.original_entity_type || 'N/A'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Confidence</span>
+                    <span class="detail-value">${(obj.classification_confidence * 100).toFixed(1)}%</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Suggested</span>
+                    <span class="detail-value">${obj.suggested_object_type || 'None'}</span>
+                </div>
+            </div>
+            
+            <div class="object-actions">
+                <button class="btn btn-primary btn-sm" onclick="openReclassifyModal('${obj.object_id}')">
+                    <i class="fas fa-exchange-alt"></i> Reclassify
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="approveObject('${obj.object_id}')">
+                    <i class="fas fa-check"></i> Approve
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="ignoreObject('${obj.object_id}')">
+                    <i class="fas fa-ban"></i> Ignore
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateStats(summary) {
+    document.getElementById('statsArea').style.display = 'block';
+    document.getElementById('statTotal').textContent = summary.total || 0;
+    document.getElementById('statPending').textContent = summary.by_status?.pending || 0;
+    document.getElementById('statReclassified').textContent = summary.by_status?.reclassified || 0;
+}
+
+function openReclassifyModal(objectId) {
+    const obj = currentObjects.find(o => o.object_id === objectId);
+    if (!obj) return;
+    
+    selectedObjectId = objectId;
+    
+    document.getElementById('modalLayerName').textContent = obj.original_layer_name || 'N/A';
+    document.getElementById('modalEntityType').textContent = obj.original_entity_type || 'N/A';
+    document.getElementById('modalSuggestedType').textContent = obj.suggested_object_type || 'None';
+    document.getElementById('modalConfidence').textContent = `${(obj.classification_confidence * 100).toFixed(1)}%`;
+    
+    document.getElementById('targetType').value = obj.suggested_object_type || '';
+    document.getElementById('reclassifyNotes').value = '';
+    
+    document.getElementById('reclassifyModal').style.display = 'flex';
+}
+
+function closeReclassifyModal() {
+    document.getElementById('reclassifyModal').style.display = 'none';
+    selectedObjectId = null;
+}
+
+async function submitReclassification() {
+    const targetType = document.getElementById('targetType').value;
+    const notes = document.getElementById('reclassifyNotes').value;
+    
+    if (!targetType) {
+        alert('Please select a target type');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/projects/${currentProjectId}/generic-objects/${selectedObjectId}/reclassify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_type: targetType, notes: notes })
+        });
+        
+        if (response.ok) {
+            closeReclassifyModal();
+            document.getElementById('loadBtn').click();
+        } else {
+            const error = await response.json();
+            alert('Error: ' + (error.error || 'Reclassification failed'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error submitting reclassification');
+    }
+}
+
+async function approveObject(objectId) {
+    if (!confirm('Approve this object as-is? It will be marked as approved and no changes will be made.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/projects/${currentProjectId}/generic-objects/${objectId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes: 'Approved via UI' })
+        });
+        
+        if (response.ok) {
+            document.getElementById('loadBtn').click();
+        } else {
+            alert('Error approving object');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error approving object');
+    }
+}
+
+async function ignoreObject(objectId) {
+    if (!confirm('Ignore this object? It will be hidden from review but remain in the database.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/projects/${currentProjectId}/generic-objects/${objectId}/ignore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes: 'Ignored via UI' })
+        });
+        
+        if (response.ok) {
+            document.getElementById('loadBtn').click();
+        } else {
+            alert('Error ignoring object');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error ignoring object');
+    }
+}
+</script>
+{% endblock %}

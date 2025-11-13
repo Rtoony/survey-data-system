@@ -55,7 +55,22 @@ class IntelligentObjectCreator:
         
         # If no classification or low confidence, create a generic object for review
         if not classification or classification.confidence < 0.7:
-            return self._create_generic_object(entity_data, classification, project_id)
+            result = self._create_generic_object(entity_data, classification, project_id)
+            # Create entity link for generic objects too
+            if result:
+                object_type, object_id, table_name = result
+                dxf_handle = entity_data.get('dxf_handle', '')
+                entity_type = entity_data.get('entity_type', 'UNKNOWN')
+                geometry_wkt = entity_data.get('geometry_wkt', '')
+                layer_name = entity_data.get('layer_name', '')
+                
+                if dxf_handle and geometry_wkt:
+                    self._create_entity_link(
+                        project_id, drawing_id, dxf_handle, entity_type,
+                        layer_name, geometry_wkt,
+                        object_type, object_id, table_name
+                    )
+            return result
         
         try:
             result = None
