@@ -42,7 +42,7 @@
             </div>
         </div>
 
-        <div class="three-panel-layout">
+        <div class="two-panel-layout">
             <div class="left-panel">
                 <div class="panel-header">
                     <h3><i class="fas fa-book"></i> Standard Notes Library</h3>
@@ -64,7 +64,7 @@
                 </div>
             </div>
 
-            <div class="center-panel">
+            <div class="right-panel">
                 <div class="panel-header">
                     <h3><i class="fas fa-edit"></i> Project Notes</h3>
                     <div class="note-actions" id="noteActions" style="display: none;">
@@ -75,30 +75,6 @@
                 </div>
                 <div class="project-notes-list" id="projectNotesList">
                     <div class="empty-state">Select a note set to begin</div>
-                </div>
-            </div>
-
-            <div class="right-panel">
-                <div class="panel-header">
-                    <h3><i class="fas fa-file-alt"></i> Sheet Assignments</h3>
-                </div>
-                <div class="assignments-container">
-                    <div class="assignment-controls" id="assignmentControls" style="display: none;">
-                        <label for="drawingSelect">Drawing:</label>
-                        <select id="drawingSelect" onchange="loadDrawingLayouts()">
-                            <option value="">Select drawing...</option>
-                        </select>
-                        <label for="layoutSelect">Layout:</label>
-                        <select id="layoutSelect" onchange="loadAssignments()">
-                            <option value="">Select layout...</option>
-                        </select>
-                        <button class="btn-sm btn-primary" onclick="generateLegend()" id="generateLegendBtn" disabled>
-                            <i class="fas fa-list"></i> Generate Legend
-                        </button>
-                    </div>
-                    <div class="assignments-list" id="assignmentsList">
-                        <div class="empty-state">Select a note set and drawing to manage assignments</div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -133,28 +109,48 @@
 </div>
 
 <div id="addCustomNoteModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content modal-large">
         <div class="modal-header">
-            <h3>Add Custom Note</h3>
+            <h3>Create Custom Note</h3>
             <button class="modal-close" onclick="closeModal('addCustomNoteModal')">&times;</button>
         </div>
         <div class="modal-body">
+            <div class="info-box">
+                <i class="fas fa-info-circle"></i>
+                <span>Custom notes are project-specific and not based on standards. Justification required.</span>
+            </div>
             <div class="form-group">
-                <label>Display Code:</label>
+                <label>Display Code: <span class="required">*</span></label>
                 <input type="text" id="customNoteCode" placeholder="e.g., C1">
             </div>
             <div class="form-group">
-                <label>Title:</label>
+                <label>Title: <span class="required">*</span></label>
                 <input type="text" id="customNoteTitle" placeholder="Note title">
             </div>
             <div class="form-group">
-                <label>Text:</label>
+                <label>Text: <span class="required">*</span></label>
                 <textarea id="customNoteText" placeholder="Note content" rows="5"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Deviation Category: <span class="required">*</span></label>
+                <select id="customDeviationCategory">
+                    <option value="">Select category...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Justification: <span class="required">*</span></label>
+                <textarea id="customJustification" placeholder="Why is this custom note needed?" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Conformance Status: <span class="required">*</span></label>
+                <select id="customConformanceStatus">
+                    <option value="">Select status...</option>
+                </select>
             </div>
         </div>
         <div class="modal-footer">
             <button class="btn-secondary" onclick="closeModal('addCustomNoteModal')">Cancel</button>
-            <button class="btn-primary" onclick="createCustomNote()">Add Note</button>
+            <button class="btn-primary" onclick="createCustomNote()">Create Custom Note</button>
         </div>
     </div>
 </div>
@@ -202,6 +198,53 @@
         <div class="modal-footer">
             <button class="btn-secondary" onclick="closeModal('modifiedCopyModal')">Cancel</button>
             <button class="btn-primary" onclick="createModifiedCopy()">Create Modified Copy</button>
+        </div>
+    </div>
+</div>
+
+<div id="editNoteModal" class="modal">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3>Edit Note</h3>
+            <button class="modal-close" onclick="closeModal('editNoteModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="info-box">
+                <i class="fas fa-info-circle"></i>
+                <span id="editNoteInfo">Editing this note will create a modified version with deviation tracking.</span>
+            </div>
+            <div class="form-group">
+                <label>Display Code: <span class="required">*</span></label>
+                <input type="text" id="editNoteCode" readonly style="background: rgba(0,0,0,0.3);">
+            </div>
+            <div class="form-group">
+                <label>Title: <span class="required">*</span></label>
+                <input type="text" id="editNoteTitle" placeholder="Note title">
+            </div>
+            <div class="form-group">
+                <label>Text: <span class="required">*</span></label>
+                <textarea id="editNoteText" placeholder="Note content" rows="5"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Deviation Category: <span class="required">*</span></label>
+                <select id="editDeviationCategory">
+                    <option value="">Select category...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Justification for Changes: <span class="required">*</span></label>
+                <textarea id="editJustification" placeholder="Explain why this change is necessary" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Conformance Status: <span class="required">*</span></label>
+                <select id="editConformanceStatus">
+                    <option value="">Select status...</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('editNoteModal')">Cancel</button>
+            <button class="btn-primary" onclick="saveEditedNote()">Save Changes</button>
         </div>
     </div>
 </div>
@@ -254,15 +297,15 @@
     border-radius: 4px;
 }
 
-.three-panel-layout {
+.two-panel-layout {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1fr;
+    grid-template-columns: 1fr 1.5fr;
     gap: 20px;
     height: calc(100vh - 350px);
     min-height: 600px;
 }
 
-.left-panel, .center-panel, .right-panel {
+.left-panel, .right-panel {
     background: rgba(0, 20, 40, 0.6);
     border: 1px solid var(--neon-blue);
     border-radius: 8px;
@@ -705,7 +748,6 @@ async function loadProjectNoteSets() {
         }
         
         loadStandardNotes();
-        loadProjectDrawings();
     } catch (error) {
         console.error('Error loading note sets:', error);
     }
@@ -814,7 +856,6 @@ async function loadNoteSet() {
     }
     
     document.getElementById('noteActions').style.display = 'flex';
-    document.getElementById('assignmentControls').style.display = 'flex';
     
     try {
         const response = await fetch(`/api/project-sheet-notes?set_id=${setId}`);
@@ -975,21 +1016,27 @@ async function createCustomNote() {
     const code = document.getElementById('customNoteCode').value;
     const title = document.getElementById('customNoteTitle').value;
     const text = document.getElementById('customNoteText').value;
+    const deviationCategory = document.getElementById('customDeviationCategory').value;
+    const justification = document.getElementById('customJustification').value;
+    const conformanceStatus = document.getElementById('customConformanceStatus').value;
     
-    if (!code || !title || !text) {
-        alert('Please fill in all fields');
+    if (!code || !title || !text || !deviationCategory || !justification || !conformanceStatus) {
+        alert('Please fill in all required fields');
         return;
     }
     
     try {
-        const response = await fetch('/api/project-sheet-notes', {
+        const response = await fetch('/api/project-sheet-notes/custom', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 set_id: currentNoteSet,
                 display_code: code,
                 custom_title: title,
-                custom_text: text
+                custom_text: text,
+                deviation_category_id: deviationCategory,
+                deviation_reason: justification,
+                conformance_status_id: conformanceStatus
             })
         });
         
@@ -998,6 +1045,9 @@ async function createCustomNote() {
             document.getElementById('customNoteCode').value = '';
             document.getElementById('customNoteTitle').value = '';
             document.getElementById('customNoteText').value = '';
+            document.getElementById('customDeviationCategory').value = '';
+            document.getElementById('customJustification').value = '';
+            document.getElementById('customConformanceStatus').value = '';
             loadNoteSet();
         } else {
             const error = await response.json();
@@ -1059,6 +1109,108 @@ async function createModifiedCopy() {
     }
 }
 
+function editProjectNote(projectNoteId) {
+    const note = projectNotes.find(n => n.project_note_id === projectNoteId);
+    if (!note) {
+        alert('Note not found');
+        return;
+    }
+    
+    const isStandard = note.source_type === 'standard' && !note.is_modified;
+    const title = note.custom_title || note.standard_title || '';
+    const text = note.custom_text || note.standard_text || '';
+    
+    if (isStandard) {
+        document.getElementById('editNoteInfo').textContent = 'Editing this standard note will create a modified version with deviation tracking.';
+    } else {
+        document.getElementById('editNoteInfo').textContent = 'Update this note and explain the changes.';
+    }
+    
+    document.getElementById('editNoteCode').value = note.display_code;
+    document.getElementById('editNoteTitle').value = title;
+    document.getElementById('editNoteText').value = text;
+    document.getElementById('editDeviationCategory').value = note.deviation_category_id || '';
+    document.getElementById('editJustification').value = note.deviation_reason || '';
+    document.getElementById('editConformanceStatus').value = note.conformance_status_id || '';
+    
+    currentSelectedNote = projectNoteId;
+    document.getElementById('editNoteModal').classList.add('show');
+}
+
+async function saveEditedNote() {
+    const title = document.getElementById('editNoteTitle').value;
+    const text = document.getElementById('editNoteText').value;
+    const deviationCategory = document.getElementById('editDeviationCategory').value;
+    const justification = document.getElementById('editJustification').value;
+    const conformanceStatus = document.getElementById('editConformanceStatus').value;
+    
+    if (!title || !text || !deviationCategory || !justification || !conformanceStatus) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    const note = projectNotes.find(n => n.project_note_id === currentSelectedNote);
+    if (!note) {
+        alert('Note not found');
+        return;
+    }
+    
+    const isStandard = note.source_type === 'standard' && !note.is_modified;
+    
+    if (isStandard) {
+        try {
+            const response = await fetch(`/api/project-sheet-notes/${currentSelectedNote}/create-modified-copy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    display_code: note.display_code,
+                    custom_title: title,
+                    custom_text: text,
+                    deviation_category_id: deviationCategory,
+                    deviation_reason: justification,
+                    conformance_status_id: conformanceStatus
+                })
+            });
+            
+            if (response.ok) {
+                closeModal('editNoteModal');
+                loadNoteSet();
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.error || 'Failed to save changes'));
+            }
+        } catch (error) {
+            console.error('Error saving note:', error);
+            alert('Failed to save changes');
+        }
+    } else {
+        try {
+            const response = await fetch(`/api/project-sheet-notes/${currentSelectedNote}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    custom_title: title,
+                    custom_text: text,
+                    deviation_category_id: deviationCategory,
+                    deviation_reason: justification,
+                    conformance_status_id: conformanceStatus
+                })
+            });
+            
+            if (response.ok) {
+                closeModal('editNoteModal');
+                loadNoteSet();
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.error || 'Failed to save changes'));
+            }
+        } catch (error) {
+            console.error('Error saving note:', error);
+            alert('Failed to save changes');
+        }
+    }
+}
+
 async function deleteProjectNote(projectNoteId) {
     if (!confirm('Are you sure you want to delete this note?')) return;
     
@@ -1083,17 +1235,18 @@ async function loadDeviationCategories() {
         const response = await fetch('/api/conformance/deviation-categories');
         const data = await response.json();
         
-        const select = document.getElementById('deviationCategory');
-        select.innerHTML = '<option value="">Select category...</option>';
+        const select1 = document.getElementById('deviationCategory');
+        const select2 = document.getElementById('customDeviationCategory');
+        const select3 = document.getElementById('editDeviationCategory');
         
-        if (data.categories) {
-            data.categories.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat.category_id;
-                option.textContent = `${cat.category_code} - ${cat.category_name}`;
-                select.appendChild(option);
-            });
-        }
+        const optionHtml = '<option value="">Select category...</option>' + 
+            (data.categories || []).map(cat => 
+                `<option value="${cat.category_id}">${cat.category_code} - ${cat.category_name}</option>`
+            ).join('');
+        
+        select1.innerHTML = optionHtml;
+        select2.innerHTML = optionHtml;
+        select3.innerHTML = optionHtml;
     } catch (error) {
         console.error('Error loading deviation categories:', error);
     }
@@ -1104,51 +1257,21 @@ async function loadConformanceStatuses() {
         const response = await fetch('/api/conformance/statuses');
         const data = await response.json();
         
-        const select = document.getElementById('conformanceStatus');
-        select.innerHTML = '<option value="">Select status...</option>';
+        const select1 = document.getElementById('conformanceStatus');
+        const select2 = document.getElementById('customConformanceStatus');
+        const select3 = document.getElementById('editConformanceStatus');
         
-        if (data.conformance_statuses) {
-            data.conformance_statuses.forEach(status => {
-                const option = document.createElement('option');
-                option.value = status.status_id;
-                option.textContent = `${status.status_code} - ${status.status_name}`;
-                select.appendChild(option);
-            });
-        }
+        const optionHtml = '<option value="">Select status...</option>' + 
+            (data.conformance_statuses || []).map(status => 
+                `<option value="${status.status_id}">${status.status_code} - ${status.status_name}</option>`
+            ).join('');
+        
+        select1.innerHTML = optionHtml;
+        select2.innerHTML = optionHtml;
+        select3.innerHTML = optionHtml;
     } catch (error) {
         console.error('Error loading conformance statuses:', error);
     }
-}
-
-async function loadProjectDrawings() {
-    if (!currentProject) return;
-    
-    try {
-        const response = await fetch(`/api/drawings?project_id=${currentProject}`);
-        const data = await response.json();
-        
-        const select = document.getElementById('drawingSelect');
-        select.innerHTML = '<option value="">Select drawing...</option>';
-        
-        if (data.drawings) {
-            data.drawings.forEach(drawing => {
-                const option = document.createElement('option');
-                option.value = drawing.drawing_id;
-                option.textContent = drawing.drawing_name;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading drawings:', error);
-    }
-}
-
-async function loadDrawingLayouts() {
-    const drawingId = document.getElementById('drawingSelect').value;
-    if (!drawingId) return;
-    
-    const select = document.getElementById('layoutSelect');
-    select.innerHTML = '<option value="">Select layout...</option><option value="Model">Model</option><option value="Layout1">Layout1</option>';
 }
 
 function refreshAll() {
@@ -1158,18 +1281,6 @@ function refreshAll() {
     if (currentNoteSet) {
         loadNoteSet();
     }
-}
-
-function editProjectNote(projectNoteId) {
-    alert('Edit functionality coming soon');
-}
-
-function loadAssignments() {
-    document.getElementById('generateLegendBtn').disabled = false;
-}
-
-function generateLegend() {
-    alert('Legend generation coming soon');
 }
 </script>
 

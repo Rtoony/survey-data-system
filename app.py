@@ -9302,6 +9302,98 @@ def create_modified_copy(project_note_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/project-sheet-notes/custom', methods=['POST'])
+def create_custom_note():
+    """Create a custom project sheet note with justification"""
+    try:
+        data = request.get_json()
+        
+        set_id = data.get('set_id')
+        display_code = data.get('display_code')
+        custom_title = data.get('custom_title')
+        custom_text = data.get('custom_text')
+        deviation_category_id = data.get('deviation_category_id')
+        deviation_reason = data.get('deviation_reason')
+        conformance_status_id = data.get('conformance_status_id')
+        
+        if not all([set_id, display_code, custom_title, custom_text, deviation_category_id, deviation_reason, conformance_status_id]):
+            return jsonify({'error': 'All fields are required: set_id, display_code, custom_title, custom_text, deviation_category_id, deviation_reason, conformance_status_id'}), 400
+        
+        new_note_id = str(uuid.uuid4())
+        
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Validate set exists
+                cur.execute("SELECT 1 FROM sheet_note_sets WHERE set_id = %s::uuid", (set_id,))
+                if not cur.fetchone():
+                    return jsonify({'error': 'Invalid set_id'}), 400
+                
+                # Validate deviation category ID exists
+                cur.execute("SELECT 1 FROM deviation_categories WHERE category_id = %s::uuid AND is_active = TRUE", (deviation_category_id,))
+                if not cur.fetchone():
+                    return jsonify({'error': 'Invalid or inactive deviation_category_id'}), 400
+                
+                # Validate conformance status ID exists
+                cur.execute("SELECT 1 FROM conformance_statuses WHERE status_id = %s::uuid AND is_active = TRUE", (conformance_status_id,))
+                if not cur.fetchone():
+                    return jsonify({'error': 'Invalid or inactive conformance_status_id'}), 400
+                
+                # Get standardization status ID for "NOT_NOMINATED" 
+                # Note: Custom notes use source_type='custom' for UI badging; standardization_status tracks candidacy for becoming a standard
+                cur.execute("SELECT status_id FROM standardization_statuses WHERE status_code = 'NOT_NOMINATED'")
+                std_status_result = cur.fetchone()
+                if not std_status_result:
+                    return jsonify({'error': 'Standardization status NOT_NOMINATED not found in database'}), 500
+                std_status_id = std_status_result['status_id']
+                
+                # Get next sort order in the set
+                cur.execute('SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order FROM project_sheet_notes WHERE set_id = %s::uuid', (set_id,))
+                next_sort_order = cur.fetchone()['next_order']
+                
+                # Create the custom note
+                query = """
+                    INSERT INTO project_sheet_notes 
+                    (project_note_id, set_id, display_code, custom_title, custom_text,
+                     source_type, is_modified, sort_order,
+                     deviation_category_id, deviation_reason, conformance_status_id,
+                     standardization_status_id,
+                     first_used_at, last_used_at, usage_count)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, 'custom', FALSE, %s,
+                            %s::uuid, %s, %s::uuid, %s::uuid,
+                            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
+                    RETURNING *
+                """
+                
+                cur.execute(query, (
+                    new_note_id, set_id, display_code, custom_title, custom_text, next_sort_order,
+                    deviation_category_id, deviation_reason, conformance_status_id, std_status_id
+                ))
+                
+                # Fetch the created note with all related data
+                cur.execute("""
+                    SELECT 
+                        psn.*,
+                        dc.category_code as deviation_category,
+                        dc.category_name as deviation_category_name,
+                        cs.status_code as conformance_status,
+                        cs.status_name as conformance_status_name,
+                        ss.status_code as standardization_status,
+                        ss.status_name as standardization_status_name
+                    FROM project_sheet_notes psn
+                    LEFT JOIN deviation_categories dc ON psn.deviation_category_id = dc.category_id
+                    LEFT JOIN conformance_statuses cs ON psn.conformance_status_id = cs.status_id
+                    LEFT JOIN standardization_statuses ss ON psn.standardization_status_id = ss.status_id
+                    WHERE psn.project_note_id = %s::uuid
+                """, (new_note_id,))
+                
+                new_note = cur.fetchone()
+                conn.commit()
+                cache.clear()
+                return jsonify({'note': dict(new_note), 'message': 'Custom note created successfully'}), 201
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ==========================
 # SHEET NOTE SETS API
 # ==========================
