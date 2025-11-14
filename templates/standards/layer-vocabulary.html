@@ -618,6 +618,29 @@
                     <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
                 </div>
             `;
+        } else if (type === 'attributes') {
+            html = `
+                <div class="form-group">
+                    <label>Code <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="code" value="${data?.code || ''}" required maxlength="10">
+                </div>
+                <div class="form-group">
+                    <label>Full Name <span style="color: #ff4444;">*</span></label>
+                    <input type="text" name="full_name" value="${data?.full_name || ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Attribute Category</label>
+                    <input type="text" name="attribute_category" value="${data?.attribute_category || ''}" placeholder="e.g., Size, Material, Slope">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description">${data?.description || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Sort Order</label>
+                    <input type="number" name="sort_order" value="${data?.sort_order || ''}" min="0">
+                </div>
+            `;
         } else if (type === 'geometries') {
             html = `
                 <div class="form-group">
@@ -673,6 +696,7 @@
             disciplines: '/api/vocabulary/disciplines',
             categories: '/api/vocabulary/categories',
             types: '/api/vocabulary/object-types',
+            attributes: '/api/standards/attributes',
             phases: '/api/vocabulary/phases',
             geometries: '/api/vocabulary/geometries'
         };
@@ -703,6 +727,7 @@
             disciplines: `/api/vocabulary/disciplines/${id}`,
             categories: `/api/vocabulary/categories/${id}`,
             types: `/api/vocabulary/object-types/${id}`,
+            attributes: `/api/standards/attributes/${id}`,
             phases: `/api/vocabulary/phases/${id}`,
             geometries: `/api/vocabulary/geometries/${id}`
         };
@@ -734,6 +759,7 @@
             disciplines: `/api/vocabulary/disciplines/${id}`,
             categories: `/api/vocabulary/categories/${id}`,
             types: `/api/vocabulary/object-types/${id}`,
+            attributes: `/api/standards/attributes/${id}`,
             phases: `/api/vocabulary/phases/${id}`,
             geometries: `/api/vocabulary/geometries/${id}`
         };
@@ -900,7 +926,7 @@
             return;
         }
         
-        const filteredTypes = currentVocabulary.types.filter(t => t.category_id == categoryId);
+        const filteredTypes = currentVocabulary.types.filter(t => t.category_id === Number(categoryId));
         typeSelect.innerHTML = '<option value="">Select Object Type...</option>' +
             filteredTypes.map(t => 
                 `<option value="${t.type_id}">${t.code} - ${t.full_name}</option>`
