@@ -1074,15 +1074,15 @@ function updateLayerPreview() {
     const preview = document.getElementById('layerNamePreview');
     
     const discCode = wizardState.selectedDiscipline 
-        ? vocabularyCache.disciplines.find(d => d.discipline_id === wizardState.selectedDiscipline)?.discipline_code || 'DISC'
+        ? vocabularyCache.disciplines.find(d => d.discipline_id === wizardState.selectedDiscipline)?.code || 'DISC'
         : 'DISCIPLINE';
     
     const catCode = wizardState.selectedCategory
-        ? (vocabularyCache.categories[wizardState.selectedDiscipline] || []).find(c => c.category_id === wizardState.selectedCategory)?.category_code || 'CAT'
+        ? (vocabularyCache.categories[wizardState.selectedDiscipline] || []).find(c => c.category_id === wizardState.selectedCategory)?.code || 'CAT'
         : 'CATEGORY';
     
     const typeCode = wizardState.selectedType
-        ? (vocabularyCache.types[wizardState.selectedCategory] || []).find(t => t.type_id === wizardState.selectedType)?.type_code || 'TYPE'
+        ? (vocabularyCache.types[wizardState.selectedCategory] || []).find(t => t.type_id === wizardState.selectedType)?.code || 'TYPE'
         : 'TYPE';
     
     let attrSegment = '';
@@ -1091,13 +1091,13 @@ function updateLayerPreview() {
             const cacheKey = `${wizardState.selectedCategory}_${wizardState.selectedType}`;
             const attrs = vocabularyCache.attributes[cacheKey] || [];
             const attr = attrs.find(a => a.attribute_id === attrId);
-            return attr?.attribute_code || 'ATTR';
+            return attr?.code || 'ATTR';
         });
         attrSegment = attrCodes.join('-');
     }
     
     const phaseCode = wizardState.selectedPhase
-        ? (vocabularyCache.phases || []).find(p => p.phase_id === wizardState.selectedPhase)?.phase_code || 'PHASE'
+        ? (vocabularyCache.phases || []).find(p => p.phase_id === wizardState.selectedPhase)?.code || 'PHASE'
         : 'PHASE';
     
     const geomCode = wizardState.geometryCode || 'GEOM';
@@ -1140,9 +1140,9 @@ function renderDisciplines() {
     
     grid.innerHTML = disciplines.map(disc => `
         <div class="selection-card ${wizardState.selectedDiscipline === disc.discipline_id ? 'selected' : ''}" 
-             onclick="selectDiscipline('${disc.discipline_id}', '${disc.discipline_code}')">
-            <div class="selection-code">${disc.discipline_code}</div>
-            <div class="selection-name">${disc.discipline_name}</div>
+             onclick="selectDiscipline('${disc.discipline_id}', '${disc.code}')">
+            <div class="selection-code">${disc.code}</div>
+            <div class="selection-name">${disc.full_name}</div>
             ${disc.description ? `<div class="selection-desc">${disc.description}</div>` : ''}
         </div>
     `).join('');
@@ -1163,9 +1163,9 @@ async function renderCategories() {
     
     grid.innerHTML = categories.map(cat => `
         <div class="selection-card ${wizardState.selectedCategory === cat.category_id ? 'selected' : ''}" 
-             onclick="selectCategory('${cat.category_id}', '${cat.category_code}')">
-            <div class="selection-code">${cat.category_code}</div>
-            <div class="selection-name">${cat.category_name}</div>
+             onclick="selectCategory('${cat.category_id}', '${cat.code}')">
+            <div class="selection-code">${cat.code}</div>
+            <div class="selection-name">${cat.full_name}</div>
             ${cat.description ? `<div class="selection-desc">${cat.description}</div>` : ''}
         </div>
     `).join('');
@@ -1186,9 +1186,9 @@ async function renderTypes() {
     
     grid.innerHTML = types.map(type => `
         <div class="selection-card ${wizardState.selectedType === type.type_id ? 'selected' : ''}" 
-             onclick="selectType('${type.type_id}', '${type.type_code}')">
-            <div class="selection-code">${type.type_code}</div>
-            <div class="selection-name">${type.type_name}</div>
+             onclick="selectType('${type.type_id}', '${type.code}')">
+            <div class="selection-code">${type.code}</div>
+            <div class="selection-name">${type.full_name}</div>
             ${type.description ? `<div class="selection-desc">${type.description}</div>` : ''}
         </div>
     `).join('');
@@ -1214,8 +1214,8 @@ async function renderAttributes() {
                    ${wizardState.selectedAttributes.includes(attr.attribute_id) ? 'checked' : ''}
                    onchange="toggleAttribute('${attr.attribute_id}')">
             <div class="attribute-info">
-                <span class="attribute-code">${attr.attribute_code}</span>
-                <span class="attribute-name">${attr.attribute_name}</span>
+                <span class="attribute-code">${attr.code}</span>
+                <span class="attribute-name">${attr.full_name}</span>
             </div>
         </label>
     `).join('');
@@ -1232,9 +1232,9 @@ function renderPhases() {
     
     grid.innerHTML = phases.map(phase => `
         <div class="selection-card ${wizardState.selectedPhase === phase.phase_id ? 'selected' : ''}" 
-             onclick="selectPhase('${phase.phase_id}', '${phase.phase_code}')">
-            <div class="selection-code">${phase.phase_code}</div>
-            <div class="selection-name">${phase.phase_name}</div>
+             onclick="selectPhase('${phase.phase_id}', '${phase.code}')">
+            <div class="selection-code">${phase.code}</div>
+            <div class="selection-name">${phase.full_name}</div>
             ${phase.description ? `<div class="selection-desc">${phase.description}</div>` : ''}
         </div>
     `).join('');
@@ -1249,7 +1249,7 @@ function renderReview() {
         const cacheKey = `${wizardState.selectedCategory}_${wizardState.selectedType}`;
         const attrs = vocabularyCache.attributes[cacheKey] || [];
         const attr = attrs.find(a => a.attribute_id === attrId);
-        return attr ? `${attr.attribute_code} (${attr.attribute_name})` : 'Unknown';
+        return attr ? `${attr.code} (${attr.full_name})` : 'Unknown';
     });
     document.getElementById('reviewAttributes').textContent = attrNames.length > 0 ? attrNames.join(', ') : 'None';
     
@@ -1329,18 +1329,18 @@ function selectPhase(phaseId, phaseCode) {
 // ============================================
 
 function buildLayerName() {
-    const discCode = vocabularyCache.disciplines.find(d => d.discipline_id === wizardState.selectedDiscipline)?.discipline_code || '';
-    const catCode = (vocabularyCache.categories[wizardState.selectedDiscipline] || []).find(c => c.category_id === wizardState.selectedCategory)?.category_code || '';
-    const typeCode = (vocabularyCache.types[wizardState.selectedCategory] || []).find(t => t.type_id === wizardState.selectedType)?.type_code || '';
+    const discCode = vocabularyCache.disciplines.find(d => d.discipline_id === wizardState.selectedDiscipline)?.code || '';
+    const catCode = (vocabularyCache.categories[wizardState.selectedDiscipline] || []).find(c => c.category_id === wizardState.selectedCategory)?.code || '';
+    const typeCode = (vocabularyCache.types[wizardState.selectedCategory] || []).find(t => t.type_id === wizardState.selectedType)?.code || '';
     
     const attrCodes = wizardState.selectedAttributes.map(attrId => {
         const cacheKey = `${wizardState.selectedCategory}_${wizardState.selectedType}`;
         const attrs = vocabularyCache.attributes[cacheKey] || [];
         const attr = attrs.find(a => a.attribute_id === attrId);
-        return attr?.attribute_code || '';
+        return attr?.code || '';
     }).filter(code => code);
     
-    const phaseCode = (vocabularyCache.phases || []).find(p => p.phase_id === wizardState.selectedPhase)?.phase_code || '';
+    const phaseCode = (vocabularyCache.phases || []).find(p => p.phase_id === wizardState.selectedPhase)?.code || '';
     const geomCode = wizardState.geometryCode || '';
     
     let layerName = `${discCode}-${catCode}-${typeCode}`;

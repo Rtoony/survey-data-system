@@ -107,6 +107,23 @@
             </p>
             <div class="grid" id="attributesGrid"></div>
         </div>
+        
+        <div class="card" style="margin-top: 2rem;">
+            <div class="section-header">
+                <h2><i class="fas fa-link"></i> Attribute Applicability Rules</h2>
+                <button class="btn btn-add" onclick="openApplicabilityModal()">
+                    <i class="fas fa-plus"></i> Add Applicability Rule
+                </button>
+            </div>
+            <p class="subtitle" style="margin: -1rem 0 1.5rem 0; color: rgba(255,255,255,0.6);">
+                Define which attributes can be used with specific Category + Object Type combinations
+            </p>
+            <div class="applicability-grid" id="applicabilityGrid">
+                <p style="color: rgba(255,255,255,0.5); text-align: center; padding: 2rem;">
+                    Loading applicability rules...
+                </p>
+            </div>
+        </div>
     </div>
     
     <div class="tab-content" id="phases">
@@ -170,6 +187,45 @@
                 <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
             </div>
         </div>
+    </div>
+</div>
+
+<div id="applicabilityModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add Attribute Applicability Rule</h3>
+            <button class="close-btn" onclick="closeApplicabilityModal()">&times;</button>
+        </div>
+        <form id="applicabilityForm" onsubmit="handleApplicabilitySubmit(event)">
+            <div class="form-group">
+                <label for="appl_category">Category</label>
+                <select id="appl_category" required onchange="loadTypesForCategory()">
+                    <option value="">Select Category...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="appl_type">Object Type</label>
+                <select id="appl_type" required>
+                    <option value="">Select Category First...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="appl_attribute">Attribute</label>
+                <select id="appl_attribute" required>
+                    <option value="">Select Attribute...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" id="appl_required">
+                    <span>Required Attribute</span>
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeApplicabilityModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Add Rule</button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
@@ -734,6 +790,178 @@
         }
     });
     
+    document.getElementById('applicabilityModal').addEventListener('click', (e) => {
+        if (e.target.id === 'applicabilityModal') {
+            closeApplicabilityModal();
+        }
+    });
+    
+    // ============================================
+    // ATTRIBUTE APPLICABILITY MANAGEMENT
+    // ============================================
+    
+    let applicabilityRules = [];
+    
+    async function loadApplicabilityRules() {
+        try {
+            const response = await fetch('/api/standards/attribute-applicability');
+            const data = await response.json();
+            applicabilityRules = data.rules || [];
+            renderApplicabilityRules();
+        } catch (error) {
+            console.error('Error loading applicability rules:', error);
+            document.getElementById('applicabilityGrid').innerHTML = 
+                '<p style="color: rgba(255,100,100,0.8); text-align: center; padding: 2rem;">Failed to load applicability rules</p>';
+        }
+    }
+    
+    function renderApplicabilityRules() {
+        const grid = document.getElementById('applicabilityGrid');
+        
+        if (applicabilityRules.length === 0) {
+            grid.innerHTML = '<p style="color: rgba(255,255,255,0.5); text-align: center; padding: 2rem;">No applicability rules defined yet. Click "Add Applicability Rule" to create one.</p>';
+            return;
+        }
+        
+        grid.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: rgba(0,255,255,0.1); border-bottom: 1px solid rgba(0,255,255,0.3);">
+                        <th style="padding: 0.75rem; text-align: left;">Attribute</th>
+                        <th style="padding: 0.75rem; text-align: left;">Category</th>
+                        <th style="padding: 0.75rem; text-align: left;">Object Type</th>
+                        <th style="padding: 0.75rem; text-align: center;">Required?</th>
+                        <th style="padding: 0.75rem; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${applicabilityRules.map(rule => `
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <td style="padding: 0.75rem;">
+                                <strong>${rule.attribute_code || 'N/A'}</strong>
+                                <div style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">${rule.attribute_name || ''}</div>
+                            </td>
+                            <td style="padding: 0.75rem;">
+                                <strong>${rule.category_code || 'N/A'}</strong>
+                                <div style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">${rule.category_name || ''}</div>
+                            </td>
+                            <td style="padding: 0.75rem;">
+                                <strong>${rule.type_code || 'N/A'}</strong>
+                                <div style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">${rule.type_name || ''}</div>
+                            </td>
+                            <td style="padding: 0.75rem; text-align: center;">
+                                ${rule.is_required ? '<i class="fas fa-check-circle" style="color: #00ff99;"></i>' : '<i class="fas fa-circle" style="color: rgba(255,255,255,0.3);"></i>'}
+                            </td>
+                            <td style="padding: 0.75rem; text-align: center;">
+                                <button class="icon-btn delete" onclick="deleteApplicabilityRule(${rule.applicability_id})" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+    
+    function openApplicabilityModal() {
+        // Populate categories dropdown
+        const categorySelect = document.getElementById('appl_category');
+        categorySelect.innerHTML = '<option value="">Select Category...</option>' +
+            currentVocabulary.categories.map(c => 
+                `<option value="${c.category_id}">${c.code} - ${c.full_name}</option>`
+            ).join('');
+        
+        // Populate attributes dropdown
+        const attributeSelect = document.getElementById('appl_attribute');
+        attributeSelect.innerHTML = '<option value="">Select Attribute...</option>' +
+            currentVocabulary.attributes.map(a => 
+                `<option value="${a.attribute_id}">${a.code} - ${a.full_name}</option>`
+            ).join('');
+        
+        // Reset type dropdown
+        document.getElementById('appl_type').innerHTML = '<option value="">Select Category First...</option>';
+        document.getElementById('appl_required').checked = false;
+        
+        document.getElementById('applicabilityModal').style.display = 'flex';
+    }
+    
+    function closeApplicabilityModal() {
+        document.getElementById('applicabilityModal').style.display = 'none';
+        document.getElementById('applicabilityForm').reset();
+    }
+    
+    function loadTypesForCategory() {
+        const categoryId = document.getElementById('appl_category').value;
+        const typeSelect = document.getElementById('appl_type');
+        
+        if (!categoryId) {
+            typeSelect.innerHTML = '<option value="">Select Category First...</option>';
+            return;
+        }
+        
+        const filteredTypes = currentVocabulary.types.filter(t => t.category_id == categoryId);
+        typeSelect.innerHTML = '<option value="">Select Object Type...</option>' +
+            filteredTypes.map(t => 
+                `<option value="${t.type_id}">${t.code} - ${t.full_name}</option>`
+            ).join('');
+    }
+    
+    async function handleApplicabilitySubmit(event) {
+        event.preventDefault();
+        
+        const data = {
+            category_id: parseInt(document.getElementById('appl_category').value),
+            type_id: parseInt(document.getElementById('appl_type').value),
+            attribute_id: parseInt(document.getElementById('appl_attribute').value),
+            is_required: document.getElementById('appl_required').checked
+        };
+        
+        try {
+            const response = await fetch('/api/standards/attribute-applicability', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Applicability rule created successfully', 'success');
+                closeApplicabilityModal();
+                await loadApplicabilityRules();
+            } else {
+                showToast(result.error || 'Failed to create applicability rule', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create applicability rule', 'error');
+        }
+    }
+    
+    async function deleteApplicabilityRule(applicabilityId) {
+        if (!confirm('Are you sure you want to delete this applicability rule?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/standards/attribute-applicability/${applicabilityId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast('Applicability rule deleted successfully', 'success');
+                await loadApplicabilityRules();
+            } else {
+                showToast(result.error || 'Failed to delete applicability rule', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to delete applicability rule', 'error');
+        }
+    }
+    
     loadVocabulary();
+    loadApplicabilityRules();
 </script>
 {% endblock %}
