@@ -2629,6 +2629,320 @@ def get_drawing_scales():
         return jsonify({'error': str(e)}), 500
 
 # ============================================
+# ATTRIBUTE CODES API ENDPOINTS
+# ============================================
+
+@app.route('/api/standards/attributes', methods=['GET'])
+def get_attribute_codes():
+    """Get all attribute codes"""
+    try:
+        query = """
+            SELECT attribute_id, code, full_name, attribute_category, 
+                   description, pattern, is_active, created_at, updated_at
+            FROM attribute_codes
+            WHERE is_active = TRUE
+            ORDER BY attribute_category, code
+        """
+        attributes = execute_query(query)
+        return jsonify({'attributes': attributes})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/attributes', methods=['POST'])
+def create_attribute_code():
+    """Create a new attribute code"""
+    try:
+        data = request.json
+        query = """
+            INSERT INTO attribute_codes (code, full_name, attribute_category, description, pattern, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING attribute_id, code, full_name, attribute_category, description, pattern, is_active
+        """
+        result = execute_query(query, (
+            data['code'],
+            data['full_name'],
+            data.get('attribute_category', 'other'),
+            data.get('description', ''),
+            data.get('pattern', ''),
+            data.get('is_active', True)
+        ))
+        cache.clear()
+        return jsonify({'success': True, 'attribute': result[0] if result else None}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/attributes/<int:attribute_id>', methods=['PUT'])
+def update_attribute_code(attribute_id):
+    """Update an attribute code"""
+    try:
+        data = request.json
+        query = """
+            UPDATE attribute_codes
+            SET code = %s, full_name = %s, attribute_category = %s, 
+                description = %s, pattern = %s, is_active = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE attribute_id = %s
+            RETURNING attribute_id, code, full_name, attribute_category, description, pattern, is_active
+        """
+        result = execute_query(query, (
+            data['code'],
+            data['full_name'],
+            data.get('attribute_category', 'other'),
+            data.get('description', ''),
+            data.get('pattern', ''),
+            data.get('is_active', True),
+            attribute_id
+        ))
+        cache.clear()
+        return jsonify({'success': True, 'attribute': result[0] if result else None})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/attributes/<int:attribute_id>', methods=['DELETE'])
+def delete_attribute_code(attribute_id):
+    """Soft delete an attribute code"""
+    try:
+        query = """
+            UPDATE attribute_codes
+            SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+            WHERE attribute_id = %s
+        """
+        execute_query(query, (attribute_id,))
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# ATTRIBUTE APPLICABILITY API ENDPOINTS
+# ============================================
+
+@app.route('/api/standards/attribute-applicability', methods=['GET'])
+def get_attribute_applicability():
+    """Get attribute applicability rules with full details"""
+    try:
+        category_id = request.args.get('category_id', type=int)
+        type_id = request.args.get('type_id', type=int)
+        
+        query = """
+            SELECT 
+                aa.applicability_id,
+                aa.category_id,
+                c.code as category_code,
+                c.full_name as category_name,
+                aa.type_id,
+                ot.code as type_code,
+                ot.full_name as type_name,
+                aa.attribute_id,
+                a.code as attribute_code,
+                a.full_name as attribute_name,
+                a.attribute_category,
+                aa.is_required,
+                aa.sort_order,
+                aa.notes,
+                aa.is_active
+            FROM attribute_applicability aa
+            JOIN category_codes c ON aa.category_id = c.category_id
+            LEFT JOIN object_type_codes ot ON aa.type_id = ot.type_id
+            JOIN attribute_codes a ON aa.attribute_id = a.attribute_id
+            WHERE aa.is_active = TRUE
+        """
+        
+        params = []
+        if category_id:
+            query += " AND aa.category_id = %s"
+            params.append(category_id)
+        if type_id:
+            query += " AND aa.type_id = %s"
+            params.append(type_id)
+            
+        query += " ORDER BY c.code, ot.code NULLS FIRST, aa.sort_order, a.code"
+        
+        rules = execute_query(query, tuple(params) if params else None)
+        return jsonify({'rules': rules})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/attribute-applicability', methods=['POST'])
+def create_attribute_applicability():
+    """Create a new attribute applicability rule"""
+    try:
+        data = request.json
+        query = """
+            INSERT INTO attribute_applicability 
+            (category_id, type_id, attribute_id, is_required, sort_order, notes, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING applicability_id
+        """
+        result = execute_query(query, (
+            data['category_id'],
+            data.get('type_id'),  # Can be NULL
+            data['attribute_id'],
+            data.get('is_required', False),
+            data.get('sort_order', 0),
+            data.get('notes', ''),
+            data.get('is_active', True)
+        ))
+        cache.clear()
+        return jsonify({'success': True, 'applicability_id': result[0]['applicability_id'] if result else None}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/standards/attribute-applicability/<int:applicability_id>', methods=['DELETE'])
+def delete_attribute_applicability(applicability_id):
+    """Delete an attribute applicability rule"""
+    try:
+        query = "DELETE FROM attribute_applicability WHERE applicability_id = %s"
+        execute_query(query, (applicability_id,))
+        cache.clear()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# VOCABULARY LOOKUP API ENDPOINTS (for reclassification wizard)
+# ============================================
+
+@app.route('/api/vocabulary/disciplines', methods=['GET'])
+def get_disciplines():
+    """Get all discipline codes"""
+    try:
+        query = """
+            SELECT discipline_id, code, full_name, description, sort_order
+            FROM discipline_codes
+            WHERE is_active = TRUE
+            ORDER BY sort_order, code
+        """
+        disciplines = execute_query(query)
+        return jsonify({'disciplines': disciplines})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/categories', methods=['GET'])
+def get_categories_by_discipline():
+    """Get categories filtered by discipline"""
+    try:
+        discipline_id = request.args.get('discipline_id', type=int)
+        
+        if discipline_id:
+            query = """
+                SELECT category_id, discipline_id, code, full_name, description, sort_order
+                FROM category_codes
+                WHERE is_active = TRUE AND discipline_id = %s
+                ORDER BY sort_order, code
+            """
+            categories = execute_query(query, (discipline_id,))
+        else:
+            query = """
+                SELECT category_id, discipline_id, code, full_name, description, sort_order
+                FROM category_codes
+                WHERE is_active = TRUE
+                ORDER BY sort_order, code
+            """
+            categories = execute_query(query)
+        
+        return jsonify({'categories': categories})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/types', methods=['GET'])
+def get_types_by_category():
+    """Get object types filtered by category"""
+    try:
+        category_id = request.args.get('category_id', type=int)
+        
+        if category_id:
+            query = """
+                SELECT type_id, category_id, code, full_name, description, database_table, sort_order
+                FROM object_type_codes
+                WHERE is_active = TRUE AND category_id = %s
+                ORDER BY sort_order, code
+            """
+            types = execute_query(query, (category_id,))
+        else:
+            query = """
+                SELECT type_id, category_id, code, full_name, description, database_table, sort_order
+                FROM object_type_codes
+                WHERE is_active = TRUE
+                ORDER BY sort_order, code
+            """
+            types = execute_query(query)
+        
+        return jsonify({'types': types})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/attributes', methods=['GET'])
+def get_attributes_by_category_type():
+    """Get applicable attributes filtered by category and type"""
+    try:
+        category_id = request.args.get('category_id', type=int)
+        type_id = request.args.get('type_id', type=int)
+        
+        if category_id:
+            query = """
+                SELECT DISTINCT
+                    a.attribute_id, a.code, a.full_name, a.attribute_category,
+                    aa.is_required, aa.sort_order
+                FROM attribute_codes a
+                JOIN attribute_applicability aa ON a.attribute_id = aa.attribute_id
+                WHERE a.is_active = TRUE 
+                  AND aa.is_active = TRUE
+                  AND aa.category_id = %s
+            """
+            params = [category_id]
+            
+            if type_id:
+                query += " AND (aa.type_id = %s OR aa.type_id IS NULL)"
+                params.append(type_id)
+            else:
+                query += " AND aa.type_id IS NULL"
+            
+            query += " ORDER BY aa.sort_order, a.attribute_category, a.code"
+            attributes = execute_query(query, tuple(params))
+        else:
+            query = """
+                SELECT attribute_id, code, full_name, attribute_category
+                FROM attribute_codes
+                WHERE is_active = TRUE
+                ORDER BY attribute_category, code
+            """
+            attributes = execute_query(query)
+        
+        return jsonify({'attributes': attributes})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/phases', methods=['GET'])
+def get_phase_codes_vocab():
+    """Get all phase codes"""
+    try:
+        query = """
+            SELECT phase_id, code, full_name, description, color_hex, sort_order
+            FROM phase_codes
+            WHERE is_active = TRUE
+            ORDER BY sort_order, code
+        """
+        phases = execute_query(query)
+        return jsonify({'phases': phases})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vocabulary/geometries', methods=['GET'])
+def get_geometry_codes_vocab():
+    """Get all geometry codes"""
+    try:
+        query = """
+            SELECT geometry_id, code, full_name, description, dxf_entity_types, sort_order
+            FROM geometry_codes
+            WHERE is_active = TRUE
+            ORDER BY sort_order, code
+        """
+        geometries = execute_query(query)
+        return jsonify({'geometries': geometries})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
 # DATA MANAGER API ENDPOINTS
 # ============================================
 

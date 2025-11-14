@@ -14,6 +14,7 @@
         <div class="tab" data-tab="disciplines">Disciplines</div>
         <div class="tab" data-tab="categories">Categories</div>
         <div class="tab" data-tab="types">Object Types</div>
+        <div class="tab" data-tab="attributes">Attributes</div>
         <div class="tab" data-tab="phases">Phases</div>
         <div class="tab" data-tab="geometries">Geometries</div>
         <div class="tab" data-tab="hierarchy">Full Hierarchy</div>
@@ -93,6 +94,21 @@
         </div>
     </div>
     
+    <div class="tab-content" id="attributes">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-tags"></i> Attribute Codes</h2>
+                <button class="btn btn-add" onclick="openAddModal('attributes')">
+                    <i class="fas fa-plus"></i> Add New Attribute
+                </button>
+            </div>
+            <p class="subtitle" style="margin: -1rem 0 1.5rem 0; color: rgba(255,255,255,0.6);">
+                Optional layer name components like size (12IN), material (PVC), slope (2PCT), etc.
+            </p>
+            <div class="grid" id="attributesGrid"></div>
+        </div>
+    </div>
+    
     <div class="tab-content" id="phases">
         <div class="card">
             <div class="section-header">
@@ -164,6 +180,7 @@
         disciplines: [],
         categories: [],
         types: [],
+        attributes: [],
         phases: [],
         geometries: []
     };
@@ -194,10 +211,11 @@
     
     async function loadVocabulary() {
         try {
-            const [disciplines, categories, types, phases, geometries] = await Promise.all([
+            const [disciplines, categories, types, attributes, phases, geometries] = await Promise.all([
                 fetch('/api/vocabulary/disciplines').then(r => r.json()),
                 fetch('/api/vocabulary/categories').then(r => r.json()),
                 fetch('/api/vocabulary/object-types').then(r => r.json()),
+                fetch('/api/standards/attributes').then(r => r.json()),
                 fetch('/api/vocabulary/phases').then(r => r.json()),
                 fetch('/api/vocabulary/geometries').then(r => r.json())
             ]);
@@ -205,13 +223,15 @@
             currentVocabulary.disciplines = disciplines.disciplines;
             currentVocabulary.categories = categories.categories;
             currentVocabulary.types = types.object_types;
+            currentVocabulary.attributes = attributes.attributes;
             currentVocabulary.phases = phases.phases;
             currentVocabulary.geometries = geometries.geometries;
             
-            renderStats(disciplines, categories, types, phases, geometries);
+            renderStats(disciplines, categories, types, attributes, phases, geometries);
             renderDisciplines(disciplines.disciplines);
             renderCategories(categories.categories);
             renderTypes(types.object_types);
+            renderAttributes(attributes.attributes);
             renderPhases(phases.phases);
             renderGeometries(geometries.geometries);
             renderHierarchy(disciplines.disciplines, categories.categories, types.object_types);
@@ -222,11 +242,12 @@
         }
     }
     
-    function renderStats(disciplines, categories, types, phases, geometries) {
+    function renderStats(disciplines, categories, types, attributes, phases, geometries) {
         const stats = [
             { value: disciplines.disciplines.length, label: 'Disciplines' },
             { value: categories.categories.length, label: 'Categories' },
             { value: types.object_types.length, label: 'Object Types' },
+            { value: attributes.attributes.length, label: 'Attributes' },
             { value: phases.phases.length, label: 'Phases' },
             { value: geometries.geometries.length, label: 'Geometries' }
         ];
@@ -287,6 +308,25 @@
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="icon-btn delete" onclick='openDeleteModal("types", ${t.type_id}, "${t.code}")' title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function renderAttributes(attributes) {
+        document.getElementById('attributesGrid').innerHTML = attributes.map(a => `
+            <div class="code-item">
+                <div class="code-label">${a.code}</div>
+                <div class="code-name">${a.full_name}</div>
+                <div class="code-desc">Category: ${a.attribute_category || 'other'}</div>
+                ${a.description ? `<div class="code-desc">${a.description}</div>` : ''}
+                <div class="item-actions">
+                    <button class="icon-btn" onclick='openEditModal("attributes", ${a.attribute_id}, ${JSON.stringify(a)})' title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="icon-btn delete" onclick='openDeleteModal("attributes", ${a.attribute_id}, "${a.code}")' title="Delete">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
