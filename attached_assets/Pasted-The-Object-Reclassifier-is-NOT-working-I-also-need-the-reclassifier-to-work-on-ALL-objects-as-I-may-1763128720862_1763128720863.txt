@@ -1,0 +1,11 @@
+The Object Reclassifier is NOT working. I also need the reclassifier to work on ALL objects as I may need to switch "stuff" around once it is in the system, to "reclassify" something that was wrongly classified or "changed" after the fact.
+
+also, my intent for this "Reclasifier" was to be able to "sort" out layer names that don't make sense or can't be "figured" out by the system. It was not really intended for objects that already match our layer naming structure and therefore are not ambiguous at all.
+
+We have 2 things going on here. We have a layers in the imported DXF files, and then we have database "Layers" which are really just a name classification system. Objects in the database CAN and will exist on both states, as the database is a "Digital Twin" of the original file. So when a line is imported from the DXF, and its on layer "N-SD-12in" that should be translated to our database layer name "CIV-PIPE-STORM-12IN-PROP-AXIS". The system needs to track which layer the objects came from, because any exports back into CAD should have the same original layer. So our database system needs to keep track of that. 
+
+My "Object Reclassifier" was intended to be able to "Change" the object classification (Datatabase Layer Name) to something different if it was interpreted incorrectly from the original import, or it was so ambiguous that the system could not determine HOW this import item should be classified by our system. 
+
+So what I want from you is a DXF Test Generator set that has ambiguous layer names, not our database stand layer names. If anyone is using our same standard layer names in CAD, our system should assume these objects layer names depict what the object actually is supposed to be, this might exclude exceptions where something is on the incorrect layer. Like a "line" being called a "surface".
+
+Can you understand what I am gong for here? We now only have projects. The project are now made up of geometric entities from the DXF imports. these entities are then further classified in our system, where these objects can be manipulated in different ways depending on what there classification is.
