@@ -102,6 +102,11 @@ def project_command_center(project_id):
     """Project Command Center - central hub for project operations"""
     return render_template('project_command_center.html', project_id=project_id)
 
+@app.route('/projects/<project_id>/entities')
+def project_entity_browser_page(project_id):
+    """Entity Browser - unified view of all project entities"""
+    return render_template('project_entity_browser.html', project_id=project_id)
+
 @app.route('/standards-library')
 def standards_library():
     """Standards Library landing page"""
@@ -1385,6 +1390,146 @@ def get_project_command_center_data(project_id):
             'quality_stats': quality_stats,
             'bbox': bbox,
             'has_spatial_data': bbox is not None
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# ENTITY BROWSER API (Unified view of ALL entities)
+# ============================================================================
+
+@app.route('/api/projects/<project_id>/entities')
+def browse_project_entities(project_id):
+    """Get all entities across all tables in unified view"""
+    try:
+        table_filter = request.args.get('table')
+        search_term = request.args.get('search')
+        
+        query = """
+            WITH all_entities AS (
+                SELECT 
+                    'generic_objects' as source_table,
+                    object_id as id,
+                    original_layer_name as dxf_layer_name,
+                    ST_GeometryType(geometry) as geometry_type,
+                    classification_confidence,
+                    review_status,
+                    suggested_object_type,
+                    created_at
+                FROM generic_objects
+                WHERE project_id = %s AND is_active = true
+                
+                UNION ALL
+                
+                SELECT 
+                    'utility_lines' as source_table,
+                    ul.line_id as id,
+                    COALESCE(del.layer_name, '(no layer)') as dxf_layer_name,
+                    ST_GeometryType(ul.geometry) as geometry_type,
+                    NULL as classification_confidence,
+                    NULL as review_status,
+                    ul.utility_system || ' Line' as suggested_object_type,
+                    ul.created_at
+                FROM utility_lines ul
+                LEFT JOIN dxf_entity_links del ON del.object_id = ul.line_id 
+                    AND del.object_table_name = 'utility_lines'
+                WHERE ul.project_id = %s
+                
+                UNION ALL
+                
+                SELECT 
+                    'utility_structures' as source_table,
+                    us.structure_id as id,
+                    COALESCE(del.layer_name, '(no layer)') as dxf_layer_name,
+                    ST_GeometryType(us.rim_geometry) as geometry_type,
+                    NULL as classification_confidence,
+                    NULL as review_status,
+                    us.structure_type as suggested_object_type,
+                    us.created_at
+                FROM utility_structures us
+                LEFT JOIN dxf_entity_links del ON del.object_id = us.structure_id 
+                    AND del.object_table_name = 'utility_structures'
+                WHERE us.project_id = %s
+                
+                UNION ALL
+                
+                SELECT 
+                    'storm_bmps' as source_table,
+                    bmp.bmp_id as id,
+                    COALESCE(del.layer_name, '(no layer)') as dxf_layer_name,
+                    ST_GeometryType(bmp.geometry) as geometry_type,
+                    NULL as classification_confidence,
+                    NULL as review_status,
+                    bmp.bmp_type as suggested_object_type,
+                    bmp.created_at
+                FROM storm_bmps bmp
+                LEFT JOIN dxf_entity_links del ON del.object_id = bmp.bmp_id 
+                    AND del.object_table_name = 'storm_bmps'
+                WHERE bmp.project_id = %s
+                
+                UNION ALL
+                
+                SELECT 
+                    'survey_points' as source_table,
+                    sp.point_id as id,
+                    COALESCE(sp.layer_name, del.layer_name, '(no layer)') as dxf_layer_name,
+                    ST_GeometryType(sp.geometry) as geometry_type,
+                    NULL as classification_confidence,
+                    NULL as review_status,
+                    sp.point_type as suggested_object_type,
+                    sp.created_at
+                FROM survey_points sp
+                LEFT JOIN dxf_entity_links del ON del.object_id = sp.point_id 
+                    AND del.object_table_name = 'survey_points'
+                WHERE sp.project_id = %s AND sp.is_active = true
+            )
+            SELECT * FROM all_entities
+        """
+        
+        params = [project_id] * 5
+        
+        # Add table filter if specified
+        if table_filter:
+            query = f"""
+                SELECT * FROM ({query}) entities
+                WHERE source_table = %s
+            """
+            params.append(table_filter)
+        
+        # Add search filter if specified
+        if search_term:
+            base_query = query
+            query = f"""
+                SELECT * FROM ({base_query}) entities
+                WHERE dxf_layer_name ILIKE %s 
+                   OR suggested_object_type ILIKE %s
+            """
+            search_pattern = f'%{search_term}%'
+            params.extend([search_pattern, search_pattern])
+        
+        query += " ORDER BY created_at DESC LIMIT 1000"
+        
+        entities = execute_query(query, tuple(params))
+        
+        # Build enriched response efficiently (no loops)
+        enriched_entities = [{
+            'id': str(entity['id']),
+            'source_table': entity['source_table'],
+            'dxf_layer_name': entity['dxf_layer_name'] or '(unknown)',
+            'geometry_type': entity['geometry_type'] or 'Unknown',
+            'object_type': entity['suggested_object_type'] or 'Generic',
+            'classification_confidence': float(entity['classification_confidence']) if entity['classification_confidence'] else None,
+            'review_status': entity['review_status'],
+            'created_at': entity['created_at'].isoformat() if entity['created_at'] else None
+        } for entity in entities]
+        
+        return jsonify({
+            'project_id': project_id,
+            'count': len(enriched_entities),
+            'entities': enriched_entities
         })
         
     except Exception as e:

@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Entity Browser - {{ project_id }}{% endblock %}
+
+{% block content %}
+<div class="mc-page-header">
+    <h1><i class="fas fa-database"></i> Entity Browser</h1>
+    <p>Unified view of all entities in this project</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 280px 1fr; gap: 2rem; margin-bottom: 2rem;">
+    <!-- Left Panel: Filters -->
+    <div class="mc-card">
+        <div class="mc-card-header">
+            <h2><i class="fas fa-filter"></i> Filters</h2>
+        </div>
+        <div class="mc-card-content">
+            <!-- Table Type Filter -->
+            <div class="mc-form-group">
+                <label for="tableFilter">Object Type:</label>
+                <select id="tableFilter" class="mc-select">
+                    <option value="">All Types</option>
+                    <option value="generic_objects">Generic Objects</option>
+                    <option value="utility_lines">Utility Lines</option>
+                    <option value="utility_structures">Utility Structures</option>
+                    <option value="storm_bmps">Storm BMPs</option>
+                    <option value="survey_points">Survey Points</option>
+                </select>
+            </div>
+
+            <!-- Search Filter -->
+            <div class="mc-form-group">
+                <label for="searchInput">Search Layer Name:</label>
+                <input type="text" id="searchInput" class="mc-input" placeholder="Enter layer name...">
+            </div>
+
+            <button id="loadBtn" class="btn btn-primary" style="width: 100%;">
+                <i class="fas fa-sync"></i> Load Entities
+            </button>
+
+            <!-- Stats Section -->
+            <div id="statsArea" style="margin-top: 2rem; padding: 1rem; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 4px; display: none;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: var(--accent-color);">Statistics</h4>
+                <div class="stat-item">
+                    <span>Total:</span>
+                    <strong id="statTotal">0</strong>
+                </div>
+                <div class="stat-item">
+                    <span>Generic:</span>
+                    <strong id="statGeneric">0</strong>
+                </div>
+                <div class="stat-item">
+                    <span>Classified:</span>
+                    <strong id="statClassified">0</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Entity List -->
+    <div class="mc-card">
+        <div class="mc-card-header">
+            <h2><i class="fas fa-list"></i> Entities</h2>
+            <span id="entityCount" class="mc-badge">0 entities</span>
+        </div>
+        <div class="mc-card-content">
+            <div id="entitiesContainer">
+                <p class="text-dim" style="text-align: center; padding: 3rem;">
+                    Click "Load Entities" to view all project entities
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.entity-row {
+    padding: 1rem;
+    border: 1px solid rgba(0,255,255,0.15);
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+    background: rgba(0,0,0,0.2);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 1rem;
+    align-items: center;
+}
+
+.entity-row:hover {
+    background: rgba(0,255,255,0.05);
+    border-color: rgba(0,255,255,0.3);
+}
+
+.entity-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.entity-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+
+.entity-value {
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+.entity-table-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-generic_objects { background: rgba(255,165,0,0.2); color: #ffaa00; }
+.badge-utility_lines { background: rgba(0,150,255,0.2); color: #0096ff; }
+.badge-utility_structures { background: rgba(138,43,226,0.2); color: #8a2be2; }
+.badge-storm_bmps { background: rgba(0,255,127,0.2); color: #00ff7f; }
+.badge-survey_points { background: rgba(255,20,147,0.2); color: #ff1493; }
+
+.review-badge {
+    display: inline-block;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-left: 0.5rem;
+}
+
+.review-pending { background: rgba(255,165,0,0.2); color: #ffaa00; }
+.review-approved { background: rgba(0,255,0,0.2); color: #00ff00; }
+.review-reclassified { background: rgba(0,150,255,0.2); color: #0096ff; }
+.review-ignored { background: rgba(128,128,128,0.2); color: #999; }
+
+.confidence-badge {
+    display: inline-block;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: rgba(0,255,255,0.2);
+    color: var(--accent-color);
+    margin-left: 0.5rem;
+}
+</style>
+
+<script>
+const projectId = '{{ project_id }}';
+
+async function loadEntities() {
+    const tableFilter = document.getElementById('tableFilter').value;
+    const searchTerm = document.getElementById('searchInput').value;
+    
+    // Build query params
+    const params = new URLSearchParams();
+    if (tableFilter) params.append('table', tableFilter);
+    if (searchTerm) params.append('search', searchTerm);
+    
+    const url = `/api/projects/${projectId}/entities?${params.toString()}`;
+    
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        displayEntities(data.entities);
+        updateStats(data.entities);
+        
+        // Update count badge
+        document.getElementById('entityCount').textContent = `${data.count} entities`;
+        
+    } catch (error) {
+        console.error('Error loading entities:', error);
+        document.getElementById('entitiesContainer').innerHTML = 
+            '<p class="text-dim" style="text-align: center; padding: 2rem;">Error loading entities. Please try again.</p>';
+    }
+}
+
+function displayEntities(entities) {
+    const container = document.getElementById('entitiesContainer');
+    
+    if (!entities || entities.length === 0) {
+        container.innerHTML = '<p class="text-dim" style="text-align: center; padding: 2rem;">No entities found.</p>';
+        return;
+    }
+    
+    container.innerHTML = entities.map(entity => {
+        const reviewBadge = entity.review_status ? 
+            `<span class="review-badge review-${entity.review_status}">${entity.review_status}</span>` : '';
+        const confidenceBadge = entity.classification_confidence !== null ? 
+            `<span class="confidence-badge">${(entity.classification_confidence * 100).toFixed(0)}%</span>` : '';
+        
+        return `
+        <div class="entity-row">
+            <div class="entity-field">
+                <div class="entity-label">DXF Layer Name</div>
+                <div class="entity-value">${entity.dxf_layer_name}</div>
+            </div>
+            
+            <div class="entity-field">
+                <div class="entity-label">Object Type</div>
+                <div class="entity-value">${entity.object_type || 'Generic'}</div>
+                ${reviewBadge}
+                ${confidenceBadge}
+            </div>
+            
+            <div class="entity-field">
+                <div class="entity-label">Geometry</div>
+                <div class="entity-value">${entity.geometry_type}</div>
+            </div>
+            
+            <div class="entity-field">
+                <div class="entity-label">Source Table</div>
+                <span class="entity-table-badge badge-${entity.source_table}">${entity.source_table.replace(/_/g, ' ')}</span>
+            </div>
+        </div>
+        `;
+    }).join('');
+}
+
+function updateStats(entities) {
+    const statsArea = document.getElementById('statsArea');
+    statsArea.style.display = 'block';
+    
+    const totalCount = entities.length;
+    const genericCount = entities.filter(e => e.source_table === 'generic_objects').length;
+    const classifiedCount = totalCount - genericCount;
+    
+    document.getElementById('statTotal').textContent = totalCount;
+    document.getElementById('statGeneric').textContent = genericCount;
+    document.getElementById('statClassified').textContent = classifiedCount;
+}
+
+// Event listeners
+document.getElementById('loadBtn').addEventListener('click', loadEntities);
+document.getElementById('searchInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') loadEntities();
+});
+
+// Auto-load on page load
+window.addEventListener('DOMContentLoaded', () => {
+    loadEntities();
+});
+</script>
+
+{% endblock %}
