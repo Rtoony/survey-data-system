@@ -13178,7 +13178,7 @@ def get_object_types():
         category_id = request.args.get('category_id')
         
         query = """
-            SELECT t.type_id, t.code, t.full_name, t.description, t.database_table,
+            SELECT t.type_id, t.category_id, t.code, t.full_name, t.description, t.database_table,
                    c.code as category_code, c.full_name as category_name,
                    d.code as discipline_code
             FROM object_type_codes t
