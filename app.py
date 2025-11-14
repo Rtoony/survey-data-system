@@ -1282,7 +1282,7 @@ def get_project_command_center_data(project_id):
         quality_result = execute_query(quality_query, (project_id,) * 4)
         quality_stats = quality_result[0] if quality_result else {}
         
-        # Get spatial extent
+        # Get spatial extent from all entity tables with geometry columns
         bbox_query = """
             SELECT 
                 ST_XMin(extent_geom) as min_x,
@@ -1290,18 +1290,58 @@ def get_project_command_center_data(project_id):
                 ST_XMax(extent_geom) as max_x,
                 ST_YMax(extent_geom) as max_y
             FROM (
-                SELECT ST_Extent(
-                    CASE 
-                        WHEN ST_SRID(de.geometry) = 0 THEN ST_Transform(ST_SetSRID(de.geometry, 2226), 4326)
-                        WHEN ST_SRID(de.geometry) = 2226 THEN ST_Transform(de.geometry, 4326)
-                        ELSE ST_Transform(de.geometry, 4326)
-                    END
-                ) as extent_geom
-                FROM drawing_entities de
-                WHERE de.project_id = %s AND de.geometry IS NOT NULL
+                SELECT ST_Extent(geom) as extent_geom
+                FROM (
+                    SELECT CASE 
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END as geom
+                    FROM drawing_entities WHERE project_id = %s AND geometry IS NOT NULL
+                    
+                    UNION ALL
+                    SELECT CASE 
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END as geom
+                    FROM generic_objects WHERE project_id = %s AND geometry IS NOT NULL
+                    
+                    UNION ALL
+                    SELECT CASE 
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END as geom
+                    FROM utility_lines WHERE project_id = %s AND geometry IS NOT NULL
+                    
+                    UNION ALL
+                    SELECT CASE 
+                        WHEN ST_SRID(rim_geometry) = 0 THEN ST_Transform(ST_SetSRID(rim_geometry, 2226), 4326)
+                        WHEN ST_SRID(rim_geometry) = 2226 THEN ST_Transform(rim_geometry, 4326)
+                        ELSE ST_Transform(rim_geometry, 4326)
+                    END as geom
+                    FROM utility_structures WHERE project_id = %s AND rim_geometry IS NOT NULL
+                    
+                    UNION ALL
+                    SELECT CASE 
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END as geom
+                    FROM storm_bmps WHERE project_id = %s AND geometry IS NOT NULL
+                    
+                    UNION ALL
+                    SELECT CASE 
+                        WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
+                        WHEN ST_SRID(geometry) = 2226 THEN ST_Transform(geometry, 4326)
+                        ELSE ST_Transform(geometry, 4326)
+                    END as geom
+                    FROM survey_points WHERE project_id = %s AND geometry IS NOT NULL AND is_active = true
+                ) all_geometries
             ) sub
         """
-        bbox_result = execute_query(bbox_query, (project_id,))
+        bbox_result = execute_query(bbox_query, (project_id,) * 6)
         bbox = None
         if bbox_result and bbox_result[0]['min_x']:
             bbox = {
@@ -1467,7 +1507,7 @@ def reclassify_generic_object(project_id, object_id):
             'layer_name': obj['original_layer_name'],
             'entity_type': obj['original_entity_type'],
             'geometry_wkt': obj['geometry_wkt'],
-            'geometry_type': obj['geom_type'].replace('ST_', ''),
+            'geometry_type': obj['geom_type'].replace('ST_', '').upper(),
             'dxf_handle': obj['source_dxf_handle'],
             'attributes': obj['attributes']
         }
@@ -1480,29 +1520,41 @@ def reclassify_generic_object(project_id, object_id):
             network_mode=None
         )
         
-        # Initialize creator and create the specific object
-        creator = IntelligentObjectCreator(get_db_config())
-        
-        # Call the appropriate creation method
-        if target_type == 'utility_line':
-            result = creator._create_utility_line(entity_data, classification, project_id)
-        elif target_type == 'utility_structure':
-            result = creator._create_utility_structure(entity_data, classification, project_id)
-        elif target_type == 'bmp':
-            result = creator._create_bmp(entity_data, classification, project_id)
-        elif target_type == 'surface_model':
-            result = creator._create_surface_model(entity_data, classification, project_id)
-        elif target_type == 'alignment':
-            result = creator._create_alignment(entity_data, classification, project_id)
-        elif target_type == 'survey_point':
-            result = creator._create_survey_point(entity_data, classification, project_id)
-        elif target_type == 'site_tree':
-            result = creator._create_site_tree(entity_data, classification, project_id)
-        
-        if not result:
-            return jsonify({'error': 'Failed to create object of target type'}), 500
-        
-        object_type, new_object_id, table_name = result
+        # Initialize creator with database connection and perform reclassification
+        with get_db() as conn:
+            creator = IntelligentObjectCreator(DB_CONFIG, conn=conn)
+            
+            # Call the appropriate creation method
+            if target_type == 'utility_line':
+                result = creator._create_utility_line(entity_data, classification, project_id)
+                expected_geom = 'LINESTRING'
+            elif target_type == 'utility_structure':
+                result = creator._create_utility_structure(entity_data, classification, project_id)
+                expected_geom = 'POINT'
+            elif target_type == 'bmp':
+                result = creator._create_bmp(entity_data, classification, project_id)
+                expected_geom = 'POLYGON or closed LINESTRING'
+            elif target_type == 'surface_model':
+                result = creator._create_surface_model(entity_data, classification, project_id)
+                expected_geom = 'POLYGON'
+            elif target_type == 'alignment':
+                result = creator._create_alignment(entity_data, classification, project_id)
+                expected_geom = 'LINESTRING'
+            elif target_type == 'survey_point':
+                result = creator._create_survey_point(entity_data, classification, project_id)
+                expected_geom = 'POINT'
+            elif target_type == 'site_tree':
+                result = creator._create_site_tree(entity_data, classification, project_id)
+                expected_geom = 'POINT'
+            
+            if not result:
+                actual_geom = entity_data['geometry_type']
+                return jsonify({
+                    'error': f'Cannot create {target_type} from {actual_geom} geometry. Expected: {expected_geom}. '
+                             f'Please choose a target type compatible with this geometry.'
+                }), 400
+            
+            object_type, new_object_id, table_name = result
         
         # Update generic object status to 'reclassified'
         update_query = """
@@ -1514,11 +1566,11 @@ def reclassify_generic_object(project_id, object_id):
                 updated_at = CURRENT_TIMESTAMP
             WHERE object_id = %s
         """
-        execute_update(update_query, (f'Reclassified to {target_type}. {notes}', object_id))
+        execute_query(update_query, (f'Reclassified to {target_type}. {notes}', object_id))
         
         # Update existing entity link to point to new object (CRITICAL for unique constraint compliance)
         if obj['source_dxf_handle']:
-            # First try to update existing link
+            # Try to update link for this generic_object
             link_update_query = """
                 UPDATE dxf_entity_links
                 SET object_table_name = %s,
@@ -1528,18 +1580,30 @@ def reclassify_generic_object(project_id, object_id):
                   AND dxf_handle = %s
                   AND object_table_name = 'generic_objects'
                   AND object_id = %s
+                RETURNING entity_link_id
             """
-            rows_updated = execute_update(link_update_query, 
+            update_result = execute_query(link_update_query, 
                                          (table_name, new_object_id, project_id, 
                                           obj['source_dxf_handle'], object_id))
+            rows_updated = len(update_result) if update_result else 0
             
-            # If no existing link was found, create new one (shouldn't happen but fail-safe)
+            # If no link found for this generic_object, update ANY link with this dxf_handle
             if rows_updated == 0:
-                creator._create_entity_link(
-                    project_id, None, obj['source_dxf_handle'], obj['original_entity_type'],
-                    obj['original_layer_name'], obj['geometry_wkt'],
-                    object_type, new_object_id, table_name
-                )
+                # Find and update the link regardless of what it currently points to
+                fallback_update_query = """
+                    UPDATE dxf_entity_links
+                    SET object_table_name = %s,
+                        object_id = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE project_id = %s 
+                      AND dxf_handle = %s
+                    RETURNING entity_link_id
+                """
+                fallback_result = execute_query(fallback_update_query,
+                                              (table_name, new_object_id, project_id,
+                                               obj['source_dxf_handle']))
+                if not fallback_result:
+                    print(f"Warning: No entity link found at all for handle {obj['source_dxf_handle']}")
         
         return jsonify({
             'success': True,
@@ -1570,7 +1634,7 @@ def approve_generic_object(project_id, object_id):
                 updated_at = CURRENT_TIMESTAMP
             WHERE object_id = %s AND project_id = %s
         """
-        execute_update(update_query, (notes, object_id, project_id))
+        execute_query(update_query, (notes, object_id, project_id))
         
         return jsonify({
             'success': True,
