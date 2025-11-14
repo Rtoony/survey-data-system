@@ -1631,21 +1631,100 @@ def get_generic_objects(project_id):
 
 @app.route('/api/projects/<project_id>/generic-objects/<object_id>/reclassify', methods=['POST'])
 def reclassify_generic_object(project_id, object_id):
-    """Reclassify a generic object to a specific type"""
+    """Vocabulary-driven reclassification of generic object with layer name construction"""
     try:
         data = request.get_json()
-        if not data or 'target_type' not in data:
-            return jsonify({'error': 'target_type is required'}), 400
         
-        target_type = data['target_type']
+        # Validate required vocabulary selections
+        required_fields = ['discipline_id', 'category_id', 'type_id', 'phase_id', 'geometry_id']
+        missing_fields = [f for f in required_fields if f not in data or not data[f]]
+        
+        if missing_fields:
+            return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
+        
+        discipline_id = data['discipline_id']
+        category_id = data['category_id']
+        type_id = data['type_id']
+        attribute_ids = data.get('attribute_ids', [])  # Optional
+        phase_id = data['phase_id']
+        geometry_id = data['geometry_id']
         notes = data.get('notes', '')
         
-        # Valid target types
-        valid_types = ['utility_line', 'utility_structure', 'bmp', 'surface_model', 
-                      'alignment', 'survey_point', 'site_tree']
+        # Fetch vocabulary data to build layer name
+        vocab_query = """
+            SELECT 
+                d.code as discipline_code,
+                c.code as category_code,
+                t.code as type_code,
+                t.database_table as target_table,
+                p.code as phase_code,
+                g.code as geometry_code
+            FROM layer_disciplines d
+            JOIN layer_categories c ON d.discipline_id = c.discipline_id
+            JOIN layer_object_types t ON c.category_id = t.category_id
+            JOIN layer_phases p ON p.phase_id = %s
+            JOIN layer_geometries g ON g.geometry_id = %s
+            WHERE d.discipline_id = %s
+              AND c.category_id = %s
+              AND t.type_id = %s
+        """
+        vocab_result = execute_query(vocab_query, (phase_id, geometry_id, discipline_id, category_id, type_id))
         
-        if target_type not in valid_types:
-            return jsonify({'error': f'Invalid target_type. Must be one of: {", ".join(valid_types)}'}), 400
+        if not vocab_result:
+            return jsonify({'error': 'Invalid vocabulary selection - combination not found'}), 400
+        
+        vocab = vocab_result[0]
+        target_table = vocab['target_table']
+        
+        # Map database table name to target_type for IntelligentObjectCreator
+        table_to_type_map = {
+            'utility_lines': 'utility_line',
+            'utility_structures': 'utility_structure',
+            'storm_bmps': 'bmp',
+            'surface_models': 'surface_model',
+            'alignments': 'alignment',
+            'survey_points': 'survey_point',
+            'site_trees': 'site_tree'
+        }
+        
+        target_type = table_to_type_map.get(target_table)
+        if not target_type:
+            return jsonify({'error': f'Invalid database table: {target_table}'}), 400
+        
+        # Build layer name: DISC-CAT-TYPE-[ATTR1-ATTR2]-PHASE-GEOM
+        layer_name_parts = [
+            vocab['discipline_code'],
+            vocab['category_code'],
+            vocab['type_code']
+        ]
+        
+        # Add attributes if provided
+        if attribute_ids:
+            attr_query = """
+                SELECT code 
+                FROM attribute_codes 
+                WHERE attribute_id = ANY(%s)
+                ORDER BY code
+            """
+            attr_result = execute_query(attr_query, (attribute_ids,))
+            if attr_result:
+                attr_codes = [a['code'] for a in attr_result]
+                layer_name_parts.append('-'.join(attr_codes))
+        
+        # Add phase and geometry
+        layer_name_parts.append(vocab['phase_code'])
+        layer_name_parts.append(vocab['geometry_code'])
+        
+        constructed_layer_name = '-'.join(layer_name_parts)
+        
+        # Use DXFLookupService to get or create layer_id
+        from dxf_lookup_service import DXFLookupService
+        lookup_service = DXFLookupService(DB_CONFIG)
+        layer_id = lookup_service.get_or_create_layer(
+            layer_name=constructed_layer_name,
+            project_id=project_id,
+            drawing_id=None  # Project-level layer assignment
+        )
         
         # Get the generic object
         obj_query = """
@@ -1731,15 +1810,16 @@ def reclassify_generic_object(project_id, object_id):
                 updated_at = CURRENT_TIMESTAMP
             WHERE object_id = %s
         """
-        execute_query(update_query, (f'Reclassified to {target_type}. {notes}', object_id))
+        execute_query(update_query, (f'Reclassified to {target_type}. Layer: {constructed_layer_name}. {notes}', object_id))
         
-        # Update existing entity link to point to new object (CRITICAL for unique constraint compliance)
+        # Update existing entity link to point to new object with layer_id (CRITICAL for Entity Browser display)
         if obj['source_dxf_handle']:
             # Try to update link for this generic_object
             link_update_query = """
                 UPDATE dxf_entity_links
                 SET object_table_name = %s,
                     object_id = %s,
+                    layer_id = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE project_id = %s 
                   AND dxf_handle = %s
@@ -1748,7 +1828,7 @@ def reclassify_generic_object(project_id, object_id):
                 RETURNING entity_link_id
             """
             update_result = execute_query(link_update_query, 
-                                         (table_name, new_object_id, project_id, 
+                                         (table_name, new_object_id, layer_id, project_id, 
                                           obj['source_dxf_handle'], object_id))
             rows_updated = len(update_result) if update_result else 0
             
@@ -1759,23 +1839,26 @@ def reclassify_generic_object(project_id, object_id):
                     UPDATE dxf_entity_links
                     SET object_table_name = %s,
                         object_id = %s,
+                        layer_id = %s,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE project_id = %s 
                       AND dxf_handle = %s
                     RETURNING entity_link_id
                 """
                 fallback_result = execute_query(fallback_update_query,
-                                              (table_name, new_object_id, project_id,
+                                              (table_name, new_object_id, layer_id, project_id,
                                                obj['source_dxf_handle']))
                 if not fallback_result:
                     print(f"Warning: No entity link found at all for handle {obj['source_dxf_handle']}")
         
         return jsonify({
             'success': True,
-            'message': f'Object reclassified to {target_type}',
+            'message': f'Object reclassified successfully',
             'new_object_id': new_object_id,
             'new_object_type': object_type,
-            'table_name': table_name
+            'table_name': table_name,
+            'layer_name': constructed_layer_name,
+            'layer_id': layer_id
         })
         
     except Exception as e:

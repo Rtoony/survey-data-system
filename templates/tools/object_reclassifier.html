@@ -81,56 +81,161 @@
     </div>
 </div>
 
-<!-- Reclassification Modal -->
+<!-- Reclassification Wizard Modal -->
 <div id="reclassifyModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-content" style="max-width: 800px;">
         <div class="modal-header">
             <h3><i class="fas fa-exchange-alt"></i> Reclassify Object</h3>
             <button class="modal-close" onclick="closeReclassifyModal()">&times;</button>
         </div>
-        <div class="modal-body">
-            <div class="mc-form-group">
-                <label>Current Layer:</label>
-                <div id="modalLayerName" class="info-display"></div>
+        
+        <!-- Progress Indicator -->
+        <div class="wizard-progress">
+            <div class="wizard-step active" data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-label">Discipline</div>
             </div>
-
-            <div class="mc-form-group">
-                <label>Entity Type:</label>
-                <div id="modalEntityType" class="info-display"></div>
+            <div class="wizard-step" data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-label">Category</div>
             </div>
-
-            <div class="mc-form-group">
-                <label>Suggested Type:</label>
-                <div id="modalSuggestedType" class="info-display"></div>
+            <div class="wizard-step" data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-label">Type</div>
             </div>
-
-            <div class="mc-form-group">
-                <label>Confidence:</label>
-                <div id="modalConfidence" class="info-display"></div>
+            <div class="wizard-step" data-step="4">
+                <div class="step-number">4</div>
+                <div class="step-label">Attributes</div>
             </div>
-
-            <div class="mc-form-group">
-                <label for="targetType">Reclassify As:</label>
-                <select id="targetType" class="mc-select">
-                    <option value="">-- Select Target Type --</option>
-                    <option value="utility_line">Utility Line</option>
-                    <option value="utility_structure">Utility Structure</option>
-                    <option value="bmp">BMP (Stormwater Feature)</option>
-                    <option value="surface_model">Surface Model</option>
-                    <option value="alignment">Alignment/Centerline</option>
-                    <option value="survey_point">Survey Point</option>
-                    <option value="site_tree">Site Tree</option>
-                </select>
+            <div class="wizard-step" data-step="5">
+                <div class="step-number">5</div>
+                <div class="step-label">Phase</div>
             </div>
-
-            <div class="mc-form-group">
-                <label for="reclassifyNotes">Notes (optional):</label>
-                <textarea id="reclassifyNotes" class="mc-textarea" rows="3" placeholder="Add any notes about this reclassification..."></textarea>
+            <div class="wizard-step" data-step="6">
+                <div class="step-number">6</div>
+                <div class="step-label">Review</div>
             </div>
         </div>
+        
+        <div class="modal-body">
+            <!-- Object Context (Always Visible) -->
+            <div class="object-context">
+                <div class="context-grid">
+                    <div class="context-item">
+                        <span class="context-label">Current Layer:</span>
+                        <span id="modalLayerName" class="context-value"></span>
+                    </div>
+                    <div class="context-item">
+                        <span class="context-label">Entity Type:</span>
+                        <span id="modalEntityType" class="context-value"></span>
+                    </div>
+                    <div class="context-item">
+                        <span class="context-label">Geometry:</span>
+                        <span id="modalGeometry" class="context-value"></span>
+                    </div>
+                    <div class="context-item">
+                        <span class="context-label">Confidence:</span>
+                        <span id="modalConfidence" class="context-value"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Layer Name Preview -->
+            <div class="layer-preview">
+                <label>New Layer Name Preview:</label>
+                <div id="layerNamePreview" class="layer-name-display">
+                    <span class="preview-segment incomplete">DISCIPLINE</span>-<span class="preview-segment incomplete">CATEGORY</span>-<span class="preview-segment incomplete">TYPE</span>-<span class="preview-segment optional">[ATTRIBUTES]</span>-<span class="preview-segment incomplete">PHASE</span>-<span class="preview-segment auto">GEOMETRY</span>
+                </div>
+            </div>
+            
+            <!-- Step 1: Discipline -->
+            <div class="wizard-content active" data-step="1">
+                <h4><i class="fas fa-layer-group"></i> Select Discipline</h4>
+                <p class="step-instruction">Choose the primary discipline for this object</p>
+                <div id="disciplineGrid" class="selection-grid"></div>
+            </div>
+            
+            <!-- Step 2: Category -->
+            <div class="wizard-content" data-step="2">
+                <h4><i class="fas fa-folder"></i> Select Category</h4>
+                <p class="step-instruction">Choose the category within <span id="selectedDisciplineName" class="highlight"></span></p>
+                <div id="categoryGrid" class="selection-grid"></div>
+            </div>
+            
+            <!-- Step 3: Type -->
+            <div class="wizard-content" data-step="3">
+                <h4><i class="fas fa-cube"></i> Select Object Type</h4>
+                <p class="step-instruction">Choose the specific type within <span id="selectedCategoryName" class="highlight"></span></p>
+                <div id="typeGrid" class="selection-grid"></div>
+            </div>
+            
+            <!-- Step 4: Attributes -->
+            <div class="wizard-content" data-step="4">
+                <h4><i class="fas fa-tags"></i> Select Attributes (Optional)</h4>
+                <p class="step-instruction">Add size, material, or other attributes for <span id="selectedTypeName" class="highlight"></span></p>
+                <div id="attributesList" class="attribute-list"></div>
+                <p class="text-dim" style="font-size: 0.85rem; margin-top: 1rem;">
+                    <i class="fas fa-info-circle"></i> Attributes are optional details like pipe diameter (12IN), material (PVC), or slope (2PCT)
+                </p>
+            </div>
+            
+            <!-- Step 5: Phase -->
+            <div class="wizard-content" data-step="5">
+                <h4><i class="fas fa-clock"></i> Select Phase</h4>
+                <p class="step-instruction">Choose the construction or design phase</p>
+                <div id="phaseGrid" class="selection-grid"></div>
+            </div>
+            
+            <!-- Step 6: Review -->
+            <div class="wizard-content" data-step="6">
+                <h4><i class="fas fa-check-circle"></i> Review & Confirm</h4>
+                <div class="review-summary">
+                    <div class="summary-item">
+                        <span class="summary-label">Discipline:</span>
+                        <span id="reviewDiscipline" class="summary-value"></span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Category:</span>
+                        <span id="reviewCategory" class="summary-value"></span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Type:</span>
+                        <span id="reviewType" class="summary-value"></span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Attributes:</span>
+                        <span id="reviewAttributes" class="summary-value"></span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Phase:</span>
+                        <span id="reviewPhase" class="summary-value"></span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Geometry:</span>
+                        <span id="reviewGeometry" class="summary-value"></span>
+                    </div>
+                    <div class="summary-item highlight">
+                        <span class="summary-label">Final Layer Name:</span>
+                        <span id="reviewLayerName" class="summary-value" style="font-family: 'Courier New', monospace;"></span>
+                    </div>
+                </div>
+                
+                <div class="mc-form-group" style="margin-top: 1.5rem;">
+                    <label for="reclassifyNotes">Notes (optional):</label>
+                    <textarea id="reclassifyNotes" class="mc-textarea" rows="3" placeholder="Add any notes about this reclassification..."></textarea>
+                </div>
+            </div>
+        </div>
+        
         <div class="modal-footer">
+            <button id="wizardBackBtn" onclick="wizardBack()" class="btn btn-secondary" style="display: none;">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
             <button onclick="closeReclassifyModal()" class="btn btn-secondary">Cancel</button>
-            <button onclick="submitReclassification()" class="btn btn-primary">
+            <button id="wizardNextBtn" onclick="wizardNext()" class="btn btn-primary" disabled>
+                Next <i class="fas fa-arrow-right"></i>
+            </button>
+            <button id="wizardSubmitBtn" onclick="submitReclassification()" class="btn btn-success" style="display: none;">
                 <i class="fas fa-check"></i> Reclassify
             </button>
         </div>
@@ -253,6 +358,320 @@
     z-index: 10000;
 }
 
+/* Wizard Styles */
+.wizard-progress {
+    display: flex;
+    justify-content: space-between;
+    padding: 1.5rem 2rem;
+    background: rgba(0,255,255,0.03);
+    border-bottom: 1px solid rgba(0,255,255,0.2);
+}
+
+.wizard-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    position: relative;
+    opacity: 0.4;
+    transition: opacity 0.3s;
+}
+
+.wizard-step.active,
+.wizard-step.completed {
+    opacity: 1;
+}
+
+.wizard-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    width: 100%;
+    height: 2px;
+    background: rgba(0,255,255,0.2);
+    z-index: -1;
+}
+
+.wizard-step.completed:not(:last-child)::after {
+    background: var(--accent-color);
+}
+
+.step-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(0,255,255,0.1);
+    border: 2px solid rgba(0,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.wizard-step.active .step-number {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: var(--bg-primary);
+}
+
+.wizard-step.completed .step-number {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.wizard-step.completed .step-number::before {
+    content: '\f00c';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+}
+
+.step-label {
+    font-size: 0.75rem;
+    text-align: center;
+    color: var(--text-dim);
+}
+
+.wizard-step.active .step-label {
+    color: var(--accent-color);
+    font-weight: 600;
+}
+
+.wizard-content {
+    display: none;
+    padding: 1.5rem 0;
+    min-height: 300px;
+}
+
+.wizard-content.active {
+    display: block;
+}
+
+.wizard-content h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--accent-color);
+}
+
+.step-instruction {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+}
+
+.highlight {
+    color: var(--accent-color);
+    font-weight: 600;
+}
+
+.object-context {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: rgba(0,255,255,0.03);
+    border: 1px solid rgba(0,255,255,0.15);
+    border-radius: 6px;
+}
+
+.context-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.context-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.context-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.context-value {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+.layer-preview {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: rgba(0,0,0,0.3);
+    border: 2px dashed rgba(0,255,255,0.3);
+    border-radius: 6px;
+}
+
+.layer-preview label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+}
+
+.layer-name-display {
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    letter-spacing: 1px;
+}
+
+.preview-segment {
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.preview-segment.incomplete {
+    color: rgba(255,255,255,0.3);
+}
+
+.preview-segment.complete {
+    color: var(--accent-color);
+    background: rgba(0,255,255,0.1);
+}
+
+.preview-segment.optional {
+    color: rgba(255,255,255,0.4);
+    font-style: italic;
+}
+
+.preview-segment.auto {
+    color: #00ff00;
+}
+
+.selection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+}
+
+.selection-card {
+    padding: 1rem;
+    background: rgba(0,255,255,0.05);
+    border: 2px solid rgba(0,255,255,0.2);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.selection-card:hover {
+    background: rgba(0,255,255,0.1);
+    border-color: rgba(0,255,255,0.4);
+    transform: translateY(-2px);
+}
+
+.selection-card.selected {
+    background: rgba(0,255,255,0.15);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(0,255,255,0.3);
+}
+
+.selection-code {
+    font-weight: 700;
+    color: var(--accent-color);
+    font-family: 'Courier New', monospace;
+    margin-bottom: 0.25rem;
+}
+
+.selection-name {
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+.selection-desc {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 0.25rem;
+}
+
+.attribute-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.attribute-checkbox {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    background: rgba(0,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.attribute-checkbox:hover {
+    background: rgba(0,255,255,0.1);
+    border-color: rgba(0,255,255,0.4);
+}
+
+.attribute-checkbox.selected {
+    background: rgba(0,255,255,0.15);
+    border-color: var(--accent-color);
+}
+
+.attribute-checkbox input[type="checkbox"] {
+    margin-right: 0.75rem;
+    width: 18px;
+    height: 18px;
+}
+
+.attribute-info {
+    flex: 1;
+}
+
+.attribute-code {
+    font-weight: 600;
+    color: var(--accent-color);
+    font-family: 'Courier New', monospace;
+}
+
+.attribute-name {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-left: 0.5rem;
+}
+
+.review-summary {
+    background: rgba(0,255,255,0.03);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 6px;
+    padding: 1.5rem;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(0,255,255,0.1);
+}
+
+.summary-item:last-child {
+    border-bottom: none;
+}
+
+.summary-item.highlight {
+    background: rgba(0,255,255,0.08);
+    padding: 1rem;
+    margin: 0.5rem -0.5rem;
+    border-radius: 4px;
+}
+
+.summary-label {
+    font-weight: 600;
+    color: var(--text-dim);
+}
+
+.summary-value {
+    color: var(--text-color);
+}
+
 .modal-content {
     background: var(--bg-secondary);
     border: 1px solid rgba(0,255,255,0.3);
@@ -309,6 +728,46 @@
 let currentProjectId = null;
 let currentObjects = [];
 let selectedObjectId = null;
+
+// Wizard state management
+const wizardState = {
+    currentStep: 1,
+    selectedDiscipline: null,
+    selectedCategory: null,
+    selectedType: null,
+    selectedAttributes: [],
+    selectedPhase: null,
+    geometryCode: null,
+    
+    disciplineName: '',
+    categoryName: '',
+    typeName: '',
+    phaseName: '',
+    
+    reset() {
+        this.currentStep = 1;
+        this.selectedDiscipline = null;
+        this.selectedCategory = null;
+        this.selectedType = null;
+        this.selectedAttributes = [];
+        this.selectedPhase = null;
+        this.geometryCode = null;
+        this.disciplineName = '';
+        this.categoryName = '';
+        this.typeName = '';
+        this.phaseName = '';
+    }
+};
+
+// Vocabulary data cache
+const vocabularyCache = {
+    disciplines: null,
+    phases: null,
+    geometries: null,
+    categories: {},
+    types: {},
+    attributes: {}
+};
 
 // Load projects on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -441,34 +900,524 @@ function updateStats(summary) {
     document.getElementById('statReclassified').textContent = summary.by_status?.reclassified || 0;
 }
 
-function openReclassifyModal(objectId) {
+// ============================================
+// VOCABULARY DATA LOADING FUNCTIONS
+// ============================================
+
+async function loadVocabularyData() {
+    try {
+        if (!vocabularyCache.disciplines) {
+            const response = await fetch('/api/vocabulary/disciplines');
+            const data = await response.json();
+            vocabularyCache.disciplines = data.disciplines || [];
+        }
+        
+        if (!vocabularyCache.phases) {
+            const response = await fetch('/api/vocabulary/phases');
+            const data = await response.json();
+            vocabularyCache.phases = data.phases || [];
+        }
+        
+        if (!vocabularyCache.geometries) {
+            const response = await fetch('/api/vocabulary/geometries');
+            const data = await response.json();
+            vocabularyCache.geometries = data.geometries || [];
+        }
+    } catch (error) {
+        console.error('Error loading vocabulary data:', error);
+        throw error;
+    }
+}
+
+async function loadCategories(disciplineId) {
+    if (vocabularyCache.categories[disciplineId]) {
+        return vocabularyCache.categories[disciplineId];
+    }
+    
+    try {
+        const response = await fetch(`/api/vocabulary/categories?discipline_id=${disciplineId}`);
+        const data = await response.json();
+        vocabularyCache.categories[disciplineId] = data.categories || [];
+        return vocabularyCache.categories[disciplineId];
+    } catch (error) {
+        console.error('Error loading categories:', error);
+        return [];
+    }
+}
+
+async function loadTypes(categoryId) {
+    if (vocabularyCache.types[categoryId]) {
+        return vocabularyCache.types[categoryId];
+    }
+    
+    try {
+        const response = await fetch(`/api/vocabulary/object-types?category_id=${categoryId}`);
+        const data = await response.json();
+        vocabularyCache.types[categoryId] = data.types || [];
+        return vocabularyCache.types[categoryId];
+    } catch (error) {
+        console.error('Error loading types:', error);
+        return [];
+    }
+}
+
+async function loadApplicableAttributes(categoryId, typeId) {
+    const cacheKey = `${categoryId}_${typeId}`;
+    if (vocabularyCache.attributes[cacheKey]) {
+        return vocabularyCache.attributes[cacheKey];
+    }
+    
+    try {
+        const response = await fetch(`/api/vocabulary/attribute-applicability?category_id=${categoryId}&type_id=${typeId}`);
+        const data = await response.json();
+        vocabularyCache.attributes[cacheKey] = data.attributes || [];
+        return vocabularyCache.attributes[cacheKey];
+    } catch (error) {
+        console.error('Error loading applicable attributes:', error);
+        return [];
+    }
+}
+
+// ============================================
+// WIZARD NAVIGATION FUNCTIONS
+// ============================================
+
+function updateWizardUI() {
+    document.querySelectorAll('.wizard-step').forEach((step, index) => {
+        const stepNum = index + 1;
+        step.classList.remove('active', 'completed');
+        
+        if (stepNum < wizardState.currentStep) {
+            step.classList.add('completed');
+        } else if (stepNum === wizardState.currentStep) {
+            step.classList.add('active');
+        }
+    });
+    
+    document.querySelectorAll('.wizard-content').forEach((content, index) => {
+        content.classList.toggle('active', index + 1 === wizardState.currentStep);
+    });
+    
+    const backBtn = document.getElementById('wizardBackBtn');
+    const nextBtn = document.getElementById('wizardNextBtn');
+    const submitBtn = document.getElementById('wizardSubmitBtn');
+    
+    backBtn.style.display = wizardState.currentStep > 1 ? 'inline-block' : 'none';
+    
+    if (wizardState.currentStep === 6) {
+        nextBtn.style.display = 'none';
+        submitBtn.style.display = 'inline-block';
+    } else {
+        nextBtn.style.display = 'inline-block';
+        submitBtn.style.display = 'none';
+        
+        const isStepValid = validateCurrentStep();
+        nextBtn.disabled = !isStepValid;
+    }
+    
+    updateLayerPreview();
+}
+
+function validateCurrentStep() {
+    switch (wizardState.currentStep) {
+        case 1:
+            return wizardState.selectedDiscipline !== null;
+        case 2:
+            return wizardState.selectedCategory !== null;
+        case 3:
+            return wizardState.selectedType !== null;
+        case 4:
+            return true;
+        case 5:
+            return wizardState.selectedPhase !== null;
+        case 6:
+            return true;
+        default:
+            return false;
+    }
+}
+
+async function wizardNext() {
+    if (!validateCurrentStep()) {
+        return;
+    }
+    
+    wizardState.currentStep++;
+    
+    if (wizardState.currentStep === 2) {
+        await renderCategories();
+    } else if (wizardState.currentStep === 3) {
+        await renderTypes();
+    } else if (wizardState.currentStep === 4) {
+        await renderAttributes();
+    } else if (wizardState.currentStep === 5) {
+        renderPhases();
+    } else if (wizardState.currentStep === 6) {
+        renderReview();
+    }
+    
+    updateWizardUI();
+}
+
+function wizardBack() {
+    if (wizardState.currentStep > 1) {
+        wizardState.currentStep--;
+        updateWizardUI();
+    }
+}
+
+// ============================================
+// LAYER NAME PREVIEW
+// ============================================
+
+function updateLayerPreview() {
+    const preview = document.getElementById('layerNamePreview');
+    
+    const discCode = wizardState.selectedDiscipline 
+        ? vocabularyCache.disciplines.find(d => d.discipline_id === wizardState.selectedDiscipline)?.discipline_code || 'DISC'
+        : 'DISCIPLINE';
+    
+    const catCode = wizardState.selectedCategory
+        ? (vocabularyCache.categories[wizardState.selectedDiscipline] || []).find(c => c.category_id === wizardState.selectedCategory)?.category_code || 'CAT'
+        : 'CATEGORY';
+    
+    const typeCode = wizardState.selectedType
+        ? (vocabularyCache.types[wizardState.selectedCategory] || []).find(t => t.type_id === wizardState.selectedType)?.type_code || 'TYPE'
+        : 'TYPE';
+    
+    let attrSegment = '';
+    if (wizardState.selectedAttributes.length > 0) {
+        const attrCodes = wizardState.selectedAttributes.map(attrId => {
+            const cacheKey = `${wizardState.selectedCategory}_${wizardState.selectedType}`;
+            const attrs = vocabularyCache.attributes[cacheKey] || [];
+            const attr = attrs.find(a => a.attribute_id === attrId);
+            return attr?.attribute_code || 'ATTR';
+        });
+        attrSegment = attrCodes.join('-');
+    }
+    
+    const phaseCode = wizardState.selectedPhase
+        ? (vocabularyCache.phases || []).find(p => p.phase_id === wizardState.selectedPhase)?.phase_code || 'PHASE'
+        : 'PHASE';
+    
+    const geomCode = wizardState.geometryCode || 'GEOM';
+    
+    let html = '';
+    html += `<span class="preview-segment ${wizardState.selectedDiscipline ? 'complete' : 'incomplete'}">${discCode}</span>`;
+    html += '-';
+    html += `<span class="preview-segment ${wizardState.selectedCategory ? 'complete' : 'incomplete'}">${catCode}</span>`;
+    html += '-';
+    html += `<span class="preview-segment ${wizardState.selectedType ? 'complete' : 'incomplete'}">${typeCode}</span>`;
+    
+    if (attrSegment) {
+        html += '-';
+        html += `<span class="preview-segment complete">${attrSegment}</span>`;
+    } else {
+        html += '-';
+        html += `<span class="preview-segment optional">[ATTRIBUTES]</span>`;
+    }
+    
+    html += '-';
+    html += `<span class="preview-segment ${wizardState.selectedPhase ? 'complete' : 'incomplete'}">${phaseCode}</span>`;
+    html += '-';
+    html += `<span class="preview-segment auto">${geomCode}</span>`;
+    
+    preview.innerHTML = html;
+}
+
+// ============================================
+// STEP-SPECIFIC RENDERING FUNCTIONS
+// ============================================
+
+function renderDisciplines() {
+    const grid = document.getElementById('disciplineGrid');
+    const disciplines = vocabularyCache.disciplines || [];
+    
+    if (disciplines.length === 0) {
+        grid.innerHTML = '<p class="text-dim">No disciplines available</p>';
+        return;
+    }
+    
+    grid.innerHTML = disciplines.map(disc => `
+        <div class="selection-card ${wizardState.selectedDiscipline === disc.discipline_id ? 'selected' : ''}" 
+             onclick="selectDiscipline('${disc.discipline_id}', '${disc.discipline_code}')">
+            <div class="selection-code">${disc.discipline_code}</div>
+            <div class="selection-name">${disc.discipline_name}</div>
+            ${disc.description ? `<div class="selection-desc">${disc.description}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+async function renderCategories() {
+    const grid = document.getElementById('categoryGrid');
+    grid.innerHTML = '<p class="text-dim"><i class="fas fa-spinner fa-spin"></i> Loading categories...</p>';
+    
+    const categories = await loadCategories(wizardState.selectedDiscipline);
+    
+    document.getElementById('selectedDisciplineName').textContent = wizardState.disciplineName;
+    
+    if (categories.length === 0) {
+        grid.innerHTML = '<p class="text-dim">No categories available for this discipline</p>';
+        return;
+    }
+    
+    grid.innerHTML = categories.map(cat => `
+        <div class="selection-card ${wizardState.selectedCategory === cat.category_id ? 'selected' : ''}" 
+             onclick="selectCategory('${cat.category_id}', '${cat.category_code}')">
+            <div class="selection-code">${cat.category_code}</div>
+            <div class="selection-name">${cat.category_name}</div>
+            ${cat.description ? `<div class="selection-desc">${cat.description}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+async function renderTypes() {
+    const grid = document.getElementById('typeGrid');
+    grid.innerHTML = '<p class="text-dim"><i class="fas fa-spinner fa-spin"></i> Loading types...</p>';
+    
+    const types = await loadTypes(wizardState.selectedCategory);
+    
+    document.getElementById('selectedCategoryName').textContent = wizardState.categoryName;
+    
+    if (types.length === 0) {
+        grid.innerHTML = '<p class="text-dim">No types available for this category</p>';
+        return;
+    }
+    
+    grid.innerHTML = types.map(type => `
+        <div class="selection-card ${wizardState.selectedType === type.type_id ? 'selected' : ''}" 
+             onclick="selectType('${type.type_id}', '${type.type_code}')">
+            <div class="selection-code">${type.type_code}</div>
+            <div class="selection-name">${type.type_name}</div>
+            ${type.description ? `<div class="selection-desc">${type.description}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+async function renderAttributes() {
+    const container = document.getElementById('attributesList');
+    container.innerHTML = '<p class="text-dim"><i class="fas fa-spinner fa-spin"></i> Loading attributes...</p>';
+    
+    const attributes = await loadApplicableAttributes(wizardState.selectedCategory, wizardState.selectedType);
+    
+    document.getElementById('selectedTypeName').textContent = wizardState.typeName;
+    
+    if (attributes.length === 0) {
+        container.innerHTML = '<p class="text-dim">No applicable attributes for this type. You may skip this step.</p>';
+        return;
+    }
+    
+    container.innerHTML = attributes.map(attr => `
+        <label class="attribute-checkbox ${wizardState.selectedAttributes.includes(attr.attribute_id) ? 'selected' : ''}">
+            <input type="checkbox" 
+                   value="${attr.attribute_id}" 
+                   ${wizardState.selectedAttributes.includes(attr.attribute_id) ? 'checked' : ''}
+                   onchange="toggleAttribute('${attr.attribute_id}')">
+            <div class="attribute-info">
+                <span class="attribute-code">${attr.attribute_code}</span>
+                <span class="attribute-name">${attr.attribute_name}</span>
+            </div>
+        </label>
+    `).join('');
+}
+
+function renderPhases() {
+    const grid = document.getElementById('phaseGrid');
+    const phases = vocabularyCache.phases || [];
+    
+    if (phases.length === 0) {
+        grid.innerHTML = '<p class="text-dim">No phases available</p>';
+        return;
+    }
+    
+    grid.innerHTML = phases.map(phase => `
+        <div class="selection-card ${wizardState.selectedPhase === phase.phase_id ? 'selected' : ''}" 
+             onclick="selectPhase('${phase.phase_id}', '${phase.phase_code}')">
+            <div class="selection-code">${phase.phase_code}</div>
+            <div class="selection-name">${phase.phase_name}</div>
+            ${phase.description ? `<div class="selection-desc">${phase.description}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+function renderReview() {
+    document.getElementById('reviewDiscipline').textContent = wizardState.disciplineName;
+    document.getElementById('reviewCategory').textContent = wizardState.categoryName;
+    document.getElementById('reviewType').textContent = wizardState.typeName;
+    
+    const attrNames = wizardState.selectedAttributes.map(attrId => {
+        const cacheKey = `${wizardState.selectedCategory}_${wizardState.selectedType}`;
+        const attrs = vocabularyCache.attributes[cacheKey] || [];
+        const attr = attrs.find(a => a.attribute_id === attrId);
+        return attr ? `${attr.attribute_code} (${attr.attribute_name})` : 'Unknown';
+    });
+    document.getElementById('reviewAttributes').textContent = attrNames.length > 0 ? attrNames.join(', ') : 'None';
+    
+    document.getElementById('reviewPhase').textContent = wizardState.phaseName;
+    document.getElementById('reviewGeometry').textContent = wizardState.geometryCode || 'N/A';
+    
+    const layerName = buildLayerName();
+    document.getElementById('reviewLayerName').textContent = layerName;
+}
+
+// ============================================
+// SELECTION HANDLERS
+// ============================================
+
+function selectDiscipline(disciplineId, disciplineCode) {
+    wizardState.selectedDiscipline = disciplineId;
+    wizardState.disciplineName = disciplineCode;
+    
+    wizardState.selectedCategory = null;
+    wizardState.selectedType = null;
+    wizardState.selectedAttributes = [];
+    wizardState.selectedPhase = null;
+    
+    renderDisciplines();
+    updateWizardUI();
+}
+
+function selectCategory(categoryId, categoryCode) {
+    wizardState.selectedCategory = categoryId;
+    wizardState.categoryName = categoryCode;
+    
+    wizardState.selectedType = null;
+    wizardState.selectedAttributes = [];
+    
+    renderCategories();
+    updateWizardUI();
+}
+
+function selectType(typeId, typeCode) {
+    wizardState.selectedType = typeId;
+    wizardState.typeName = typeCode;
+    
+    wizardState.selectedAttributes = [];
+    
+    renderTypes();
+    updateWizardUI();
+}
+
+function toggleAttribute(attributeId) {
+    const index = wizardState.selectedAttributes.indexOf(attributeId);
+    
+    if (index > -1) {
+        wizardState.selectedAttributes.splice(index, 1);
+    } else {
+        wizardState.selectedAttributes.push(attributeId);
+    }
+    
+    const checkbox = document.querySelector(`input[value="${attributeId}"]`);
+    if (checkbox) {
+        const label = checkbox.closest('.attribute-checkbox');
+        label.classList.toggle('selected', checkbox.checked);
+    }
+    
+    updateLayerPreview();
+}
+
+function selectPhase(phaseId, phaseCode) {
+    wizardState.selectedPhase = phaseId;
+    wizardState.phaseName = phaseCode;
+    
+    renderPhases();
+    updateWizardUI();
+}
+
+// ============================================
+// LAYER NAME BUILDING
+// ============================================
+
+function buildLayerName() {
+    const discCode = vocabularyCache.disciplines.find(d => d.discipline_id === wizardState.selectedDiscipline)?.discipline_code || '';
+    const catCode = (vocabularyCache.categories[wizardState.selectedDiscipline] || []).find(c => c.category_id === wizardState.selectedCategory)?.category_code || '';
+    const typeCode = (vocabularyCache.types[wizardState.selectedCategory] || []).find(t => t.type_id === wizardState.selectedType)?.type_code || '';
+    
+    const attrCodes = wizardState.selectedAttributes.map(attrId => {
+        const cacheKey = `${wizardState.selectedCategory}_${wizardState.selectedType}`;
+        const attrs = vocabularyCache.attributes[cacheKey] || [];
+        const attr = attrs.find(a => a.attribute_id === attrId);
+        return attr?.attribute_code || '';
+    }).filter(code => code);
+    
+    const phaseCode = (vocabularyCache.phases || []).find(p => p.phase_id === wizardState.selectedPhase)?.phase_code || '';
+    const geomCode = wizardState.geometryCode || '';
+    
+    let layerName = `${discCode}-${catCode}-${typeCode}`;
+    
+    if (attrCodes.length > 0) {
+        layerName += `-${attrCodes.join('-')}`;
+    }
+    
+    layerName += `-${phaseCode}-${geomCode}`;
+    
+    return layerName;
+}
+
+// ============================================
+// MODAL FUNCTIONS
+// ============================================
+
+async function openReclassifyModal(objectId) {
     const obj = currentObjects.find(o => o.object_id === objectId);
     if (!obj) return;
     
     selectedObjectId = objectId;
+    wizardState.reset();
     
     document.getElementById('modalLayerName').textContent = obj.original_layer_name || 'N/A';
     document.getElementById('modalEntityType').textContent = obj.original_entity_type || 'N/A';
-    document.getElementById('modalSuggestedType').textContent = obj.suggested_object_type || 'None';
+    
+    const geomMap = {
+        'LINE': 'LN',
+        'POLYLINE': 'LN',
+        'LWPOLYLINE': 'LN',
+        'CIRCLE': 'CR',
+        'ARC': 'AR',
+        'POINT': 'PT',
+        'INSERT': 'BK',
+        'TEXT': 'TX',
+        'MTEXT': 'TX',
+        'HATCH': 'HT',
+        'SOLID': 'SD'
+    };
+    
+    wizardState.geometryCode = geomMap[obj.original_entity_type] || 'UN';
+    
+    document.getElementById('modalGeometry').textContent = wizardState.geometryCode;
     document.getElementById('modalConfidence').textContent = `${(obj.classification_confidence * 100).toFixed(1)}%`;
     
-    document.getElementById('targetType').value = obj.suggested_object_type || '';
-    document.getElementById('reclassifyNotes').value = '';
-    
-    document.getElementById('reclassifyModal').style.display = 'flex';
+    try {
+        await loadVocabularyData();
+        renderDisciplines();
+        updateWizardUI();
+        
+        document.getElementById('reclassifyModal').style.display = 'flex';
+    } catch (error) {
+        console.error('Error initializing wizard:', error);
+        alert('Error loading vocabulary data. Please try again.');
+    }
 }
 
 function closeReclassifyModal() {
     document.getElementById('reclassifyModal').style.display = 'none';
     selectedObjectId = null;
+    wizardState.reset();
 }
 
 async function submitReclassification() {
-    const targetType = document.getElementById('targetType').value;
+    const layerName = buildLayerName();
     const notes = document.getElementById('reclassifyNotes').value;
     
-    if (!targetType) {
-        alert('Please select a target type');
+    if (!layerName) {
+        alert('Unable to build layer name');
+        return;
+    }
+    
+    // Look up geometry_id from geometry code
+    const geometry = (vocabularyCache.geometries || []).find(g => g.code === wizardState.geometryCode);
+    if (!geometry) {
+        alert('Geometry not found in vocabulary. Please refresh and try again.');
         return;
     }
     
@@ -476,10 +1425,20 @@ async function submitReclassification() {
         const response = await fetch(`/api/projects/${currentProjectId}/generic-objects/${selectedObjectId}/reclassify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target_type: targetType, notes: notes })
+            body: JSON.stringify({ 
+                discipline_id: wizardState.selectedDiscipline,
+                category_id: wizardState.selectedCategory,
+                type_id: wizardState.selectedType,
+                attribute_ids: wizardState.selectedAttributes,
+                phase_id: wizardState.selectedPhase,
+                geometry_id: geometry.geometry_id,
+                notes: notes 
+            })
         });
         
         if (response.ok) {
+            const result = await response.json();
+            alert(`Success! Reclassified to layer: ${result.layer_name}`);
             closeReclassifyModal();
             document.getElementById('loadBtn').click();
         } else {
