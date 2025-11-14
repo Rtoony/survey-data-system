@@ -36,7 +36,7 @@ class IntelligentObjectCreator:
         self.classifier = LayerClassifier()
         self.should_close_conn = conn is None
         # Initialize lookup service for layer management
-        self.lookup_service = DXFLookupService(db_config, external_conn=conn)
+        self.lookup_service = DXFLookupService(db_config, conn=conn)
     
     def create_from_entity(self, entity_data: Dict, project_id: str, drawing_id: Optional[str] = None) -> Optional[Tuple[str, str, str]]:
         """
@@ -68,6 +68,15 @@ class IntelligentObjectCreator:
                 entity_type = entity_data.get('entity_type', 'UNKNOWN')
                 geometry_wkt = entity_data.get('geometry_wkt', '')
                 layer_name = entity_data.get('layer_name', '')
+                
+                # Ensure drawing_entities record with layer assignment (generic fallback layer)
+                self._ensure_drawing_entity(
+                    entity_id=object_id,
+                    project_id=project_id,
+                    classification=classification,
+                    entity_data=entity_data,
+                    is_generic=True
+                )
                 
                 if dxf_handle and geometry_wkt:
                     self._create_entity_link(
@@ -121,6 +130,15 @@ class IntelligentObjectCreator:
                 dxf_handle = entity_data.get('dxf_handle', '')
                 entity_type = entity_data.get('entity_type', 'UNKNOWN')
                 geometry_wkt = entity_data.get('geometry_wkt', '')
+                
+                # Ensure drawing_entities record with layer assignment (from classification)
+                self._ensure_drawing_entity(
+                    entity_id=object_id,
+                    project_id=project_id,
+                    classification=classification,
+                    entity_data=entity_data,
+                    is_generic=False
+                )
                 
                 # Create entity link for project-level imports (drawing_id can be None)
                 if dxf_handle and geometry_wkt:
