@@ -204,8 +204,8 @@
                 </select>
             </div>
             <div class="form-group">
-                <label for="appl_type">Object Type</label>
-                <select id="appl_type" required>
+                <label for="appl_type">Object Type <span style="color: rgba(255,255,255,0.5); font-size: 0.9rem;">(Optional)</span></label>
+                <select id="appl_type">
                     <option value="">Select Category First...</option>
                 </select>
             </div>
@@ -836,6 +836,7 @@
     // ============================================
     
     let applicabilityRules = [];
+    let editingRuleId = null;
     
     async function loadApplicabilityRules() {
         try {
@@ -888,6 +889,9 @@
                                 ${rule.is_required ? '<i class="fas fa-check-circle" style="color: #00ff99;"></i>' : '<i class="fas fa-circle" style="color: rgba(255,255,255,0.3);"></i>'}
                             </td>
                             <td style="padding: 0.75rem; text-align: center;">
+                                <button class="icon-btn" onclick='openEditApplicabilityModal(${rule.applicability_id}, ${JSON.stringify(rule).replace(/'/g, "&#39;")})' title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
                                 <button class="icon-btn delete" onclick="deleteApplicabilityRule(${rule.applicability_id})" title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
@@ -900,6 +904,9 @@
     }
     
     function openApplicabilityModal() {
+        editingRuleId = null;
+        document.querySelector('#applicabilityModal h3').textContent = 'Add Attribute Applicability Rule';
+        
         // Populate categories dropdown
         const categorySelect = document.getElementById('appl_category');
         categorySelect.innerHTML = '<option value="">Select Category...</option>' +
@@ -921,7 +928,44 @@
         document.getElementById('applicabilityModal').style.display = 'flex';
     }
     
+    function openEditApplicabilityModal(applicabilityId, ruleData) {
+        editingRuleId = applicabilityId;
+        document.querySelector('#applicabilityModal h3').textContent = 'Edit Attribute Applicability Rule';
+        
+        // Populate categories dropdown
+        const categorySelect = document.getElementById('appl_category');
+        categorySelect.innerHTML = '<option value="">Select Category...</option>' +
+            currentVocabulary.categories.map(c => 
+                `<option value="${c.category_id}" ${ruleData.category_id === c.category_id ? 'selected' : ''}>${c.code} - ${c.full_name}</option>`
+            ).join('');
+        
+        // Populate attributes dropdown
+        const attributeSelect = document.getElementById('appl_attribute');
+        attributeSelect.innerHTML = '<option value="">Select Attribute...</option>' +
+            currentVocabulary.attributes.map(a => 
+                `<option value="${a.attribute_id}" ${ruleData.attribute_id === a.attribute_id ? 'selected' : ''}>${a.code} - ${a.full_name}</option>`
+            ).join('');
+        
+        // Load and populate types for the selected category
+        const typeSelect = document.getElementById('appl_type');
+        if (ruleData.category_id) {
+            const filteredTypes = currentVocabulary.types.filter(t => t.category_id === ruleData.category_id);
+            typeSelect.innerHTML = '<option value="">Select Object Type...</option>' +
+                filteredTypes.map(t => 
+                    `<option value="${t.type_id}" ${ruleData.type_id === t.type_id ? 'selected' : ''}>${t.code} - ${t.full_name}</option>`
+                ).join('');
+        } else {
+            typeSelect.innerHTML = '<option value="">Select Category First...</option>';
+        }
+        
+        // Set required checkbox
+        document.getElementById('appl_required').checked = ruleData.is_required || false;
+        
+        document.getElementById('applicabilityModal').style.display = 'flex';
+    }
+    
     function closeApplicabilityModal() {
+        editingRuleId = null;
         document.getElementById('applicabilityModal').style.display = 'none';
         document.getElementById('applicabilityForm').reset();
     }
@@ -952,16 +996,30 @@
     async function handleApplicabilitySubmit(event) {
         event.preventDefault();
         
+        const categoryValue = document.getElementById('appl_category').value;
+        const typeValue = document.getElementById('appl_type').value;
+        const attributeValue = document.getElementById('appl_attribute').value;
+        
+        if (!categoryValue || !attributeValue) {
+            showToast('Category and Attribute are required', 'error');
+            return;
+        }
+        
         const data = {
-            category_id: parseInt(document.getElementById('appl_category').value),
-            type_id: parseInt(document.getElementById('appl_type').value),
-            attribute_id: parseInt(document.getElementById('appl_attribute').value),
+            category_id: parseInt(categoryValue),
+            type_id: typeValue ? parseInt(typeValue) : null,
+            attribute_id: parseInt(attributeValue),
             is_required: document.getElementById('appl_required').checked
         };
         
         try {
-            const response = await fetch('/api/standards/attribute-applicability', {
-                method: 'POST',
+            const url = editingRuleId 
+                ? `/api/standards/attribute-applicability/${editingRuleId}`
+                : '/api/standards/attribute-applicability';
+            const method = editingRuleId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
@@ -969,14 +1027,14 @@
             const result = await response.json();
             
             if (response.ok) {
-                showToast('Applicability rule created successfully', 'success');
+                showToast(`Applicability rule ${editingRuleId ? 'updated' : 'created'} successfully`, 'success');
                 closeApplicabilityModal();
                 await loadApplicabilityRules();
             } else {
-                showToast(result.error || 'Failed to create applicability rule', 'error');
+                showToast(result.error || `Failed to ${editingRuleId ? 'update' : 'create'} applicability rule`, 'error');
             }
         } catch (error) {
-            showToast('Network error: Failed to create applicability rule', 'error');
+            showToast(`Network error: Failed to ${editingRuleId ? 'update' : 'create'} applicability rule`, 'error');
         }
     }
     

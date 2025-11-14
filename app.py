@@ -2870,6 +2870,44 @@ def create_attribute_applicability():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/standards/attribute-applicability/<int:applicability_id>', methods=['PUT'])
+def update_attribute_applicability(applicability_id):
+    """Update an attribute applicability rule"""
+    try:
+        data = request.json
+        
+        if not data.get('category_id') or not data.get('attribute_id'):
+            return jsonify({'error': 'category_id and attribute_id are required'}), 400
+        
+        type_id = data.get('type_id')
+        if type_id == '' or type_id is None:
+            type_id = None
+        
+        query = """
+            UPDATE attribute_applicability 
+            SET category_id = %s, type_id = %s, attribute_id = %s, is_required = %s, 
+                sort_order = %s, notes = %s, is_active = %s
+            WHERE applicability_id = %s
+            RETURNING applicability_id
+        """
+        result = execute_query(query, (
+            data['category_id'],
+            type_id,
+            data['attribute_id'],
+            data.get('is_required', False),
+            data.get('sort_order', 0),
+            data.get('notes', ''),
+            data.get('is_active', True),
+            applicability_id
+        ))
+        cache.clear()
+        if result:
+            return jsonify({'success': True, 'applicability_id': result[0]['applicability_id']})
+        else:
+            return jsonify({'error': 'Applicability rule not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/standards/attribute-applicability/<int:applicability_id>', methods=['DELETE'])
 def delete_attribute_applicability(applicability_id):
     """Delete an attribute applicability rule"""
