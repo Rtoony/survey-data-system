@@ -1659,11 +1659,11 @@ def reclassify_generic_object(project_id, object_id):
                 t.database_table as target_table,
                 p.code as phase_code,
                 g.code as geometry_code
-            FROM layer_disciplines d
-            JOIN layer_categories c ON d.discipline_id = c.discipline_id
-            JOIN layer_object_types t ON c.category_id = t.category_id
-            JOIN layer_phases p ON p.phase_id = %s
-            JOIN layer_geometries g ON g.geometry_id = %s
+            FROM discipline_codes d
+            JOIN category_codes c ON d.discipline_id = c.discipline_id
+            JOIN object_type_codes t ON c.category_id = t.category_id
+            JOIN phase_codes p ON p.phase_id = %s
+            JOIN geometry_codes g ON g.geometry_id = %s
             WHERE d.discipline_id = %s
               AND c.category_id = %s
               AND t.type_id = %s
@@ -1812,14 +1812,14 @@ def reclassify_generic_object(project_id, object_id):
         """
         execute_query(update_query, (f'Reclassified to {target_type}. Layer: {constructed_layer_name}. {notes}', object_id))
         
-        # Update existing entity link to point to new object with layer_id (CRITICAL for Entity Browser display)
+        # Update existing entity link to point to new object (CRITICAL for Entity Browser display)
         if obj['source_dxf_handle']:
             # Try to update link for this generic_object
             link_update_query = """
                 UPDATE dxf_entity_links
                 SET object_table_name = %s,
                     object_id = %s,
-                    layer_id = %s,
+                    layer_name = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE project_id = %s 
                   AND dxf_handle = %s
@@ -1828,7 +1828,7 @@ def reclassify_generic_object(project_id, object_id):
                 RETURNING entity_link_id
             """
             update_result = execute_query(link_update_query, 
-                                         (table_name, new_object_id, layer_id, project_id, 
+                                         (table_name, new_object_id, constructed_layer_name, project_id, 
                                           obj['source_dxf_handle'], object_id))
             rows_updated = len(update_result) if update_result else 0
             
@@ -1839,14 +1839,14 @@ def reclassify_generic_object(project_id, object_id):
                     UPDATE dxf_entity_links
                     SET object_table_name = %s,
                         object_id = %s,
-                        layer_id = %s,
+                        layer_name = %s,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE project_id = %s 
                       AND dxf_handle = %s
                     RETURNING entity_link_id
                 """
                 fallback_result = execute_query(fallback_update_query,
-                                              (table_name, new_object_id, layer_id, project_id,
+                                              (table_name, new_object_id, constructed_layer_name, project_id,
                                                obj['source_dxf_handle']))
                 if not fallback_result:
                     print(f"Warning: No entity link found at all for handle {obj['source_dxf_handle']}")
