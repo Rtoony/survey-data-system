@@ -267,6 +267,7 @@
     
     async function loadVocabulary() {
         try {
+            console.log('Loading vocabulary data...');
             const [disciplines, categories, types, attributes, phases, geometries] = await Promise.all([
                 fetch('/api/vocabulary/disciplines').then(r => r.json()),
                 fetch('/api/vocabulary/categories').then(r => r.json()),
@@ -276,6 +277,8 @@
                 fetch('/api/vocabulary/geometries').then(r => r.json())
             ]);
             
+            console.log('API responses received:', { disciplines, categories, types, attributes, phases, geometries });
+            
             currentVocabulary.disciplines = disciplines.disciplines;
             currentVocabulary.categories = categories.categories;
             currentVocabulary.types = types.object_types;
@@ -283,17 +286,23 @@
             currentVocabulary.phases = phases.phases;
             currentVocabulary.geometries = geometries.geometries;
             
+            console.log('Attributes array length:', attributes.attributes?.length);
+            console.log('Attributes data:', attributes.attributes);
+            
             renderStats(disciplines, categories, types, attributes, phases, geometries);
             renderDisciplines(disciplines.disciplines);
             renderCategories(categories.categories);
             renderTypes(types.object_types);
+            console.log('About to render attributes...');
             renderAttributes(attributes.attributes);
+            console.log('Attributes rendered successfully');
             renderPhases(phases.phases);
             renderGeometries(geometries.geometries);
             renderHierarchy(disciplines.disciplines, categories.categories, types.object_types);
             
         } catch (error) {
             console.error('Error loading vocabulary:', error);
+            console.error('Error stack:', error.stack);
             showToast('Failed to load vocabulary data', 'error');
         }
     }
