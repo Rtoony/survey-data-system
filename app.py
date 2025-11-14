@@ -3000,7 +3000,7 @@ def get_phase_codes_vocab():
     """Get all phase codes"""
     try:
         query = """
-            SELECT phase_id, code, full_name, description, color_hex, sort_order
+            SELECT phase_id, code, full_name, description, color_rgb, sort_order
             FROM phase_codes
             WHERE is_active = TRUE
             ORDER BY sort_order, code
