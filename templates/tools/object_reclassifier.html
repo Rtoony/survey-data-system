@@ -1074,15 +1074,15 @@ function updateLayerPreview() {
     const preview = document.getElementById('layerNamePreview');
     
     const discCode = wizardState.selectedDiscipline 
-        ? vocabularyCache.disciplines.find(d => d.discipline_id === wizardState.selectedDiscipline)?.code || 'DISC'
+        ? vocabularyCache.disciplines.find(d => d.discipline_id === Number(wizardState.selectedDiscipline))?.code || 'DISC'
         : 'DISCIPLINE';
     
     const catCode = wizardState.selectedCategory
-        ? (vocabularyCache.categories[wizardState.selectedDiscipline] || []).find(c => c.category_id === wizardState.selectedCategory)?.code || 'CAT'
+        ? (vocabularyCache.categories[wizardState.selectedDiscipline] || []).find(c => c.category_id === Number(wizardState.selectedCategory))?.code || 'CAT'
         : 'CATEGORY';
     
     const typeCode = wizardState.selectedType
-        ? (vocabularyCache.types[wizardState.selectedCategory] || []).find(t => t.type_id === wizardState.selectedType)?.code || 'TYPE'
+        ? (vocabularyCache.types[wizardState.selectedCategory] || []).find(t => t.type_id === Number(wizardState.selectedType))?.code || 'TYPE'
         : 'TYPE';
     
     let attrSegment = '';
@@ -1090,14 +1090,14 @@ function updateLayerPreview() {
         const attrCodes = wizardState.selectedAttributes.map(attrId => {
             const cacheKey = `${wizardState.selectedCategory}_${wizardState.selectedType}`;
             const attrs = vocabularyCache.attributes[cacheKey] || [];
-            const attr = attrs.find(a => a.attribute_id === attrId);
+            const attr = attrs.find(a => a.attribute_id === Number(attrId));
             return attr?.code || 'ATTR';
         });
         attrSegment = attrCodes.join('-');
     }
     
     const phaseCode = wizardState.selectedPhase
-        ? (vocabularyCache.phases || []).find(p => p.phase_id === wizardState.selectedPhase)?.code || 'PHASE'
+        ? (vocabularyCache.phases || []).find(p => p.phase_id === Number(wizardState.selectedPhase))?.code || 'PHASE'
         : 'PHASE';
     
     const geomCode = wizardState.geometryCode || 'GEOM';
