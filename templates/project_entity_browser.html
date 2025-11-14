@@ -225,6 +225,12 @@ function displayEntities(entities) {
                 <div class="entity-label">Source Table</div>
                 <span class="entity-table-badge badge-${entity.source_table}">${entity.source_table.replace(/_/g, ' ')}</span>
             </div>
+            
+            <div class="entity-field">
+                <button class="btn-sm btn-primary" onclick="openReclassifyModal('${entity.id}', '${entity.source_table}', '${entity.object_type || 'Generic'}', '${entity.geometry_type}')">
+                    Reclassify
+                </button>
+            </div>
         </div>
         `;
     }).join('');
@@ -243,6 +249,73 @@ function updateStats(entities) {
     document.getElementById('statClassified').textContent = classifiedCount;
 }
 
+// Reclassification Modal
+let currentEntityId = null;
+let currentSourceTable = null;
+
+function openReclassifyModal(entityId, sourceTable, currentType, geometryType) {
+    currentEntityId = entityId;
+    currentSourceTable = sourceTable;
+    
+    document.getElementById('currentType').textContent = currentType;
+    document.getElementById('currentTable').textContent = sourceTable.replace(/_/g, ' ');
+    document.getElementById('geometryType').textContent = geometryType;
+    document.getElementById('reclassifyNotes').value = '';
+    
+    const modal = document.getElementById('reclassifyModal');
+    modal.style.display = 'block';
+}
+
+function closeReclassifyModal() {
+    document.getElementById('reclassifyModal').style.display = 'none';
+}
+
+async function submitReclassification() {
+    const targetType = document.getElementById('targetType').value;
+    const notes = document.getElementById('reclassifyNotes').value;
+    
+    if (!targetType) {
+        alert('Please select a target classification');
+        return;
+    }
+    
+    const submitBtn = document.getElementById('submitReclassifyBtn');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Processing...';
+    submitBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/entities/reclassify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                source_table: currentSourceTable,
+                source_id: currentEntityId,
+                target_type: targetType,
+                notes: notes
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            alert(`Successfully reclassified to ${targetType}!`);
+            closeReclassifyModal();
+            loadEntities();
+        } else {
+            alert(`Error: ${result.error || 'Unknown error occurred'}`);
+        }
+    } catch (error) {
+        console.error('Reclassification error:', error);
+        alert('Network error occurred. Please try again.');
+    } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
 // Event listeners
 document.getElementById('loadBtn').addEventListener('click', loadEntities);
 document.getElementById('searchInput').addEventListener('keypress', (e) => {
@@ -254,5 +327,56 @@ window.addEventListener('DOMContentLoaded', () => {
     loadEntities();
 });
 </script>
+
+<!-- Reclassify Modal -->
+<div id="reclassifyModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);">
+    <div style="background-color: var(--panel-bg); margin: 5% auto; padding: 2rem; border: 1px solid var(--border-color); border-radius: 8px; width: 90%; max-width: 600px;">
+        <h2 style="color: var(--accent-color); margin-top: 0;">Reclassify Entity</h2>
+        
+        <div style="margin: 1.5rem 0;">
+            <div style="display: grid; grid-template-columns: 150px 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div style="color: var(--text-dim);">Current Type:</div>
+                <div id="currentType" style="color: var(--text-primary); font-weight: 600;"></div>
+                
+                <div style="color: var(--text-dim);">Source Table:</div>
+                <div id="currentTable" style="color: var(--text-primary); font-weight: 600;"></div>
+                
+                <div style="color: var(--text-dim);">Geometry:</div>
+                <div id="geometryType" style="color: var(--text-primary); font-weight: 600;"></div>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+            
+            <div style="margin-bottom: 1rem;">
+                <label for="targetType" style="display: block; color: var(--text-dim); margin-bottom: 0.5rem; font-weight: 600;">
+                    New Classification:
+                </label>
+                <select id="targetType" style="width: 100%; padding: 0.6rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.95rem;">
+                    <option value="">-- Select Target Type --</option>
+                    <option value="utility_line">Utility Line</option>
+                    <option value="utility_structure">Utility Structure</option>
+                    <option value="bmp">BMP (Stormwater)</option>
+                    <option value="surface_model">Surface Model</option>
+                    <option value="alignment">Alignment</option>
+                    <option value="survey_point">Survey Point</option>
+                    <option value="site_tree">Site Tree</option>
+                    <option value="generic">Generic Object</option>
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label for="reclassifyNotes" style="display: block; color: var(--text-dim); margin-bottom: 0.5rem; font-weight: 600;">
+                    Notes (optional):
+                </label>
+                <textarea id="reclassifyNotes" rows="3" style="width: 100%; padding: 0.6rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.95rem; resize: vertical;" placeholder="Reason for reclassification..."></textarea>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+            <button onclick="closeReclassifyModal()" class="btn-sm" style="background: var(--border-color); color: var(--text-primary);">Cancel</button>
+            <button id="submitReclassifyBtn" onclick="submitReclassification()" class="btn-sm btn-primary">Reclassify</button>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

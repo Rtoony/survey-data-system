@@ -1816,6 +1816,299 @@ def ignore_generic_object(project_id, object_id):
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================
+# UNIVERSAL RECLASSIFIER API (Cross-Table Entity Movement)
+# ============================================================================
+
+@app.route('/api/entities/reclassify', methods=['POST'])
+def universal_reclassify():
+    """Universal reclassifier - Move ANY entity between ANY classification tables"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body is required'}), 400
+        
+        source_table = data.get('source_table')
+        source_id = data.get('source_id')
+        target_type = data.get('target_type')
+        notes = data.get('notes', '')
+        
+        if not all([source_table, source_id, target_type]):
+            return jsonify({'error': 'source_table, source_id, and target_type are required'}), 400
+        
+        # Valid source tables (snake_case as stored in DB)
+        valid_sources = ['generic_objects', 'utility_lines', 'utility_structures', 
+                        'storm_bmps', 'survey_points', 'surface_models', 
+                        'horizontal_alignments', 'site_trees', 'grading_limits', 'surface_features']
+        
+        if source_table not in valid_sources:
+            return jsonify({'error': f'Invalid source_table. Must be one of: {", ".join(valid_sources)}'}), 400
+        
+        # Valid target types
+        valid_targets = ['utility_line', 'utility_structure', 'bmp', 'surface_model', 
+                        'alignment', 'survey_point', 'site_tree', 'generic']
+        
+        if target_type not in valid_targets:
+            return jsonify({'error': f'Invalid target_type. Must be one of: {", ".join(valid_targets)}'}), 400
+        
+        # Map target types to table names
+        target_table_map = {
+            'utility_line': 'utility_lines',
+            'utility_structure': 'utility_structures',
+            'bmp': 'storm_bmps',
+            'surface_model': 'surface_models',
+            'alignment': 'horizontal_alignments',
+            'survey_point': 'survey_points',
+            'site_tree': 'site_trees',
+            'generic': 'generic_objects'
+        }
+        
+        target_table = target_table_map[target_type]
+        
+        # Don't allow reclassifying to the same table
+        if source_table == target_table:
+            return jsonify({'error': 'Source and target tables cannot be the same'}), 400
+        
+        # Step 1: Fetch the source entity with geometry and metadata
+        # Build dynamic query based on source table
+        if source_table == 'generic_objects':
+            source_query = """
+                SELECT object_id, project_id, 
+                       original_layer_name as layer_name, 
+                       original_entity_type as entity_type,
+                       ST_AsText(geometry) as geometry_wkt, 
+                       ST_GeometryType(geometry) as geom_type,
+                       source_dxf_handle as dxf_handle, 
+                       attributes
+                FROM generic_objects
+                WHERE object_id = %s AND is_active = true
+            """
+        elif source_table == 'utility_lines':
+            source_query = """
+                SELECT line_id as object_id, project_id,
+                       'UTILITY_LINE' as layer_name,
+                       utility_system as entity_type,
+                       ST_AsText(geometry) as geometry_wkt,
+                       ST_GeometryType(geometry) as geom_type,
+                       NULL as dxf_handle,
+                       jsonb_build_object('utility_system', utility_system, 'utility_mode', utility_mode, 'diameter_mm', diameter_mm) as attributes
+                FROM utility_lines
+                WHERE line_id = %s
+            """
+        elif source_table == 'utility_structures':
+            source_query = """
+                SELECT structure_id as object_id, project_id,
+                       'UTILITY_STRUCTURE' as layer_name,
+                       structure_type as entity_type,
+                       ST_AsText(geometry) as geometry_wkt,
+                       ST_GeometryType(geometry) as geom_type,
+                       NULL as dxf_handle,
+                       jsonb_build_object('structure_type', structure_type) as attributes
+                FROM utility_structures
+                WHERE structure_id = %s
+            """
+        elif source_table == 'storm_bmps':
+            source_query = """
+                SELECT bmp_id as object_id, project_id,
+                       'STORM_BMP' as layer_name,
+                       bmp_type as entity_type,
+                       ST_AsText(geometry) as geometry_wkt,
+                       ST_GeometryType(geometry) as geom_type,
+                       NULL as dxf_handle,
+                       jsonb_build_object('bmp_type', bmp_type) as attributes
+                FROM storm_bmps
+                WHERE bmp_id = %s
+            """
+        elif source_table == 'survey_points':
+            source_query = """
+                SELECT point_id as object_id, project_id,
+                       'SURVEY_POINT' as layer_name,
+                       point_type as entity_type,
+                       ST_AsText(geometry) as geometry_wkt,
+                       ST_GeometryType(geometry) as geom_type,
+                       NULL as dxf_handle,
+                       jsonb_build_object('elevation', elevation, 'description', description) as attributes
+                FROM survey_points
+                WHERE point_id = %s
+            """
+        elif source_table == 'horizontal_alignments':
+            source_query = """
+                SELECT alignment_id as object_id, project_id,
+                       'ALIGNMENT' as layer_name,
+                       alignment_type as entity_type,
+                       ST_AsText(alignment_geometry) as geometry_wkt,
+                       ST_GeometryType(alignment_geometry) as geom_type,
+                       NULL as dxf_handle,
+                       jsonb_build_object('alignment_name', alignment_name) as attributes
+                FROM horizontal_alignments
+                WHERE alignment_id = %s
+            """
+        elif source_table == 'surface_models':
+            source_query = """
+                SELECT surface_id as object_id, project_id,
+                       'SURFACE_MODEL' as layer_name,
+                       surface_type as entity_type,
+                       ST_AsText(geometry) as geometry_wkt,
+                       ST_GeometryType(geometry) as geom_type,
+                       NULL as dxf_handle,
+                       jsonb_build_object('surface_type', surface_type) as attributes
+                FROM surface_models
+                WHERE surface_id = %s
+            """
+        elif source_table == 'site_trees':
+            source_query = """
+                SELECT tree_id as object_id, project_id,
+                       'SITE_TREE' as layer_name,
+                       tree_type as entity_type,
+                       ST_AsText(geometry) as geometry_wkt,
+                       ST_GeometryType(geometry) as geom_type,
+                       NULL as dxf_handle,
+                       jsonb_build_object('tree_type', tree_type, 'diameter_inches', diameter_inches) as attributes
+                FROM site_trees
+                WHERE tree_id = %s
+            """
+        else:
+            return jsonify({'error': f'Reclassification from {source_table} not yet supported'}), 400
+        
+        source_obj = execute_query(source_query, (source_id,))
+        
+        if not source_obj:
+            return jsonify({'error': f'Entity not found in {source_table}'}), 404
+        
+        obj = source_obj[0]
+        
+        # Step 2: Get DXF handle from entity links if it exists
+        link_query = """
+            SELECT dxf_handle, layer_name
+            FROM dxf_entity_links
+            WHERE object_table_name = %s AND object_id = %s
+            LIMIT 1
+        """
+        link_result = execute_query(link_query, (source_table, source_id))
+        
+        if link_result:
+            dxf_handle = link_result[0]['dxf_handle']
+            original_layer = link_result[0]['layer_name']
+        else:
+            dxf_handle = obj.get('dxf_handle')
+            original_layer = obj.get('layer_name', 'UNKNOWN')
+        
+        # Step 3: Create new entity using IntelligentObjectCreator
+        from intelligent_object_creator import IntelligentObjectCreator
+        from layer_classifier import LayerClassification
+        
+        entity_data = {
+            'layer_name': original_layer,
+            'entity_type': obj.get('entity_type', 'UNKNOWN'),
+            'geometry_wkt': obj['geometry_wkt'],
+            'geometry_type': obj['geom_type'].replace('ST_', '').upper(),
+            'dxf_handle': dxf_handle,
+            'attributes': obj.get('attributes', {})
+        }
+        
+        classification = LayerClassification(
+            object_type=target_type,
+            confidence=1.0,
+            properties={},
+            network_mode=None
+        )
+        
+        with get_db() as conn:
+            creator = IntelligentObjectCreator(DB_CONFIG, conn=conn)
+            
+            if target_type == 'utility_line':
+                result = creator._create_utility_line(entity_data, classification, obj['project_id'])
+                expected_geom = 'LINESTRING'
+            elif target_type == 'utility_structure':
+                result = creator._create_utility_structure(entity_data, classification, obj['project_id'])
+                expected_geom = 'POINT'
+            elif target_type == 'bmp':
+                result = creator._create_bmp(entity_data, classification, obj['project_id'])
+                expected_geom = 'POLYGON or closed LINESTRING'
+            elif target_type == 'surface_model':
+                result = creator._create_surface_model(entity_data, classification, obj['project_id'])
+                expected_geom = 'POLYGON'
+            elif target_type == 'alignment':
+                result = creator._create_alignment(entity_data, classification, obj['project_id'])
+                expected_geom = 'LINESTRING'
+            elif target_type == 'survey_point':
+                result = creator._create_survey_point(entity_data, classification, obj['project_id'])
+                expected_geom = 'POINT'
+            elif target_type == 'site_tree':
+                result = creator._create_site_tree(entity_data, classification, obj['project_id'])
+                expected_geom = 'POINT'
+            elif target_type == 'generic':
+                result = creator._create_generic_object(entity_data, classification, obj['project_id'])
+                expected_geom = 'ANY'
+            
+            if not result:
+                actual_geom = entity_data['geometry_type']
+                return jsonify({
+                    'error': f'Cannot create {target_type} from {actual_geom} geometry. Expected: {expected_geom}. '
+                             f'Please choose a target type compatible with this geometry.'
+                }), 400
+            
+            object_type, new_object_id, table_name = result
+        
+        # Step 4: Update dxf_entity_links to point to new object
+        if dxf_handle:
+            link_update_query = """
+                UPDATE dxf_entity_links
+                SET object_table_name = %s,
+                    object_id = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE object_table_name = %s 
+                  AND object_id = %s
+                RETURNING entity_link_id
+            """
+            execute_query(link_update_query, (table_name, new_object_id, source_table, source_id))
+        
+        # Step 5: Delete or mark inactive in source table
+        if source_table == 'generic_objects':
+            delete_query = """
+                UPDATE generic_objects
+                SET review_status = 'reclassified',
+                    is_active = false,
+                    reviewed_at = CURRENT_TIMESTAMP,
+                    review_notes = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE object_id = %s
+            """
+            execute_query(delete_query, (f'Reclassified to {target_type}. {notes}', source_id))
+        else:
+            if source_table == 'utility_lines':
+                delete_query = "DELETE FROM utility_lines WHERE line_id = %s"
+            elif source_table == 'utility_structures':
+                delete_query = "DELETE FROM utility_structures WHERE structure_id = %s"
+            elif source_table == 'storm_bmps':
+                delete_query = "DELETE FROM storm_bmps WHERE bmp_id = %s"
+            elif source_table == 'survey_points':
+                delete_query = "DELETE FROM survey_points WHERE point_id = %s"
+            elif source_table == 'horizontal_alignments':
+                delete_query = "DELETE FROM horizontal_alignments WHERE alignment_id = %s"
+            elif source_table == 'surface_models':
+                delete_query = "DELETE FROM surface_models WHERE surface_id = %s"
+            elif source_table == 'site_trees':
+                delete_query = "DELETE FROM site_trees WHERE tree_id = %s"
+            else:
+                return jsonify({'error': f'Delete not implemented for {source_table}'}), 500
+            
+            execute_query(delete_query, (source_id,))
+        
+        return jsonify({
+            'success': True,
+            'message': f'Entity reclassified from {source_table} to {target_type}',
+            'source_table': source_table,
+            'target_table': table_name,
+            'new_object_id': new_object_id,
+            'new_object_type': object_type
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
 # PROJECT MAPPING API ENDPOINTS (Generic Entity Attachments)
 # ============================================================================
 

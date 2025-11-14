@@ -390,9 +390,9 @@ class IntelligentObjectCreator:
         cur.execute("""
             INSERT INTO horizontal_alignments (
                 project_id, alignment_name, alignment_type,
-                geometry, attributes
+                alignment_geometry, attributes
             )
-            VALUES (%s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, ST_GeomFromText(%s, 2226), %s)
             RETURNING alignment_id
         """, (
             project_id,
