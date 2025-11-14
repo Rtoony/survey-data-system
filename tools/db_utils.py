@@ -50,7 +50,38 @@ def init_pool(minconn=1, maxconn=10):
 def get_connection():
     """Get a connection from the pool with automatic return."""
     pool = init_pool()
-    conn = pool.getconn()
+    conn = None
+    max_retries = 3
+    
+    # Keep trying until we get a healthy connection (with max retries)
+    for attempt in range(max_retries):
+        conn = pool.getconn()
+        
+        # Validate connection with heartbeat query to detect stale/dead connections
+        try:
+            if conn.closed:
+                raise psycopg2.InterfaceError("Connection is closed")
+            
+            # Test with lightweight query to catch dead TCP sessions
+            with conn.cursor() as test_cursor:
+                test_cursor.execute("SELECT 1")
+            
+            # Connection is healthy - break out of retry loop
+            break
+            
+        except (psycopg2.OperationalError, psycopg2.InterfaceError, Exception):
+            # Connection is stale/dead - close and try again
+            try:
+                conn.close()
+            except:
+                pass
+            pool.putconn(conn, close=True)
+            
+            if attempt == max_retries - 1:
+                # Last retry failed - raise the error
+                raise
+            # Otherwise continue to next retry
+    
     try:
         yield conn
     finally:

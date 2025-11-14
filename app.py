@@ -785,9 +785,10 @@ def get_project_intelligent_objects_map(project_id):
                 line_id as object_id,
                 'utility_line' as object_type,
                 'utility_lines' as table_name,
-                utility_type,
+                utility_system,
+                utility_mode,
                 material,
-                diameter_inches,
+                diameter_mm,
                 ST_AsGeoJSON(
                     CASE
                         WHEN ST_SRID(geometry) = 0 THEN ST_Transform(ST_SetSRID(geometry, 2226), 4326)
@@ -809,9 +810,10 @@ def get_project_intelligent_objects_map(project_id):
                     'object_id': str(obj['object_id']),
                     'object_type': obj['object_type'],
                     'table_name': obj['table_name'],
-                    'utility_type': obj['utility_type'],
+                    'utility_system': obj['utility_system'],
+                    'utility_mode': obj['utility_mode'],
                     'material': obj['material'],
-                    'diameter': obj['diameter_inches']
+                    'diameter_mm': obj['diameter_mm']
                 },
                 'geometry': obj['geometry']
             })
