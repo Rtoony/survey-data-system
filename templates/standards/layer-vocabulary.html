@@ -932,14 +932,21 @@
         
         if (!categoryId) {
             typeSelect.innerHTML = '<option value="">Select Category First...</option>';
+            typeSelect.value = '';
             return;
         }
         
         const filteredTypes = currentVocabulary.types.filter(t => t.category_id === Number(categoryId));
+        console.log(`loadTypesForCategory: category ${categoryId} has ${filteredTypes.length} object types`);
+        
         typeSelect.innerHTML = '<option value="">Select Object Type...</option>' +
             filteredTypes.map(t => 
                 `<option value="${t.type_id}">${t.code} - ${t.full_name}</option>`
             ).join('');
+        
+        if (filteredTypes.length === 0) {
+            typeSelect.value = '';
+        }
     }
     
     async function handleApplicabilitySubmit(event) {
