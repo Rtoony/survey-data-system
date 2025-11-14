@@ -1414,15 +1414,19 @@ def browse_project_entities(project_id):
             WITH all_entities AS (
                 SELECT 
                     'generic_objects' as source_table,
-                    object_id as id,
-                    original_layer_name as dxf_layer_name,
-                    ST_GeometryType(geometry) as geometry_type,
-                    classification_confidence,
-                    review_status,
-                    suggested_object_type,
-                    created_at
-                FROM generic_objects
-                WHERE project_id = %s AND is_active = true
+                    go.object_id as id,
+                    go.original_layer_name as dxf_layer_name,
+                    COALESCE(ls.layer_name, lyr.layer_name, '(not classified)') as database_layer_name,
+                    ST_GeometryType(go.geometry) as geometry_type,
+                    go.classification_confidence,
+                    go.review_status,
+                    go.suggested_object_type,
+                    go.created_at
+                FROM generic_objects go
+                LEFT JOIN drawing_entities de ON de.entity_id = go.object_id
+                LEFT JOIN layers lyr ON lyr.layer_id = de.layer_id
+                LEFT JOIN layer_standards ls ON ls.layer_id = lyr.layer_standard_id
+                WHERE go.project_id = %s AND go.is_active = true
                 
                 UNION ALL
                 
@@ -1430,6 +1434,7 @@ def browse_project_entities(project_id):
                     'utility_lines' as source_table,
                     ul.line_id as id,
                     COALESCE(del.layer_name, '(no layer)') as dxf_layer_name,
+                    COALESCE(ls.layer_name, lyr.layer_name, '(not classified)') as database_layer_name,
                     ST_GeometryType(ul.geometry) as geometry_type,
                     NULL as classification_confidence,
                     NULL as review_status,
@@ -1438,6 +1443,9 @@ def browse_project_entities(project_id):
                 FROM utility_lines ul
                 LEFT JOIN dxf_entity_links del ON del.object_id = ul.line_id 
                     AND del.object_table_name = 'utility_lines'
+                LEFT JOIN drawing_entities de ON de.entity_id = ul.entity_id
+                LEFT JOIN layers lyr ON lyr.layer_id = de.layer_id
+                LEFT JOIN layer_standards ls ON ls.layer_id = lyr.layer_standard_id
                 WHERE ul.project_id = %s
                 
                 UNION ALL
@@ -1446,6 +1454,7 @@ def browse_project_entities(project_id):
                     'utility_structures' as source_table,
                     us.structure_id as id,
                     COALESCE(del.layer_name, '(no layer)') as dxf_layer_name,
+                    COALESCE(ls.layer_name, lyr.layer_name, '(not classified)') as database_layer_name,
                     ST_GeometryType(us.rim_geometry) as geometry_type,
                     NULL as classification_confidence,
                     NULL as review_status,
@@ -1454,6 +1463,9 @@ def browse_project_entities(project_id):
                 FROM utility_structures us
                 LEFT JOIN dxf_entity_links del ON del.object_id = us.structure_id 
                     AND del.object_table_name = 'utility_structures'
+                LEFT JOIN drawing_entities de ON de.entity_id = us.entity_id
+                LEFT JOIN layers lyr ON lyr.layer_id = de.layer_id
+                LEFT JOIN layer_standards ls ON ls.layer_id = lyr.layer_standard_id
                 WHERE us.project_id = %s
                 
                 UNION ALL
@@ -1462,6 +1474,7 @@ def browse_project_entities(project_id):
                     'storm_bmps' as source_table,
                     bmp.bmp_id as id,
                     COALESCE(del.layer_name, '(no layer)') as dxf_layer_name,
+                    '(not classified)' as database_layer_name,
                     ST_GeometryType(bmp.geometry) as geometry_type,
                     NULL as classification_confidence,
                     NULL as review_status,
@@ -1478,6 +1491,7 @@ def browse_project_entities(project_id):
                     'survey_points' as source_table,
                     sp.point_id as id,
                     COALESCE(sp.layer_name, del.layer_name, '(no layer)') as dxf_layer_name,
+                    COALESCE(ls.layer_name, lyr.layer_name, '(not classified)') as database_layer_name,
                     ST_GeometryType(sp.geometry) as geometry_type,
                     NULL as classification_confidence,
                     NULL as review_status,
@@ -1486,6 +1500,9 @@ def browse_project_entities(project_id):
                 FROM survey_points sp
                 LEFT JOIN dxf_entity_links del ON del.object_id = sp.point_id 
                     AND del.object_table_name = 'survey_points'
+                LEFT JOIN drawing_entities de ON de.entity_id = sp.entity_id
+                LEFT JOIN layers lyr ON lyr.layer_id = de.layer_id
+                LEFT JOIN layer_standards ls ON ls.layer_id = lyr.layer_standard_id
                 WHERE sp.project_id = %s AND sp.is_active = true
             )
             SELECT * FROM all_entities
@@ -1521,6 +1538,7 @@ def browse_project_entities(project_id):
             'id': str(entity['id']),
             'source_table': entity['source_table'],
             'dxf_layer_name': entity['dxf_layer_name'] or '(unknown)',
+            'database_layer_name': entity['database_layer_name'] or '(not classified)',
             'geometry_type': entity['geometry_type'] or 'Unknown',
             'object_type': entity['suggested_object_type'] or 'Generic',
             'classification_confidence': float(entity['classification_confidence']) if entity['classification_confidence'] else None,

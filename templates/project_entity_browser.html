@@ -88,7 +88,7 @@
     margin-bottom: 0.75rem;
     background: rgba(0,0,0,0.2);
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr auto;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
     gap: 1rem;
     align-items: center;
 }
@@ -210,15 +210,17 @@ function displayEntities(entities) {
             </div>
             
             <div class="entity-field">
+                <div class="entity-label">Database Layer Name</div>
+                <div class="entity-value" style="color: ${entity.database_layer_name === '(not classified)' ? '#ffaa00' : 'var(--accent-color)'};">
+                    ${entity.database_layer_name}
+                </div>
+            </div>
+            
+            <div class="entity-field">
                 <div class="entity-label">Object Type</div>
                 <div class="entity-value">${entity.object_type || 'Generic'}</div>
                 ${reviewBadge}
                 ${confidenceBadge}
-            </div>
-            
-            <div class="entity-field">
-                <div class="entity-label">Geometry</div>
-                <div class="entity-value">${entity.geometry_type}</div>
             </div>
             
             <div class="entity-field">
