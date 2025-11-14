@@ -19,6 +19,9 @@ except ImportError:
     # Fall back to legacy classifier
     from layer_classifier import LayerClassifier, LayerClassification
 
+# Import DXFLookupService for layer management
+from dxf_lookup_service import DXFLookupService
+
 
 class IntelligentObjectCreator:
     """
@@ -32,6 +35,8 @@ class IntelligentObjectCreator:
         self.conn = conn
         self.classifier = LayerClassifier()
         self.should_close_conn = conn is None
+        # Initialize lookup service for layer management
+        self.lookup_service = DXFLookupService(db_config, external_conn=conn)
     
     def create_from_entity(self, entity_data: Dict, project_id: str, drawing_id: Optional[str] = None) -> Optional[Tuple[str, str, str]]:
         """
@@ -786,6 +791,74 @@ class IntelligentObjectCreator:
             print(f"Error creating generic object: {e}")
             cur.close()
             return None
+    
+    def _ensure_drawing_entity(self, entity_id: str, project_id: str, classification: Optional[LayerClassification],
+                               entity_data: Dict, is_generic: bool = False) -> None:
+        """
+        Ensure drawing_entities record exists with proper layer_id assignment.
+        
+        This centralizes layer assignment logic for all object types, including generics.
+        
+        Args:
+            entity_id: UUID of the created entity/object
+            project_id: UUID of the project
+            classification: LayerClassification result (can be None for generics)
+            entity_data: Original entity data dict
+            is_generic: Whether this is a generic object (use fallback layer)
+        """
+        if not self.conn:
+            return
+        
+        cur = self.conn.cursor(cursor_factory=RealDictCursor)
+        
+        try:
+            # Determine the layer name to use
+            if is_generic or not classification:
+                # Generic objects get a fallback "GENERIC-UNCLASSIFIED" layer
+                layer_name = "GENERIC-UNCLASSIFIED"
+            else:
+                # Use standard_layer_name from classification, fallback to original
+                layer_name = getattr(classification, 'standard_layer_name', None) or \
+                            getattr(classification, 'original_layer_name', None) or \
+                            entity_data.get('layer_name', 'UNKNOWN')
+            
+            # Get or create the layer and get its layer_id
+            # This will create both layers record (project-specific) and link to layer_standards
+            layer_id, layer_standard_id = self.lookup_service.get_or_create_layer(
+                layer_name=layer_name,
+                project_id=project_id,
+                drawing_id=None  # Project-level layers
+            )
+            
+            # Prepare entity data for drawing_entities
+            entity_type = entity_data.get('entity_type', 'UNKNOWN')
+            geometry_wkt = entity_data.get('geometry_wkt', '')
+            
+            # Upsert drawing_entities record with layer_id
+            cur.execute("""
+                INSERT INTO drawing_entities (
+                    entity_id, project_id, layer_id, entity_type, geometry
+                )
+                VALUES (%s, %s, %s, %s, ST_GeomFromText(%s, 2226))
+                ON CONFLICT (entity_id) DO UPDATE SET
+                    layer_id = EXCLUDED.layer_id,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (
+                entity_id,
+                project_id,
+                layer_id,
+                entity_type,
+                geometry_wkt
+            ))
+            
+            self.conn.commit()
+            cur.close()
+            
+        except Exception as e:
+            print(f"Error ensuring drawing_entity for {entity_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            cur.close()
     
     def _create_entity_link(self, project_id: str, drawing_id: Optional[str], dxf_handle: str, entity_type: str,
                            layer_name: str, geometry_wkt: str,
