@@ -92,62 +92,120 @@ ON CONFLICT (table_name) DO NOTHING;
 -- ==============================================================================
 -- 3. Map Object Types to Entity Registry Tables
 -- ==============================================================================
--- Note: This uses the existing registry_id values from the query results
+-- Note: Dynamically resolves registry_id values to ensure portability across environments
 
--- Utility Lines (registry_id=1)
-INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
-(1, 'STORM', 10),
-(1, 'SANIT', 20),
-(1, 'WATER', 30),
-(1, 'RECYC', 40),
-(1, 'GAS', 50),
-(1, 'ELEC', 60),
-(1, 'TELE', 70),
-(1, 'FIBER', 80)
-ON CONFLICT (registry_id, object_type_code) DO NOTHING;
-
--- Utility Structures (registry_id=2)
-INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
-(2, 'MH', 10),
-(2, 'INLET', 20),
-(2, 'CB', 30),
-(2, 'CLNOUT', 40),
-(2, 'VALVE', 50),
-(2, 'METER', 60),
-(2, 'HYDRA', 70),
-(2, 'PUMP', 80)
-ON CONFLICT (registry_id, object_type_code) DO NOTHING;
-
--- Survey Points (registry_id=3)
-INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
-(3, 'MONUMENT', 10),
-(3, 'BENCH', 20),
-(3, 'SHOT', 30)
-ON CONFLICT (registry_id, object_type_code) DO NOTHING;
-
--- Horizontal Alignments (registry_id=9)
-INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
-(9, 'CL', 10)
-ON CONFLICT (registry_id, object_type_code) DO NOTHING;
-
--- Parcels (registry_id=10)
-INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
-(10, 'PROP', 10)
-ON CONFLICT (registry_id, object_type_code) DO NOTHING;
-
--- Site Trees (registry_id=12)
-INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
-(12, 'TREE', 10)
-ON CONFLICT (registry_id, object_type_code) DO NOTHING;
-
--- Surface Features (registry_id=14)
-INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
-(14, 'CURB', 10),
-(14, 'SDWK', 20),
-(14, 'STRP', 30),
-(14, 'RAMP', 40),
-(14, 'PATH', 50)
-ON CONFLICT (registry_id, object_type_code) DO NOTHING;
+-- Map object types for each table using dynamic ID resolution
+DO $$
+DECLARE
+    utility_lines_id INTEGER;
+    utility_structures_id INTEGER;
+    survey_points_id INTEGER;
+    alignments_id INTEGER;
+    parcels_id INTEGER;
+    trees_id INTEGER;
+    surface_features_id INTEGER;
+BEGIN
+    -- Resolve registry IDs dynamically
+    SELECT registry_id INTO utility_lines_id FROM entity_registry WHERE table_name = 'utility_lines';
+    SELECT registry_id INTO utility_structures_id FROM entity_registry WHERE table_name = 'utility_structures';
+    SELECT registry_id INTO survey_points_id FROM entity_registry WHERE table_name = 'survey_points';
+    SELECT registry_id INTO alignments_id FROM entity_registry WHERE table_name = 'horizontal_alignments';
+    SELECT registry_id INTO parcels_id FROM entity_registry WHERE table_name = 'parcels';
+    SELECT registry_id INTO trees_id FROM entity_registry WHERE table_name = 'site_trees';
+    SELECT registry_id INTO surface_features_id FROM entity_registry WHERE table_name = 'surface_features';
+    
+    -- Verify required registry entries exist before proceeding
+    IF utility_lines_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: utility_lines';
+    END IF;
+    IF utility_structures_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: utility_structures';
+    END IF;
+    IF survey_points_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: survey_points';
+    END IF;
+    IF alignments_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: horizontal_alignments';
+    END IF;
+    IF parcels_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: parcels';
+    END IF;
+    IF trees_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: site_trees';
+    END IF;
+    IF surface_features_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: surface_features';
+    END IF;
+    
+    -- Utility Lines
+    IF utility_lines_id IS NOT NULL THEN
+        INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
+        (utility_lines_id, 'STORM', 10),
+        (utility_lines_id, 'SANIT', 20),
+        (utility_lines_id, 'WATER', 30),
+        (utility_lines_id, 'RECYC', 40),
+        (utility_lines_id, 'GAS', 50),
+        (utility_lines_id, 'ELEC', 60),
+        (utility_lines_id, 'TELE', 70),
+        (utility_lines_id, 'FIBER', 80)
+        ON CONFLICT (registry_id, object_type_code) DO NOTHING;
+    END IF;
+    
+    -- Utility Structures
+    IF utility_structures_id IS NOT NULL THEN
+        INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
+        (utility_structures_id, 'MH', 10),
+        (utility_structures_id, 'INLET', 20),
+        (utility_structures_id, 'CB', 30),
+        (utility_structures_id, 'CLNOUT', 40),
+        (utility_structures_id, 'VALVE', 50),
+        (utility_structures_id, 'METER', 60),
+        (utility_structures_id, 'HYDRA', 70),
+        (utility_structures_id, 'PUMP', 80)
+        ON CONFLICT (registry_id, object_type_code) DO NOTHING;
+    END IF;
+    
+    -- Survey Points
+    IF survey_points_id IS NOT NULL THEN
+        INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
+        (survey_points_id, 'MONUMENT', 10),
+        (survey_points_id, 'BENCH', 20),
+        (survey_points_id, 'SHOT', 30)
+        ON CONFLICT (registry_id, object_type_code) DO NOTHING;
+    END IF;
+    
+    -- Horizontal Alignments
+    IF alignments_id IS NOT NULL THEN
+        INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
+        (alignments_id, 'CL', 10)
+        ON CONFLICT (registry_id, object_type_code) DO NOTHING;
+    END IF;
+    
+    -- Parcels
+    IF parcels_id IS NOT NULL THEN
+        INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
+        (parcels_id, 'PROP', 10)
+        ON CONFLICT (registry_id, object_type_code) DO NOTHING;
+    END IF;
+    
+    -- Site Trees
+    IF trees_id IS NOT NULL THEN
+        INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
+        (trees_id, 'TREE', 10)
+        ON CONFLICT (registry_id, object_type_code) DO NOTHING;
+    END IF;
+    
+    -- Surface Features (includes CURB, SDWK, STRP, and ADA features RAMP, PATH)
+    IF surface_features_id IS NOT NULL THEN
+        INSERT INTO entity_registry_object_types (registry_id, object_type_code, priority) VALUES
+        (surface_features_id, 'CURB', 10),
+        (surface_features_id, 'SDWK', 20),
+        (surface_features_id, 'STRP', 30),
+        (surface_features_id, 'RAMP', 40),
+        (surface_features_id, 'PATH', 50)
+        ON CONFLICT (registry_id, object_type_code) DO NOTHING;
+    END IF;
+END $$;
 
 -- Get registry_id for newly added tables and map their object types
 DO $$
@@ -216,6 +274,9 @@ DECLARE
     bmp_tool_id INTEGER;
     survey_tool_id INTEGER;
     viewer_tool_id INTEGER;
+    utility_lines_id INTEGER;
+    survey_points_id INTEGER;
+    bmp_registry_id INTEGER;
 BEGIN
     -- Get tool IDs
     SELECT tool_id INTO gravity_tool_id FROM specialized_tools WHERE tool_name = 'Gravity Pipe Manager';
@@ -224,38 +285,36 @@ BEGIN
     SELECT tool_id INTO survey_tool_id FROM specialized_tools WHERE tool_name = 'Survey Point Manager';
     SELECT tool_id INTO viewer_tool_id FROM specialized_tools WHERE tool_name = 'Entity Viewer';
     
+    -- Get registry IDs dynamically
+    SELECT registry_id INTO utility_lines_id FROM entity_registry WHERE table_name = 'utility_lines';
+    SELECT registry_id INTO survey_points_id FROM entity_registry WHERE table_name = 'survey_points';
+    SELECT registry_id INTO bmp_registry_id FROM entity_registry WHERE table_name = 'storm_bmps';
+    
     -- Link Utility Lines to tools
-    IF gravity_tool_id IS NOT NULL THEN
+    IF utility_lines_id IS NOT NULL AND gravity_tool_id IS NOT NULL THEN
         INSERT INTO entity_registry_tool_links (registry_id, tool_id, relationship_type, is_primary) VALUES
-        (1, gravity_tool_id, 'manages', TRUE)
+        (utility_lines_id, gravity_tool_id, 'manages', TRUE)
         ON CONFLICT (registry_id, tool_id) DO NOTHING;
     END IF;
     
-    IF pressure_tool_id IS NOT NULL THEN
+    IF utility_lines_id IS NOT NULL AND pressure_tool_id IS NOT NULL THEN
         INSERT INTO entity_registry_tool_links (registry_id, tool_id, relationship_type, is_primary) VALUES
-        (1, pressure_tool_id, 'manages', TRUE)
+        (utility_lines_id, pressure_tool_id, 'manages', TRUE)
         ON CONFLICT (registry_id, tool_id) DO NOTHING;
     END IF;
     
     -- Link Survey Points to Survey Point Manager
-    IF survey_tool_id IS NOT NULL THEN
+    IF survey_points_id IS NOT NULL AND survey_tool_id IS NOT NULL THEN
         INSERT INTO entity_registry_tool_links (registry_id, tool_id, relationship_type, is_primary) VALUES
-        (3, survey_tool_id, 'manages', TRUE)
+        (survey_points_id, survey_tool_id, 'manages', TRUE)
         ON CONFLICT (registry_id, tool_id) DO NOTHING;
     END IF;
     
     -- Link BMPs to BMP Manager
-    IF bmp_tool_id IS NOT NULL THEN
-        DECLARE
-            bmp_registry_id INTEGER;
-        BEGIN
-            SELECT registry_id INTO bmp_registry_id FROM entity_registry WHERE table_name = 'storm_bmps';
-            IF bmp_registry_id IS NOT NULL THEN
-                INSERT INTO entity_registry_tool_links (registry_id, tool_id, relationship_type, is_primary) VALUES
-                (bmp_registry_id, bmp_tool_id, 'manages', TRUE)
-                ON CONFLICT (registry_id, tool_id) DO NOTHING;
-            END IF;
-        END;
+    IF bmp_registry_id IS NOT NULL AND bmp_tool_id IS NOT NULL THEN
+        INSERT INTO entity_registry_tool_links (registry_id, tool_id, relationship_type, is_primary) VALUES
+        (bmp_registry_id, bmp_tool_id, 'manages', TRUE)
+        ON CONFLICT (registry_id, tool_id) DO NOTHING;
     END IF;
     
     -- Link Entity Viewer to all entity types (as secondary tool)
@@ -271,46 +330,81 @@ END $$;
 -- ==============================================================================
 -- 6. Seed Example Layer Names
 -- ==============================================================================
+-- Note: Dynamically resolves registry_id values to ensure portability across environments
 
--- Utility Lines examples
-INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
-(1, 'CIV-UTIL-STORM-12IN-NEW-LN', '12-inch new storm drain line', TRUE, 10),
-(1, 'CIV-UTIL-WATER-8IN-EXIST-LN', '8-inch existing water line', TRUE, 20),
-(1, 'CIV-UTIL-SANIT-8IN-DEMO-LN', '8-inch sanitary sewer line to be removed', TRUE, 30)
-ON CONFLICT DO NOTHING;
-
--- Utility Structures examples
-INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
-(2, 'CIV-UTIL-MH-NEW-PT', 'New manhole structure', TRUE, 10),
-(2, 'CIV-UTIL-INLET-EXIST-PT', 'Existing storm inlet', TRUE, 20),
-(2, 'CIV-UTIL-VALVE-NEW-PT', 'New water valve', TRUE, 30)
-ON CONFLICT DO NOTHING;
-
--- Survey Points examples
-INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
-(3, 'CIV-SURV-SHOT-TOPO-PT', 'Topographic survey shot', TRUE, 10),
-(3, 'CIV-SURV-BENCH-CONTROL-PT', 'Survey benchmark control point', TRUE, 20)
-ON CONFLICT DO NOTHING;
-
--- Alignments examples
-INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
-(9, 'CIV-ALGN-CL-ROAD-LN', 'Road centerline alignment', TRUE, 10)
-ON CONFLICT DO NOTHING;
-
--- Parcels examples
-INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
-(10, 'CIV-PROP-PROP-EXISTING-PL', 'Existing property boundary', TRUE, 10)
-ON CONFLICT DO NOTHING;
-
--- Trees examples
-INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
-(12, 'CIV-LAND-TREE-EXIST-PT', 'Existing tree location', TRUE, 10),
-(12, 'CIV-LAND-TREE-PROPOSED-PT', 'Proposed tree location', TRUE, 20)
-ON CONFLICT DO NOTHING;
-
--- Surface Features examples
-INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
-(14, 'CIV-ROAD-CURB-NEW-LN', 'New curb and gutter', TRUE, 10),
-(14, 'CIV-ROAD-SDWK-PROPOSED-PL', 'Proposed sidewalk', TRUE, 20),
-(14, 'CIV-ROAD-RAMP-ADA-PL', 'ADA-compliant ramp', TRUE, 30)
-ON CONFLICT DO NOTHING;
+DO $$
+DECLARE
+    utility_lines_id INTEGER;
+    utility_structures_id INTEGER;
+    survey_points_id INTEGER;
+    alignments_id INTEGER;
+    parcels_id INTEGER;
+    trees_id INTEGER;
+    surface_features_id INTEGER;
+BEGIN
+    -- Resolve registry IDs dynamically
+    SELECT registry_id INTO utility_lines_id FROM entity_registry WHERE table_name = 'utility_lines';
+    SELECT registry_id INTO utility_structures_id FROM entity_registry WHERE table_name = 'utility_structures';
+    SELECT registry_id INTO survey_points_id FROM entity_registry WHERE table_name = 'survey_points';
+    SELECT registry_id INTO alignments_id FROM entity_registry WHERE table_name = 'horizontal_alignments';
+    SELECT registry_id INTO parcels_id FROM entity_registry WHERE table_name = 'parcels';
+    SELECT registry_id INTO trees_id FROM entity_registry WHERE table_name = 'site_trees';
+    SELECT registry_id INTO surface_features_id FROM entity_registry WHERE table_name = 'surface_features';
+    
+    -- Utility Lines examples
+    IF utility_lines_id IS NOT NULL THEN
+        INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
+        (utility_lines_id, 'CIV-UTIL-STORM-12IN-NEW-LN', '12-inch new storm drain line', TRUE, 10),
+        (utility_lines_id, 'CIV-UTIL-WATER-8IN-EXIST-LN', '8-inch existing water line', TRUE, 20),
+        (utility_lines_id, 'CIV-UTIL-SANIT-8IN-DEMO-LN', '8-inch sanitary sewer line to be removed', TRUE, 30)
+        ON CONFLICT DO NOTHING;
+    END IF;
+    
+    -- Utility Structures examples
+    IF utility_structures_id IS NOT NULL THEN
+        INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
+        (utility_structures_id, 'CIV-UTIL-MH-NEW-PT', 'New manhole structure', TRUE, 10),
+        (utility_structures_id, 'CIV-UTIL-INLET-EXIST-PT', 'Existing storm inlet', TRUE, 20),
+        (utility_structures_id, 'CIV-UTIL-VALVE-NEW-PT', 'New water valve', TRUE, 30)
+        ON CONFLICT DO NOTHING;
+    END IF;
+    
+    -- Survey Points examples
+    IF survey_points_id IS NOT NULL THEN
+        INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
+        (survey_points_id, 'CIV-SURV-SHOT-TOPO-PT', 'Topographic survey shot', TRUE, 10),
+        (survey_points_id, 'CIV-SURV-BENCH-CONTROL-PT', 'Survey benchmark control point', TRUE, 20)
+        ON CONFLICT DO NOTHING;
+    END IF;
+    
+    -- Alignments examples
+    IF alignments_id IS NOT NULL THEN
+        INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
+        (alignments_id, 'CIV-ALGN-CL-ROAD-LN', 'Road centerline alignment', TRUE, 10)
+        ON CONFLICT DO NOTHING;
+    END IF;
+    
+    -- Parcels examples
+    IF parcels_id IS NOT NULL THEN
+        INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
+        (parcels_id, 'CIV-PROP-PROP-EXISTING-PL', 'Existing property boundary', TRUE, 10)
+        ON CONFLICT DO NOTHING;
+    END IF;
+    
+    -- Trees examples
+    IF trees_id IS NOT NULL THEN
+        INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
+        (trees_id, 'CIV-LAND-TREE-EXIST-PT', 'Existing tree location', TRUE, 10),
+        (trees_id, 'CIV-LAND-TREE-PROPOSED-PT', 'Proposed tree location', TRUE, 20)
+        ON CONFLICT DO NOTHING;
+    END IF;
+    
+    -- Surface Features examples
+    IF surface_features_id IS NOT NULL THEN
+        INSERT INTO entity_registry_examples (registry_id, example_layer_name, description, is_recommended, sort_order) VALUES
+        (surface_features_id, 'CIV-ROAD-CURB-NEW-LN', 'New curb and gutter', TRUE, 10),
+        (surface_features_id, 'CIV-ROAD-SDWK-PROPOSED-PL', 'Proposed sidewalk', TRUE, 20),
+        (surface_features_id, 'CIV-ROAD-RAMP-ADA-PL', 'ADA-compliant ramp', TRUE, 30)
+        ON CONFLICT DO NOTHING;
+    END IF;
+END $$;

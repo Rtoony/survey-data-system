@@ -1140,10 +1140,14 @@
     
     async function loadEntityRegistry() {
         try {
-            const response = await fetch('/api/entity-registry');
+            const response = await fetch('/api/entity-registry/enriched');
             const data = await response.json();
-            entities = data.entities || [];
-            renderEntityRegistry();
+            if (data.success) {
+                entities = data.entities || [];
+                renderEntityRegistry();
+            } else {
+                throw new Error(data.error || 'Failed to load enriched entity registry');
+            }
         } catch (error) {
             console.error('Error loading entity registry:', error);
             showToast('Failed to load entity registry', 'error');
@@ -1192,26 +1196,88 @@
     
     function renderEntityCard(entity) {
         const icon = entity.icon || 'fas fa-table';
+        const controlledTypes = entity.controlled_object_types || [];
+        const specializedTools = entity.specialized_tools || [];
+        const exampleLayers = entity.example_layers || [];
+        const recordCount = entity.record_count || 0;
+        
         return `
-            <div class="entity-item">
-                <div class="entity-header">
-                    <div style="display: flex; align-items: start;">
-                        <i class="${icon} entity-icon"></i>
-                        <div class="entity-title">
-                            <div class="entity-name">${entity.display_name}</div>
-                            <div class="entity-table">${entity.table_name}</div>
-                            <span class="entity-category">${entity.category || 'General'}</span>
+            <div class="entity-item" style="background: rgba(0, 255, 255, 0.03); border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 8px; padding: 20px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: start; justify-content: space-between; margin-bottom: 15px;">
+                    <div style="display: flex; align-items: start; flex: 1;">
+                        <i class="${icon}" style="font-size: 28px; color: #00ffff; margin-right: 15px; margin-top: 3px;"></i>
+                        <div style="flex: 1;">
+                            <div style="font-size: 18px; font-weight: 600; color: #00ffff; margin-bottom: 3px;">${entity.display_name}</div>
+                            <div style="font-size: 13px; color: rgba(255,255,255,0.5); font-family: monospace; margin-bottom: 5px;">${entity.table_name}</div>
+                            <span style="display: inline-block; padding: 3px 8px; background: rgba(0, 255, 255, 0.1); color: #00ffff; font-size: 11px; border-radius: 3px;">${entity.category || 'General'}</span>
                         </div>
                     </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="icon-btn" onclick='openEditEntityModal(${entity.registry_id}, ${JSON.stringify(entity).replace(/'/g, "&apos;")})' title="Edit" style="background: rgba(0, 255, 255, 0.1); border: 1px solid rgba(0, 255, 255, 0.3);">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="icon-btn delete" onclick='openDeleteEntityModal(${entity.registry_id}, "${entity.display_name}")' title="Delete" style="background: rgba(255, 50, 50, 0.1); border: 1px solid rgba(255, 50, 50, 0.3);">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
-                ${entity.description ? `<div class="entity-desc">${entity.description}</div>` : ''}
-                <div class="item-actions">
-                    <button class="icon-btn" onclick='openEditEntityModal(${entity.registry_id}, ${JSON.stringify(entity)})' title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="icon-btn delete" onclick='openDeleteEntityModal(${entity.registry_id}, "${entity.display_name}")' title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                
+                ${entity.description ? `<div style="color: rgba(255,255,255,0.7); font-size: 13px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid rgba(0, 255, 255, 0.1);">${entity.description}</div>` : ''}
+                
+                ${controlledTypes.length > 0 ? `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 12px; font-weight: 600; color: #00ffff; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <i class="fas fa-code"></i> Controls CAD Object Types
+                        </div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            ${controlledTypes.map(type => `
+                                <span style="padding: 4px 10px; background: rgba(0, 255, 255, 0.15); color: #00ffff; font-size: 11px; border-radius: 4px; border: 1px solid rgba(0, 255, 255, 0.25); font-weight: 500;" title="${type.description || type.name}">
+                                    ${type.code}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                ${specializedTools.length > 0 ? `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 12px; font-weight: 600; color: #00ffff; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <i class="fas fa-tools"></i> Used by Specialized Tools
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            ${specializedTools.map(tool => `
+                                <a href="${tool.tool_route}" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(0, 255, 255, 0.08); border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 4px; text-decoration: none; color: #00ffff; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 255, 255, 0.15)'" onmouseout="this.style.background='rgba(0, 255, 255, 0.08)'">
+                                    <i class="${tool.icon || 'fas fa-tool'}" style="font-size: 14px;"></i>
+                                    <span style="flex: 1;">${tool.tool_name}</span>
+                                    ${tool.is_primary ? '<span style="padding: 2px 6px; background: rgba(0, 255, 255, 0.2); font-size: 10px; border-radius: 3px; font-weight: 600;">PRIMARY</span>' : ''}
+                                </a>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                ${exampleLayers.length > 0 ? `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 12px; font-weight: 600; color: #00ffff; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <i class="fas fa-layer-group"></i> Example Layer Names
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            ${exampleLayers.map(ex => `
+                                <div style="font-family: monospace; font-size: 11px; color: rgba(0, 255, 255, 0.9); padding: 4px 8px; background: rgba(0, 0, 0, 0.3); border-radius: 3px; border-left: 2px solid #00ffff;" title="${ex.description || ''}">
+                                    ${ex.example_layer_name}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0, 255, 255, 0.1); display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.5);">
+                        <i class="fas fa-database"></i> Database Table
+                    </div>
+                    <div style="font-size: 14px; font-weight: 600; color: #00ffff;">
+                        ${recordCount.toLocaleString()} ${recordCount === 1 ? 'record' : 'records'}
+                    </div>
                 </div>
             </div>
         `;
