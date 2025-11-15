@@ -37,6 +37,7 @@ Preferred communication style: Simple, everyday language.
 - **Horizontal Navigation Architecture:** Sticky horizontal navbar with dropdown menus.
 - **Projects Only System:** Migration to a "Projects Only" architecture where DXF imports create entities directly at the project level, featuring a hybrid intelligent object creation system for classification and review.
 - **Specialized Tools Registry:** Database-driven system linking CAD object types to interactive management tools.
+- **Truth-Driven Filterable Columns Registry:** Reference Data Hub table (`filterable_entity_columns`) serving as authoritative source for filterable metadata columns in Project Relationship Sets, preventing manual typos and enabling dynamic vocabulary updates without code changes.
 
 **Key Features & Design:**
 - **Standards Management:** Dedicated interfaces for CAD Layer Vocabulary (managing naming standards) and Reference Data Hub (managing 8 types of project-agnostic reference data like CAD Standards, Clients, Municipalities).
