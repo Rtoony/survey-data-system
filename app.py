@@ -1154,16 +1154,12 @@ def get_project_drawing_entities_map(project_id):
         
         extent = extent_result[0]
         
-        # Fetch drawing entities with layer and vocabulary information (limited for performance)
+        # Fetch drawing entities with layer information (limited for performance)
         entities_query = """
             SELECT 
                 de.entity_id,
                 de.entity_type,
                 COALESCE(l.layer_name, 'Unknown') as layer_name,
-                COALESCE(cat.category_code, 'MISC') as category,
-                COALESCE(ot.object_type_code, 'UNKNOWN') as object_type,
-                COALESCE(cat.category_name, 'Miscellaneous') as category_name,
-                COALESCE(ot.object_type_name, 'Unknown Object') as object_type_name,
                 ST_AsGeoJSON(
                     ST_Transform(
                         ST_Simplify(
@@ -1178,27 +1174,32 @@ def get_project_drawing_entities_map(project_id):
                 )::json as geometry
             FROM drawing_entities de
             LEFT JOIN layers l ON de.layer_id = l.layer_id
-            LEFT JOIN categories cat ON l.category_id = cat.category_id
-            LEFT JOIN object_types ot ON l.object_type_id = ot.object_type_id
             WHERE de.project_id = %s
               AND de.geometry IS NOT NULL
-            ORDER BY cat.category_code, ot.object_type_code, de.entity_type
+            ORDER BY l.layer_name, de.entity_type
             LIMIT 5000
         """
         entities = execute_query(entities_query, (project_id,))
         
-        # Group entities by category and object_type from vocabulary tables
+        # Group entities by layer name and parse category/object_type
         layer_groups = {}
         for entity in entities:
-            category = entity['category']
-            object_type = entity['object_type']
-            category_name = entity['category_name']
-            object_type_name = entity['object_type_name']
             layer_name = entity['layer_name']
             
-            # Create group key from category + object_type
-            group_key = f"{category}-{object_type}"
-            group_label = f"{category_name} - {object_type_name}"
+            # Parse layer name to extract category and object_type
+            # Format: DISCIPLINE-CATEGORY-OBJECTTYPE-PHASE-GEOMETRY
+            parts = layer_name.split('-')
+            if len(parts) >= 3:
+                category = parts[1]
+                object_type = parts[2]
+                group_key = f"{category}-{object_type}"
+                group_label = f"{category} - {object_type}"
+            else:
+                # Fallback for non-standard layer names
+                group_key = layer_name
+                group_label = layer_name
+                category = 'MISC'
+                object_type = layer_name
             
             if group_key not in layer_groups:
                 layer_groups[group_key] = {
@@ -1393,10 +1394,21 @@ def get_project_statistics(project_id):
                 'max_y': float(extent_result[0]['max_y'])
             }
         
+        # Get layer count
+        layer_count_query = """
+            SELECT COUNT(DISTINCT layer_id) as count
+            FROM layers
+            WHERE project_id = %s
+        """
+        layer_count = execute_query(layer_count_query, (project_id,))[0]['count']
+        
         return jsonify({
             'project_id': project_id,
             'project_name': project_check[0]['project_name'],
             'entity_count': entity_count,
+            'total_entities': entity_count,
+            'total_layers': layer_count,
+            'drawing_count': 0,
             'survey_point_count': survey_point_count,
             'intelligent_objects_counts': {
                 'utility_lines': intelligent_counts.get('utility_lines_count', 0),
@@ -11808,9 +11820,9 @@ def map_viewer_page():
 
 @app.route('/map-viewer-v2')
 def map_viewer_v2_page():
-    """Map Viewer Page V2 - Uncached"""
+    """Map Viewer Page V2 - Enhanced Version"""
     import time
-    response = make_response(render_template('map_viewer_simple.html', cache_bust=int(time.time())))
+    response = make_response(render_template('map_viewer.html', cache_bust=int(time.time())))
     response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate, max-age=0, s-maxage=0'
     response.headers['Surrogate-Control'] = 'no-store'
     response.headers['Pragma'] = 'no-cache'
