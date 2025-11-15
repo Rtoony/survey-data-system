@@ -201,9 +201,20 @@ class RelationshipSetService:
     
     def delete_set(self, set_id: str) -> bool:
         """Delete a relationship set (cascades to members, rules, violations)"""
-        query = "DELETE FROM project_relationship_sets WHERE set_id = %s"
-        execute_query(query, (set_id,))
-        return True
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("DELETE FROM project_relationship_sets WHERE set_id = %s", (set_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+            return True
+        except Exception as e:
+            conn.rollback()
+            cursor.close()
+            conn.close()
+            raise e
     
     def apply_template(self, template_id: str, project_id: str) -> Dict:
         """
