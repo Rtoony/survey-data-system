@@ -123,6 +123,22 @@ The system has been completely migrated from a "Projects + Drawings" architectur
   - `/api/usage/summary`: Now returns `total_projects`, `avg_entities_per_project`
   - `/api/usage/top-projects`: New endpoint replacing top-drawings
   - `/api/usage/recent-activity`: Enhanced with entity counts per project
+
+### Documentation Refresh (November 15, 2025)
+
+Complete documentation update replacing deprecated "Bulk Standards Editor" terminology with "CAD Layer Vocabulary":
+
+**Files Updated:**
+- README.md: Updated tool references, added Reference Data Hub description, refreshed date
+- CAD_STANDARDS_GUIDE.md: Replaced 6 instances of "Bulk Standards Editor" with "CAD Layer Vocabulary"
+- STANDARDS_CONFORMANCE_PATTERN.md: Updated date to November 15, 2025
+- AI_DATABASE_OPTIMIZATION_GUIDE.md: Updated date to November 15, 2025
+- docs/CAD_LAYER_NAMING_STANDARDS.md: Verified current (no changes needed)
+
+**Verification:**
+- Zero instances of deprecated terminology remain in markdown files
+- All documentation dates current to November 15, 2025
+- Terminology consistent across all project documentation
   - `/api/projects/<id>/statistics`: Removed `drawing_count`, consolidated intelligent object counts using efficient UNION ALL query
   - `/api/usage/top-layers`: Verified to return project-centric metrics
 - **Database Queries:** All APIs now query `projects`, `drawing_entities`, and intelligent object tables directly, avoiding deprecated `drawings` table
