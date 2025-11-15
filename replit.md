@@ -58,7 +58,13 @@ Preferred communication style: Simple, everyday language.
 - **Civil Project Manager:** Comprehensive project overview dashboard with metadata-driven CRUD for project-specific attachments.
 - **Sheet Note Manager:** Project-centric note management system with standard and custom notes, deviation tracking, and project-level organization.
 - **Object Reclassifier Tool:** Interactive UI for reviewing and reclassifying unclassified or low-confidence DXF entities.
-- **Project Relationship Sets:** Flexible dependency tracking and compliance auditing system that groups interconnected project elements (CAD geometry, specs, details, notes, hatches, materials) to detect out-of-sync conditions. Features metadata-based filtering, template system, and three intelligent checking algorithms (Existence, Link Integrity, Metadata Consistency).
+- **Project Relationship Sets:** Comprehensive dependency tracking and automated compliance auditing system that groups interconnected project elements (CAD geometry, specs, details, notes, hatches, materials) to detect out-of-sync conditions. Features include:
+  - **Member Management:** Add specific entities or filtered groups using truth-driven metadata columns from filterable_entity_columns Reference Data Hub table
+  - **Rule Builder:** Visual interface for creating compliance rules with 8 operator types (required, equals, contains, in_list, min, max, regex, not_equals)
+  - **Violations Dashboard:** Tabbed interface displaying detected violations with resolve/acknowledge actions and status tracking
+  - **Sync Checker:** Three intelligent checking algorithms (Existence, Link Integrity, Metadata Consistency)
+  - **Template System:** Save and reuse relationship set configurations across projects
+  - **Truth-Driven Architecture:** Dynamic field dropdowns from filterable_entity_columns (33 columns across 11 entity types) preventing manual errors
 - **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance.
 - **Interactive AI Visualizations:** Knowledge Graph Visualization and a Quality Dashboard.
 
