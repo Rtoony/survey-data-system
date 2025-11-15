@@ -80,7 +80,7 @@ DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY
 
 ### Step 1: Set Up Your Vocabulary (One Time)
 
-Go to **Standards > Bulk Standards Editor** (`/standards/bulk-editor`)
+Go to **Standards > CAD Layer Vocabulary** (`/standards/layer-vocabulary`)
 
 1. **Add Disciplines** - If you need new ones beyond the defaults
 2. **Add Categories** - Must be linked to a discipline
@@ -294,7 +294,7 @@ SITE-ROAD-ASPHALT-NEW-PL         (new pavement)
 **Problem:** Need MECH discipline, but it doesn't exist
 
 **Solution:**
-1. Go to Bulk Standards Editor
+1. Go to CAD Layer Vocabulary
 2. Select Disciplines tab
 3. Click "Add New"
 4. Enter code: `MECH`, name: "Mechanical", description
@@ -412,7 +412,7 @@ A: Future feature! The Export Template Manager will let you create reverse mappi
 
 ### Where to Go
 
-- **Manage Vocabulary:** `/standards/bulk-editor`
+- **Manage Vocabulary:** `/standards/layer-vocabulary`
 - **Create Patterns:** `/standards/import-manager`
 - **Filter Layers:** `/map-viewer`
 - **Import/Export:** `/dxf-tools`
