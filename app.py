@@ -16793,6 +16793,137 @@ def restore_survey_points():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== SURVEY POINT DESCRIPTIONS API =====
+
+@app.route('/api/survey-point-descriptions')
+def get_survey_point_descriptions():
+    """Get all survey point descriptions"""
+    try:
+        query = """
+            SELECT description_id, code, display_name, description, category, discipline,
+                   symbol_reference, layer_suggestion, is_favorite, usage_count, created_at
+            FROM survey_point_descriptions
+            ORDER BY category, code
+        """
+        descriptions = execute_query(query)
+        return jsonify({'survey_point_descriptions': descriptions})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<description_id>')
+def get_survey_point_description_detail(description_id):
+    """Get a specific survey point description"""
+    try:
+        query = """
+            SELECT description_id, code, display_name, description, category, discipline,
+                   symbol_reference, layer_suggestion, is_favorite, usage_count, created_at
+            FROM survey_point_descriptions
+            WHERE description_id = %s
+        """
+        result = execute_query(query, (description_id,))
+        
+        if not result:
+            return jsonify({'error': 'Survey point description not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions', methods=['POST'])
+def create_survey_point_description():
+    """Create a new survey point description"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('code') or not data.get('display_name'):
+            return jsonify({'error': 'code and display_name are required'}), 400
+        
+        check_query = "SELECT description_id FROM survey_point_descriptions WHERE code = %s"
+        existing = execute_query(check_query, (data['code'].strip().upper(),))
+        if existing:
+            return jsonify({'error': f'Code {data["code"]} already exists'}), 409
+        
+        query = """
+            INSERT INTO survey_point_descriptions (code, display_name, description, category, discipline,
+                                                  symbol_reference, layer_suggestion, is_favorite)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING description_id
+        """
+        result = execute_query(query, (
+            data['code'].strip().upper(),
+            data['display_name'].strip(),
+            (data.get('description') or '').strip() or None,
+            (data.get('category') or '').strip() or None,
+            (data.get('discipline') or '').strip() or None,
+            (data.get('symbol_reference') or '').strip() or None,
+            (data.get('layer_suggestion') or '').strip() or None,
+            data.get('is_favorite', False)
+        ))
+        
+        return jsonify({
+            'description_id': result[0]['description_id'],
+            'message': f'Survey point description {data["code"]} created successfully'
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<description_id>', methods=['PUT'])
+def update_survey_point_description(description_id):
+    """Update a survey point description"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('code') or not data.get('display_name'):
+            return jsonify({'error': 'code and display_name are required'}), 400
+        
+        check_query = """
+            SELECT description_id FROM survey_point_descriptions 
+            WHERE code = %s AND description_id != %s
+        """
+        existing = execute_query(check_query, (data['code'].strip().upper(), description_id))
+        if existing:
+            return jsonify({'error': f'Code {data["code"]} already exists'}), 409
+        
+        query = """
+            UPDATE survey_point_descriptions 
+            SET code = %s, display_name = %s, description = %s, category = %s, discipline = %s,
+                symbol_reference = %s, layer_suggestion = %s, is_favorite = %s
+            WHERE description_id = %s
+            RETURNING description_id
+        """
+        result = execute_query(query, (
+            data['code'].strip().upper(),
+            data['display_name'].strip(),
+            (data.get('description') or '').strip() or None,
+            (data.get('category') or '').strip() or None,
+            (data.get('discipline') or '').strip() or None,
+            (data.get('symbol_reference') or '').strip() or None,
+            (data.get('layer_suggestion') or '').strip() or None,
+            data.get('is_favorite', False),
+            description_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Survey point description not found'}), 404
+        
+        return jsonify({'message': f'Survey point description updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<description_id>', methods=['DELETE'])
+def delete_survey_point_description(description_id):
+    """Delete a survey point description"""
+    try:
+        query = "DELETE FROM survey_point_descriptions WHERE description_id = %s RETURNING description_id"
+        result = execute_query(query, (description_id,))
+        
+        if not result:
+            return jsonify({'error': 'Survey point description not found'}), 404
+        
+        return jsonify({'message': 'Survey point description deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ===== GIS DATA LAYERS API =====
 
 @app.route('/api/gis-data-layers')
