@@ -1137,7 +1137,7 @@ def get_project_statistics(project_id):
                 UNION ALL
                 SELECT alignment_id, 'alignments' FROM horizontal_alignments WHERE project_id = %s
                 UNION ALL
-                SELECT model_id, 'surface_models' FROM surface_models WHERE project_id = %s
+                SELECT surface_id, 'surface_models' FROM surface_models WHERE project_id = %s
                 UNION ALL
                 SELECT tree_id, 'site_trees' FROM site_trees WHERE project_id = %s
                 UNION ALL
@@ -1158,35 +1158,34 @@ def get_project_statistics(project_id):
         survey_point_count = execute_query(survey_point_count_query, (project_id,))[0]['count']
         
         
-        # Get reference data counts using efficient COUNT queries (not full entity loads)
-        # Single query with UNION ALL for all mapping tables
-        # NOTE: Only counts ACTIVE attachments (is_active = true) to reflect current project state.
-        # Inactive/soft-deleted attachments are excluded from dashboard KPIs.
-        reference_counts_query = """
-            SELECT 'clients' as entity_type, COUNT(*) as count
-            FROM project_clients WHERE project_id = %s AND is_active = true
-            UNION ALL
-            SELECT 'vendors', COUNT(*)
-            FROM project_vendors WHERE project_id = %s AND is_active = true
-            UNION ALL
-            SELECT 'municipalities', COUNT(*)
-            FROM project_municipalities WHERE project_id = %s AND is_active = true
-            UNION ALL
-            SELECT 'coordinate_systems', COUNT(*)
-            FROM project_coordinate_systems WHERE project_id = %s AND is_active = true
-            UNION ALL
-            SELECT 'survey_point_descriptions', COUNT(*)
-            FROM project_survey_point_descriptions WHERE project_id = %s AND is_active = true
-            UNION ALL
-            SELECT 'gis_layers', COUNT(*)
-            FROM project_gis_layers WHERE project_id = %s AND is_active = true
-        """
-        
-        counts_result = execute_query(reference_counts_query, 
-                                     (project_id, project_id, project_id, 
-                                      project_id, project_id, project_id))
-        
-        reference_data_counts = {row['entity_type']: row['count'] for row in counts_result}
+        # Get reference data counts - wrapped in try-catch for tables that may not exist
+        reference_data_counts = {}
+        try:
+            reference_counts_query = """
+                SELECT 'clients' as entity_type, COUNT(*) as count
+                FROM project_clients WHERE project_id = %s AND is_active = true
+                UNION ALL
+                SELECT 'vendors', COUNT(*)
+                FROM project_vendors WHERE project_id = %s AND is_active = true
+                UNION ALL
+                SELECT 'municipalities', COUNT(*)
+                FROM project_municipalities WHERE project_id = %s AND is_active = true
+                UNION ALL
+                SELECT 'coordinate_systems', COUNT(*)
+                FROM project_coordinate_systems WHERE project_id = %s AND is_active = true
+                UNION ALL
+                SELECT 'gis_layers', COUNT(*)
+                FROM project_gis_layers WHERE project_id = %s AND is_active = true
+            """
+            
+            counts_result = execute_query(reference_counts_query, 
+                                         (project_id, project_id, project_id, 
+                                          project_id, project_id))
+            
+            reference_data_counts = {row['entity_type']: row['count'] for row in counts_result}
+        except Exception as e:
+            print(f"Warning: Could not fetch reference data counts: {str(e)}")
+            reference_data_counts = {}
         
         # Get spatial extent
         has_spatial_data = False
