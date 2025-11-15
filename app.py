@@ -15980,6 +15980,9 @@ def delete_coordinate_system(system_id):
         return jsonify({'error': str(e)}), 500
 
 # ===== RELATIONSHIP SET NAMING TEMPLATES API =====
+# TODO: Add authentication when app-wide auth strategy is implemented
+# NOTE: Currently all 100+ API endpoints in this app are unauthenticated (internal tool)
+# See deployment docs for security considerations
 
 @app.route('/api/naming-templates')
 def get_naming_templates():

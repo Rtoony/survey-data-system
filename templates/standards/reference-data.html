@@ -640,6 +640,102 @@
     </div>
 </div>
 
+<div id="namingTemplateModal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+            <h3 id="namingTemplateModalTitle">Add New Naming Template</h3>
+            <button class="close-btn" onclick="closeNamingTemplateModal()">&times;</button>
+        </div>
+        <form id="namingTemplateForm" onsubmit="handleNamingTemplateSubmit(event)">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h4 style="color: var(--primary); margin-bottom: 15px; font-size: 14px;">Basic Information</h4>
+                    <div class="form-group">
+                        <label>Template Name <span style="color: #ff4444;">*</span></label>
+                        <input type="text" name="template_name" required placeholder="e.g., Storm System Compliance">
+                        <div class="help-text">Descriptive name for this naming pattern</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Category <span style="color: #ff4444;">*</span></label>
+                        <select name="category" required>
+                            <option value="">Select Category</option>
+                            <option value="Compliance">Compliance</option>
+                            <option value="Network">Network</option>
+                            <option value="Materials">Materials</option>
+                            <option value="Survey">Survey</option>
+                            <option value="Construction">Construction</option>
+                            <option value="Accessibility">Accessibility</option>
+                            <option value="Pavement">Pavement</option>
+                            <option value="General">General</option>
+                            <option value="BMP">BMP</option>
+                            <option value="Cross-Reference">Cross-Reference</option>
+                        </select>
+                        <div class="help-text">Category for organizing templates</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Name Format <span style="color: #ff4444;">*</span></label>
+                        <input type="text" name="name_format" required placeholder="e.g., {DISCIPLINE} {FEATURE_TYPE} for {PROJECT}">
+                        <div class="help-text">Format string with {TOKEN} placeholders</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Short Code Format <span style="color: #ff4444;">*</span></label>
+                        <input type="text" name="short_code_format" required placeholder="e.g., {DISC}-{TYPE}-{PROJ}">
+                        <div class="help-text">Abbreviated format for compact display</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea name="description" placeholder="Describe when to use this template..." rows="3"></textarea>
+                    </div>
+                </div>
+                <div>
+                    <h4 style="color: var(--primary); margin-bottom: 15px; font-size: 14px;">Examples & Tokens</h4>
+                    <div class="form-group">
+                        <label>Example Name</label>
+                        <input type="text" name="example_name" placeholder="e.g., Storm Drainage System for Main Street">
+                        <div class="help-text">Filled-in example of name_format</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Example Code</label>
+                        <input type="text" name="example_code" placeholder="e.g., STORM-DRAIN-MAIN">
+                        <div class="help-text">Filled-in example of short_code_format</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Example Tokens (JSON)</label>
+                        <textarea name="example_tokens" placeholder='{"DISCIPLINE": "Storm", "FEATURE_TYPE": "Drainage System", "PROJECT": "Main Street"}' rows="3"></textarea>
+                        <div class="help-text">JSON object showing token values for examples</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Required Tokens (JSON Array)</label>
+                        <textarea name="required_tokens" placeholder='["DISCIPLINE", "FEATURE_TYPE", "PROJECT"]' rows="2"></textarea>
+                        <div class="help-text">Array of token names that must be filled</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Optional Tokens (JSON Array)</label>
+                        <textarea name="optional_tokens" placeholder='["LOCATION", "PHASE"]' rows="2"></textarea>
+                        <div class="help-text">Array of optional token names</div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 20px;">
+                <label>Usage Instructions</label>
+                <textarea name="usage_instructions" placeholder="Step-by-step guide for using this template..." rows="4"></textarea>
+                <div class="help-text">Detailed instructions for users</div>
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" name="is_default">
+                    <span>Set as Default Template for this Category</span>
+                </label>
+                <div class="help-text">Default templates are pre-selected when creating new relationship sets</div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeNamingTemplateModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save Template</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="confirmModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -742,6 +838,7 @@
     let coordinateSystems = [];
     let surveyPoints = [];
     let gisLayers = [];
+    let namingTemplates = [];
     
     let currentEdit = {
         id: null,
@@ -774,6 +871,9 @@
                     break;
                 case 'municipalities':
                     if (municipalities.length === 0) loadMunicipalities();
+                    break;
+                case 'naming-templates':
+                    if (namingTemplates.length === 0) loadNamingTemplates();
                     break;
                 case 'coordinate-systems':
                     if (coordinateSystems.length === 0) loadCoordinateSystems();
@@ -1470,6 +1570,164 @@
         }
     }
     
+    async function loadNamingTemplates() {
+        try {
+            const response = await fetch('/api/naming-templates');
+            const data = await response.json();
+            namingTemplates = data.templates || [];
+            renderNamingTemplates();
+        } catch (error) {
+            console.error('Error loading naming templates:', error);
+            showToast('Failed to load naming templates', 'error');
+        }
+    }
+    
+    function renderNamingTemplates() {
+        const container = document.getElementById('namingTemplatesContainer');
+        
+        if (namingTemplates.length === 0) {
+            container.innerHTML = `
+                <div class="placeholder-message">
+                    <i class="fas fa-tags"></i>
+                    <h3>No naming templates yet</h3>
+                    <p>Click "Add New Template" to create your first naming template for relationship sets.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const grouped = namingTemplates.reduce((acc, template) => {
+            const category = template.category || 'Uncategorized';
+            if (!acc[category]) acc[category] = [];
+            acc[category].push(template);
+            return acc;
+        }, {});
+        
+        const html = Object.entries(grouped).map(([category, items]) => `
+            <div class="category-section">
+                <div class="category-header">
+                    <span class="category-title">${category}</span>
+                    <span class="category-count">(${items.length} ${items.length === 1 ? 'template' : 'templates'})</span>
+                </div>
+                <div class="grid">
+                    ${items.map(template => `
+                        <div class="entity-item">
+                            <div class="entity-header">
+                                <div style="display: flex; align-items: start;">
+                                    <i class="fas fa-tags entity-icon"></i>
+                                    <div class="entity-title">
+                                        <div class="entity-name">${template.template_name}${template.is_default ? ' <span class="entity-category" style="background: var(--accent-cyan);">DEFAULT</span>' : ''}</div>
+                                        <div class="entity-table">${template.category}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="entity-desc">
+                                <div><strong>Name Format:</strong> <code style="font-size: 0.9em; color: var(--accent-cyan);">${template.name_format}</code></div>
+                                <div><strong>Code Format:</strong> <code style="font-size: 0.9em; color: var(--accent-gold);">${template.short_code_format}</code></div>
+                                ${template.description ? `<div style="margin-top: 8px; color: var(--muted);">${template.description}</div>` : ''}
+                                ${template.example_name ? `<div style="margin-top: 8px; color: var(--success);"><strong>Example:</strong> ${template.example_name} (${template.example_code})</div>` : ''}
+                                ${template.usage_count ? `<div style="margin-top: 8px; font-size: 0.85em; color: var(--muted);"><i class="fas fa-check-circle"></i> Used ${template.usage_count} ${template.usage_count === 1 ? 'time' : 'times'}</div>` : ''}
+                            </div>
+                            <div class="item-actions">
+                                <button class="icon-btn" onclick='openEditNamingTemplateModal("${template.template_id}", ${JSON.stringify(template).replace(/'/g, "&apos;")})' title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="icon-btn delete" onclick='openDeleteModal("${template.template_id}", "${template.template_name.replace(/'/g, "\\'")}", "naming-template")' title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = html;
+    }
+    
+    function openAddNamingTemplateModal() {
+        currentEdit = { id: null, data: null, type: 'naming-template' };
+        document.getElementById('namingTemplateModalTitle').textContent = 'Add New Naming Template';
+        document.getElementById('namingTemplateForm').reset();
+        document.getElementById('namingTemplateModal').classList.add('active');
+    }
+    
+    function openEditNamingTemplateModal(id, data) {
+        currentEdit = { id, data, type: 'naming-template' };
+        document.getElementById('namingTemplateModalTitle').textContent = 'Edit Naming Template';
+        
+        const form = document.getElementById('namingTemplateForm');
+        form.template_name.value = data.template_name || '';
+        form.category.value = data.category || '';
+        form.name_format.value = data.name_format || '';
+        form.short_code_format.value = data.short_code_format || '';
+        form.description.value = data.description || '';
+        form.usage_instructions.value = data.usage_instructions || '';
+        form.example_name.value = data.example_name || '';
+        form.example_code.value = data.example_code || '';
+        form.example_tokens.value = data.example_tokens ? JSON.stringify(data.example_tokens) : '';
+        form.required_tokens.value = data.required_tokens ? JSON.stringify(data.required_tokens) : '[]';
+        form.optional_tokens.value = data.optional_tokens ? JSON.stringify(data.optional_tokens) : '[]';
+        form.is_default.checked = data.is_default || false;
+        
+        document.getElementById('namingTemplateModal').classList.add('active');
+    }
+    
+    function closeNamingTemplateModal() {
+        document.getElementById('namingTemplateModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    async function handleNamingTemplateSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        
+        const templateData = {
+            template_name: formData.get('template_name'),
+            category: formData.get('category'),
+            name_format: formData.get('name_format'),
+            short_code_format: formData.get('short_code_format'),
+            description: formData.get('description'),
+            usage_instructions: formData.get('usage_instructions'),
+            example_name: formData.get('example_name'),
+            example_code: formData.get('example_code'),
+            example_tokens: formData.get('example_tokens') ? JSON.parse(formData.get('example_tokens')) : null,
+            required_tokens: formData.get('required_tokens') ? JSON.parse(formData.get('required_tokens')) : [],
+            optional_tokens: formData.get('optional_tokens') ? JSON.parse(formData.get('optional_tokens')) : [],
+            is_default: formData.get('is_default') === 'on'
+        };
+        
+        try {
+            let response;
+            if (currentEdit.id) {
+                response = await fetch(`/api/naming-templates/${currentEdit.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(templateData)
+                });
+            } else {
+                response = await fetch('/api/naming-templates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(templateData)
+                });
+            }
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message, 'success');
+                closeNamingTemplateModal();
+                loadNamingTemplates();
+            } else {
+                showToast(result.error || 'Failed to save naming template', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving naming template:', error);
+            showToast('Failed to save naming template', 'error');
+        }
+    }
+    
     function openDeleteModal(id, name, type) {
         deleteTarget = { id, name, type };
         document.getElementById('confirmMessage').textContent = `Are you sure you want to delete "${name}"?`;
@@ -1819,6 +2077,10 @@
             case 'gis-layer':
                 endpoint = `/api/gis-data-layers/${id}`;
                 reloadFunction = loadGISLayers;
+                break;
+            case 'naming-template':
+                endpoint = `/api/naming-templates/${id}`;
+                reloadFunction = loadNamingTemplates;
                 break;
             default:
                 showToast('Unknown item type', 'error');
