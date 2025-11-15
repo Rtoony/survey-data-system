@@ -34,7 +34,7 @@
                 <span>Home</span>
             </a>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-library', '/standards/layer-vocabulary', '/standards/reference-data', '/standards/reference', '/standards/layer-generator', '/tools/dxf-test-generator'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-library', '/standards/layer-vocabulary', '/standards/reference-data', '/standards/reference', '/standards/layer-generator', '/tools/dxf-test-generator', '/tools/object-reclassifier', '/tools/batch-cad-import', '/tools/batch-block-import', '/tools/survey-codes'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-ruler-combined"></i>
                     <span>Standards</span>
@@ -64,6 +64,20 @@
                     <a href="/standards/reference" class="mc-dropdown-item {% if request.path == '/standards/reference' %}active{% endif %}">
                         <i class="fas fa-book-open"></i>
                         Layer Standards Reference
+                    </a>
+                    <div class="mc-dropdown-divider"></div>
+                    <div class="mc-dropdown-header">CAD Management Tools</div>
+                    <a href="/tools/object-reclassifier" class="mc-dropdown-item {% if request.path == '/tools/object-reclassifier' %}active{% endif %}">
+                        <i class="fas fa-random"></i>
+                        Object Reclassifier
+                    </a>
+                    <a href="/tools/batch-cad-import" class="mc-dropdown-item {% if request.path in ['/tools/batch-cad-import', '/tools/batch-block-import'] %}active{% endif %}">
+                        <i class="fas fa-cubes"></i>
+                        Batch CAD Import
+                    </a>
+                    <a href="/tools/survey-codes" class="mc-dropdown-item {% if request.path == '/tools/survey-codes' %}active{% endif %}">
+                        <i class="fas fa-list-check"></i>
+                        Survey Code Library
                     </a>
                 </div>
             </div>
@@ -118,7 +132,7 @@
                 </div>
             </div>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/tools/batch-cad-import', '/tools/batch-block-import', '/tools/batch-point-import', '/tools/survey-codes', '/tools/z-stress-test', '/tools/specialized-tools-directory', '/tools/object-reclassifier', '/map-viewer', '/map-viewer-v2', '/gravity-network-manager', '/pressure-network-manager', '/bmp-manager', '/sheet-notes', '/entity-viewer'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/tools/batch-point-import', '/tools/z-stress-test', '/tools/specialized-tools-directory', '/map-viewer', '/map-viewer-v2', '/sheet-notes', '/entity-viewer'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-drafting-compass"></i>
                     <span>Tools</span>
@@ -134,21 +148,9 @@
                         <i class="fas fa-file-export"></i>
                         DXF Tools
                     </a>
-                    <a href="/tools/object-reclassifier" class="mc-dropdown-item {% if request.path == '/tools/object-reclassifier' %}active{% endif %}">
-                        <i class="fas fa-random"></i>
-                        Object Reclassifier
-                    </a>
-                    <a href="/tools/batch-cad-import" class="mc-dropdown-item {% if request.path in ['/tools/batch-cad-import', '/tools/batch-block-import'] %}active{% endif %}">
-                        <i class="fas fa-cubes"></i>
-                        Batch CAD Import
-                    </a>
                     <a href="/tools/batch-point-import" class="mc-dropdown-item {% if request.path == '/tools/batch-point-import' %}active{% endif %}">
                         <i class="fas fa-map-pin"></i>
                         Batch Point Import
-                    </a>
-                    <a href="/tools/survey-codes" class="mc-dropdown-item {% if request.path == '/tools/survey-codes' %}active{% endif %}">
-                        <i class="fas fa-list-check"></i>
-                        Survey Code Library
                     </a>
                     <a href="/tools/z-stress-test" class="mc-dropdown-item {% if request.path == '/tools/z-stress-test' %}active{% endif %}">
                         <i class="fas fa-vial"></i>
@@ -161,20 +163,6 @@
                     <a href="/entity-viewer" class="mc-dropdown-item {% if request.path == '/entity-viewer' %}active{% endif %}">
                         <i class="fas fa-eye"></i>
                         Entity Viewer
-                    </a>
-                    <div class="mc-dropdown-divider"></div>
-                    <div class="mc-dropdown-header">Network Managers</div>
-                    <a href="/gravity-network-manager" class="mc-dropdown-item {% if request.path == '/gravity-network-manager' %}active{% endif %}">
-                        <i class="fas fa-water"></i>
-                        Gravity Network Manager
-                    </a>
-                    <a href="/pressure-network-manager" class="mc-dropdown-item {% if request.path == '/pressure-network-manager' %}active{% endif %}">
-                        <i class="fas fa-tint"></i>
-                        Pressure Network Manager
-                    </a>
-                    <a href="/bmp-manager" class="mc-dropdown-item {% if request.path == '/bmp-manager' %}active{% endif %}">
-                        <i class="fas fa-leaf"></i>
-                        BMP Manager
                     </a>
                     <div class="mc-dropdown-divider"></div>
                     <a href="/sheet-notes" class="mc-dropdown-item {% if request.path == '/sheet-notes' %}active{% endif %}">
