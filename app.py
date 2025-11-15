@@ -380,13 +380,6 @@ def get_active_project():
         
         project = projects[0]
         
-        try:
-            drawing_count_query = "SELECT COUNT(*) as count FROM drawings WHERE project_id = %s"
-            drawing_result = execute_query(drawing_count_query, (active_project_id,))
-            project['drawing_count'] = drawing_result[0]['count'] if drawing_result else 0
-        except Exception:
-            project['drawing_count'] = 0
-        
         return jsonify({
             'active_project': project
         })

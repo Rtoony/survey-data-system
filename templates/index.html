@@ -84,7 +84,7 @@
                     <div class="project-meta">
                         <span id="projectNumber" class="meta-badge"></span>
                         <span id="projectClient" class="meta-badge"></span>
-                        <span id="projectDrawingCount" class="meta-badge"></span>
+                        <span id="projectStatus" class="meta-badge"></span>
                     </div>
                 </div>
             </div>
@@ -99,34 +99,32 @@
         </div>
     </div>
 
-    <div class="grid grid-4 mb-lg">
-        <div class="stat-card stat-card-glow">
-            <div class="stat-icon">
-                <i class="fas fa-file-image"></i>
+    <div class="grid grid-3 mb-lg">
+        <div class="card">
+            <h3 style="margin-bottom: var(--mc-spacing-md); color: var(--mc-accent);">
+                <i class="fas fa-info-circle"></i> Project Overview
+            </h3>
+            <div id="projectOverview">
+                <p style="color: var(--mc-muted); font-style: italic;">Loading...</p>
             </div>
-            <div class="stat-value" id="statDrawings">0</div>
-            <div class="stat-label">Drawings</div>
         </div>
-        <div class="stat-card stat-card-glow">
-            <div class="stat-icon">
-                <i class="fas fa-map-pin"></i>
+
+        <div class="card">
+            <h3 style="margin-bottom: var(--mc-spacing-md); color: var(--mc-accent);">
+                <i class="fas fa-layer-group"></i> Object Summary
+            </h3>
+            <div id="objectSummary">
+                <p style="color: var(--mc-muted); font-style: italic;">Loading...</p>
             </div>
-            <div class="stat-value" id="statSurveyPoints">0</div>
-            <div class="stat-label">Survey Points</div>
         </div>
-        <div class="stat-card stat-card-glow">
-            <div class="stat-icon">
-                <i class="fas fa-shapes"></i>
+
+        <div class="card">
+            <h3 style="margin-bottom: var(--mc-spacing-md); color: var(--mc-accent);">
+                <i class="fas fa-chart-line"></i> Project Health
+            </h3>
+            <div id="projectHealth">
+                <p style="color: var(--mc-muted); font-style: italic;">Loading...</p>
             </div>
-            <div class="stat-value" id="statEntities">0</div>
-            <div class="stat-label">Total Entities</div>
-        </div>
-        <div class="stat-card stat-card-glow">
-            <div class="stat-icon">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <div class="stat-value" id="statQuality">-</div>
-            <div class="stat-label">Quality Score</div>
         </div>
     </div>
 
@@ -503,8 +501,14 @@ async function loadProjectDashboard(project) {
         projectClient.style.display = 'none';
     }
 
-    const drawingCount = project.drawing_count || 0;
-    document.getElementById('projectDrawingCount').textContent = `${drawingCount} Drawing${drawingCount !== 1 ? 's' : ''}`;
+    const projectStatus = document.getElementById('projectStatus');
+    if (project.status) {
+        projectStatus.textContent = project.status;
+        projectStatus.style.display = 'inline-block';
+    } else {
+        projectStatus.textContent = 'Active';
+        projectStatus.style.display = 'inline-block';
+    }
 
     const projectId = project.project_id;
     document.getElementById('commandCenterLink').href = `/projects/${projectId}/command-center`;
@@ -513,41 +517,121 @@ async function loadProjectDashboard(project) {
     document.getElementById('entityBrowserLink').href = `/projects/${projectId}/entities`;
     document.getElementById('relationshipSetsLink').href = `/projects/${projectId}/relationship-sets`;
 
+    loadProjectOverview(project);
+    
     try {
         const statsResponse = await fetch(`/api/projects/${projectId}/statistics`);
         
         if (statsResponse.ok) {
             const stats = await statsResponse.json();
-
-            document.getElementById('statDrawings').textContent = stats.total_drawings || 0;
-            document.getElementById('statSurveyPoints').textContent = stats.total_survey_points || 0;
-            document.getElementById('statEntities').textContent = stats.total_entities || 0;
-            document.getElementById('statQuality').textContent = project.quality_score || '-';
+            loadObjectSummary(stats);
+            loadProjectHealth(stats, project);
 
             const recentActivity = document.getElementById('recentActivity');
-            if (stats.recent_activity && stats.recent_activity.length > 0) {
-                recentActivity.innerHTML = stats.recent_activity.slice(0, 5).map(activity => `
-                    <div style="padding: var(--mc-spacing-sm) 0; border-bottom: 1px solid rgba(0, 255, 255, 0.1);">
-                        <div style="color: var(--mc-text); font-weight: 500;">${activity.description || 'Activity'}</div>
-                        <div style="font-size: 0.85rem; color: var(--mc-muted); margin-top: 4px;">
-                            ${formatDate(activity.created_at)}
-                        </div>
+            recentActivity.innerHTML = `
+                <div style="padding: var(--mc-spacing-sm) 0;">
+                    <div style="color: var(--mc-text); font-weight: 500;">Project statistics loaded</div>
+                    <div style="font-size: 0.85rem; color: var(--mc-muted); margin-top: 4px;">
+                        ${new Date().toLocaleString()}
                     </div>
-                `).join('');
-            } else {
-                recentActivity.innerHTML = '<p style="color: var(--mc-muted); font-style: italic;">No recent activity</p>';
-            }
+                </div>
+                <div style="padding: var(--mc-spacing-sm) 0; border-top: 1px solid rgba(0, 255, 255, 0.1);">
+                    <div style="color: var(--mc-text);">${stats.total_intelligent_objects || 0} intelligent objects classified</div>
+                    <div style="font-size: 0.85rem; color: var(--mc-muted); margin-top: 4px;">
+                        From ${stats.entity_count || 0} total entities
+                    </div>
+                </div>
+            `;
         } else {
             throw new Error('Statistics endpoint not available');
         }
     } catch (error) {
         console.error('Error loading project statistics:', error);
-        document.getElementById('statDrawings').textContent = project.drawing_count || 0;
-        document.getElementById('statSurveyPoints').textContent = '-';
-        document.getElementById('statEntities').textContent = '-';
-        document.getElementById('statQuality').textContent = project.quality_score || '-';
+        document.getElementById('objectSummary').innerHTML = '<p style="color: var(--mc-muted); font-style: italic;">No data available</p>';
+        document.getElementById('projectHealth').innerHTML = '<p style="color: var(--mc-muted); font-style: italic;">No data available</p>';
         document.getElementById('recentActivity').innerHTML = '<p style="color: var(--mc-muted); font-style: italic;">No recent activity</p>';
     }
+}
+
+function loadProjectOverview(project) {
+    const overview = document.getElementById('projectOverview');
+    overview.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">Project</span>
+                <span style="color: var(--mc-text); font-size: 0.9rem; text-align: right; word-break: break-word;">${project.project_name || '--'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">Client</span>
+                <span style="color: var(--mc-text); font-size: 0.9rem; text-align: right;">${project.client_name || '--'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">Project #</span>
+                <span style="color: var(--mc-text); font-size: 0.9rem; text-align: right;">${project.project_number || '--'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">Status</span>
+                <span style="color: var(--mc-text); font-size: 0.9rem; text-align: right;">${project.status || 'Active'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">Coordinate System</span>
+                <span style="color: var(--mc-text); font-size: 0.9rem; text-align: right;">EPSG:2226</span>
+            </div>
+        </div>
+    `;
+}
+
+function loadObjectSummary(stats) {
+    const summary = document.getElementById('objectSummary');
+    const objectTypes = stats.intelligent_objects_counts || {};
+    
+    const items = Object.entries(objectTypes).filter(([type, count]) => count > 0).map(([type, count]) => {
+        const typeName = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">${typeName}</span>
+                <span style="color: var(--mc-accent); font-size: 0.9rem; font-weight: 600;">${count}</span>
+            </div>
+        `;
+    }).join('');
+    
+    if (items) {
+        summary.innerHTML = items;
+    } else {
+        summary.innerHTML = '<p style="color: var(--mc-muted); font-style: italic;">No objects found</p>';
+    }
+}
+
+function loadProjectHealth(stats, project) {
+    const health = document.getElementById('projectHealth');
+    const totalEntities = stats.entity_count || 0;
+    const totalIntelligent = stats.total_intelligent_objects || 0;
+    const classifiedPct = totalEntities > 0 ? Math.round((totalIntelligent / totalEntities) * 100) : 0;
+    
+    health.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">Classified</span>
+                <span style="color: var(--mc-accent); font-size: 1.1rem; font-weight: 600;">${classifiedPct}%</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">Total Entities</span>
+                <span style="color: var(--mc-accent); font-size: 1.1rem; font-weight: 600;">${totalEntities}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">Intelligent Objects</span>
+                <span style="color: var(--mc-accent); font-size: 1.1rem; font-weight: 600;">${totalIntelligent}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">Quality Score</span>
+                <span style="color: var(--mc-accent); font-size: 1.1rem; font-weight: 600;">${project.quality_score || '--'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--mc-primary); font-size: 0.85rem; text-transform: uppercase;">Survey Points</span>
+                <span style="color: var(--mc-accent); font-size: 1.1rem; font-weight: 600;">${stats.survey_point_count || 0}</span>
+            </div>
+        </div>
+    `;
 }
 
 function createNewProjectFromHome() {
