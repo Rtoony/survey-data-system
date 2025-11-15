@@ -107,6 +107,11 @@ def project_entity_browser_page(project_id):
     """Entity Browser - unified view of all project entities"""
     return render_template('project_entity_browser.html', project_id=project_id)
 
+@app.route('/projects/<project_id>/relationship-sets')
+def project_relationship_sets_page(project_id):
+    """Relationship Sets Manager - manage project dependencies and compliance tracking"""
+    return render_template('project_relationship_sets.html', project_id=project_id)
+
 @app.route('/standards-library')
 def standards_library():
     """Standards Library landing page"""
@@ -17360,6 +17365,215 @@ def get_entity_viewer_entities():
             'type_counts': type_counts,
             'total_count': len(all_entities)
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# PROJECT RELATIONSHIP SETS API
+# ============================================
+
+from services.relationship_set_service import RelationshipSetService
+from services.relationship_sync_checker import RelationshipSyncChecker
+
+@app.route('/api/projects/<project_id>/relationship-sets')
+def get_project_relationship_sets(project_id):
+    """Get all relationship sets for a project"""
+    try:
+        service = RelationshipSetService()
+        include_templates = request.args.get('include_templates', 'false').lower() == 'true'
+        sets = service.get_sets_by_project(project_id, include_templates)
+        return jsonify({'sets': sets})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/relationship-sets/<set_id>')
+def get_relationship_set_detail(set_id):
+    """Get detailed information about a relationship set"""
+    try:
+        service = RelationshipSetService()
+        set_data = service.get_set_detail(set_id)
+        if not set_data:
+            return jsonify({'error': 'Relationship set not found'}), 404
+        
+        members = service.get_members(set_id)
+        rules = service.get_rules(set_id)
+        violations = service.get_violations(set_id)
+        
+        return jsonify({
+            'set': set_data,
+            'members': members,
+            'rules': rules,
+            'violations': violations
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/relationship-sets', methods=['POST'])
+def create_relationship_set():
+    """Create a new relationship set"""
+    try:
+        data = request.get_json()
+        service = RelationshipSetService()
+        new_set = service.create_set(data)
+        return jsonify({'set': new_set}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/relationship-sets/<set_id>', methods=['PUT'])
+def update_relationship_set(set_id):
+    """Update an existing relationship set"""
+    try:
+        data = request.get_json()
+        service = RelationshipSetService()
+        updated_set = service.update_set(set_id, data)
+        if not updated_set:
+            return jsonify({'error': 'Relationship set not found'}), 404
+        return jsonify({'set': updated_set})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/relationship-sets/<set_id>', methods=['DELETE'])
+def delete_relationship_set(set_id):
+    """Delete a relationship set"""
+    try:
+        service = RelationshipSetService()
+        service.delete_set(set_id)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/relationship-sets/templates/<template_id>/apply', methods=['POST'])
+def apply_relationship_template(template_id):
+    """Apply a template to a project"""
+    try:
+        data = request.get_json()
+        project_id = data.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        
+        service = RelationshipSetService()
+        new_set = service.apply_template(template_id, project_id)
+        return jsonify({'set': new_set}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/relationship-sets/<set_id>/members', methods=['POST'])
+def add_relationship_member(set_id):
+    """Add a member to a relationship set"""
+    try:
+        data = request.get_json()
+        data['set_id'] = set_id
+        service = RelationshipSetService()
+        new_member = service.add_member(data)
+        return jsonify({'member': new_member}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/relationship-sets/members/<member_id>', methods=['PUT'])
+def update_relationship_member(member_id):
+    """Update a relationship set member"""
+    try:
+        data = request.get_json()
+        service = RelationshipSetService()
+        updated_member = service.update_member(member_id, data)
+        if not updated_member:
+            return jsonify({'error': 'Member not found'}), 404
+        return jsonify({'member': updated_member})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/relationship-sets/members/<member_id>', methods=['DELETE'])
+def remove_relationship_member(member_id):
+    """Remove a member from a relationship set"""
+    try:
+        service = RelationshipSetService()
+        service.remove_member(member_id)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/relationship-sets/<set_id>/rules', methods=['POST'])
+def add_relationship_rule(set_id):
+    """Add a rule to a relationship set"""
+    try:
+        data = request.get_json()
+        data['set_id'] = set_id
+        service = RelationshipSetService()
+        new_rule = service.add_rule(data)
+        return jsonify({'rule': new_rule}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/relationship-sets/rules/<rule_id>', methods=['PUT'])
+def update_relationship_rule(rule_id):
+    """Update a relationship set rule"""
+    try:
+        data = request.get_json()
+        service = RelationshipSetService()
+        updated_rule = service.update_rule(rule_id, data)
+        if not updated_rule:
+            return jsonify({'error': 'Rule not found'}), 404
+        return jsonify({'rule': updated_rule})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/relationship-sets/rules/<rule_id>', methods=['DELETE'])
+def remove_relationship_rule(rule_id):
+    """Remove a rule from a relationship set"""
+    try:
+        service = RelationshipSetService()
+        service.remove_rule(rule_id)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/relationship-sets/<set_id>/violations')
+def get_relationship_violations(set_id):
+    """Get violations for a relationship set"""
+    try:
+        status = request.args.get('status')
+        service = RelationshipSetService()
+        violations = service.get_violations(set_id, status)
+        return jsonify({'violations': violations})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/relationship-sets/violations/<violation_id>/resolve', methods=['POST'])
+def resolve_relationship_violation(violation_id):
+    """Mark a violation as resolved"""
+    try:
+        data = request.get_json()
+        service = RelationshipSetService()
+        updated_violation = service.resolve_violation(
+            violation_id,
+            data.get('resolution_notes'),
+            data.get('resolved_by')
+        )
+        return jsonify({'violation': updated_violation})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/relationship-sets/violations/<violation_id>/acknowledge', methods=['POST'])
+def acknowledge_relationship_violation(violation_id):
+    """Mark a violation as acknowledged"""
+    try:
+        service = RelationshipSetService()
+        updated_violation = service.acknowledge_violation(violation_id)
+        return jsonify({'violation': updated_violation})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/relationship-sets/<set_id>/check-sync', methods=['POST'])
+def check_relationship_sync(set_id):
+    """
+    Run all sync checks for a relationship set (Existence, Link Integrity, Metadata Consistency).
+    Returns summary of violations found.
+    """
+    try:
+        checker = RelationshipSyncChecker()
+        clear_existing = request.args.get('clear_existing', 'true').lower() == 'true'
+        summary = checker.run_all_checks(set_id, clear_existing)
+        return jsonify(summary)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

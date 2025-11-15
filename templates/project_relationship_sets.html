@@ -1,0 +1,570 @@
+{% extends "base.html" %}
+
+{% block title %}Relationship Sets - Project{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1><i class="fas fa-project-diagram"></i> Project Relationship Sets</h1>
+        <p class="subtitle">Track dependencies and compliance across project elements</p>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom: var(--spacing-lg);">
+        <div class="stat-card">
+            <div class="stat-value" id="totalSetsCount">-</div>
+            <div class="stat-label">Total Sets</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="inSyncCount">-</div>
+            <div class="stat-label">In Sync</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="outOfSyncCount">-</div>
+            <div class="stat-label">Out of Sync</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="totalViolationsCount">-</div>
+            <div class="stat-label">Open Violations</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-list"></i> Relationship Sets</h2>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" onclick="loadTemplates()">
+                    <i class="fas fa-file-import"></i> Apply Template
+                </button>
+                <button class="btn btn-primary" onclick="showCreateModal()">
+                    <i class="fas fa-plus"></i> New Set
+                </button>
+            </div>
+        </div>
+
+        <div id="loadingMessage" class="alert" style="text-align: center;">
+            <i class="fas fa-spinner fa-spin"></i> Loading relationship sets...
+        </div>
+
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+        <div id="setsContainer" style="display: none;">
+            <div id="setsList"></div>
+        </div>
+
+        <div id="emptyMessage" class="alert" style="display: none; text-align: center;">
+            <i class="fas fa-inbox"></i> No relationship sets found. Create your first set to start tracking dependencies.
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Set Modal -->
+<div id="setModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 id="modalTitle"><i class="fas fa-plus"></i> Create Relationship Set</h3>
+            <button class="modal-close" onclick="closeSetModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="setForm" onsubmit="saveSet(event)">
+                <input type="hidden" id="setId">
+                
+                <div class="form-group">
+                    <label for="setName">Set Name *</label>
+                    <input type="text" id="setName" class="form-control" required
+                           placeholder="e.g., Pavement Material Compliance Set">
+                </div>
+
+                <div class="form-group">
+                    <label for="setCode">Short Code</label>
+                    <input type="text" id="setCode" class="form-control"
+                           placeholder="e.g., PAVE-MAT-01">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" class="form-control" rows="3"
+                              placeholder="Describe the purpose of this relationship set..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" class="form-control">
+                        <option value="">Select category...</option>
+                        <option value="material_compliance">Material Compliance</option>
+                        <option value="utility_standards">Utility Standards</option>
+                        <option value="municipal_requirements">Municipal Requirements</option>
+                        <option value="design_standards">Design Standards</option>
+                        <option value="construction_sequence">Construction Sequence</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="requiresAllMembers" checked>
+                        All members required (missing members = violation)
+                    </label>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeSetModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Set
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Template Selection Modal -->
+<div id="templateModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-file-import"></i> Apply Template</h3>
+            <button class="modal-close" onclick="closeTemplateModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="templatesList"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+.set-card {
+    background: var(--mc-surface);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: var(--mc-radius-md);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    transition: all 0.2s ease;
+}
+
+.set-card:hover {
+    border-color: var(--mc-primary);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+}
+
+.set-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: var(--spacing-sm);
+}
+
+.set-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--mc-primary);
+    margin: 0 0 5px 0;
+}
+
+.set-code {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: var(--mc-muted);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.set-meta {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.set-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: var(--mc-muted);
+}
+
+.set-meta-item i {
+    color: var(--mc-accent);
+}
+
+.sync-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.sync-status.in-sync {
+    background: rgba(0, 255, 136, 0.2);
+    color: var(--mc-accent);
+    border: 1px solid var(--mc-accent);
+}
+
+.sync-status.out-of-sync {
+    background: rgba(255, 68, 68, 0.2);
+    color: var(--mc-danger);
+    border: 1px solid var(--mc-danger);
+}
+
+.sync-status.incomplete {
+    background: rgba(255, 165, 0, 0.2);
+    color: #ffa500;
+    border: 1px solid #ffa500;
+}
+
+.sync-status.unknown {
+    background: rgba(136, 146, 176, 0.2);
+    color: var(--mc-muted);
+    border: 1px solid var(--mc-muted);
+}
+
+.set-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.set-actions .btn {
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+.violation-badge {
+    background: rgba(255, 68, 68, 0.2);
+    color: var(--mc-danger);
+    border: 1px solid var(--mc-danger);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.template-item {
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: var(--mc-radius-sm);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.template-item:hover {
+    background: rgba(0, 255, 255, 0.1);
+    border-color: var(--mc-primary);
+}
+
+.template-name {
+    font-weight: 600;
+    color: var(--mc-primary);
+    margin-bottom: 4px;
+}
+
+.template-description {
+    font-size: 13px;
+    color: var(--mc-muted);
+}
+</style>
+
+<script>
+const PROJECT_ID = '{{ project_id }}';
+let currentSets = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadRelationshipSets();
+});
+
+async function loadRelationshipSets() {
+    try {
+        const response = await fetch(`/api/projects/${PROJECT_ID}/relationship-sets`);
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        currentSets = data.sets || [];
+        renderSets(currentSets);
+        updateStats(currentSets);
+        
+    } catch (error) {
+        console.error('Error loading sets:', error);
+        document.getElementById('errorMessage').textContent = error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+    } finally {
+        document.getElementById('loadingMessage').style.display = 'none';
+    }
+}
+
+function renderSets(sets) {
+    const container = document.getElementById('setsList');
+    const setsContainer = document.getElementById('setsContainer');
+    const emptyMessage = document.getElementById('emptyMessage');
+    
+    if (!sets || sets.length === 0) {
+        setsContainer.style.display = 'none';
+        emptyMessage.style.display = 'block';
+        return;
+    }
+    
+    setsContainer.style.display = 'block';
+    emptyMessage.style.display = 'none';
+    
+    container.innerHTML = sets.map(set => `
+        <div class="set-card">
+            <div class="set-card-header">
+                <div>
+                    <h3 class="set-title">${escapeHtml(set.set_name)}</h3>
+                    ${set.set_code ? `<span class="set-code">${escapeHtml(set.set_code)}</span>` : ''}
+                </div>
+                <span class="sync-status ${set.sync_status}">${formatSyncStatus(set.sync_status)}</span>
+            </div>
+            
+            <div class="set-meta">
+                <div class="set-meta-item">
+                    <i class="fas fa-cube"></i>
+                    <span>${set.member_count || 0} members</span>
+                </div>
+                <div class="set-meta-item">
+                    <i class="fas fa-tasks"></i>
+                    <span>${set.active_rule_count || 0} rules</span>
+                </div>
+                ${set.open_violations > 0 ? `
+                    <div class="set-meta-item">
+                        <span class="violation-badge">${set.open_violations} violation${set.open_violations !== 1 ? 's' : ''}</span>
+                    </div>
+                ` : ''}
+                ${set.category ? `
+                    <div class="set-meta-item">
+                        <i class="fas fa-tag"></i>
+                        <span>${formatCategory(set.category)}</span>
+                    </div>
+                ` : ''}
+            </div>
+            
+            ${set.description ? `<p style="color: var(--mc-muted); font-size: 13px; margin: 0 0 ${set.description ? 'var(--spacing-sm)' : '0'} 0;">${escapeHtml(set.description)}</p>` : ''}
+            
+            <div class="set-actions">
+                <button class="btn btn-secondary" onclick="viewSetDetail('${set.set_id}')">
+                    <i class="fas fa-eye"></i> View Details
+                </button>
+                <button class="btn btn-secondary" onclick="checkSync('${set.set_id}')">
+                    <i class="fas fa-sync"></i> Check Sync
+                </button>
+                <button class="btn btn-secondary" onclick="editSet('${set.set_id}')">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-danger" onclick="deleteSet('${set.set_id}', '${escapeHtml(set.set_name)}')">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateStats(sets) {
+    const totalSets = sets.length;
+    const inSync = sets.filter(s => s.sync_status === 'in_sync').length;
+    const outOfSync = sets.filter(s => s.sync_status === 'out_of_sync').length;
+    const totalViolations = sets.reduce((sum, s) => sum + (s.open_violations || 0), 0);
+    
+    document.getElementById('totalSetsCount').textContent = totalSets;
+    document.getElementById('inSyncCount').textContent = inSync;
+    document.getElementById('outOfSyncCount').textContent = outOfSync;
+    document.getElementById('totalViolationsCount').textContent = totalViolations;
+}
+
+function formatSyncStatus(status) {
+    const map = {
+        'in_sync': 'In Sync',
+        'out_of_sync': 'Out of Sync',
+        'incomplete': 'Incomplete',
+        'unknown': 'Unknown'
+    };
+    return map[status] || status;
+}
+
+function formatCategory(category) {
+    return category.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function showCreateModal() {
+    document.getElementById('setId').value = '';
+    document.getElementById('setName').value = '';
+    document.getElementById('setCode').value = '';
+    document.getElementById('description').value = '';
+    document.getElementById('category').value = '';
+    document.getElementById('requiresAllMembers').checked = true;
+    document.getElementById('modalTitle').innerHTML = '<i class="fas fa-plus"></i> Create Relationship Set';
+    document.getElementById('setModal').style.display = 'block';
+}
+
+function closeSetModal() {
+    document.getElementById('setModal').style.display = 'none';
+}
+
+async function saveSet(event) {
+    event.preventDefault();
+    
+    const setId = document.getElementById('setId').value;
+    const data = {
+        project_id: PROJECT_ID,
+        set_name: document.getElementById('setName').value,
+        set_code: document.getElementById('setCode').value || null,
+        description: document.getElementById('description').value || null,
+        category: document.getElementById('category').value || null,
+        requires_all_members: document.getElementById('requiresAllMembers').checked
+    };
+    
+    try {
+        const url = setId ? `/api/relationship-sets/${setId}` : '/api/relationship-sets';
+        const method = setId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        
+        closeSetModal();
+        loadRelationshipSets();
+        
+    } catch (error) {
+        alert('Error saving set: ' + error.message);
+    }
+}
+
+async function editSet(setId) {
+    try {
+        const response = await fetch(`/api/relationship-sets/${setId}`);
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        const set = data.set;
+        document.getElementById('setId').value = set.set_id;
+        document.getElementById('setName').value = set.set_name;
+        document.getElementById('setCode').value = set.set_code || '';
+        document.getElementById('description').value = set.description || '';
+        document.getElementById('category').value = set.category || '';
+        document.getElementById('requiresAllMembers').checked = set.requires_all_members;
+        document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Relationship Set';
+        document.getElementById('setModal').style.display = 'block';
+        
+    } catch (error) {
+        alert('Error loading set: ' + error.message);
+    }
+}
+
+async function deleteSet(setId, setName) {
+    if (!confirm(`Are you sure you want to delete "${setName}"? This will also delete all members, rules, and violations.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/${setId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        
+        loadRelationshipSets();
+        
+    } catch (error) {
+        alert('Error deleting set: ' + error.message);
+    }
+}
+
+async function checkSync(setId) {
+    if (!confirm('Run sync check now? This will detect missing elements, broken links, and metadata inconsistencies.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/${setId}/check-sync`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        
+        alert(`Sync check complete!\n\n` +
+              `Total violations: ${result.total_violations}\n` +
+              `- Existence: ${result.existence_violations}\n` +
+              `- Link Integrity: ${result.link_integrity_violations}\n` +
+              `- Metadata: ${result.metadata_violations}`);
+        
+        loadRelationshipSets();
+        
+    } catch (error) {
+        alert('Error checking sync: ' + error.message);
+    }
+}
+
+function viewSetDetail(setId) {
+    // TODO: Navigate to set detail view
+    alert('Set detail view coming soon! Set ID: ' + setId);
+}
+
+async function loadTemplates() {
+    try {
+        const response = await fetch(`/api/projects/${PROJECT_ID}/relationship-sets?include_templates=true`);
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        const templates = (data.sets || []).filter(s => s.is_template);
+        
+        if (templates.length === 0) {
+            alert('No templates available yet.');
+            return;
+        }
+        
+        const container = document.getElementById('templatesList');
+        container.innerHTML = templates.map(t => `
+            <div class="template-item" onclick="applyTemplate('${t.set_id}')">
+                <div class="template-name">${escapeHtml(t.set_name)}</div>
+                <div class="template-description">${escapeHtml(t.description || 'No description')}</div>
+            </div>
+        `).join('');
+        
+        document.getElementById('templateModal').style.display = 'block';
+        
+    } catch (error) {
+        alert('Error loading templates: ' + error.message);
+    }
+}
+
+function closeTemplateModal() {
+    document.getElementById('templateModal').style.display = 'none';
+}
+
+async function applyTemplate(templateId) {
+    try {
+        const response = await fetch(`/api/relationship-sets/templates/${templateId}/apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: PROJECT_ID })
+        });
+        
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        
+        closeTemplateModal();
+        loadRelationshipSets();
+        
+    } catch (error) {
+        alert('Error applying template: ' + error.message);
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

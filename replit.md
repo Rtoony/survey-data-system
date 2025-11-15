@@ -57,6 +57,7 @@ Preferred communication style: Simple, everyday language.
 - **Civil Project Manager:** Comprehensive project overview dashboard with metadata-driven CRUD for project-specific attachments.
 - **Sheet Note Manager:** Project-centric note management system with standard and custom notes, deviation tracking, and project-level organization.
 - **Object Reclassifier Tool:** Interactive UI for reviewing and reclassifying unclassified or low-confidence DXF entities.
+- **Project Relationship Sets:** Flexible dependency tracking and compliance auditing system that groups interconnected project elements (CAD geometry, specs, details, notes, hatches, materials) to detect out-of-sync conditions. Features metadata-based filtering, template system, and three intelligent checking algorithms (Existence, Link Integrity, Metadata Consistency).
 - **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance.
 - **Interactive AI Visualizations:** Knowledge Graph Visualization and a Quality Dashboard.
 
