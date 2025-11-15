@@ -290,6 +290,34 @@ BEGIN
     SELECT registry_id INTO survey_points_id FROM entity_registry WHERE table_name = 'survey_points';
     SELECT registry_id INTO bmp_registry_id FROM entity_registry WHERE table_name = 'storm_bmps';
     
+    -- Verify required entities exist before linking
+    IF utility_lines_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: utility_lines (needed for tool links)';
+    END IF;
+    IF survey_points_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: survey_points (needed for tool links)';
+    END IF;
+    IF bmp_registry_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: storm_bmps (needed for tool links)';
+    END IF;
+    
+    -- Verify required tools exist before linking
+    IF gravity_tool_id IS NULL THEN
+        RAISE EXCEPTION 'Required specialized_tools entry missing: Gravity Pipe Manager';
+    END IF;
+    IF pressure_tool_id IS NULL THEN
+        RAISE EXCEPTION 'Required specialized_tools entry missing: Pressure Pipe Manager';
+    END IF;
+    IF bmp_tool_id IS NULL THEN
+        RAISE EXCEPTION 'Required specialized_tools entry missing: BMP Manager';
+    END IF;
+    IF survey_tool_id IS NULL THEN
+        RAISE EXCEPTION 'Required specialized_tools entry missing: Survey Point Manager';
+    END IF;
+    IF viewer_tool_id IS NULL THEN
+        RAISE EXCEPTION 'Required specialized_tools entry missing: Entity Viewer';
+    END IF;
+    
     -- Link Utility Lines to tools
     IF utility_lines_id IS NOT NULL AND gravity_tool_id IS NOT NULL THEN
         INSERT INTO entity_registry_tool_links (registry_id, tool_id, relationship_type, is_primary) VALUES
@@ -350,6 +378,29 @@ BEGIN
     SELECT registry_id INTO parcels_id FROM entity_registry WHERE table_name = 'parcels';
     SELECT registry_id INTO trees_id FROM entity_registry WHERE table_name = 'site_trees';
     SELECT registry_id INTO surface_features_id FROM entity_registry WHERE table_name = 'surface_features';
+    
+    -- Verify required registry entries exist before adding examples
+    IF utility_lines_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: utility_lines (needed for examples)';
+    END IF;
+    IF utility_structures_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: utility_structures (needed for examples)';
+    END IF;
+    IF survey_points_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: survey_points (needed for examples)';
+    END IF;
+    IF alignments_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: horizontal_alignments (needed for examples)';
+    END IF;
+    IF parcels_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: parcels (needed for examples)';
+    END IF;
+    IF trees_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: site_trees (needed for examples)';
+    END IF;
+    IF surface_features_id IS NULL THEN
+        RAISE EXCEPTION 'Required entity_registry entry missing: surface_features (needed for examples)';
+    END IF;
     
     -- Utility Lines examples
     IF utility_lines_id IS NOT NULL THEN
