@@ -23,6 +23,7 @@ import json
 from datetime import datetime, date
 from decimal import Decimal
 import openpyxl
+import random
 from openpyxl.styles import Font, PatternFill
 import zipfile
 import tempfile
@@ -196,6 +197,16 @@ def survey_code_tester():
 def object_reclassifier_tool():
     """Object Reclassifier - Review and reclassify unclassified DXF entities"""
     return render_template('tools/object_reclassifier.html')
+
+@app.route('/tools/reference-data-mappings')
+def reference_data_mappings_tool():
+    """Reference Data Mappings - Manage project reference data mappings"""
+    return render_template('tools/reference_data_mappings.html')
+
+@app.route('/tools/assign-standards')
+def assign_standards_tool():
+    """Assign Standards - Assign layer and block standards to project"""
+    return render_template('tools/assign_standards.html')
 
 @app.route('/project-standards-assignment')
 def project_standards_assignment():
@@ -1094,6 +1105,167 @@ def get_project_intelligent_objects_map(project_id):
     except Exception as e:
         import traceback
         print(f"Error fetching intelligent objects: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/drawing-entities-map')
+def get_project_drawing_entities_map(project_id):
+    """Get all drawing entities grouped by Category+Object_Type for Map Viewer"""
+    try:
+        project_check = execute_query(
+            "SELECT project_id, project_name FROM projects WHERE project_id = %s",
+            (project_id,)
+        )
+        if not project_check:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        # Calculate bounding box from all drawing entities
+        extent_query = """
+            SELECT 
+                ST_XMin(extent_geom) as min_x,
+                ST_YMin(extent_geom) as min_y,
+                ST_XMax(extent_geom) as max_x,
+                ST_YMax(extent_geom) as max_y
+            FROM (
+                SELECT ST_Extent(
+                    CASE 
+                        WHEN ST_SRID(de.geometry) = 0 THEN ST_Transform(ST_SetSRID(de.geometry, 2226), 4326)
+                        WHEN ST_SRID(de.geometry) = 2226 THEN ST_Transform(de.geometry, 4326)
+                        ELSE ST_Transform(de.geometry, 4326)
+                    END
+                ) as extent_geom
+                FROM drawing_entities de
+                WHERE de.project_id = %s
+                  AND de.geometry IS NOT NULL
+            ) sub
+        """
+        extent_result = execute_query(extent_query, (project_id,))
+        
+        # If no geometries found, return placeholder response
+        if not extent_result or not extent_result[0]['min_x']:
+            return jsonify({
+                'project_id': project_id,
+                'project_name': project_check[0]['project_name'],
+                'has_spatial_data': False,
+                'message': 'No spatial data available for this project yet',
+                'bbox': None,
+                'layer_groups': []
+            })
+        
+        extent = extent_result[0]
+        
+        # Fetch drawing entities with layer information (limited for performance)
+        entities_query = """
+            SELECT 
+                de.entity_id,
+                de.entity_type,
+                COALESCE(l.layer_name, 'Unknown') as layer_name,
+                ST_AsGeoJSON(
+                    ST_Transform(
+                        ST_Simplify(
+                            CASE 
+                                WHEN ST_SRID(de.geometry) = 0 THEN ST_SetSRID(de.geometry, 2226)
+                                ELSE de.geometry
+                            END,
+                            2.0
+                        ),
+                        4326
+                    )
+                )::json as geometry
+            FROM drawing_entities de
+            LEFT JOIN layers l ON de.layer_id = l.layer_id
+            WHERE de.project_id = %s
+              AND de.geometry IS NOT NULL
+            ORDER BY l.layer_name, de.entity_type
+            LIMIT 5000
+        """
+        entities = execute_query(entities_query, (project_id,))
+        
+        # Group entities by layer name and parse category/object_type
+        layer_groups = {}
+        for entity in entities:
+            layer_name = entity['layer_name']
+            
+            # Parse layer name to extract category and object_type
+            # Format: DISCIPLINE-CATEGORY-OBJECTTYPE-PHASE-GEOMETRY
+            parts = layer_name.split('-')
+            if len(parts) >= 3:
+                category = parts[1]
+                object_type = parts[2]
+                group_key = f"{category}-{object_type}"
+                group_label = f"{category} - {object_type}"
+            else:
+                # Fallback for non-standard layer names
+                group_key = layer_name
+                group_label = layer_name
+            
+            if group_key not in layer_groups:
+                layer_groups[group_key] = {
+                    'group_id': group_key,
+                    'group_label': group_label,
+                    'category': category if len(parts) >= 3 else 'MISC',
+                    'object_type': object_type if len(parts) >= 3 else layer_name,
+                    'layer_names': set(),
+                    'features': []
+                }
+            
+            # Add layer name to the set
+            layer_groups[group_key]['layer_names'].add(layer_name)
+            
+            # Add feature to group
+            layer_groups[group_key]['features'].append({
+                'type': 'Feature',
+                'properties': {
+                    'entity_id': str(entity['entity_id']),
+                    'layer_name': layer_name,
+                    'entity_type': entity['entity_type']
+                },
+                'geometry': entity['geometry']
+            })
+        
+        # Assign random colors to each group and format response
+        layer_groups_list = []
+        random.seed(42)  # Use seed for consistent colors across requests
+        
+        for group_key, group_data in layer_groups.items():
+            # Generate random hex color
+            color = "#{:06x}".format(random.randint(0, 0xFFFFFF))
+            
+            layer_groups_list.append({
+                'group_id': group_data['group_id'],
+                'group_label': group_data['group_label'],
+                'category': group_data['category'],
+                'object_type': group_data['object_type'],
+                'color': color,
+                'layer_names': list(group_data['layer_names']),
+                'feature_count': len(group_data['features']),
+                'features': {
+                    'type': 'FeatureCollection',
+                    'features': group_data['features']
+                }
+            })
+        
+        # Sort groups by category then object_type
+        layer_groups_list.sort(key=lambda x: (x['category'], x['object_type']))
+        
+        return jsonify({
+            'project_id': project_id,
+            'project_name': project_check[0]['project_name'],
+            'has_spatial_data': True,
+            'bbox': {
+                'min_x': float(extent['min_x']),
+                'min_y': float(extent['min_y']),
+                'max_x': float(extent['max_x']),
+                'max_y': float(extent['max_y'])
+            },
+            'layer_groups': layer_groups_list,
+            'total_groups': len(layer_groups_list),
+            'total_features': sum(g['feature_count'] for g in layer_groups_list)
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fetching drawing entities for map: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 

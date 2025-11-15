@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Map Viewer & Export Tool{% endblock %}
+{% block title %}Map Viewer{% endblock %}
 
 {% block extra_head %}
 <!-- Leaflet CSS -->
@@ -11,7 +11,14 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 
 <style>
-    /* Main container with sidebar + map */
+    :root {
+        --primary-color: #00ffaa;
+        --accent-color: #00ffff;
+        --bg-dark: rgba(0, 20, 40, 0.98);
+        --bg-section: rgba(0, 40, 80, 0.5);
+    }
+
+    /* Main container */
     .map-viewer-container {
         display: flex;
         height: calc(100vh - 80px);
@@ -19,52 +26,32 @@
         position: relative;
     }
     
-    /* Left sidebar - compact and organized */
+    /* Left sidebar */
     .map-sidebar {
-        width: 320px;
-        background: rgba(0, 20, 40, 0.98);
+        width: 350px;
+        background: var(--bg-dark);
         border-right: 3px solid var(--accent-color);
         overflow-y: auto;
         padding: 20px;
         box-shadow: 4px 0 20px rgba(0, 255, 255, 0.3);
+        z-index: 1000;
     }
     
-    /* Right map area - full height */
+    /* Map container */
     .map-container {
         flex: 1;
         position: relative;
         background: #001428;
-        z-index: 1;
     }
     
     #map {
         height: 100%;
         width: 100%;
-        z-index: 100 !important;
-        position: absolute !important;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-    }
-    
-    /* Ensure Leaflet tiles render properly */
-    .leaflet-container {
-        background: #ddd !important;
-        z-index: 100 !important;
-    }
-    
-    .leaflet-tile-pane {
-        z-index: 200 !important;
-    }
-    
-    .leaflet-map-pane {
-        z-index: 100 !important;
     }
     
     /* Sidebar sections */
     .sidebar-section {
-        background: rgba(0, 40, 80, 0.5);
+        background: var(--bg-section);
         border: 1px solid var(--primary-color);
         border-radius: 4px;
         padding: 15px;
@@ -101,11 +88,6 @@
         box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
     }
     
-    .btn-map:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-    
     .btn-map.active {
         background: linear-gradient(135deg, #00a8b8, #00ffff);
         color: #001428;
@@ -139,6 +121,10 @@
         font-size: 12px;
     }
     
+    .search-group button:hover {
+        background: linear-gradient(135deg, #006699, #00a8b8);
+    }
+    
     /* Basemap selector */
     select {
         width: 100%;
@@ -149,6 +135,64 @@
         border-radius: 3px;
         font-size: 12px;
         margin-bottom: 10px;
+    }
+    
+    /* Layer group item */
+    .layer-group {
+        margin-bottom: 10px;
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 3px;
+        background: rgba(0, 30, 60, 0.3);
+    }
+    
+    .layer-group-header {
+        padding: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        transition: background 0.2s;
+    }
+    
+    .layer-group-header:hover {
+        background: rgba(0, 255, 255, 0.1);
+    }
+    
+    .layer-color-box {
+        width: 20px;
+        height: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 2px;
+    }
+    
+    .layer-group-label {
+        flex: 1;
+        color: var(--accent-color);
+    }
+    
+    .layer-count {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 11px;
+    }
+    
+    .layer-toggle {
+        cursor: pointer;
+    }
+    
+    .layer-group-layers {
+        padding: 5px 10px 10px 38px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.7);
+        display: none;
+    }
+    
+    .layer-group-layers.expanded {
+        display: block;
+    }
+    
+    .layer-name-item {
+        padding: 2px 0;
     }
     
     /* Coordinate display */
@@ -164,16 +208,6 @@
     .coord-display div {
         margin: 3px 0;
         color: #a0f0ff;
-    }
-    
-    /* Layer checkboxes */
-    .layer-item {
-        margin: 6px 0;
-        font-size: 12px;
-    }
-    
-    .layer-item input {
-        margin-right: 8px;
     }
     
     /* Status messages */
@@ -196,10 +230,10 @@
         color: #ff6666;
     }
     
-    .status-processing {
-        background: rgba(255, 255, 0, 0.2);
-        border: 1px solid #ffff00;
-        color: #ffff00;
+    .status-info {
+        background: rgba(0, 170, 255, 0.2);
+        border: 1px solid #00aaff;
+        color: #00aaff;
     }
     
     /* Export Modal */
@@ -224,14 +258,12 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: rgba(0, 20, 40, 0.98);
+        background: var(--bg-dark);
         border: 2px solid var(--accent-color);
         border-radius: 8px;
         padding: 25px;
+        min-width: 400px;
         max-width: 500px;
-        width: 90%;
-        max-height: 80vh;
-        overflow-y: auto;
         z-index: 9999;
         box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
     }
@@ -240,39 +272,63 @@
         display: block;
     }
     
-    .export-modal h2 {
+    .export-modal h3 {
         color: var(--accent-color);
-        margin-top: 0;
+        margin: 0 0 20px 0;
         font-size: 18px;
     }
     
-    .checkbox-group {
-        margin: 15px 0;
-    }
-    
-    .checkbox-group label {
-        display: block;
-        margin: 8px 0;
-        font-size: 13px;
+    .export-option {
+        padding: 10px;
+        margin: 10px 0;
+        background: var(--bg-section);
+        border: 1px solid var(--primary-color);
+        border-radius: 4px;
         cursor: pointer;
+        transition: all 0.3s;
     }
     
-    .checkbox-group input[type="checkbox"] {
-        margin-right: 8px;
+    .export-option:hover {
+        background: rgba(0, 100, 150, 0.5);
+        border-color: var(--accent-color);
     }
     
-    /* Responsive */
-    @media (max-width: 768px) {
-        .map-sidebar {
-            width: 100%;
-            height: 300px;
-            border-right: none;
-            border-bottom: 3px solid var(--accent-color);
-        }
-        
-        .map-viewer-container {
-            flex-direction: column;
-        }
+    .export-option h4 {
+        margin: 0 0 5px 0;
+        color: var(--accent-color);
+        font-size: 14px;
+    }
+    
+    .export-option p {
+        margin: 0;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .modal-close {
+        margin-top: 20px;
+        background: linear-gradient(135deg, #7a0000, #930000);
+        border: 1px solid #ff0000;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        width: 100%;
+    }
+    
+    .modal-close:hover {
+        background: linear-gradient(135deg, #990000, #bb0000);
+    }
+    
+    /* Measurement result display */
+    .measurement-result {
+        background: rgba(0, 255, 170, 0.2);
+        border: 1px solid var(--primary-color);
+        padding: 8px;
+        border-radius: 3px;
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--primary-color);
     }
 </style>
 {% endblock %}
@@ -281,554 +337,378 @@
 <div class="map-viewer-container">
     <!-- Left Sidebar -->
     <div class="map-sidebar">
-        <!-- Basemap Selection -->
+        <!-- Project Info -->
         <div class="sidebar-section">
-            <h3><i class="fas fa-map"></i> Basemap</h3>
-            <select id="basemap-selector" onchange="changeBasemap(this.value)">
-                <option value="osm">OpenStreetMap</option>
-                <option value="topo">USGS Topographic</option>
-                <option value="imagery">ESRI Imagery</option>
-                <option value="light">CartoDB Light</option>
-                <option value="dark">CartoDB Dark</option>
-            </select>
+            <h3>Active Project</h3>
+            <div id="projectInfo" style="color: #a0f0ff; font-size: 12px;">
+                Loading...
+            </div>
+        </div>
+        
+        <!-- Map Controls -->
+        <div class="sidebar-section">
+            <h3>Map Controls</h3>
+            <button class="btn-map" onclick="zoomToProject()">📍 Zoom to Project</button>
+            <button class="btn-map" onclick="refreshData()">🔄 Refresh Data</button>
         </div>
         
         <!-- Address Search -->
         <div class="sidebar-section">
-            <h3><i class="fas fa-search"></i> Address Search</h3>
+            <h3>Address Search</h3>
             <div class="search-group">
-                <input type="text" id="address-input" placeholder="Search Sonoma County address..." 
-                       onkeypress="if(event.key==='Enter') searchAddress()">
-                <button onclick="searchAddress()"><i class="fas fa-search"></i></button>
+                <input type="text" id="addressInput" placeholder="Enter address..." onkeypress="if(event.key==='Enter') searchAddress()">
+                <button onclick="searchAddress()">🔍</button>
             </div>
-            <div id="search-status"></div>
+            <div id="searchStatus"></div>
         </div>
         
-        <!-- Measurement Tools -->
+        <!-- Basemap Selector -->
         <div class="sidebar-section">
-            <h3><i class="fas fa-ruler"></i> Measurements</h3>
-            <button class="btn-map" id="measure-distance-btn" onclick="startMeasurement('distance')">
-                <i class="fas fa-ruler-horizontal"></i> Distance
-            </button>
-            <button class="btn-map" id="measure-area-btn" onclick="startMeasurement('area')">
-                <i class="fas fa-draw-polygon"></i> Area
-            </button>
-            <button class="btn-map" onclick="clearMeasurements()">
-                <i class="fas fa-trash"></i> Clear Measurements
-            </button>
+            <h3>Basemap</h3>
+            <select id="basemapSelector" onchange="changeBasemap()">
+                <option value="streets">Streets</option>
+                <option value="satellite">Satellite</option>
+                <option value="topo">Topographic</option>
+                <option value="dark">Dark</option>
+            </select>
         </div>
         
-        <!-- Export Tools -->
+        <!-- Layer Control -->
         <div class="sidebar-section">
-            <h3><i class="fas fa-file-export"></i> Export</h3>
-            <button class="btn-map" id="export-btn" onclick="openExportModal()" disabled>
-                <i class="fas fa-download"></i> Create Export
-            </button>
-            <small style="color: #888; font-size: 11px;">
-                Draw a rectangle on the map first
-            </small>
-        </div>
-        
-        <!-- Standards Filter -->
-        <div class="sidebar-section">
-            <h3><i class="fas fa-filter"></i> CAD Standards Filter</h3>
-            <div style="margin-bottom: 10px;">
-                <button class="btn-map" onclick="toggleStandardsPanel()" id="standards-toggle-btn">
-                    <i class="fas fa-chevron-down"></i> Show Filters
-                </button>
-            </div>
-            <div id="standards-filter-panel" style="display: none;">
-                <div style="margin-bottom: 12px;">
-                    <strong style="color: var(--accent-color); font-size: 11px;">DISCIPLINES</strong>
-                    <div id="discipline-filters" style="max-height: 120px; overflow-y: auto; margin-top: 5px;"></div>
-                </div>
-                <div style="margin-bottom: 12px;">
-                    <strong style="color: var(--accent-color); font-size: 11px;">CATEGORIES</strong>
-                    <div id="category-filters" style="max-height: 120px; overflow-y: auto; margin-top: 5px;"></div>
-                </div>
-                <div style="margin-bottom: 12px;">
-                    <strong style="color: var(--accent-color); font-size: 11px;">PHASES</strong>
-                    <div id="phase-filters" style="max-height: 80px; overflow-y: auto; margin-top: 5px;"></div>
-                </div>
-                <div style="display: flex; gap: 6px; margin-top: 10px;">
-                    <button class="btn-map" onclick="applyStandardsFilter()" style="flex: 1; font-size: 11px;">
-                        <i class="fas fa-check"></i> Apply
-                    </button>
-                    <button class="btn-map" onclick="clearStandardsFilter()" style="flex: 1; font-size: 11px; background: #666;">
-                        <i class="fas fa-times"></i> Clear
-                    </button>
+            <h3>Layers (<span id="layerCount">0</span>)</h3>
+            <div id="layerControls">
+                <div style="color: rgba(255,255,255,0.5); font-size: 11px; text-align: center;">
+                    No layers loaded
                 </div>
             </div>
         </div>
         
-        <!-- GIS Layers -->
+        <!-- Measuring Tools -->
         <div class="sidebar-section">
-            <h3><i class="fas fa-layer-group"></i> GIS Layers</h3>
-            <div id="layer-list">
-                <p style="color: #888; font-size: 11px;">Loading layers...</p>
-            </div>
+            <h3>Measuring Tools</h3>
+            <button class="btn-map" id="measureDistanceBtn" onclick="startMeasureDistance()">📏 Measure Distance</button>
+            <button class="btn-map" id="measureAreaBtn" onclick="startMeasureArea()">📐 Measure Area</button>
+            <button class="btn-map" onclick="clearMeasurements()">🗑️ Clear Measurements</button>
+            <div id="measurementResult"></div>
+        </div>
+        
+        <!-- Export Tool -->
+        <div class="sidebar-section">
+            <h3>Export</h3>
+            <button class="btn-map" onclick="openExportModal()">💾 Export Map Data</button>
         </div>
         
         <!-- Coordinate Display -->
         <div class="sidebar-section">
-            <h3><i class="fas fa-crosshairs"></i> Coordinates</h3>
-            <div class="coord-display" id="coord-display">
-                <div>Lat/Lng: --</div>
-                <div>State Plane: --</div>
+            <h3>Coordinates</h3>
+            <div class="coord-display">
+                <div>Lat: <span id="coordLat">--</span></div>
+                <div>Lng: <span id="coordLng">--</span></div>
             </div>
         </div>
     </div>
     
-    <!-- Right Map Container -->
+    <!-- Map Area -->
     <div class="map-container">
         <div id="map"></div>
     </div>
 </div>
 
 <!-- Export Modal -->
-<div class="modal-overlay" id="modal-overlay" onclick="closeExportModal()"></div>
-<div class="export-modal" id="export-modal">
-    <h2><i class="fas fa-file-export"></i> Export Configuration</h2>
+<div class="modal-overlay" id="exportModalOverlay" onclick="closeExportModal()"></div>
+<div class="export-modal" id="exportModal">
+    <h3>Export Map Data</h3>
+    <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Select format to export visible map data:</p>
     
-    <div class="checkbox-group">
-        <h3 style="color: var(--accent-color); font-size: 14px; margin-bottom: 10px;">Export Formats</h3>
-        <label><input type="checkbox" id="format-shp" checked> Shapefile (.shp)</label>
-        <label><input type="checkbox" id="format-dxf" checked> DXF (.dxf)</label>
-        <label><input type="checkbox" id="format-png" checked> Map Image (.png)</label>
+    <div class="export-option" onclick="exportData('geojson')">
+        <h4>GeoJSON</h4>
+        <p>Standard geographic JSON format for web mapping</p>
     </div>
     
-    <div class="checkbox-group">
-        <h3 style="color: var(--accent-color); font-size: 14px; margin-bottom: 10px;">Map Image Options</h3>
-        <label><input type="checkbox" id="opt-north-arrow" checked> Include North Arrow</label>
-        <label><input type="checkbox" id="opt-scale-bar" checked> Include Scale Bar</label>
+    <div class="export-option" onclick="exportData('kml')">
+        <h4>KML</h4>
+        <p>Keyhole Markup Language for Google Earth</p>
     </div>
     
-    <div class="checkbox-group">
-        <h3 style="color: var(--accent-color); font-size: 14px; margin-bottom: 10px;">Layers to Include</h3>
-        <div id="export-layer-list"></div>
+    <div class="export-option" onclick="exportData('shapefile')">
+        <h4>Shapefile</h4>
+        <p>ESRI Shapefile format (ZIP archive)</p>
     </div>
     
-    <div id="export-status"></div>
-    
-    <div style="display: flex; gap: 10px; margin-top: 20px;">
-        <button class="btn-map" onclick="submitExport()" style="flex: 1;">
-            <i class="fas fa-check"></i> Create Export
-        </button>
-        <button class="btn-map" onclick="closeExportModal()" style="flex: 1; background: #666;">
-            <i class="fas fa-times"></i> Cancel
-        </button>
-    </div>
+    <button class="modal-close" onclick="closeExportModal()">Close</button>
 </div>
 
-<!-- Load libraries in correct order -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+<!-- Leaflet Draw JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
 <script>
-// Global variables
-let map, drawnItems, currentBbox, availableLayers = [];
-let measurementLayer, searchMarker;
-let basemaps = {};
-let currentBasemap = 'osm';
-let measureMode = null;
-let measurePoints = [];
-let tempPolyline = null;
-let tempPolygon = null;
-
-// Wait for all libraries to load
-function checkLibraries() {
-    if (typeof L === 'undefined') {
-        console.error('Leaflet not loaded');
-        return false;
-    }
-    if (typeof proj4 === 'undefined') {
-        console.error('Proj4 not loaded');
-        return false;
-    }
-    if (typeof turf === 'undefined') {
-        console.error('Turf not loaded');
-        return false;
-    }
-    if (typeof L.Control.Draw === 'undefined') {
-        console.error('Leaflet Draw not loaded');
-        return false;
-    }
-    return true;
-}
+let map;
+let activeProjectId = null;
+let layerGroups = {};
+let layerData = [];
+let basemapLayers = {};
+let currentBasemap = 'streets';
+let measurementLayer;
+let drawControl;
+let drawnItems;
 
 // Initialize map
 function initMap() {
-    if (!checkLibraries()) {
-        console.error('Libraries not ready, retrying...');
-        setTimeout(initMap, 500);
+    map = L.map('map').setView([37.7749, -122.4194], 13);
+    
+    // Initialize basemap layers
+    basemapLayers.streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    });
+    
+    basemapLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '© Esri'
+    });
+    
+    basemapLayers.topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenTopoMap contributors'
+    });
+    
+    basemapLayers.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© CartoDB'
+    });
+    
+    // Add default basemap
+    basemapLayers.streets.addTo(map);
+    
+    // Update coordinates on mouse move
+    map.on('mousemove', function(e) {
+        document.getElementById('coordLat').textContent = e.latlng.lat.toFixed(6);
+        document.getElementById('coordLng').textContent = e.latlng.lng.toFixed(6);
+    });
+    
+    // Initialize measurement layer
+    drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+}
+
+// Fetch active project
+async function fetchActiveProject() {
+    try {
+        const response = await fetch('/api/active-project');
+        const data = await response.json();
+        
+        if (data.active_project) {
+            activeProjectId = data.active_project.project_id;
+            document.getElementById('projectInfo').innerHTML = `
+                <strong>${data.active_project.project_name}</strong><br>
+                <small style="color: rgba(255,255,255,0.6);">${activeProjectId}</small>
+            `;
+            loadMapData();
+        } else {
+            document.getElementById('projectInfo').innerHTML = `
+                <div style="color: #ffaa00;">No active project selected</div>
+                <small style="color: rgba(255,255,255,0.5);">Please select a project first</small>
+            `;
+        }
+    } catch (error) {
+        console.error('Error fetching active project:', error);
+        document.getElementById('projectInfo').innerHTML = `
+            <div style="color: #ff6666;">Error loading project</div>
+        `;
+    }
+}
+
+// Load map data from API
+async function loadMapData() {
+    if (!activeProjectId) {
+        showStatus('error', 'No active project selected');
         return;
     }
     
-    console.log('All libraries loaded, initializing map...');
-    
-    // Define California State Plane Zone 2 projection
-    proj4.defs("EPSG:2226", "+proj=lcc +lat_1=39.83333333333334 +lat_2=38.33333333333334 +lat_0=37.66666666666666 +lon_0=-122 +x_0=2000000.0001016 +y_0=500000.0001016001 +ellps=GRS80 +datum=NAD83 +to_meter=0.3048006096012192 +no_defs");
-    
-    // Create map
-    map = L.map('map', {
-        center: [38.5, -122.8],
-        zoom: 10
-    });
-    
-    // Define basemaps
-    basemaps = {
-        osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap',
-            maxZoom: 19
-        }).on('tileerror', function(error, tile) {
-            console.error('Tile loading error:', error);
-        }).on('load', function() {
-            console.log('OSM tiles loaded successfully');
-        }),
-        topo: L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'USGS',
-            maxZoom: 16
-        }),
-        imagery: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'ESRI',
-            maxZoom: 19
-        }),
-        light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© CartoDB',
-            maxZoom: 19
-        }),
-        dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© CartoDB',
-            maxZoom: 19
-        })
-    };
-    
-    // Add default basemap
-    basemaps[currentBasemap].addTo(map);
-    
-    // Force map to recognize its container size
-    setTimeout(() => {
-        map.invalidateSize();
-        console.log('Map size invalidated');
-        const mapDiv = document.getElementById('map');
-        console.log('Map container dimensions:', mapDiv.offsetWidth, 'x', mapDiv.offsetHeight);
-        console.log('Map div classes:', mapDiv.className);
-        console.log('Map div has leaflet-container class:', mapDiv.classList.contains('leaflet-container'));
-        
-        // Check if tiles are visible
-        const tiles = document.querySelectorAll('.leaflet-tile');
-        console.log('Number of tile images loaded:', tiles.length);
-        if (tiles.length > 0) {
-            console.log('First tile src:', tiles[0].src);
-            console.log('First tile dimensions:', tiles[0].width, 'x', tiles[0].height);
-            const tileStyle = window.getComputedStyle(tiles[0]);
-            console.log('First tile opacity:', tileStyle.opacity);
-            console.log('First tile visibility:', tileStyle.visibility);
-            console.log('First tile display:', tileStyle.display);
-            console.log('First tile position:', tileStyle.position);
-            console.log('First tile z-index:', tileStyle.zIndex);
-        }
-        
-        const tilePane = document.querySelector('.leaflet-tile-pane');
-        if (tilePane) {
-            const paneStyle = window.getComputedStyle(tilePane);
-            console.log('Tile pane opacity:', paneStyle.opacity);
-            console.log('Tile pane transform:', paneStyle.transform);
-        }
-    }, 500);
-    
-    // Initialize layers
-    drawnItems = new L.FeatureGroup();
-    map.addLayer(drawnItems);
-    
-    measurementLayer = new L.FeatureGroup();
-    map.addLayer(measurementLayer);
-    
-    // Add draw control
-    const drawControl = new L.Control.Draw({
-        position: 'topright',
-        draw: {
-            rectangle: {
-                shapeOptions: {
-                    color: '#00ffff',
-                    weight: 2
-                }
-            },
-            polygon: false,
-            polyline: false,
-            circle: false,
-            marker: false,
-            circlemarker: false
-        },
-        edit: {
-            featureGroup: drawnItems,
-            remove: true
-        }
-    });
-    map.addControl(drawControl);
-    
-    // Handle drawn rectangles
-    map.on('draw:created', function(e) {
-        drawnItems.clearLayers();
-        const layer = e.layer;
-        drawnItems.addLayer(layer);
-        
-        const bounds = layer.getBounds();
-        currentBbox = {
-            minx: bounds.getWest(),
-            miny: bounds.getSouth(),
-            maxx: bounds.getEast(),
-            maxy: bounds.getNorth(),
-            crs: 'EPSG:4326'
-        };
-        
-        // Calculate area
-        const area = calculateArea(bounds);
-        layer.bindPopup(`Area: ${area.acres.toFixed(2)} acres (${area.sqft.toFixed(0)} sq ft)`).openPopup();
-        
-        // Enable export button
-        document.getElementById('export-btn').disabled = false;
-    });
-    
-    map.on('draw:deleted', function() {
-        currentBbox = null;
-        document.getElementById('export-btn').disabled = true;
-    });
-    
-    // Coordinate display on mouse move
-    map.on('mousemove', function(e) {
-        const lat = e.latlng.lat.toFixed(6);
-        const lng = e.latlng.lng.toFixed(6);
-        
-        // Transform to State Plane
-        const [x, y] = proj4('EPSG:4326', 'EPSG:2226', [parseFloat(lng), parseFloat(lat)]);
-        
-        document.getElementById('coord-display').innerHTML = `
-            <div>Lat/Lng: ${lat}, ${lng}</div>
-            <div>State Plane: ${x.toFixed(2)}, ${y.toFixed(2)} ft</div>
-        `;
-    });
-    
-    // Handle map clicks for measurements
-    map.on('click', function(e) {
-        if (!measureMode) return;
-        
-        measurePoints.push(e.latlng);
-        
-        if (measureMode === 'distance') {
-            // Update or create polyline
-            if (tempPolyline) {
-                map.removeLayer(tempPolyline);
-            }
-            
-            tempPolyline = L.polyline(measurePoints, {
-                color: '#00ffff',
-                weight: 3
-            }).addTo(measurementLayer);
-            
-            // Calculate total distance
-            const line = turf.lineString(measurePoints.map(p => [p.lng, p.lat]));
-            const lengthMeters = turf.length(line, {units: 'meters'});
-            const lengthFeet = lengthMeters * 3.28084;
-            const lengthMiles = lengthFeet / 5280;
-            
-            const label = lengthMiles > 0.1 
-                ? `${lengthMiles.toFixed(2)} mi`
-                : `${lengthFeet.toFixed(0)} ft`;
-            
-            tempPolyline.bindPopup(label).openPopup();
-        } 
-        else if (measureMode === 'area') {
-            // Need at least 3 points for polygon
-            if (measurePoints.length >= 3) {
-                if (tempPolygon) {
-                    map.removeLayer(tempPolygon);
-                }
-                
-                tempPolygon = L.polygon(measurePoints, {
-                    color: '#00ffff',
-                    fillColor: '#00ffff',
-                    fillOpacity: 0.2,
-                    weight: 2
-                }).addTo(measurementLayer);
-                
-                // Calculate area
-                const coords = measurePoints.map(p => [p.lng, p.lat]);
-                coords.push(coords[0]); // Close polygon
-                const polygon = turf.polygon([coords]);
-                const areaSqMeters = turf.area(polygon);
-                const sqft = areaSqMeters * 10.7639;
-                const acres = sqft / 43560;
-                
-                const label = acres > 0.1 
-                    ? `${acres.toFixed(2)} acres`
-                    : `${sqft.toFixed(0)} sq ft`;
-                
-                const centroid = turf.centroid(polygon);
-                L.marker([centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]], {
-                    icon: L.divIcon({
-                        className: 'measurement-label',
-                        html: `<div style="background: rgba(0,255,255,0.8); color: #000; padding: 4px 8px; border-radius: 3px; font-weight: bold; font-size: 12px;">${label}</div>`,
-                        iconSize: [100, 30]
-                    })
-                }).addTo(measurementLayer);
-            }
-        }
-    });
-    
-    // Double-click to finish measurement
-    map.on('dblclick', function(e) {
-        if (measureMode) {
-            setTimeout(() => {
-                stopMeasurement();
-            }, 100);
-        }
-    });
-    
-    // Load layers and projects
-    loadLayers();
-    loadProjects();
-    
-    console.log('Map initialized successfully!');
-}
-
-// Calculate area
-function calculateArea(bounds) {
-    const polygon = turf.polygon([[
-        [bounds.getWest(), bounds.getSouth()],
-        [bounds.getEast(), bounds.getSouth()],
-        [bounds.getEast(), bounds.getNorth()],
-        [bounds.getWest(), bounds.getNorth()],
-        [bounds.getWest(), bounds.getSouth()]
-    ]]);
-    
-    const areaSqMeters = turf.area(polygon);
-    const sqft = areaSqMeters * 10.7639;
-    const acres = sqft / 43560;
-    
-    return { sqft, acres };
-}
-
-// Change basemap
-function changeBasemap(basemapId) {
-    map.removeLayer(basemaps[currentBasemap]);
-    currentBasemap = basemapId;
-    basemaps[currentBasemap].addTo(map);
-}
-
-// Load available layers
-async function loadLayers() {
     try {
-        const response = await fetch('/api/map-viewer/layers');
+        showStatus('info', 'Loading map data...');
+        
+        const response = await fetch(`/api/projects/${activeProjectId}/drawing-entities-map`);
         const data = await response.json();
         
         if (data.error) {
-            document.getElementById('layer-list').innerHTML = `<p style="color: #ff6666;">Error loading layers</p>`;
+            showStatus('error', data.error);
             return;
         }
         
-        availableLayers = data.layers || [];
-        
-        // Display in sidebar
-        const layerHtml = availableLayers.map(layer => `
-            <div class="layer-item">
-                <label>
-                    <input type="checkbox" id="layer-${layer.id}" onchange="toggleLayer('${layer.id}')">
-                    ${layer.name}
-                </label>
-            </div>
-        `).join('');
-        
-        document.getElementById('layer-list').innerHTML = layerHtml || '<p style="color: #888;">No layers available</p>';
-        
-        // Also update export modal
-        const exportLayerHtml = availableLayers.map(layer => `
-            <label>
-                <input type="checkbox" id="export-layer-${layer.id}" checked>
-                ${layer.name}
-            </label>
-        `).join('');
-        
-        document.getElementById('export-layer-list').innerHTML = exportLayerHtml || '<p>No layers</p>';
-        
-    } catch (error) {
-        console.error('Error loading layers:', error);
-        document.getElementById('layer-list').innerHTML = `<p style="color: #ff6666;">Error: ${error.message}</p>`;
-    }
-}
-
-// Load projects from database
-let projectsLayer;
-async function loadProjects() {
-    try {
-        const response = await fetch('/api/map-viewer/projects');
-        const geojson = await response.json();
-        
-        if (!geojson.features || geojson.features.length === 0) {
-            console.log('No projects with spatial data found');
+        if (!data.has_spatial_data) {
+            showStatus('info', data.message || 'No spatial data available');
             return;
         }
         
-        if (projectsLayer) {
-            map.removeLayer(projectsLayer);
-        }
+        layerData = data.layer_groups;
         
-        projectsLayer = L.geoJSON(geojson, {
-            style: {
-                color: '#00ff00',
-                weight: 2,
-                fillOpacity: 0.1,
-                dashArray: '5, 5'
-            },
-            onEachFeature: (feature, layer) => {
-                const props = feature.properties;
-                const popupContent = `
-                    <strong>${props.project_name}</strong><br>
-                    Project #: ${props.project_number || 'N/A'}<br>
-                    Client: ${props.client_name || 'N/A'}
-                `;
-                layer.bindPopup(popupContent);
+        // Clear existing layers
+        Object.values(layerGroups).forEach(group => {
+            if (group.layer) {
+                map.removeLayer(group.layer);
             }
-        }).addTo(map);
+        });
+        layerGroups = {};
         
-        if (geojson.features.length > 0) {
-            map.fitBounds(projectsLayer.getBounds(), { padding: [50, 50] });
+        // Add layer groups to map
+        layerData.forEach(groupData => {
+            const geoJsonLayer = L.geoJSON(groupData.features, {
+                style: {
+                    color: groupData.color,
+                    weight: 2,
+                    opacity: 0.8,
+                    fillOpacity: 0.3
+                },
+                pointToLayer: function(feature, latlng) {
+                    return L.circleMarker(latlng, {
+                        radius: 5,
+                        fillColor: groupData.color,
+                        color: groupData.color,
+                        weight: 2,
+                        opacity: 0.8,
+                        fillOpacity: 0.6
+                    });
+                },
+                onEachFeature: function(feature, layer) {
+                    if (feature.properties) {
+                        const popupContent = `
+                            <strong>${feature.properties.layer_name}</strong><br>
+                            Entity Type: ${feature.properties.entity_type}<br>
+                            Entity ID: ${feature.properties.entity_id}
+                        `;
+                        layer.bindPopup(popupContent);
+                    }
+                }
+            }).addTo(map);
+            
+            layerGroups[groupData.group_id] = {
+                data: groupData,
+                layer: geoJsonLayer,
+                visible: true
+            };
+        });
+        
+        // Update layer control panel
+        renderLayerControls();
+        
+        // Zoom to project extent
+        if (data.bbox) {
+            const bounds = [
+                [data.bbox.min_y, data.bbox.min_x],
+                [data.bbox.max_y, data.bbox.max_x]
+            ];
+            map.fitBounds(bounds, { padding: [50, 50] });
         }
         
-        console.log(`Loaded ${geojson.features.length} projects on map`);
+        showStatus('success', `Loaded ${data.total_groups} layer groups with ${data.total_features} features`);
+        
     } catch (error) {
-        console.error('Error loading projects:', error);
+        console.error('Error loading map data:', error);
+        showStatus('error', 'Failed to load map data');
     }
 }
 
-// Toggle layer visibility
-function toggleLayer(layerId) {
-    const checkbox = document.getElementById(`layer-${layerId}`);
-    console.log(`Layer ${layerId} ${checkbox.checked ? 'enabled' : 'disabled'}`);
-}
-
-// Address search
-async function searchAddress() {
-    const input = document.getElementById('address-input');
-    const address = input.value.trim();
-    const statusDiv = document.getElementById('search-status');
+// Render layer controls in sidebar
+function renderLayerControls() {
+    const container = document.getElementById('layerControls');
+    const layerCount = document.getElementById('layerCount');
     
-    if (!address) {
-        statusDiv.innerHTML = '<div class="status-error">Please enter an address</div>';
+    if (layerData.length === 0) {
+        container.innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 11px; text-align: center;">No layers loaded</div>';
+        layerCount.textContent = '0';
         return;
     }
     
-    statusDiv.innerHTML = '<div class="status-processing">Searching...</div>';
+    layerCount.textContent = layerData.length;
+    
+    let html = '';
+    layerData.forEach(groupData => {
+        const isVisible = layerGroups[groupData.group_id]?.visible ?? true;
+        html += `
+            <div class="layer-group">
+                <div class="layer-group-header" onclick="toggleLayerExpand('${groupData.group_id}')">
+                    <div class="layer-color-box" style="background-color: ${groupData.color};"></div>
+                    <div class="layer-group-label">${groupData.group_label}</div>
+                    <div class="layer-count">${groupData.feature_count}</div>
+                    <input type="checkbox" class="layer-toggle" ${isVisible ? 'checked' : ''} 
+                           onclick="event.stopPropagation(); toggleLayer('${groupData.group_id}')" />
+                </div>
+                <div class="layer-group-layers" id="layers-${groupData.group_id}">
+                    ${groupData.layer_names.map(name => `<div class="layer-name-item">• ${name}</div>`).join('')}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// Toggle layer visibility
+function toggleLayer(groupId) {
+    if (!layerGroups[groupId]) return;
+    
+    const group = layerGroups[groupId];
+    group.visible = !group.visible;
+    
+    if (group.visible) {
+        map.addLayer(group.layer);
+    } else {
+        map.removeLayer(group.layer);
+    }
+}
+
+// Toggle layer group expansion
+function toggleLayerExpand(groupId) {
+    const element = document.getElementById(`layers-${groupId}`);
+    if (element) {
+        element.classList.toggle('expanded');
+    }
+}
+
+// Change basemap
+function changeBasemap() {
+    const selector = document.getElementById('basemapSelector');
+    const newBasemap = selector.value;
+    
+    if (basemapLayers[currentBasemap]) {
+        map.removeLayer(basemapLayers[currentBasemap]);
+    }
+    
+    if (basemapLayers[newBasemap]) {
+        basemapLayers[newBasemap].addTo(map);
+        currentBasemap = newBasemap;
+    }
+}
+
+// Zoom to project
+function zoomToProject() {
+    loadMapData();
+}
+
+// Refresh data
+function refreshData() {
+    loadMapData();
+}
+
+// Address search with Nominatim geocoding
+async function searchAddress() {
+    const input = document.getElementById('addressInput');
+    const address = input.value.trim();
+    
+    if (!address) {
+        showSearchStatus('error', 'Please enter an address');
+        return;
+    }
     
     try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Sonoma County, CA')}`;
-        const response = await fetch(url);
+        showSearchStatus('info', 'Searching...');
+        
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
         const results = await response.json();
         
         if (results.length === 0) {
-            statusDiv.innerHTML = '<div class="status-error">No results found</div>';
+            showSearchStatus('error', 'Address not found');
             return;
         }
         
@@ -836,365 +716,190 @@ async function searchAddress() {
         const lat = parseFloat(result.lat);
         const lng = parseFloat(result.lon);
         
-        // Remove old marker
-        if (searchMarker) {
-            map.removeLayer(searchMarker);
-        }
-        
-        // Add new marker
-        searchMarker = L.marker([lat, lng], {
-            icon: L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                shadowSize: [41, 41]
-            })
-        }).addTo(map);
-        
-        searchMarker.bindPopup(`<strong>${result.display_name}</strong>`).openPopup();
         map.setView([lat, lng], 16);
         
-        statusDiv.innerHTML = '<div class="status-success">Found!</div>';
-        setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
+        const marker = L.marker([lat, lng])
+            .addTo(map)
+            .bindPopup(`<strong>${result.display_name}</strong>`)
+            .openPopup();
+        
+        showSearchStatus('success', 'Address found!');
         
     } catch (error) {
-        console.error('Search error:', error);
-        statusDiv.innerHTML = `<div class="status-error">Search failed: ${error.message}</div>`;
+        console.error('Error searching address:', error);
+        showSearchStatus('error', 'Search failed');
     }
 }
 
-// Start measurement
-function startMeasurement(mode) {
-    // Clear previous measurement
-    stopMeasurement();
+// Measurement tools
+function startMeasureDistance() {
+    clearMeasurements();
     
-    measureMode = mode;
-    measurePoints = [];
-    map.getContainer().style.cursor = 'crosshair';
+    const btn = document.getElementById('measureDistanceBtn');
+    btn.classList.add('active');
     
-    // Update button states
-    document.getElementById('measure-distance-btn').classList.remove('active');
-    document.getElementById('measure-area-btn').classList.remove('active');
+    const polyline = new L.Polyline([], { color: '#ff0', weight: 3, dashArray: '5, 10' });
+    map.addLayer(polyline);
     
-    if (mode === 'distance') {
-        document.getElementById('measure-distance-btn').classList.add('active');
-    } else if (mode === 'area') {
-        document.getElementById('measure-area-btn').classList.add('active');
+    let points = [];
+    let measuring = true;
+    
+    const clickHandler = function(e) {
+        if (!measuring) return;
+        
+        points.push(e.latlng);
+        polyline.addLatLng(e.latlng);
+        
+        if (points.length > 1) {
+            const distance = calculateDistance(points);
+            document.getElementById('measurementResult').innerHTML = `
+                <div class="measurement-result">
+                    Distance: ${distance.toFixed(2)} meters (${(distance * 3.28084).toFixed(2)} feet)
+                    <br><small>Click to add points. Double-click to finish.</small>
+                </div>
+            `;
+        }
+    };
+    
+    const dblClickHandler = function() {
+        measuring = false;
+        map.off('click', clickHandler);
+        map.off('dblclick', dblClickHandler);
+        btn.classList.remove('active');
+        drawnItems.addLayer(polyline);
+    };
+    
+    map.on('click', clickHandler);
+    map.on('dblclick', dblClickHandler);
+}
+
+function startMeasureArea() {
+    clearMeasurements();
+    
+    const btn = document.getElementById('measureAreaBtn');
+    btn.classList.add('active');
+    
+    const polygon = new L.Polygon([], { color: '#ff0', weight: 3, fillOpacity: 0.2 });
+    map.addLayer(polygon);
+    
+    let points = [];
+    let measuring = true;
+    
+    const clickHandler = function(e) {
+        if (!measuring) return;
+        
+        points.push(e.latlng);
+        polygon.addLatLng(e.latlng);
+        
+        if (points.length > 2) {
+            const area = L.GeometryUtil.geodesicArea(points);
+            document.getElementById('measurementResult').innerHTML = `
+                <div class="measurement-result">
+                    Area: ${area.toFixed(2)} m² (${(area * 10.7639).toFixed(2)} ft²)
+                    <br><small>Click to add points. Double-click to finish.</small>
+                </div>
+            `;
+        }
+    };
+    
+    const dblClickHandler = function() {
+        measuring = false;
+        map.off('click', clickHandler);
+        map.off('dblclick', dblClickHandler);
+        btn.classList.remove('active');
+        drawnItems.addLayer(polygon);
+    };
+    
+    map.on('click', clickHandler);
+    map.on('dblclick', dblClickHandler);
+}
+
+function calculateDistance(points) {
+    let total = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+        total += points[i].distanceTo(points[i + 1]);
     }
+    return total;
 }
 
-// Stop measurement
-function stopMeasurement() {
-    measureMode = null;
-    measurePoints = [];
-    tempPolyline = null;
-    tempPolygon = null;
-    map.getContainer().style.cursor = '';
-    
-    document.getElementById('measure-distance-btn').classList.remove('active');
-    document.getElementById('measure-area-btn').classList.remove('active');
-}
-
-// Clear all measurements
 function clearMeasurements() {
-    measurementLayer.clearLayers();
-    stopMeasurement();
+    drawnItems.clearLayers();
+    document.getElementById('measurementResult').innerHTML = '';
+    document.getElementById('measureDistanceBtn').classList.remove('active');
+    document.getElementById('measureAreaBtn').classList.remove('active');
 }
 
-// Export modal
+// Export functions
 function openExportModal() {
-    if (!currentBbox) {
-        alert('Please draw a bounding box on the map first');
-        return;
-    }
-    
-    document.getElementById('modal-overlay').classList.add('active');
-    document.getElementById('export-modal').classList.add('active');
-    document.getElementById('export-status').innerHTML = '';
+    document.getElementById('exportModalOverlay').classList.add('active');
+    document.getElementById('exportModal').classList.add('active');
 }
 
 function closeExportModal() {
-    document.getElementById('modal-overlay').classList.remove('active');
-    document.getElementById('export-modal').classList.remove('active');
+    document.getElementById('exportModalOverlay').classList.remove('active');
+    document.getElementById('exportModal').classList.remove('active');
 }
 
-// Submit export
-async function submitExport() {
-    if (!currentBbox) {
-        alert('No bounding box defined');
+function exportData(format) {
+    if (!activeProjectId) {
+        alert('No active project selected');
         return;
     }
     
-    const statusDiv = document.getElementById('export-status');
-    statusDiv.innerHTML = '<div class="status-processing">Creating export...</div>';
-    
-    // Gather selected formats
-    const formats = [];
-    if (document.getElementById('format-shp').checked) formats.push('shp');
-    if (document.getElementById('format-dxf').checked) formats.push('dxf');
-    if (document.getElementById('format-png').checked) formats.push('png');
-    
-    if (formats.length === 0) {
-        statusDiv.innerHTML = '<div class="status-error">Please select at least one format</div>';
-        return;
-    }
-    
-    // Gather selected layers
-    const layers = [];
-    availableLayers.forEach(layer => {
-        const checkbox = document.getElementById(`export-layer-${layer.id}`);
-        if (checkbox && checkbox.checked) {
-            layers.push(layer.id);
-        }
-    });
-    
-    const params = {
-        bbox: currentBbox,
-        formats: formats,
-        layers: layers,
-        png_options: {
-            north_arrow: document.getElementById('opt-north-arrow').checked,
-            scale_bar: document.getElementById('opt-scale-bar').checked
-        }
+    const bounds = map.getBounds();
+    const bbox = {
+        minLat: bounds.getSouth(),
+        minLng: bounds.getWest(),
+        maxLat: bounds.getNorth(),
+        maxLng: bounds.getEast()
     };
     
-    try {
-        const response = await fetch('/api/map-export/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(params)
-        });
-        
-        const data = await response.json();
-        
-        if (data.error) {
-            statusDiv.innerHTML = `<div class="status-error">Error: ${data.error}</div>`;
-            return;
-        }
-        
-        // Poll for status
-        pollExportStatus(data.job_id);
-        
-    } catch (error) {
-        statusDiv.innerHTML = `<div class="status-error">Error: ${error.message}</div>`;
-    }
+    const url = `/api/projects/${activeProjectId}/export-map?format=${format}&bbox=${JSON.stringify(bbox)}`;
+    
+    showStatus('info', `Exporting as ${format.toUpperCase()}...`);
+    
+    window.location.href = url;
+    
+    closeExportModal();
+    
+    setTimeout(() => {
+        showStatus('success', 'Export complete!');
+    }, 2000);
 }
 
-// Poll export status
-async function pollExportStatus(jobId) {
-    const statusDiv = document.getElementById('export-status');
+// Status message helpers
+function showStatus(type, message) {
+    const statusDiv = document.createElement('div');
+    statusDiv.className = `status-message status-${type}`;
+    statusDiv.textContent = message;
     
-    const checkStatus = async () => {
-        try {
-            const response = await fetch(`/api/map-export/status/${jobId}`);
-            const data = await response.json();
-            
-            if (data.status === 'complete') {
-                statusDiv.innerHTML = `
-                    <div class="status-success">
-                        Export complete! (${data.file_size_mb} MB)<br>
-                        <a href="${data.download_url}" class="btn-map" style="display: inline-block; margin-top: 10px;">
-                            <i class="fas fa-download"></i> Download
-                        </a>
-                    </div>
-                `;
-            } else if (data.status === 'failed') {
-                statusDiv.innerHTML = `<div class="status-error">Export failed: ${data.error}</div>`;
-            } else {
-                statusDiv.innerHTML = '<div class="status-processing">Processing export...</div>';
-                setTimeout(checkStatus, 2000);
-            }
-        } catch (error) {
-            statusDiv.innerHTML = `<div class="status-error">Error checking status: ${error.message}</div>`;
-        }
-    };
+    const container = document.querySelector('.map-sidebar');
+    container.appendChild(statusDiv);
     
-    checkStatus();
+    setTimeout(() => {
+        statusDiv.remove();
+    }, 5000);
 }
 
-// Standards Filter Functions
-let standardsVocabulary = {
-    disciplines: [],
-    categories: [],
-    phases: []
-};
-let selectedStandards = {
-    disciplines: [],
-    categories: [],
-    phases: []
-};
-
-async function loadStandardsVocabulary() {
-    try {
-        const [disciplinesRes, categoriesRes, phasesRes] = await Promise.all([
-            fetch('/api/vocabulary/disciplines'),
-            fetch('/api/vocabulary/categories'),
-            fetch('/api/vocabulary/phases')
-        ]);
-        
-        const [disciplinesData, categoriesData, phasesData] = await Promise.all([
-            disciplinesRes.json(),
-            categoriesRes.json(),
-            phasesRes.json()
-        ]);
-        
-        standardsVocabulary.disciplines = disciplinesData.disciplines || [];
-        standardsVocabulary.categories = categoriesData.categories || [];
-        standardsVocabulary.phases = phasesData.phases || [];
-        
-        populateStandardsFilters();
-    } catch (error) {
-        console.error('Error loading standards vocabulary:', error);
-    }
+function showSearchStatus(type, message) {
+    const statusEl = document.getElementById('searchStatus');
+    statusEl.className = `status-message status-${type}`;
+    statusEl.textContent = message;
+    statusEl.style.display = 'block';
+    
+    setTimeout(() => {
+        statusEl.style.display = 'none';
+    }, 3000);
 }
 
-function populateStandardsFilters() {
-    const disciplineDiv = document.getElementById('discipline-filters');
-    const categoryDiv = document.getElementById('category-filters');
-    const phaseDiv = document.getElementById('phase-filters');
-    
-    disciplineDiv.innerHTML = standardsVocabulary.disciplines
-        .filter(d => d.is_active)
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map(d => `
-            <label style="display: block; margin: 4px 0; font-size: 11px; cursor: pointer;">
-                <input type="checkbox" value="${d.code}" onchange="updateCategoryFilters()">
-                <span>${d.code} - ${d.full_name}</span>
-            </label>
-        `).join('');
-    
-    categoryDiv.innerHTML = '<p style="color: #888; font-size: 10px;">Select disciplines first</p>';
-    
-    phaseDiv.innerHTML = standardsVocabulary.phases
-        .filter(p => p.is_active)
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map(p => {
-            const colorBox = p.color_rgb ? `<span style="display: inline-block; width: 12px; height: 12px; background: ${p.color_rgb}; border: 1px solid #555; margin-right: 4px; vertical-align: middle;"></span>` : '';
-            return `
-                <label style="display: block; margin: 4px 0; font-size: 11px; cursor: pointer;">
-                    <input type="checkbox" value="${p.code}">
-                    ${colorBox}<span>${p.code} - ${p.full_name}</span>
-                </label>
-            `;
-        }).join('');
-}
-
-function updateCategoryFilters() {
-    const selectedDisciplines = Array.from(document.querySelectorAll('#discipline-filters input:checked')).map(cb => cb.value);
-    const categoryDiv = document.getElementById('category-filters');
-    
-    if (selectedDisciplines.length === 0) {
-        categoryDiv.innerHTML = '<p style="color: #888; font-size: 10px;">Select disciplines first</p>';
-        return;
-    }
-    
-    const relevantCategories = standardsVocabulary.categories.filter(c => {
-        const discipline = standardsVocabulary.disciplines.find(d => d.discipline_id === c.discipline_id);
-        return discipline && selectedDisciplines.includes(discipline.code) && c.is_active;
-    });
-    
-    if (relevantCategories.length === 0) {
-        categoryDiv.innerHTML = '<p style="color: #888; font-size: 10px;">No categories for selected disciplines</p>';
-        return;
-    }
-    
-    categoryDiv.innerHTML = relevantCategories
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map(c => `
-            <label style="display: block; margin: 4px 0; font-size: 11px; cursor: pointer;">
-                <input type="checkbox" value="${c.code}">
-                <span>${c.code} - ${c.full_name}</span>
-            </label>
-        `).join('');
-}
-
-function toggleStandardsPanel() {
-    const panel = document.getElementById('standards-filter-panel');
-    const btn = document.getElementById('standards-toggle-btn');
-    
-    if (panel.style.display === 'none') {
-        panel.style.display = 'block';
-        btn.innerHTML = '<i class="fas fa-chevron-up"></i> Hide Filters';
-    } else {
-        panel.style.display = 'none';
-        btn.innerHTML = '<i class="fas fa-chevron-down"></i> Show Filters';
-    }
-}
-
-async function applyStandardsFilter() {
-    selectedStandards.disciplines = Array.from(document.querySelectorAll('#discipline-filters input:checked')).map(cb => cb.value);
-    selectedStandards.categories = Array.from(document.querySelectorAll('#category-filters input:checked')).map(cb => cb.value);
-    selectedStandards.phases = Array.from(document.querySelectorAll('#phase-filters input:checked')).map(cb => cb.value);
-    
-    console.log('Applying standards filter:', selectedStandards);
-    
-    const filterCount = selectedStandards.disciplines.length + selectedStandards.categories.length + selectedStandards.phases.length;
-    
-    if (filterCount === 0) {
-        alert('Please select at least one filter criteria');
-        return;
-    }
-    
-    try {
-        // Build query parameters
-        const params = new URLSearchParams();
-        selectedStandards.disciplines.forEach(d => params.append('disciplines', d));
-        selectedStandards.categories.forEach(c => params.append('categories', c));
-        selectedStandards.phases.forEach(p => params.append('phases', p));
-        
-        // Fetch filtered database layers
-        const response = await fetch(`/api/map-viewer/database-layers?${params.toString()}`);
-        const data = await response.json();
-        
-        if (data.error) {
-            alert('Error applying filter: ' + data.error);
-            return;
-        }
-        
-        // Update available layers
-        availableLayers = data.layers || [];
-        
-        // Display filtered layers
-        const layerHtml = availableLayers.map(layer => `
-            <div class="layer-item">
-                <label>
-                    <input type="checkbox" id="layer-${layer.id}" onchange="toggleLayer('${layer.id}')">
-                    ${layer.name}
-                </label>
-            </div>
-        `).join('');
-        
-        document.getElementById('layer-list').innerHTML = layerHtml || '<p style="color: #888;">No layers match your filter</p>';
-        
-        alert(`Filter applied: ${availableLayers.length} layers found matching ${filterCount} criteria`);
-        
-    } catch (error) {
-        console.error('Error applying filter:', error);
-        alert('Error applying filter: ' + error.message);
-    }
-}
-
-async function clearStandardsFilter() {
-    document.querySelectorAll('#discipline-filters input, #category-filters input, #phase-filters input').forEach(cb => cb.checked = false);
-    selectedStandards = { disciplines: [], categories: [], phases: [] };
-    updateCategoryFilters();
-    console.log('Standards filter cleared - reloading all layers');
-    
-    // Reload all layers without filters
-    await loadLayers();
-}
-
-// Initialize when page loads
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        initMap();
-        loadStandardsVocabulary();
-    });
-} else {
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
     initMap();
-    loadStandardsVocabulary();
-}
+    fetchActiveProject();
+});
 </script>
+
+<!-- Leaflet GeometryUtil for area calculation -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet-geometryutil@0.10.1/src/leaflet.geometryutil.js"></script>
+
 {% endblock %}

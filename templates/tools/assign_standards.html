@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Assign Standards{% endblock %}
+
+{% block content %}
+<div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
+    <h1 style="color: var(--mc-accent); font-family: 'Orbitron', monospace; margin-bottom: 2rem;">
+        Assign Standards
+    </h1>
+    
+    <div style="background: rgba(0, 40, 80, 0.5); border: 1px solid var(--mc-primary); border-radius: 8px; padding: 2rem;">
+        <p style="color: var(--mc-text); font-family: 'Rajdhani', sans-serif; font-size: 1.1rem; margin-bottom: 1rem;">
+            Assign layer standards, block standards, and other CAD standards to your active project.
+        </p>
+        
+        <p style="color: rgba(255, 255, 255, 0.7); font-style: italic;">
+            This tool will help you configure which standards library entries apply to the current project.
+        </p>
+        
+        <div style="margin-top: 2rem;">
+            <a href="/project-command-center" 
+               style="display: inline-block; padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #004d7a, #008793); 
+                      border: 1px solid var(--mc-primary); color: white; text-decoration: none; border-radius: 4px; 
+                      font-family: 'Rajdhani', sans-serif;">
+                ← Back to Command Center
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
