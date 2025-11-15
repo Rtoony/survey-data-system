@@ -767,6 +767,7 @@ async function checkSync(setId) {
 // Member Management
 let currentSetId = null;
 let currentMembers = [];
+let filterableColumnsCache = {};
 
 const ENTITY_TYPE_MAP = {
     'utility_line': 'utility_lines',
@@ -912,11 +913,12 @@ function showAddMemberModal() {
     document.querySelector('input[name="selectionMode"][value="specific"]').checked = true;
     toggleSelectionMode();
     
-    // Reset filter conditions
+    // Reset filter conditions with dropdown (will be populated when entity type is selected)
     document.getElementById('filterConditions').innerHTML = `
         <div class="filter-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
-            <input type="text" class="form-control" style="flex: 1;" 
-                   placeholder="Column name (e.g., material, diameter)">
+            <select class="form-control column-select" style="flex: 1;">
+                <option value="">Select entity type first...</option>
+            </select>
             <select class="form-control" style="flex: 0 0 auto; width: 100px;">
                 <option value="equals">=</option>
                 <option value="gt">&gt;</option>
@@ -953,18 +955,81 @@ function toggleSelectionMode() {
     }
 }
 
-function onEntityTypeChange() {
-    // Could fetch available entities here in the future
+async function onEntityTypeChange() {
+    const entityType = document.getElementById('entityType').value;
+    
+    if (!entityType) {
+        return;
+    }
+    
+    // Check cache first
+    if (!filterableColumnsCache[entityType]) {
+        try {
+            const response = await fetch(`/api/entity-types/${entityType}/filterable-columns`);
+            const data = await response.json();
+            
+            if (data.error) {
+                console.error('Error fetching columns:', data.error);
+                return;
+            }
+            
+            filterableColumnsCache[entityType] = data.columns || [];
+        } catch (error) {
+            console.error('Error fetching filterable columns:', error);
+            return;
+        }
+    }
+    
+    // Update all existing filter rows with new column options
+    updateAllFilterRowColumns(entityType);
+}
+
+function updateAllFilterRowColumns(entityType) {
+    const columns = filterableColumnsCache[entityType] || [];
+    const filterRows = document.getElementById('filterConditions').querySelectorAll('.filter-row');
+    
+    filterRows.forEach(row => {
+        const columnSelect = row.querySelector('.column-select');
+        if (columnSelect) {
+            updateColumnSelect(columnSelect, columns);
+        }
+    });
+}
+
+function updateColumnSelect(selectElement, columns) {
+    const currentValue = selectElement.value;
+    
+    selectElement.innerHTML = '<option value="">Select column...</option>' +
+        columns.map(col => {
+            const dataTypeLabel = col.data_type ? ` (${col.data_type})` : '';
+            return `<option value="${col.column_name}" title="${col.description || ''}">${col.display_name}${dataTypeLabel}</option>`;
+        }).join('');
+    
+    // Restore previous selection if still valid
+    if (currentValue) {
+        selectElement.value = currentValue;
+    }
 }
 
 function addFilterRow() {
+    const entityType = document.getElementById('entityType').value;
+    const columns = filterableColumnsCache[entityType] || [];
+    
     const container = document.getElementById('filterConditions');
     const newRow = document.createElement('div');
     newRow.className = 'filter-row';
     newRow.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+    
+    const columnOptions = '<option value="">Select column...</option>' +
+        columns.map(col => {
+            const dataTypeLabel = col.data_type ? ` (${col.data_type})` : '';
+            return `<option value="${col.column_name}" title="${col.description || ''}">${col.display_name}${dataTypeLabel}</option>`;
+        }).join('');
+    
     newRow.innerHTML = `
-        <input type="text" class="form-control" style="flex: 1;" 
-               placeholder="Column name">
+        <select class="form-control column-select" style="flex: 1;">
+            ${columnOptions}
+        </select>
         <select class="form-control" style="flex: 0 0 auto; width: 100px;">
             <option value="equals">=</option>
             <option value="gt">&gt;</option>
@@ -1024,12 +1089,13 @@ async function saveMember(event) {
         const filters = {};
         
         for (const row of filterRows) {
-            const inputs = row.querySelectorAll('input');
-            const select = row.querySelector('select');
+            const columnSelect = row.querySelector('.column-select');
+            const operatorSelect = row.querySelectorAll('select')[1];
+            const valueInput = row.querySelector('input');
             
-            const columnName = inputs[0].value.trim();
-            const operator = select.value;
-            const value = inputs[1].value.trim();
+            const columnName = columnSelect.value.trim();
+            const operator = operatorSelect.value;
+            const value = valueInput.value.trim();
             
             if (!columnName || !value) {
                 alert('All filter conditions must have column name and value');
