@@ -15979,6 +15979,140 @@ def delete_coordinate_system(system_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== RELATIONSHIP SET NAMING TEMPLATES API =====
+
+@app.route('/api/naming-templates')
+def get_naming_templates():
+    """Get all relationship set naming templates"""
+    try:
+        query = """
+            SELECT template_id, template_name, category, name_format, short_code_format,
+                   description, usage_instructions, example_name, example_code, example_tokens,
+                   required_tokens, optional_tokens, usage_count, last_used_at,
+                   is_active, is_default, created_at, updated_at
+            FROM relationship_set_naming_templates
+            WHERE is_active = TRUE
+            ORDER BY category, template_name
+        """
+        templates = execute_query(query)
+        return jsonify({'templates': templates})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naming-templates/<uuid:template_id>')
+def get_naming_template_detail(template_id):
+    """Get a specific naming template"""
+    try:
+        query = """
+            SELECT template_id, template_name, category, name_format, short_code_format,
+                   description, usage_instructions, example_name, example_code, example_tokens,
+                   required_tokens, optional_tokens, usage_count, last_used_at,
+                   is_active, is_default, created_at, updated_at
+            FROM relationship_set_naming_templates
+            WHERE template_id = %s
+        """
+        result = execute_query(query, (str(template_id),))
+        
+        if not result:
+            return jsonify({'error': 'Template not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naming-templates', methods=['POST'])
+def create_naming_template():
+    """Create a new naming template"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('template_name') or not data.get('category') or not data.get('name_format') or not data.get('short_code_format'):
+            return jsonify({'error': 'template_name, category, name_format, and short_code_format are required'}), 400
+        
+        query = """
+            INSERT INTO relationship_set_naming_templates 
+            (template_name, category, name_format, short_code_format, description, usage_instructions,
+             example_name, example_code, example_tokens, required_tokens, optional_tokens, is_default)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING template_id
+        """
+        result = execute_query(query, (
+            data['template_name'].strip(),
+            data['category'].strip(),
+            data['name_format'].strip(),
+            data['short_code_format'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('usage_instructions', '').strip() or None,
+            data.get('example_name', '').strip() or None,
+            data.get('example_code', '').strip() or None,
+            data.get('example_tokens'),
+            data.get('required_tokens', []),
+            data.get('optional_tokens', []),
+            data.get('is_default', False)
+        ))
+        
+        return jsonify({
+            'template_id': result[0]['template_id'],
+            'message': 'Template created successfully'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naming-templates/<uuid:template_id>', methods=['PUT'])
+def update_naming_template(template_id):
+    """Update a naming template"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('template_name') or not data.get('category') or not data.get('name_format') or not data.get('short_code_format'):
+            return jsonify({'error': 'template_name, category, name_format, and short_code_format are required'}), 400
+        
+        query = """
+            UPDATE relationship_set_naming_templates
+            SET template_name = %s, category = %s, name_format = %s, short_code_format = %s,
+                description = %s, usage_instructions = %s, example_name = %s, example_code = %s,
+                example_tokens = %s, required_tokens = %s, optional_tokens = %s, is_default = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE template_id = %s
+            RETURNING template_id
+        """
+        result = execute_query(query, (
+            data['template_name'].strip(),
+            data['category'].strip(),
+            data['name_format'].strip(),
+            data['short_code_format'].strip(),
+            data.get('description', '').strip() or None,
+            data.get('usage_instructions', '').strip() or None,
+            data.get('example_name', '').strip() or None,
+            data.get('example_code', '').strip() or None,
+            data.get('example_tokens'),
+            data.get('required_tokens', []),
+            data.get('optional_tokens', []),
+            data.get('is_default', False),
+            str(template_id)
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Template not found'}), 404
+        
+        return jsonify({'message': 'Template updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naming-templates/<uuid:template_id>', methods=['DELETE'])
+def delete_naming_template(template_id):
+    """Delete a naming template (soft delete)"""
+    try:
+        query = "UPDATE relationship_set_naming_templates SET is_active = FALSE WHERE template_id = %s RETURNING template_id"
+        result = execute_query(query, (str(template_id),))
+        
+        if not result:
+            return jsonify({'error': 'Template not found'}), 404
+        
+        return jsonify({'message': 'Template deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ===== SURVEY CODE LIBRARY API =====
 
 @app.route('/api/survey-codes')
