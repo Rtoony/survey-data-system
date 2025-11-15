@@ -139,6 +139,7 @@ class RelationshipSetService:
                 - tags (optional)
                 - is_template (optional, default False)
                 - requires_all_members (optional, default True)
+                - naming_template_id (optional)
                 - created_by (optional)
                 
         Returns:
@@ -147,9 +148,9 @@ class RelationshipSetService:
         query = """
             INSERT INTO project_relationship_sets (
                 project_id, set_name, set_code, description, category, 
-                tags, is_template, requires_all_members, created_by
+                tags, is_template, requires_all_members, naming_template_id, created_by
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
         """
         
@@ -162,6 +163,7 @@ class RelationshipSetService:
             data.get('tags', []),
             data.get('is_template', False),
             data.get('requires_all_members', True),
+            data.get('naming_template_id'),
             data.get('created_by')
         )
         
@@ -180,6 +182,7 @@ class RelationshipSetService:
                 tags = COALESCE(%s, tags),
                 status = COALESCE(%s, status),
                 requires_all_members = COALESCE(%s, requires_all_members),
+                naming_template_id = COALESCE(%s, naming_template_id),
                 updated_at = CURRENT_TIMESTAMP
             WHERE set_id = %s
             RETURNING *
@@ -193,6 +196,7 @@ class RelationshipSetService:
             data.get('tags'),
             data.get('status'),
             data.get('requires_all_members'),
+            data.get('naming_template_id'),
             set_id
         )
         

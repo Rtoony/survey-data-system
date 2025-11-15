@@ -68,17 +68,42 @@
             <form id="setForm" onsubmit="saveSet(event)">
                 <input type="hidden" id="setId">
                 
+                <!-- Naming Template Selection -->
                 <div class="form-group">
-                    <label for="setName">Set Name *</label>
-                    <input type="text" id="setName" class="form-control" required
-                           placeholder="e.g., Pavement Material Compliance Set">
+                    <label for="namingTemplate">Naming Template *</label>
+                    <select id="namingTemplate" class="form-control" required onchange="onTemplateChange()">
+                        <option value="">Select a naming template...</option>
+                    </select>
+                    <small class="form-text" id="templateDescription" style="display: none; color: var(--text-muted); margin-top: 8px;"></small>
                 </div>
 
-                <div class="form-group">
-                    <label for="setCode">Short Code</label>
-                    <input type="text" id="setCode" class="form-control"
-                           placeholder="e.g., PAVE-MAT-01">
+                <!-- Token Input Fields (dynamically populated) -->
+                <div id="tokenFieldsContainer" style="display: none; padding: 16px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">
+                        <i class="fas fa-tags"></i> Fill in Template Values
+                    </h4>
+                    <div id="tokenFields"></div>
                 </div>
+
+                <!-- Live Preview -->
+                <div id="previewContainer" style="display: none; padding: 16px; background: var(--bg-tertiary); border-radius: 8px; border-left: 4px solid var(--accent-cyan); margin-bottom: 20px;">
+                    <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">
+                        <i class="fas fa-eye"></i> Preview
+                    </h4>
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: var(--text-muted); font-size: 12px;">Set Name:</strong>
+                        <div id="previewName" style="font-family: monospace; color: var(--accent-cyan); margin-top: 4px; font-size: 14px;">-</div>
+                    </div>
+                    <div>
+                        <strong style="color: var(--text-muted); font-size: 12px;">Short Code:</strong>
+                        <div id="previewCode" style="font-family: monospace; color: var(--accent-green); margin-top: 4px; font-size: 14px;">-</div>
+                    </div>
+                </div>
+
+                <!-- Hidden fields to store generated values -->
+                <input type="hidden" id="setName">
+                <input type="hidden" id="setCode">
+                <input type="hidden" id="selectedTemplateId">
 
                 <div class="form-group">
                     <label for="description">Description</label>
@@ -767,9 +792,12 @@
 <script>
 const PROJECT_ID = '{{ project_id }}';
 let currentSets = [];
+let namingTemplates = [];
+let selectedTemplate = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadRelationshipSets();
+    loadNamingTemplates();
 });
 
 async function loadRelationshipSets() {
@@ -790,6 +818,182 @@ async function loadRelationshipSets() {
     } finally {
         document.getElementById('loadingMessage').style.display = 'none';
     }
+}
+
+// Naming Templates Functions
+async function loadNamingTemplates() {
+    try {
+        const response = await fetch('/api/naming-templates');
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        namingTemplates = data.templates || [];
+        populateTemplateDropdown();
+        
+    } catch (error) {
+        console.error('Error loading naming templates:', error);
+    }
+}
+
+function populateTemplateDropdown() {
+    const select = document.getElementById('namingTemplate');
+    if (!select) return;
+    
+    // Keep the default "Select a naming template..." option
+    const defaultOption = select.querySelector('option[value=""]');
+    select.innerHTML = '';
+    if (defaultOption) select.appendChild(defaultOption);
+    
+    // Group templates by category
+    const grouped = {};
+    namingTemplates.forEach(template => {
+        const category = template.category || 'Other';
+        if (!grouped[category]) grouped[category] = [];
+        grouped[category].push(template);
+    });
+    
+    // Add optgroups for each category
+    Object.keys(grouped).sort().forEach(category => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = category;
+        
+        grouped[category].forEach(template => {
+            const option = document.createElement('option');
+            option.value = template.template_id;
+            option.textContent = template.template_name;
+            optgroup.appendChild(option);
+        });
+        
+        select.appendChild(optgroup);
+    });
+}
+
+function onTemplateChange() {
+    const templateId = document.getElementById('namingTemplate').value;
+    
+    if (!templateId) {
+        // Hide token fields and preview
+        document.getElementById('tokenFieldsContainer').style.display = 'none';
+        document.getElementById('previewContainer').style.display = 'none';
+        selectedTemplate = null;
+        return;
+    }
+    
+    selectedTemplate = namingTemplates.find(t => t.template_id === templateId);
+    if (!selectedTemplate) return;
+    
+    // Update template description
+    const descElement = document.getElementById('templateDescription');
+    if (selectedTemplate.description) {
+        descElement.textContent = selectedTemplate.description;
+        descElement.style.display = 'block';
+    } else {
+        descElement.style.display = 'none';
+    }
+    
+    // Generate token input fields
+    generateTokenFields();
+    
+    // Show token fields container
+    document.getElementById('tokenFieldsContainer').style.display = 'block';
+    document.getElementById('previewContainer').style.display = 'block';
+    
+    // Update preview
+    updatePreview();
+}
+
+function generateTokenFields() {
+    if (!selectedTemplate) return;
+    
+    const container = document.getElementById('tokenFields');
+    container.innerHTML = '';
+    
+    const allTokens = [...selectedTemplate.required_tokens, ...selectedTemplate.optional_tokens];
+    
+    allTokens.forEach(token => {
+        const isRequired = selectedTemplate.required_tokens.includes(token);
+        
+        const formGroup = document.createElement('div');
+        formGroup.className = 'form-group';
+        formGroup.style.marginBottom = '12px';
+        
+        const label = document.createElement('label');
+        label.textContent = token + (isRequired ? ' *' : ' (optional)');
+        label.style.fontSize = '13px';
+        label.style.fontWeight = '500';
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control';
+        input.id = `token_${token}`;
+        input.placeholder = getTokenPlaceholder(token);
+        if (isRequired) input.required = true;
+        
+        // Add example value from template if available
+        if (selectedTemplate.example_tokens && selectedTemplate.example_tokens[token]) {
+            input.placeholder = `e.g., ${selectedTemplate.example_tokens[token]}`;
+        }
+        
+        // Update preview on input
+        input.addEventListener('input', updatePreview);
+        
+        formGroup.appendChild(label);
+        formGroup.appendChild(input);
+        container.appendChild(formGroup);
+    });
+}
+
+function getTokenPlaceholder(token) {
+    const placeholders = {
+        'PROJECT_CODE': 'e.g., PRJ-2024-001',
+        'SEQ': 'e.g., 01',
+        'MATERIAL_TYPE': 'e.g., CONCRETE',
+        'UTILITY_TYPE': 'e.g., STORM',
+        'FEATURE_TYPE': 'e.g., RAMPS',
+        'PHASE': 'e.g., PHASE-1',
+        'DETAIL_FAMILY': 'e.g., STORM',
+        'STANDARD_ID': 'e.g., STD-001',
+        'NETWORK_ID': 'e.g., NET-001',
+        'SURVEY_TYPE': 'e.g., CONTROL',
+        'BMP_TYPE': 'e.g., BIOSWALE',
+        'PAVEMENT_TYPE': 'e.g., AC'
+    };
+    return placeholders[token] || `Enter ${token}`;
+}
+
+function updatePreview() {
+    if (!selectedTemplate) return;
+    
+    const tokenValues = {};
+    const allTokens = [...selectedTemplate.required_tokens, ...selectedTemplate.optional_tokens];
+    
+    allTokens.forEach(token => {
+        const input = document.getElementById(`token_${token}`);
+        if (input) {
+            tokenValues[token] = input.value || `{${token}}`;
+        }
+    });
+    
+    // Generate name preview
+    let namePreview = selectedTemplate.name_format;
+    Object.keys(tokenValues).forEach(token => {
+        namePreview = namePreview.replace(new RegExp(`\\{${token}\\}`, 'g'), tokenValues[token]);
+    });
+    
+    // Generate code preview
+    let codePreview = selectedTemplate.short_code_format;
+    Object.keys(tokenValues).forEach(token => {
+        codePreview = codePreview.replace(new RegExp(`\\{${token}\\}`, 'g'), tokenValues[token]);
+    });
+    
+    // Update preview displays
+    document.getElementById('previewName').textContent = namePreview;
+    document.getElementById('previewCode').textContent = codePreview;
+    
+    // Update hidden fields
+    document.getElementById('setName').value = namePreview;
+    document.getElementById('setCode').value = codePreview;
 }
 
 function renderSets(sets) {
@@ -886,11 +1090,14 @@ function formatCategory(category) {
 
 function showCreateModal() {
     document.getElementById('setId').value = '';
-    document.getElementById('setName').value = '';
-    document.getElementById('setCode').value = '';
+    document.getElementById('namingTemplate').value = '';
     document.getElementById('description').value = '';
     document.getElementById('category').value = '';
     document.getElementById('requiresAllMembers').checked = true;
+    document.getElementById('templateDescription').style.display = 'none';
+    document.getElementById('tokenFieldsContainer').style.display = 'none';
+    document.getElementById('previewContainer').style.display = 'none';
+    selectedTemplate = null;
     document.getElementById('modalTitle').innerHTML = '<i class="fas fa-plus"></i> Create Relationship Set';
     document.getElementById('setModal').style.display = 'block';
 }
@@ -909,7 +1116,8 @@ async function saveSet(event) {
         set_code: document.getElementById('setCode').value || null,
         description: document.getElementById('description').value || null,
         category: document.getElementById('category').value || null,
-        requires_all_members: document.getElementById('requiresAllMembers').checked
+        requires_all_members: document.getElementById('requiresAllMembers').checked,
+        naming_template_id: document.getElementById('namingTemplate').value || null
     };
     
     try {
