@@ -14257,6 +14257,150 @@ def delete_entity_registry(registry_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/entity-registry/enriched')
+@cache.cached(timeout=300)  # Cache for 5 minutes
+def get_entity_registry_enriched():
+    """
+    Get enriched entity registry data with controlled object types,
+    specialized tools, example layer names, and record counts.
+    """
+    try:
+        # Main query to get entity registry entries with related data
+        query = """
+            SELECT 
+                er.registry_id,
+                er.table_name,
+                er.display_name,
+                er.description,
+                er.icon,
+                er.category,
+                er.sort_order,
+                er.is_active,
+                
+                -- Aggregate controlled object types
+                COALESCE(
+                    json_agg(
+                        DISTINCT jsonb_build_object(
+                            'code', cot.code,
+                            'name', cot.name,
+                            'description', cot.description,
+                            'geometry_hint', cot.geometry_hint
+                        ) 
+                        ORDER BY jsonb_build_object(
+                            'code', cot.code,
+                            'name', cot.name,
+                            'description', cot.description,
+                            'geometry_hint', cot.geometry_hint
+                        )
+                    ) FILTER (WHERE cot.code IS NOT NULL),
+                    '[]'::json
+                ) as controlled_object_types,
+                
+                -- Aggregate specialized tools
+                COALESCE(
+                    json_agg(
+                        DISTINCT jsonb_build_object(
+                            'tool_name', st.tool_name,
+                            'tool_route', st.tool_route,
+                            'description', st.description,
+                            'icon', st.icon,
+                            'is_primary', ertl.is_primary
+                        )
+                        ORDER BY jsonb_build_object(
+                            'tool_name', st.tool_name,
+                            'tool_route', st.tool_route,
+                            'description', st.description,
+                            'icon', st.icon,
+                            'is_primary', ertl.is_primary
+                        )
+                    ) FILTER (WHERE st.tool_name IS NOT NULL),
+                    '[]'::json
+                ) as specialized_tools,
+                
+                -- Aggregate example layer names
+                COALESCE(
+                    json_agg(
+                        DISTINCT jsonb_build_object(
+                            'example_layer_name', ere.example_layer_name,
+                            'description', ere.description,
+                            'is_recommended', ere.is_recommended
+                        )
+                        ORDER BY jsonb_build_object(
+                            'example_layer_name', ere.example_layer_name,
+                            'description', ere.description,
+                            'is_recommended', ere.is_recommended
+                        )
+                    ) FILTER (WHERE ere.example_layer_name IS NOT NULL),
+                    '[]'::json
+                ) as example_layers
+                
+            FROM entity_registry er
+            
+            LEFT JOIN entity_registry_object_types erot 
+                ON er.registry_id = erot.registry_id AND erot.is_active = TRUE
+            LEFT JOIN cad_object_types cot 
+                ON erot.object_type_code = cot.code AND cot.is_active = TRUE
+                
+            LEFT JOIN entity_registry_tool_links ertl 
+                ON er.registry_id = ertl.registry_id AND ertl.is_active = TRUE
+            LEFT JOIN specialized_tools st 
+                ON ertl.tool_id = st.tool_id AND st.is_active = TRUE
+                
+            LEFT JOIN entity_registry_examples ere 
+                ON er.registry_id = ere.registry_id
+                
+            WHERE er.is_active = TRUE
+            
+            GROUP BY er.registry_id, er.table_name, er.display_name, er.description, 
+                     er.icon, er.category, er.sort_order, er.is_active
+            
+            ORDER BY er.category, er.sort_order, er.display_name
+        """
+        
+        entities = execute_query(query)
+        
+        # Get record counts for each table (with safe SQL using psycopg2.sql.Identifier)
+        from psycopg2 import sql
+        
+        for entity in entities:
+            table_name = entity['table_name']
+            try:
+                # Build safe query using SQL identifier
+                count_query = sql.SQL("SELECT COUNT(*) as count FROM {}").format(
+                    sql.Identifier(table_name)
+                )
+                
+                # Execute with connection
+                with get_db() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(count_query)
+                        result = cur.fetchone()
+                        entity['record_count'] = result[0] if result else 0
+            except Exception as e:
+                # If table doesn't exist or query fails, set count to 0
+                entity['record_count'] = 0
+                print(f"Error counting records for {table_name}: {e}")
+        
+        return jsonify({
+            'success': True,
+            'entities': entities,
+            'last_updated': datetime.now().isoformat(),
+            'data_sources': [
+                'entity_registry',
+                'entity_registry_object_types',
+                'cad_object_types',
+                'specialized_tools',
+                'entity_registry_tool_links',
+                'entity_registry_examples'
+            ]
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 # ============================================================================
 # CAD STANDARDS / LAYER GENERATOR API
 # ============================================================================
