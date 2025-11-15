@@ -460,6 +460,11 @@
 <script>
 async function loadHomePage() {
     try {
+        if (!window.projectContext) {
+            console.error('ProjectContext not loaded');
+            return;
+        }
+        
         await window.projectContext.init();
         const activeProject = window.projectContext.getActiveProject();
 
@@ -565,6 +570,8 @@ function formatDate(dateString) {
     return date.toLocaleDateString();
 }
 
-loadHomePage();
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(loadHomePage, 100);
+});
 </script>
 {% endblock %}
