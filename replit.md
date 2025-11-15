@@ -39,7 +39,9 @@ Preferred communication style: Simple, everyday language.
 - **Specialized Tools Registry:** Database-driven system linking CAD object types to interactive management tools.
 
 **Key Features & Design:**
-- **Standards Management:** Dedicated interfaces for Layer Vocabulary and Reference Data Hub for managing entities, clients, vendors, municipalities, coordinate systems, and survey point descriptions with full CRUD.
+- **Standards Management:** Two dedicated interfaces with clean separation:
+  - **CAD Layer Vocabulary** (`/standards/layer-vocabulary`): Manages CAD naming standards vocabulary (Disciplines, Categories, Objects, Phases, Geometries) with full CRUD operations.
+  - **Reference Data Hub** (`/standards/reference-data`): Manages 7 types of project-agnostic reference data with full CRUD: (1) Entity Registry for tracking all database entities, (2) Clients, (3) Vendors, (4) Municipalities, (5) Coordinate Systems, (6) Survey Point Descriptions, (7) GIS Data Layers. All data is database-backed with many-to-many relationships via junction tables (project_clients, project_vendors, project_municipalities).
 - **Schema Explorer & Data Manager:** CRUD operations for CAD standards and vocabulary inline editing.
 - **Schema Visualization Suite:** Multiple database schema visualization tools including a classic table browser, relationship diagram, and an optimized knowledge graph using Cytoscape.js.
 - **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards.
