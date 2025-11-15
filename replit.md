@@ -64,7 +64,9 @@ Preferred communication style: Simple, everyday language.
   - **Violations Dashboard:** Tabbed interface displaying detected violations with resolve/acknowledge actions and status tracking
   - **Sync Checker:** Three intelligent checking algorithms (Existence, Link Integrity, Metadata Consistency)
   - **Template System:** Save and reuse relationship set configurations across projects
+  - **Naming Templates:** Database-backed naming standards enforcing truth-driven architecture via `relationship_set_naming_templates` table with 10 seeded templates; replaces free-text Set Name/Short Code inputs with template-based selection + token replacement for consistency
   - **Truth-Driven Architecture:** Dynamic field dropdowns from filterable_entity_columns (33 columns across 11 entity types) preventing manual errors
+- **Relationship Set Naming Templates Manager:** CRUD interface in Reference Data Hub for managing standardized naming conventions with format strings, token definitions, examples, and usage instructions
 - **AI Toolkit:** Python modules and web interface for data ingestion, embedding generation, relationship building, validation, and maintenance.
 - **Interactive AI Visualizations:** Knowledge Graph Visualization and a Quality Dashboard.
 
