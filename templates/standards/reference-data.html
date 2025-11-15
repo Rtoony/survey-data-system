@@ -8,8 +8,7 @@
     <p class="subtitle">System Configuration & Reference Tables</p>
     
     <div class="tabs">
-        <div class="tab active" data-tab="entity-registry">Entity Registry</div>
-        <div class="tab" data-tab="clients">Clients</div>
+        <div class="tab active" data-tab="clients">Clients</div>
         <div class="tab" data-tab="vendors">Vendors</div>
         <div class="tab" data-tab="municipalities">Municipalities</div>
         <div class="tab" data-tab="coordinate-systems">Coordinate Systems</div>
@@ -18,22 +17,7 @@
         <div class="tab" data-tab="cad-standards">CAD Standards</div>
     </div>
     
-    <div class="tab-content active" id="entity-registry">
-        <div class="card">
-            <div class="section-header">
-                <h2><i class="fas fa-table"></i> Entity Registry</h2>
-                <button class="btn btn-add" onclick="openAddEntityModal()">
-                    <i class="fas fa-plus"></i> Add New Entity
-                </button>
-            </div>
-            <p style="color: var(--muted); margin-bottom: 20px;">
-                Define database tables that can be linked to Object Type codes in the layer vocabulary.
-            </p>
-            <div id="entityRegistryContainer"></div>
-        </div>
-    </div>
-    
-    <div class="tab-content" id="clients">
+    <div class="tab-content active" id="clients">
         <div class="card">
             <div class="section-header">
                 <h2><i class="fas fa-briefcase"></i> Clients</h2>
@@ -176,61 +160,6 @@
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<div id="entityModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="entityModalTitle">Add New Entity</h3>
-            <button class="close-btn" onclick="closeEntityModal()">&times;</button>
-        </div>
-        <form id="entityForm" onsubmit="handleEntitySubmit(event)">
-            <div class="form-group">
-                <label>Table Name <span style="color: #ff4444;">*</span></label>
-                <input type="text" id="tableName" name="table_name" required 
-                       placeholder="e.g., storm_structures" 
-                       onblur="validateTableName()">
-                <div class="help-text">Database table name (lowercase, underscores only)</div>
-                <div id="tableValidation"></div>
-            </div>
-            <div class="form-group">
-                <label>Display Name <span style="color: #ff4444;">*</span></label>
-                <input type="text" name="display_name" required placeholder="e.g., Storm Structures">
-                <div class="help-text">Human-readable name</div>
-            </div>
-            <div class="form-group">
-                <label>Category <span style="color: #ff4444;">*</span></label>
-                <select name="category" required>
-                    <option value="">Select Category</option>
-                    <option value="Utilities">Utilities</option>
-                    <option value="Survey">Survey</option>
-                    <option value="Annotation">Annotation</option>
-                    <option value="Civil">Civil</option>
-                    <option value="Architecture">Architecture</option>
-                    <option value="Mechanical">Mechanical</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="General">General</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Icon</label>
-                <input type="text" name="icon" placeholder="fas fa-table">
-                <div class="help-text">Font Awesome icon class (optional)</div>
-            </div>
-            <div class="form-group">
-                <label>Description</label>
-                <textarea name="description" placeholder="Brief description of this entity table..."></textarea>
-            </div>
-            <div class="form-group">
-                <label>Sort Order</label>
-                <input type="number" name="sort_order" min="0" placeholder="0">
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn btn-cancel" onclick="closeEntityModal()">Cancel</button>
-                <button type="submit" class="btn btn-submit">Save</button>
-            </div>
-        </form>
     </div>
 </div>
 
@@ -864,85 +793,6 @@
         });
     });
     
-    async function loadEntityRegistry() {
-        try {
-            const response = await fetch('/api/entity-registry');
-            const data = await response.json();
-            entities = data.entities || [];
-            renderEntityRegistry();
-        } catch (error) {
-            console.error('Error loading entity registry:', error);
-            showToast('Failed to load entity registry', 'error');
-        }
-    }
-    
-    function renderEntityRegistry() {
-        const container = document.getElementById('entityRegistryContainer');
-        
-        if (entities.length === 0) {
-            container.innerHTML = `
-                <div class="placeholder-message">
-                    <i class="fas fa-table"></i>
-                    <h3>No entities registered yet</h3>
-                    <p>Click "Add New Entity" to register your first database table.</p>
-                </div>
-            `;
-            return;
-        }
-        
-        const grouped = entities.reduce((acc, entity) => {
-            const category = entity.category || 'Uncategorized';
-            if (!acc[category]) acc[category] = [];
-            acc[category].push(entity);
-            return acc;
-        }, {});
-        
-        Object.values(grouped).forEach(group => {
-            group.sort((a, b) => (a.sort_order || 999) - (b.sort_order || 999));
-        });
-        
-        const html = Object.entries(grouped).map(([category, items]) => `
-            <div class="category-section">
-                <div class="category-header">
-                    <span class="category-title">${category}</span>
-                    <span class="category-count">(${items.length} ${items.length === 1 ? 'entity' : 'entities'})</span>
-                </div>
-                <div class="grid">
-                    ${items.map(entity => renderEntityCard(entity)).join('')}
-                </div>
-            </div>
-        `).join('');
-        
-        container.innerHTML = html;
-    }
-    
-    function renderEntityCard(entity) {
-        const icon = entity.icon || 'fas fa-table';
-        return `
-            <div class="entity-item">
-                <div class="entity-header">
-                    <div style="display: flex; align-items: start;">
-                        <i class="${icon} entity-icon"></i>
-                        <div class="entity-title">
-                            <div class="entity-name">${entity.display_name}</div>
-                            <div class="entity-table">${entity.table_name}</div>
-                            <span class="entity-category">${entity.category || 'General'}</span>
-                        </div>
-                    </div>
-                </div>
-                ${entity.description ? `<div class="entity-desc">${entity.description}</div>` : ''}
-                <div class="item-actions">
-                    <button class="icon-btn" onclick='openEditEntityModal(${entity.registry_id}, ${JSON.stringify(entity)})' title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="icon-btn delete" onclick='openDeleteModal(${entity.registry_id}, "${entity.display_name}", "entity")' title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-    
     async function loadClients() {
         try {
             const response = await fetch('/api/clients');
@@ -1273,35 +1123,6 @@
         `).join('');
         
         container.innerHTML = html;
-    }
-    
-    function openAddEntityModal() {
-        currentEdit = { id: null, data: null, type: 'entity' };
-        document.getElementById('entityModalTitle').textContent = 'Add New Entity';
-        document.getElementById('entityForm').reset();
-        document.getElementById('tableValidation').innerHTML = '';
-        document.getElementById('entityModal').classList.add('active');
-    }
-    
-    function openEditEntityModal(id, data) {
-        currentEdit = { id, data, type: 'entity' };
-        document.getElementById('entityModalTitle').textContent = 'Edit Entity';
-        
-        const form = document.getElementById('entityForm');
-        form.table_name.value = data.table_name || '';
-        form.display_name.value = data.display_name || '';
-        form.category.value = data.category || '';
-        form.icon.value = data.icon || '';
-        form.description.value = data.description || '';
-        form.sort_order.value = data.sort_order || '';
-        
-        document.getElementById('tableValidation').innerHTML = '';
-        document.getElementById('entityModal').classList.add('active');
-    }
-    
-    function closeEntityModal() {
-        document.getElementById('entityModal').classList.remove('active');
-        currentEdit = { id: null, data: null, type: null };
     }
     
     function openAddClientModal() {
@@ -1644,80 +1465,6 @@
         deleteTarget = { id: null, name: null, type: null };
     }
     
-    async function validateTableName() {
-        const tableNameInput = document.getElementById('tableName');
-        const tableName = tableNameInput.value.trim();
-        const validationDiv = document.getElementById('tableValidation');
-        
-        if (!tableName) {
-            validationDiv.innerHTML = '';
-            return;
-        }
-        
-        const formatValid = /^[a-z][a-z0-9_]*$/.test(tableName);
-        if (!formatValid) {
-            validationDiv.innerHTML = `
-                <div class="validation-feedback invalid">
-                    <i class="fas fa-exclamation-circle"></i>
-                    Invalid format: use lowercase letters, numbers, and underscores only
-                </div>
-            `;
-            return;
-        }
-        
-        try {
-            const response = await fetch('/api/schema');
-            const data = await response.json();
-            const tableExists = data.tables && data.tables[tableName];
-            
-            if (tableExists) {
-                validationDiv.innerHTML = `
-                    <div class="validation-feedback valid">
-                        <i class="fas fa-check-circle"></i>
-                        Table exists in database (${data.counts[tableName] || 0} rows)
-                    </div>
-                `;
-            } else {
-                validationDiv.innerHTML = `
-                    <div class="validation-feedback invalid">
-                        <i class="fas fa-info-circle"></i>
-                        Table does not exist in database
-                    </div>
-                `;
-            }
-        } catch (error) {
-            console.error('Error validating table:', error);
-            validationDiv.innerHTML = `
-                <div class="validation-feedback invalid">
-                    <i class="fas fa-exclamation-circle"></i>
-                    Could not validate table
-                </div>
-            `;
-        }
-    }
-    
-    async function handleEntitySubmit(event) {
-        event.preventDefault();
-        const formData = new FormData(event.target);
-        const data = Object.fromEntries(formData.entries());
-        
-        Object.keys(data).forEach(key => {
-            if (data[key] === '') {
-                data[key] = null;
-            }
-        });
-        
-        try {
-            if (currentEdit.id) {
-                await updateEntity(currentEdit.id, data);
-            } else {
-                await createEntity(data);
-            }
-        } catch (error) {
-            console.error('Error submitting entity:', error);
-        }
-    }
-    
     async function handleClientSubmit(event) {
         event.preventDefault();
         const formData = new FormData(event.target);
@@ -1803,50 +1550,6 @@
             }
         } catch (error) {
             console.error('Error submitting survey point:', error);
-        }
-    }
-    
-    async function createEntity(data) {
-        try {
-            const response = await fetch('/api/entity-registry', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            
-            const result = await response.json();
-            
-            if (response.ok) {
-                showToast(result.message || 'Entity created successfully', 'success');
-                closeEntityModal();
-                await loadEntityRegistry();
-            } else {
-                showToast(result.error || 'Failed to create entity', 'error');
-            }
-        } catch (error) {
-            showToast('Network error: Failed to create entity', 'error');
-        }
-    }
-    
-    async function updateEntity(id, data) {
-        try {
-            const response = await fetch(`/api/entity-registry/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            
-            const result = await response.json();
-            
-            if (response.ok) {
-                showToast(result.message || 'Entity updated successfully', 'success');
-                closeEntityModal();
-                await loadEntityRegistry();
-            } else {
-                showToast(result.error || 'Failed to update entity', 'error');
-            }
-        } catch (error) {
-            showToast('Network error: Failed to update entity', 'error');
         }
     }
     
@@ -2077,10 +1780,6 @@
         let reloadFunction;
         
         switch(type) {
-            case 'entity':
-                endpoint = `/api/entity-registry/${id}`;
-                reloadFunction = loadEntityRegistry;
-                break;
             case 'client':
                 endpoint = `/api/clients/${id}`;
                 reloadFunction = loadClients;
@@ -2145,7 +1844,6 @@
     
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            closeEntityModal();
             closeClientModal();
             closeVendorModal();
             closeMunicipalityModal();
@@ -2153,10 +1851,6 @@
             closeSurveyPointModal();
             closeConfirmModal();
         }
-    });
-    
-    document.getElementById('entityModal').addEventListener('click', (e) => {
-        if (e.target.id === 'entityModal') closeEntityModal();
     });
     
     document.getElementById('clientModal').addEventListener('click', (e) => {
@@ -2182,7 +1876,5 @@
     document.getElementById('confirmModal').addEventListener('click', (e) => {
         if (e.target.id === 'confirmModal') closeConfirmModal();
     });
-    
-    loadEntityRegistry();
 </script>
 {% endblock %}
