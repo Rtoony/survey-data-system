@@ -3,6 +3,31 @@
 {% block title %}CAD Layer Vocabulary{% endblock %}
 
 {% block content %}
+<style>
+    .tab-summary {
+        margin-top: 2rem;
+        padding: 1.25rem 1.5rem;
+        background: linear-gradient(135deg, rgba(0, 255, 255, 0.05) 0%, rgba(0, 255, 255, 0.02) 100%);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-left: 4px solid var(--accent);
+        border-radius: 8px;
+        font-size: 14px;
+        line-height: 1.7;
+        color: rgba(255, 255, 255, 0.85);
+    }
+    
+    .tab-summary i {
+        color: var(--accent);
+        margin-right: 0.5rem;
+        font-size: 16px;
+    }
+    
+    .tab-summary strong {
+        color: var(--accent);
+        font-weight: 600;
+    }
+</style>
+
 <div class="container">
     <h1><i class="fas fa-layer-group"></i> CAD Layer Vocabulary</h1>
     <p class="subtitle">Database-Driven Layer Naming Classification System</p>
@@ -57,6 +82,11 @@
                 <li><i class="fas fa-check" style="color: var(--accent);"></i> <strong>Database-Driven:</strong> Database is source of truth, not layer names</li>
             </ul>
         </div>
+        
+        <div class="tab-summary">
+            <i class="fas fa-info-circle"></i>
+            <strong>How This Connects:</strong> The layer naming format shown above drives the entire classification system. When you import a DXF file, each layer name is parsed according to this structure (DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY), and the system uses the TYPE code to determine which database table receives the data. For example, CIV-UTIL-STORM-12IN-NEW-LN is parsed to extract 'STORM' → routed to the utility_lines table via Entity Registry.
+        </div>
     </div>
     
     <div class="tab-content" id="disciplines">
@@ -68,6 +98,11 @@
                 </button>
             </div>
             <div class="grid" id="disciplinesGrid"></div>
+        </div>
+        
+        <div class="tab-summary">
+            <i class="fas fa-info-circle"></i>
+            <strong>How This Connects:</strong> Disciplines are the first component of every layer name and provide high-level categorization (e.g., CIV for Civil, ARCH for Architecture). While they help organize layers visually in CAD software, they don't directly affect database routing. The critical routing decision happens at the TYPE level (see Object Types tab).
         </div>
     </div>
     
@@ -81,6 +116,11 @@
             </div>
             <div class="grid" id="categoriesGrid"></div>
         </div>
+        
+        <div class="tab-summary">
+            <i class="fas fa-info-circle"></i>
+            <strong>How This Connects:</strong> Categories refine the Discipline and appear as the second component in layer names (e.g., UTIL for Utilities, SURV for Survey). Like Disciplines, Categories provide organizational structure but don't control database routing. The Entity Registry uses TYPE codes to determine where data is stored.
+        </div>
     </div>
     
     <div class="tab-content" id="types">
@@ -92,6 +132,11 @@
                 </button>
             </div>
             <div class="grid" id="typesGrid"></div>
+        </div>
+        
+        <div class="tab-summary">
+            <i class="fas fa-info-circle"></i>
+            <strong>How This Connects:</strong> Object Types are the most critical component for database routing. Each TYPE code (STORM, MH, SURVEY, etc.) maps to a specific database table via the Entity Registry. When importing DXF files, the classifier extracts the TYPE from the layer name and routes entities accordingly. See the Entity Registry tab to view which types route to which tables.
         </div>
     </div>
     
@@ -125,6 +170,11 @@
                 </p>
             </div>
         </div>
+        
+        <div class="tab-summary">
+            <i class="fas fa-info-circle"></i>
+            <strong>How This Connects:</strong> Attributes are optional descriptors that appear in brackets within layer names (e.g., 12IN, 8IN, ADA). They provide additional context but don't affect database routing. The system stores attribute information as metadata alongside the geometric data.
+        </div>
     </div>
     
     <div class="tab-content" id="phases">
@@ -137,6 +187,11 @@
             </div>
             <div class="grid" id="phasesGrid"></div>
         </div>
+        
+        <div class="tab-summary">
+            <i class="fas fa-info-circle"></i>
+            <strong>How This Connects:</strong> Phases indicate project timeline status (NEW, EXIST, DEMO, PROPOSED). They're embedded in layer names and stored as metadata in the database. Phase information helps filter and query data by construction status but doesn't control which table receives the data.
+        </div>
     </div>
     
     <div class="tab-content" id="geometries">
@@ -148,6 +203,11 @@
                 </button>
             </div>
             <div class="grid" id="geometriesGrid"></div>
+        </div>
+        
+        <div class="tab-summary">
+            <i class="fas fa-info-circle"></i>
+            <strong>How This Connects:</strong> Geometries specify the CAD entity type (LN for lines, PT for points, PL for polylines). They help users create properly structured layer names and provide hints about expected geometry types, but database routing is controlled by the TYPE code in the Entity Registry.
         </div>
     </div>
     
@@ -164,12 +224,22 @@
             </p>
             <div id="entityRegistryContainer"></div>
         </div>
+        
+        <div class="tab-summary">
+            <i class="fas fa-info-circle"></i>
+            <strong>How This Connects:</strong> The Entity Registry is the central switchboard connecting CAD naming conventions to database storage. Each database table listed here controls specific Object Type codes (e.g., utility_lines handles STORM, SANIT, WATER). When you import a DXF file, the TYPE code extracted from the layer name is matched against this registry to route data to the correct table. The specialized tools shown here provide interfaces for managing the stored data.
+        </div>
     </div>
     
     <div class="tab-content" id="hierarchy">
         <div class="card">
             <h2><i class="fas fa-sitemap"></i> Complete Hierarchy</h2>
             <div class="hierarchy-tree" id="hierarchyTree"></div>
+        </div>
+        
+        <div class="tab-summary">
+            <i class="fas fa-info-circle"></i>
+            <strong>How This Connects:</strong> This complete view shows all vocabulary components working together to form valid layer names. The hierarchy flows from broad (Discipline) to specific (Geometry), but remember: database routing is determined by the TYPE component via the Entity Registry. Use this view to verify your layer naming follows the established standards.
         </div>
     </div>
 </div>
