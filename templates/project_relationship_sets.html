@@ -314,6 +314,102 @@
     </div>
 </div>
 
+<!-- Add Rule Modal -->
+<div id="addRuleModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-plus"></i> Add Compliance Rule</h3>
+            <button class="modal-close" onclick="closeAddRuleModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="ruleForm" onsubmit="saveRule(event)">
+                <div class="form-group">
+                    <label for="ruleName">Rule Name *</label>
+                    <input type="text" id="ruleName" class="form-control" required
+                           placeholder="e.g., All Storm Drains Must Have Material">
+                </div>
+
+                <div class="form-group">
+                    <label for="ruleEntityType">Entity Type *</label>
+                    <select id="ruleEntityType" class="form-control" required onchange="onRuleEntityTypeChange()">
+                        <option value="">Select entity type...</option>
+                        <option value="utility_line">Utility Line</option>
+                        <option value="utility_structure">Utility Structure</option>
+                        <option value="bmp">BMP</option>
+                        <option value="ada_feature">ADA Feature</option>
+                        <option value="survey_point">Survey Point</option>
+                        <option value="alignment">Alignment</option>
+                        <option value="profile">Profile</option>
+                        <option value="parcel">Parcel</option>
+                        <option value="layer_standard">CAD Layer Standard</option>
+                        <option value="block_standard">CAD Block Standard</option>
+                        <option value="detail_standard">Detail Standard</option>
+                        <option value="hatch_standard">Hatch Standard</option>
+                        <option value="material_standard">Material Standard</option>
+                        <option value="note_standard">Note Standard</option>
+                        <option value="project_note">Project Note</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="ruleField">Field to Check *</label>
+                    <select id="ruleField" class="form-control" required>
+                        <option value="">Select entity type first...</option>
+                    </select>
+                    <small style="color: var(--mc-muted); font-size: 12px;">
+                        Available fields will appear after selecting an entity type
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="ruleOperator">Check Type *</label>
+                    <select id="ruleOperator" class="form-control" required>
+                        <option value="required">Field Must Have a Value (Required)</option>
+                        <option value="equals">Must Equal Specific Value</option>
+                        <option value="not_equals">Must NOT Equal Specific Value</option>
+                        <option value="contains">Must Contain Text</option>
+                        <option value="in_list">Must Be One Of (comma-separated)</option>
+                        <option value="min">Minimum Value (numeric)</option>
+                        <option value="max">Maximum Value (numeric)</option>
+                        <option value="regex">Must Match Pattern (regex)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="expectedValueGroup">
+                    <label for="ruleExpectedValue">Expected Value</label>
+                    <input type="text" id="ruleExpectedValue" class="form-control"
+                           placeholder="Enter expected value (leave empty for 'required' check)">
+                    <small style="color: var(--mc-muted); font-size: 12px;">
+                        For 'in_list': use comma-separated values (e.g., PVC, DI, HDPE)
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="ruleDescription">Description (optional)</label>
+                    <textarea id="ruleDescription" class="form-control" rows="2"
+                              placeholder="Explain why this rule is important..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="ruleSeverity">Severity</label>
+                    <select id="ruleSeverity" class="form-control">
+                        <option value="error">Error (critical compliance issue)</option>
+                        <option value="warning">Warning (should be fixed)</option>
+                        <option value="info">Info (nice to have)</option>
+                    </select>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddRuleModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Create Rule
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
 .set-card {
     background: var(--mc-surface);
@@ -1488,7 +1584,105 @@ function renderRules(rules) {
 }
 
 function showAddRuleModal() {
-    alert('Rule builder coming soon!');
+    // Reset form
+    document.getElementById('ruleForm').reset();
+    document.getElementById('ruleField').innerHTML = '<option value="">Select entity type first...</option>';
+    document.getElementById('addRuleModal').style.display = 'block';
+}
+
+function closeAddRuleModal() {
+    document.getElementById('addRuleModal').style.display = 'none';
+}
+
+async function onRuleEntityTypeChange() {
+    const entityType = document.getElementById('ruleEntityType').value;
+    const fieldSelect = document.getElementById('ruleField');
+    
+    if (!entityType) {
+        fieldSelect.innerHTML = '<option value="">Select entity type first...</option>';
+        return;
+    }
+    
+    // Fetch available columns for this entity type
+    let columns = filterableColumnsCache[entityType];
+    
+    if (!columns) {
+        try {
+            const response = await fetch(`/api/filterable-columns?entity_type=${entityType}`);
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+            columns = data.columns || [];
+            filterableColumnsCache[entityType] = columns;
+        } catch (error) {
+            console.error('Error loading columns:', error);
+            fieldSelect.innerHTML = '<option value="">Error loading fields</option>';
+            return;
+        }
+    }
+    
+    // Populate field dropdown
+    fieldSelect.innerHTML = '<option value="">Select field...</option>' +
+        columns.map(col => {
+            const dataTypeLabel = col.data_type ? ` (${col.data_type})` : '';
+            return `<option value="${col.column_name}" title="${col.description || ''}">${col.display_name}${dataTypeLabel}</option>`;
+        }).join('');
+}
+
+async function saveRule(event) {
+    event.preventDefault();
+    
+    const entityType = document.getElementById('ruleEntityType').value;
+    const field = document.getElementById('ruleField').value;
+    const operator = document.getElementById('ruleOperator').value;
+    const expectedValue = document.getElementById('ruleExpectedValue').value.trim();
+    
+    // Validate: operators other than 'required' need an expected value
+    const operatorsRequiringValue = ['equals', 'not_equals', 'contains', 'in_list', 'min', 'max', 'regex'];
+    if (operatorsRequiringValue.includes(operator) && !expectedValue) {
+        alert('This check type requires an expected value. Please enter a value or select "Field Must Have a Value (Required)".');
+        return;
+    }
+    
+    // Build rule condition based on operator
+    let ruleCondition = {
+        entity_type: entityType,
+        field: field,
+        operator: operator
+    };
+    
+    // Add expected value if relevant
+    if (operator !== 'required' && expectedValue) {
+        if (operator === 'in_list') {
+            // Split comma-separated list
+            ruleCondition.expected_values = expectedValue.split(',').map(v => v.trim());
+        } else {
+            ruleCondition.expected_value = expectedValue;
+        }
+    }
+    
+    const data = {
+        rule_name: document.getElementById('ruleName').value,
+        rule_description: document.getElementById('ruleDescription').value || null,
+        rule_condition: ruleCondition,
+        severity: document.getElementById('ruleSeverity').value
+    };
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/${currentSetId}/rules`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        
+        closeAddRuleModal();
+        loadRules();
+        
+    } catch (error) {
+        alert('Error creating rule: ' + error.message);
+    }
 }
 
 async function deleteRule(ruleId) {
