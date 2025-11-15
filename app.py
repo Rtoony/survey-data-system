@@ -1154,12 +1154,16 @@ def get_project_drawing_entities_map(project_id):
         
         extent = extent_result[0]
         
-        # Fetch drawing entities with layer information (limited for performance)
+        # Fetch drawing entities with layer and vocabulary information (limited for performance)
         entities_query = """
             SELECT 
                 de.entity_id,
                 de.entity_type,
                 COALESCE(l.layer_name, 'Unknown') as layer_name,
+                COALESCE(cat.category_code, 'MISC') as category,
+                COALESCE(ot.object_type_code, 'UNKNOWN') as object_type,
+                COALESCE(cat.category_name, 'Miscellaneous') as category_name,
+                COALESCE(ot.object_type_name, 'Unknown Object') as object_type_name,
                 ST_AsGeoJSON(
                     ST_Transform(
                         ST_Simplify(
@@ -1174,37 +1178,34 @@ def get_project_drawing_entities_map(project_id):
                 )::json as geometry
             FROM drawing_entities de
             LEFT JOIN layers l ON de.layer_id = l.layer_id
+            LEFT JOIN categories cat ON l.category_id = cat.category_id
+            LEFT JOIN object_types ot ON l.object_type_id = ot.object_type_id
             WHERE de.project_id = %s
               AND de.geometry IS NOT NULL
-            ORDER BY l.layer_name, de.entity_type
+            ORDER BY cat.category_code, ot.object_type_code, de.entity_type
             LIMIT 5000
         """
         entities = execute_query(entities_query, (project_id,))
         
-        # Group entities by layer name and parse category/object_type
+        # Group entities by category and object_type from vocabulary tables
         layer_groups = {}
         for entity in entities:
+            category = entity['category']
+            object_type = entity['object_type']
+            category_name = entity['category_name']
+            object_type_name = entity['object_type_name']
             layer_name = entity['layer_name']
             
-            # Parse layer name to extract category and object_type
-            # Format: DISCIPLINE-CATEGORY-OBJECTTYPE-PHASE-GEOMETRY
-            parts = layer_name.split('-')
-            if len(parts) >= 3:
-                category = parts[1]
-                object_type = parts[2]
-                group_key = f"{category}-{object_type}"
-                group_label = f"{category} - {object_type}"
-            else:
-                # Fallback for non-standard layer names
-                group_key = layer_name
-                group_label = layer_name
+            # Create group key from category + object_type
+            group_key = f"{category}-{object_type}"
+            group_label = f"{category_name} - {object_type_name}"
             
             if group_key not in layer_groups:
                 layer_groups[group_key] = {
                     'group_id': group_key,
                     'group_label': group_label,
-                    'category': category if len(parts) >= 3 else 'MISC',
-                    'object_type': object_type if len(parts) >= 3 else layer_name,
+                    'category': category,
+                    'object_type': object_type,
                     'layer_names': set(),
                     'features': []
                 }
