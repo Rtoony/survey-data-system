@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 **Key Features & Design:**
 - **Standards Management:** Two dedicated interfaces with clean separation:
   - **CAD Layer Vocabulary** (`/standards/layer-vocabulary`): Manages CAD naming standards vocabulary (Disciplines, Categories, Objects, Phases, Geometries) with full CRUD operations.
-  - **Reference Data Hub** (`/standards/reference-data`): Manages 7 types of project-agnostic reference data with full CRUD: (1) Entity Registry for tracking all database entities, (2) Clients, (3) Vendors, (4) Municipalities, (5) Coordinate Systems, (6) Survey Point Descriptions, (7) GIS Data Layers. All data is database-backed with many-to-many relationships via junction tables (project_clients, project_vendors, project_municipalities).
+  - **Reference Data Hub** (`/standards/reference-data`): Manages 8 types of project-agnostic reference data with full CRUD: (1) CAD Standards (Blocks, Hatches, Linetypes, Text Styles, Dimension Styles, Materials, Details, Standard Notes, Abbreviations) via iframe-embedded secondary navigation, (2) Entity Registry for tracking all database entities, (3) Clients, (4) Vendors, (5) Municipalities, (6) Coordinate Systems, (7) Survey Point Descriptions, (8) GIS Data Layers. All data is database-backed with many-to-many relationships via junction tables (project_clients, project_vendors, project_municipalities).
 - **Schema Explorer & Data Manager:** CRUD operations for CAD standards and vocabulary inline editing.
 - **Schema Visualization Suite:** Multiple database schema visualization tools including a classic table browser, relationship diagram, and an optimized knowledge graph using Cytoscape.js.
 - **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards.
@@ -143,3 +143,53 @@ Complete documentation update replacing deprecated "Bulk Standards Editor" termi
   - `/api/usage/top-layers`: Verified to return project-centric metrics
 - **Database Queries:** All APIs now query `projects`, `drawing_entities`, and intelligent object tables directly, avoiding deprecated `drawings` table
 - **Project Overview:** Map placeholder text updated to reference DXF imports instead of drawings
+
+### CAD Standards Consolidation (November 15, 2025)
+
+Migrated Data Manager tools into Reference Data Hub as a new "CAD Standards" tab to consolidate all standards management in one location:
+
+**UI Changes:**
+1. **New CAD Standards Tab:** Added to Reference Data Hub (`/standards/reference-data`) with secondary vertical navigation for 9 tools:
+   - Blocks Manager (preloaded)
+   - Hatches Manager (lazy-loaded)
+   - Linetypes Manager (lazy-loaded)
+   - Text Styles Manager (lazy-loaded)
+   - Dimension Styles Manager (lazy-loaded)
+   - Materials Manager (lazy-loaded)
+   - Details Manager (lazy-loaded)
+   - Standard Notes Manager (lazy-loaded)
+   - Abbreviations Manager (lazy-loaded)
+
+2. **Iframe Embedding:** Each tool embedded in isolated iframe to prevent script conflicts and modal ID collisions. Lazy-loading implemented using data-src promotion on first click.
+
+3. **Navigation Cleanup:** Removed "Data Manager" dropdown from horizontal navbar (templates/base.html)
+
+**Backend Changes:**
+1. **Route Cleanup:** Removed obsolete routes from app.py:
+   - `/data-manager` (home page)
+   - `/data-manager/layers` (page route)
+   - All layers API endpoints (GET, POST, PUT, DELETE, import-csv, export-csv)
+
+2. **Preserved Routes:** Kept all other `/data-manager/{tool}` routes for iframe embedding:
+   - `/data-manager/abbreviations`
+   - `/data-manager/blocks`
+   - `/data-manager/details`
+   - `/data-manager/hatches`
+   - `/data-manager/linetypes`
+   - `/data-manager/text-styles`
+   - `/data-manager/dimension-styles`
+   - `/data-manager/materials`
+   - `/data-manager/standard-notes`
+
+**Design Decisions:**
+- **Projects-Only Compatible:** All migrated tools verified to be project-agnostic with no drawing dependencies
+- **Iframe Isolation:** Prevents JavaScript initialization conflicts and CSS ID collisions
+- **Two-Tier Navigation:** Avoids overwhelming 16-tab horizontal navbar by using secondary navigation within CAD Standards tab
+- **Lazy Loading:** Improves initial page load by only loading iframes when clicked
+- **Removed Layers Tool:** Obsolete - replaced by CAD Layer Vocabulary system
+
+**Migration Status:**
+- ✅ All 9 CAD Standards tools accessible via Reference Data Hub
+- ✅ Data Manager dropdown removed from navbar
+- ✅ Obsolete layers routes removed
+- ✅ Backward compatibility maintained (existing routes preserved for iframe embedding)
