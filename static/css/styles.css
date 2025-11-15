@@ -1417,7 +1417,7 @@ table tr:hover {
 }
 
 /* Embedded Mode - Hide page headers in iframe views */
-.embedded .page-header {
+.embedded .sticky-header-container {
     display: none;
 }
 
