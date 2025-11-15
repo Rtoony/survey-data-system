@@ -12,7 +12,8 @@ ACAD-GIS replaces traditional file-based CAD workflows with a PostgreSQL/PostGIS
 
 ### 🎯 CAD Standards System
 - **Hierarchical Layer Naming:** `DISCIPLINE-CATEGORY-TYPE-ATTRIBUTE-PHASE-GEOMETRY`
-- **Bulk Standards Editor:** Manage 6 vocabulary types (disciplines, categories, object types, phases, geometries, attributes)
+- **CAD Layer Vocabulary:** Manage 6 vocabulary types (disciplines, categories, object types, phases, geometries, attributes)
+- **Reference Data Hub:** Manage 7 types of project-agnostic reference data (Entity Registry, Clients, Vendors, Municipalities, Coordinate Systems, Survey Point Descriptions, GIS Data Layers)
 - **Import Template Manager:** Configure client-specific layer mapping patterns with live regex testing
 - **Standards Portal:** Visual documentation of the layer naming system
 
@@ -75,7 +76,7 @@ python app.py
 Access at `http://localhost:5000`
 
 ### 3. Set Up CAD Standards
-1. Navigate to **Standards > Bulk Standards Editor**
+1. Navigate to **Standards > CAD Layer Vocabulary**
 2. Add your disciplines, categories, object types, and phases
 3. Create import patterns in **Standards > Import Template Manager** for your client formats
 
@@ -151,13 +152,15 @@ Legacy DXF → Pattern Matching → Database Objects → Standard Layers → Cle
 ## Project Status
 
 **Current Version:** Production-ready core features  
-**Last Updated:** November 9, 2025
+**Last Updated:** November 15, 2025
 
-### Recent Additions
+### Recent Additions (November 2025)
+- Projects Only System with hybrid intelligent object classification
+- Object Reclassifier Tool for reviewing unclassified DXF entities
+- CAD Layer Vocabulary and Reference Data Hub with clean separation
+- Survey Point Descriptions API and database table
 - Standards integration with Map Viewer and DXF Tools
-- Bulk Standards Editor and Import Template Manager
-- Pattern-based intelligent object creation
-- Gravity pipe network editor with SVG visualization
+- Pattern-based intelligent object creation with confidence scoring
 
 ## Contributing
 
