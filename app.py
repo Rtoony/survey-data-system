@@ -3,7 +3,7 @@ ACAD-GIS Schema Explorer & Data Manager
 A companion tool for viewing and managing your Supabase database
 """
 
-from flask import Flask, render_template, jsonify, request, send_file, make_response, redirect, url_for
+from flask import Flask, render_template, jsonify, request, send_file, make_response, redirect, url_for, session
 from flask_cors import CORS
 from flask_caching import Cache
 import psycopg2
@@ -47,6 +47,7 @@ class CustomJSONEncoder(json.JSONEncoder):
 
 app = Flask(__name__)
 app.json_encoder = CustomJSONEncoder
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 CORS(app)
 
 # Configure caching
@@ -351,6 +352,82 @@ def health():
             'status': 'error',
             'error': str(e)
         }), 500
+
+@app.route('/api/active-project')
+def get_active_project():
+    """Get the currently active project from session"""
+    try:
+        active_project_id = session.get('active_project_id')
+        
+        if not active_project_id:
+            return jsonify({
+                'active_project': None
+            })
+        
+        project_query = """
+            SELECT p.*
+            FROM projects p
+            WHERE p.project_id = %s
+        """
+        projects = execute_query(project_query, (active_project_id,))
+        
+        if not projects:
+            session.pop('active_project_id', None)
+            return jsonify({
+                'active_project': None,
+                'message': 'Previously selected project no longer exists'
+            })
+        
+        project = projects[0]
+        
+        try:
+            drawing_count_query = "SELECT COUNT(*) as count FROM drawings WHERE project_id = %s"
+            drawing_result = execute_query(drawing_count_query, (active_project_id,))
+            project['drawing_count'] = drawing_result[0]['count'] if drawing_result else 0
+        except Exception:
+            project['drawing_count'] = 0
+        
+        return jsonify({
+            'active_project': project
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/active-project', methods=['POST'])
+def set_active_project():
+    """Set the active project in session"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+        
+        project_id = data.get('project_id')
+        
+        if project_id is None:
+            session.pop('active_project_id', None)
+            return jsonify({
+                'success': True,
+                'active_project': None,
+                'message': 'Active project cleared'
+            })
+        
+        project_check = execute_query(
+            "SELECT project_id, project_name FROM projects WHERE project_id = %s",
+            (project_id,)
+        )
+        
+        if not project_check:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        session['active_project_id'] = project_id
+        
+        return jsonify({
+            'success': True,
+            'active_project': project_check[0]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/schema')
 def get_schema():

@@ -20,6 +20,15 @@
                         <div class="header-subtitle">Database Management & Viewer</div>
                     </div>
                 </div>
+                <div id="globalProjectSelector" class="global-project-selector" style="display: none;">
+                    <div class="project-selector-label">
+                        <i class="fas fa-folder-open"></i>
+                        <span>Active Project:</span>
+                    </div>
+                    <select id="globalProjectSelect" class="project-select-control">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
             </div>
         </header>
 
@@ -265,8 +274,11 @@
         </div>
     </main>
 
+    <script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            initializeGlobalProjectSelector();
+            
             const navbar = document.getElementById('navbar');
             const mobileToggle = document.getElementById('mobileToggle');
             const navbarMenu = document.getElementById('navbarMenu');
@@ -394,6 +406,46 @@
                 hour: '2-digit',
                 minute: '2-digit'
             });
+        }
+
+        async function initializeGlobalProjectSelector() {
+            try {
+                await window.projectContext.init();
+                
+                const container = document.getElementById('globalProjectSelector');
+                const select = document.getElementById('globalProjectSelect');
+                
+                const projectList = window.projectContext.getProjectList();
+                const activeProject = window.projectContext.getActiveProject();
+                
+                select.innerHTML = '<option value="">-- Select a Project --</option>';
+                
+                projectList.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.project_id;
+                    option.textContent = `${project.project_name}${project.project_number ? ' (' + project.project_number + ')' : ''}`;
+                    select.appendChild(option);
+                });
+                
+                if (activeProject) {
+                    select.value = activeProject.project_id;
+                }
+                
+                container.style.display = 'flex';
+                
+                select.addEventListener('change', async function(e) {
+                    const projectId = e.target.value || null;
+                    
+                    try {
+                        await window.projectContext.setActiveProject(projectId);
+                        window.location.reload();
+                    } catch (error) {
+                        console.error('Error changing project:', error);
+                    }
+                });
+            } catch (error) {
+                console.error('Error initializing global project selector:', error);
+            }
         }
     </script>
 

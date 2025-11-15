@@ -208,6 +208,71 @@ h3 {
     margin-top: 2px;
 }
 
+.global-project-selector {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-spacing-sm);
+}
+
+.project-selector-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--mc-text);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.project-selector-label i {
+    color: var(--mc-accent);
+    font-size: 0.9rem;
+}
+
+.project-select-control {
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    border-radius: var(--mc-radius-md);
+    color: var(--mc-text);
+    padding: 6px 12px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    min-width: 250px;
+    cursor: pointer;
+    transition: var(--mc-transition);
+}
+
+.project-select-control:hover {
+    border-color: var(--mc-primary);
+    background: rgba(0, 255, 255, 0.1);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.project-select-control:focus {
+    outline: none;
+    border-color: var(--mc-accent);
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+}
+
+.project-select-control option {
+    background: var(--mc-surface);
+    color: var(--mc-text);
+    padding: 8px;
+}
+
+@media (max-width: 768px) {
+    .global-project-selector {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--mc-spacing-xs);
+    }
+    
+    .project-select-control {
+        min-width: 200px;
+        font-size: 0.75rem;
+    }
+}
+
 /* ============================================
    HORIZONTAL NAVBAR
    ============================================ */
