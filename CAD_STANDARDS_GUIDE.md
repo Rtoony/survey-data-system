@@ -287,7 +287,7 @@ SITE-ROAD-ASPHALT-NEW-PL         (new pavement)
 **Solutions:**
 - Check if your layers use exact vocabulary codes
 - Use Clear button, verify layers exist without filters
-- Check vocabulary in Bulk Editor to confirm codes exist
+- Check vocabulary in CAD Layer Vocabulary to confirm codes exist
 
 ### Can't Find a Discipline/Category
 
@@ -405,7 +405,7 @@ A: Yes! Create different patterns for different project types or legacy vs. curr
 A: It still imports, just without intelligent classification. You'll see it in the "unmatched" count.
 
 **Q: Can I change vocabulary codes after importing?**
-A: Yes, but you'll need to update existing database objects. The Bulk Editor shows what's in use.
+A: Yes, but you'll need to update existing database objects. The CAD Layer Vocabulary tool shows what's in use.
 
 **Q: How do I export with client-specific layer names?**
 A: Future feature! The Export Template Manager will let you create reverse mappings (database → client layers).
@@ -420,7 +420,7 @@ A: Future feature! The Export Template Manager will let you create reverse mappi
 
 ## Summary
 
-1. **Set up vocabulary** in Bulk Editor (one time)
+1. **Set up vocabulary** in CAD Layer Vocabulary (one time)
 2. **Create import patterns** for each client format
 3. **Import DXF files** with pattern selection
 4. **Work in database** with clean, structured data
