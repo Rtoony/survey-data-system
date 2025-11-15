@@ -130,6 +130,148 @@
     </div>
 </div>
 
+<!-- Set Detail Modal with Member Management -->
+<div id="detailModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+            <h3 id="detailModalTitle"><i class="fas fa-eye"></i> Set Details</h3>
+            <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="setDetailInfo" style="margin-bottom: var(--spacing-lg);"></div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-cube"></i> Members</h3>
+                    <button class="btn btn-primary" onclick="showAddMemberModal()">
+                        <i class="fas fa-plus"></i> Add Member
+                    </button>
+                </div>
+                <div id="membersList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Member Modal -->
+<div id="addMemberModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-plus"></i> Add Member to Set</h3>
+            <button class="modal-close" onclick="closeAddMemberModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="memberForm" onsubmit="saveMember(event)">
+                <div class="form-group">
+                    <label for="entityType">Entity Type *</label>
+                    <select id="entityType" class="form-control" required onchange="onEntityTypeChange()">
+                        <option value="">Select entity type...</option>
+                        <option value="utility_line">Utility Line</option>
+                        <option value="utility_structure">Utility Structure</option>
+                        <option value="bmp">BMP</option>
+                        <option value="ada_feature">ADA Feature</option>
+                        <option value="survey_point">Survey Point</option>
+                        <option value="alignment">Alignment</option>
+                        <option value="profile">Profile</option>
+                        <option value="parcel">Parcel</option>
+                        <option value="layer_standard">CAD Layer Standard</option>
+                        <option value="block_standard">CAD Block Standard</option>
+                        <option value="detail_standard">Detail Standard</option>
+                        <option value="hatch_standard">Hatch Standard</option>
+                        <option value="material_standard">Material Standard</option>
+                        <option value="note_standard">Note Standard</option>
+                        <option value="project_note">Project Note</option>
+                        <option value="sheet">Sheet</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Selection Mode *</label>
+                    <div style="display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                        <label style="cursor: pointer;">
+                            <input type="radio" name="selectionMode" value="specific" checked onchange="toggleSelectionMode()">
+                            Specific Entity (by ID)
+                        </label>
+                        <label style="cursor: pointer;">
+                            <input type="radio" name="selectionMode" value="filter" onchange="toggleSelectionMode()">
+                            Filter (metadata-based)
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Specific Entity Mode -->
+                <div id="specificMode">
+                    <div class="form-group">
+                        <label for="entityId">Entity ID *</label>
+                        <input type="text" id="entityId" class="form-control" 
+                               placeholder="Enter UUID or ID of specific entity">
+                        <small style="color: var(--mc-muted); font-size: 12px;">
+                            The unique identifier for this specific entity
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Filter Mode -->
+                <div id="filterMode" style="display: none;">
+                    <div class="form-group">
+                        <label>Filter Conditions</label>
+                        <div id="filterConditions">
+                            <div class="filter-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                <input type="text" class="form-control" style="flex: 1;" 
+                                       placeholder="Column name (e.g., material, diameter)">
+                                <select class="form-control" style="flex: 0 0 auto; width: 100px;">
+                                    <option value="equals">=</option>
+                                    <option value="gt">&gt;</option>
+                                    <option value="gte">&gt;=</option>
+                                    <option value="lt">&lt;</option>
+                                    <option value="lte">&lt;=</option>
+                                </select>
+                                <input type="text" class="form-control" style="flex: 1;" 
+                                       placeholder="Value">
+                                <button type="button" class="btn btn-secondary" onclick="removeFilterRow(this)">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="addFilterRow()">
+                            <i class="fas fa-plus"></i> Add Condition
+                        </button>
+                        <small style="color: var(--mc-muted); font-size: 12px; display: block; margin-top: 8px;">
+                            Example: material = PVC, diameter_gte = 12
+                        </small>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="memberRole">Role (optional)</label>
+                    <input type="text" id="memberRole" class="form-control" 
+                           placeholder="e.g., primary_element, reference, dependent">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="isRequired" checked>
+                        Required (missing = violation)
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label for="memberNotes">Notes</label>
+                    <textarea id="memberNotes" class="form-control" rows="2" 
+                              placeholder="Optional notes about this member..."></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddMemberModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Add Member
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
 .set-card {
     background: var(--mc-surface);
@@ -264,6 +406,124 @@
 .template-description {
     font-size: 13px;
     color: var(--mc-muted);
+}
+
+.member-card {
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: var(--mc-radius-sm);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.member-card.exists {
+    border-left: 3px solid var(--mc-accent);
+}
+
+.member-card.missing {
+    border-left: 3px solid var(--mc-danger);
+    background: rgba(255, 68, 68, 0.05);
+}
+
+.member-info {
+    flex: 1;
+}
+
+.member-type {
+    font-weight: 600;
+    color: var(--mc-primary);
+    margin-bottom: 4px;
+}
+
+.member-details {
+    font-size: 13px;
+    color: var(--mc-muted);
+    margin-bottom: 4px;
+}
+
+.member-badges {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.member-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.member-badge.required {
+    background: rgba(255, 165, 0, 0.2);
+    color: #ffa500;
+    border: 1px solid #ffa500;
+}
+
+.member-badge.optional {
+    background: rgba(136, 146, 176, 0.2);
+    color: var(--mc-muted);
+    border: 1px solid var(--mc-muted);
+}
+
+.member-badge.exists {
+    background: rgba(0, 255, 136, 0.2);
+    color: var(--mc-accent);
+    border: 1px solid var(--mc-accent);
+}
+
+.member-badge.missing {
+    background: rgba(255, 68, 68, 0.2);
+    color: var(--mc-danger);
+    border: 1px solid var(--mc-danger);
+}
+
+.filter-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.empty-members {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--mc-muted);
+}
+
+.set-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: var(--mc-radius-sm);
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.detail-label {
+    font-size: 11px;
+    color: var(--mc-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.detail-value {
+    font-size: 14px;
+    color: var(--mc-text);
+    font-weight: 600;
 }
 </style>
 
@@ -504,9 +764,329 @@ async function checkSync(setId) {
     }
 }
 
-function viewSetDetail(setId) {
-    // TODO: Navigate to set detail view
-    alert('Set detail view coming soon! Set ID: ' + setId);
+// Member Management
+let currentSetId = null;
+let currentMembers = [];
+
+const ENTITY_TYPE_MAP = {
+    'utility_line': 'utility_lines',
+    'utility_structure': 'utility_structures',
+    'bmp': 'bmps',
+    'ada_feature': 'ada_features',
+    'survey_point': 'survey_points',
+    'alignment': 'alignments',
+    'profile': 'profiles',
+    'parcel': 'parcels',
+    'layer_standard': 'layer_standards',
+    'block_standard': 'block_standards',
+    'detail_standard': 'detail_standards',
+    'hatch_standard': 'hatch_standards',
+    'material_standard': 'material_standards',
+    'note_standard': 'note_standards',
+    'project_note': 'project_notes',
+    'sheet': 'sheets'
+};
+
+async function viewSetDetail(setId) {
+    currentSetId = setId;
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/${setId}`);
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        const set = data.set;
+        currentMembers = data.members || [];
+        
+        // Set title
+        document.getElementById('detailModalTitle').innerHTML = 
+            `<i class="fas fa-eye"></i> ${escapeHtml(set.set_name)}`;
+        
+        // Set details
+        document.getElementById('setDetailInfo').innerHTML = `
+            <div class="set-detail-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Set Code</div>
+                    <div class="detail-value">${set.set_code || 'N/A'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Category</div>
+                    <div class="detail-value">${set.category ? formatCategory(set.category) : 'N/A'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Sync Status</div>
+                    <div class="detail-value">
+                        <span class="sync-status ${set.sync_status}">${formatSyncStatus(set.sync_status)}</span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Members</div>
+                    <div class="detail-value">${currentMembers.length}</div>
+                </div>
+            </div>
+            ${set.description ? `<p style="color: var(--mc-muted); font-size: 14px; margin-top: var(--spacing-md);">${escapeHtml(set.description)}</p>` : ''}
+        `;
+        
+        // Render members
+        renderMembers(currentMembers);
+        
+        document.getElementById('detailModal').style.display = 'block';
+        
+    } catch (error) {
+        alert('Error loading set details: ' + error.message);
+    }
+}
+
+function closeDetailModal() {
+    document.getElementById('detailModal').style.display = 'none';
+    currentSetId = null;
+    currentMembers = [];
+}
+
+function renderMembers(members) {
+    const container = document.getElementById('membersList');
+    
+    if (!members || members.length === 0) {
+        container.innerHTML = `
+            <div class="empty-members">
+                <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                <p>No members in this set yet.</p>
+                <p style="font-size: 13px;">Click "Add Member" to start tracking dependencies.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = members.map(member => {
+        const entityTypeLabel = member.entity_type.split('_').map(w => 
+            w.charAt(0).toUpperCase() + w.slice(1)
+        ).join(' ');
+        
+        const detailText = member.entity_id 
+            ? `ID: ${member.entity_id.substring(0, 8)}...`
+            : `Filter: ${JSON.stringify(member.filter_conditions || {})}`;
+        
+        const existsClass = member.exists ? 'exists' : 'missing';
+        const existsLabel = member.exists ? 'Exists' : 'Missing';
+        const requiredLabel = member.is_required ? 'Required' : 'Optional';
+        const requiredClass = member.is_required ? 'required' : 'optional';
+        
+        return `
+            <div class="member-card ${existsClass}">
+                <div class="member-info">
+                    <div class="member-type">
+                        <i class="fas fa-cube"></i> ${entityTypeLabel}
+                    </div>
+                    <div class="member-details">${detailText}</div>
+                    ${member.member_role ? `<div class="member-details">Role: ${member.member_role}</div>` : ''}
+                    ${member.notes ? `<div class="member-details">Notes: ${escapeHtml(member.notes)}</div>` : ''}
+                    <div class="member-badges">
+                        <span class="member-badge ${requiredClass}">${requiredLabel}</span>
+                        <span class="member-badge ${existsClass}">${existsLabel}</span>
+                    </div>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="removeMember('${member.member_id}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+function showAddMemberModal() {
+    if (!currentSetId) {
+        alert('No set selected');
+        return;
+    }
+    
+    // Reset form
+    document.getElementById('memberForm').reset();
+    document.getElementById('entityType').value = '';
+    document.getElementById('entityId').value = '';
+    document.getElementById('memberRole').value = '';
+    document.getElementById('isRequired').checked = true;
+    document.getElementById('memberNotes').value = '';
+    
+    // Reset to specific mode
+    document.querySelector('input[name="selectionMode"][value="specific"]').checked = true;
+    toggleSelectionMode();
+    
+    // Reset filter conditions
+    document.getElementById('filterConditions').innerHTML = `
+        <div class="filter-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <input type="text" class="form-control" style="flex: 1;" 
+                   placeholder="Column name (e.g., material, diameter)">
+            <select class="form-control" style="flex: 0 0 auto; width: 100px;">
+                <option value="equals">=</option>
+                <option value="gt">&gt;</option>
+                <option value="gte">&gt;=</option>
+                <option value="lt">&lt;</option>
+                <option value="lte">&lt;=</option>
+            </select>
+            <input type="text" class="form-control" style="flex: 1;" 
+                   placeholder="Value">
+            <button type="button" class="btn btn-secondary" onclick="removeFilterRow(this)">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('addMemberModal').style.display = 'block';
+}
+
+function closeAddMemberModal() {
+    document.getElementById('addMemberModal').style.display = 'none';
+}
+
+function toggleSelectionMode() {
+    const mode = document.querySelector('input[name="selectionMode"]:checked').value;
+    
+    if (mode === 'specific') {
+        document.getElementById('specificMode').style.display = 'block';
+        document.getElementById('filterMode').style.display = 'none';
+        document.getElementById('entityId').required = true;
+    } else {
+        document.getElementById('specificMode').style.display = 'none';
+        document.getElementById('filterMode').style.display = 'block';
+        document.getElementById('entityId').required = false;
+    }
+}
+
+function onEntityTypeChange() {
+    // Could fetch available entities here in the future
+}
+
+function addFilterRow() {
+    const container = document.getElementById('filterConditions');
+    const newRow = document.createElement('div');
+    newRow.className = 'filter-row';
+    newRow.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+    newRow.innerHTML = `
+        <input type="text" class="form-control" style="flex: 1;" 
+               placeholder="Column name">
+        <select class="form-control" style="flex: 0 0 auto; width: 100px;">
+            <option value="equals">=</option>
+            <option value="gt">&gt;</option>
+            <option value="gte">&gt;=</option>
+            <option value="lt">&lt;</option>
+            <option value="lte">&lt;=</option>
+        </select>
+        <input type="text" class="form-control" style="flex: 1;" 
+               placeholder="Value">
+        <button type="button" class="btn btn-secondary" onclick="removeFilterRow(this)">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    container.appendChild(newRow);
+}
+
+function removeFilterRow(button) {
+    const row = button.closest('.filter-row');
+    if (document.getElementById('filterConditions').children.length > 1) {
+        row.remove();
+    } else {
+        alert('Must have at least one filter condition');
+    }
+}
+
+async function saveMember(event) {
+    event.preventDefault();
+    
+    const entityType = document.getElementById('entityType').value;
+    const entityTable = ENTITY_TYPE_MAP[entityType];
+    
+    if (!entityTable) {
+        alert('Invalid entity type selected');
+        return;
+    }
+    
+    const mode = document.querySelector('input[name="selectionMode"]:checked').value;
+    
+    const data = {
+        set_id: currentSetId,
+        entity_type: entityType,
+        entity_table: entityTable,
+        member_role: document.getElementById('memberRole').value || null,
+        is_required: document.getElementById('isRequired').checked,
+        notes: document.getElementById('memberNotes').value || null
+    };
+    
+    if (mode === 'specific') {
+        data.entity_id = document.getElementById('entityId').value;
+        if (!data.entity_id) {
+            alert('Please enter an entity ID');
+            return;
+        }
+    } else {
+        // Build filter conditions from rows
+        const filterRows = document.getElementById('filterConditions').querySelectorAll('.filter-row');
+        const filters = {};
+        
+        for (const row of filterRows) {
+            const inputs = row.querySelectorAll('input');
+            const select = row.querySelector('select');
+            
+            const columnName = inputs[0].value.trim();
+            const operator = select.value;
+            const value = inputs[1].value.trim();
+            
+            if (!columnName || !value) {
+                alert('All filter conditions must have column name and value');
+                return;
+            }
+            
+            // Build key with operator suffix
+            let key = columnName;
+            if (operator === 'gt') key += '_gt';
+            else if (operator === 'gte') key += '_gte';
+            else if (operator === 'lt') key += '_lt';
+            else if (operator === 'lte') key += '_lte';
+            
+            filters[key] = value;
+        }
+        
+        data.filter_conditions = filters;
+    }
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/${currentSetId}/members`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        
+        closeAddMemberModal();
+        // Reload set detail to show new member
+        viewSetDetail(currentSetId);
+        
+    } catch (error) {
+        alert('Error adding member: ' + error.message);
+    }
+}
+
+async function removeMember(memberId) {
+    if (!confirm('Remove this member from the set?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/members/${memberId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        
+        // Reload set detail to show updated members
+        viewSetDetail(currentSetId);
+        
+    } catch (error) {
+        alert('Error removing member: ' + error.message);
+    }
 }
 
 async function loadTemplates() {
