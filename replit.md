@@ -32,6 +32,7 @@ Preferred communication style: Simple, everyday language.
 - **Modular Standards Management:** Separation of "Standards Library" from "Project Operations" with clear navigation and compliance tracking.
 - **Database-Driven Vocabulary:** Comprehensive, database-backed controlled vocabulary system for CAD elements with full CRUD.
 - **CAD Layer Naming Standards:** Database-driven classifier for CAD layer names.
+- **Entity Registry System:** Core architectural component that maps CAD object type codes (STORM, MH, SURVEY, etc.) to database tables (`utility_lines`, `utility_structures`, `survey_points`, etc.). Acts as the central switchboard connecting CAD Layer Vocabulary → DXF Import Classification → Database Storage → Specialized Tools. Enables flexible, UI-driven expansion of object types without code changes, supporting client-specific CAD standard customization.
 - **Mission Control Design System:** Centralized design system with reusable classes, variables, and a cyan/neon color palette.
 - **Horizontal Navigation Architecture:** Sticky horizontal navbar with dropdown menus.
 - **Projects Only System:** Migration to a "Projects Only" architecture where DXF imports create entities directly at the project level, featuring a hybrid intelligent object creation system for classification and review.
