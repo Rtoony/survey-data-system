@@ -8,7 +8,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% block extra_head %}{% endblock %}
 </head>
-<body class="grid-background">
+{% set embedded_mode = request.args.get('embedded') == 'true' %}
+<body class="grid-background{% if embedded_mode %} embedded{% endif %}">
     <div class="sticky-header-container">
         <header class="header">
             <div class="header-content">

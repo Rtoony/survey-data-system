@@ -1415,3 +1415,9 @@ table tr:hover {
         grid-template-columns: 1fr;
     }
 }
+
+/* Embedded Mode - Hide page headers in iframe views */
+.embedded .page-header {
+    display: none;
+}
+
