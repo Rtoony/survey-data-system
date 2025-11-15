@@ -1,20 +1,285 @@
 {% extends "base.html" %}
 
-{% block title %}Project Context Mapping Manager{% endblock %}
+{% block title %}Project Context Manager{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h2 class="orbitron"><i class="fas fa-project-diagram neon-cyan"></i> Project Context Mapping Manager</h2>
-    <p class="subtitle">Manage semantic relationships between CAD elements within projects</p>
-</div>
+<style>
+    .tab-summary {
+        margin-top: 2rem;
+        padding: 1.25rem 1.5rem;
+        background: linear-gradient(135deg, rgba(0, 255, 255, 0.05) 0%, rgba(0, 255, 255, 0.02) 100%);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-left: 4px solid var(--mc-accent);
+        border-radius: 8px;
+        font-size: 14px;
+        line-height: 1.7;
+        color: rgba(255, 255, 255, 0.85);
+    }
+    
+    .tab-summary i {
+        color: var(--mc-accent);
+        margin-right: 0.5rem;
+        font-size: 16px;
+    }
+    
+    .tab-summary strong {
+        color: var(--mc-accent);
+        font-weight: 600;
+    }
+    
+    .info-box {
+        padding: 1.25rem 1.5rem;
+        background: rgba(0, 255, 100, 0.1);
+        border: 1px solid rgba(0, 255, 100, 0.3);
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-box h3 {
+        margin: 0 0 0.75rem 0;
+        color: var(--mc-accent);
+        font-size: 16px;
+    }
+    
+    .info-box p {
+        margin: 0 0 0.75rem 0;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    
+    .info-box p:last-child {
+        margin-bottom: 0;
+    }
+    
+    .info-box i {
+        color: var(--mc-accent);
+    }
+    
+    .comparison-box {
+        padding: 1rem;
+        background: rgba(0, 100, 255, 0.1);
+        border: 1px solid rgba(0, 100, 255, 0.3);
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .comparison-box h3 {
+        margin: 0 0 1rem 0;
+        color: var(--mc-primary);
+        font-size: 16px;
+    }
+    
+    .comparison-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .comparison-item {
+        padding: 1rem;
+        background: rgba(0, 20, 40, 0.6);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 4px;
+    }
+    
+    .comparison-item h4 {
+        margin: 0 0 0.5rem 0;
+        color: var(--mc-accent);
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .comparison-item p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--mc-muted);
+    }
 
-<div class="panel">
-    <div style="margin-bottom: 20px;">
-        <label for="projectSelect" style="display: block; margin-bottom: 10px; color: var(--neon-cyan); font-weight: 600;">
+    .tabs-container {
+        background: rgba(0, 20, 40, 0.4);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .tabs-header {
+        display: flex;
+        background: rgba(0, 40, 80, 0.6);
+        border-bottom: 2px solid var(--mc-primary);
+        flex-wrap: wrap;
+    }
+
+    .tab-btn {
+        flex: 1;
+        min-width: 150px;
+        padding: 15px 20px;
+        background: transparent;
+        border: none;
+        color: var(--mc-text);
+        cursor: pointer;
+        transition: var(--mc-transition);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1em;
+        border-right: 1px solid rgba(0, 255, 255, 0.2);
+    }
+
+    .tab-btn:hover {
+        background: rgba(0, 255, 255, 0.1);
+    }
+
+    .tab-btn.active {
+        background: rgba(0, 255, 255, 0.2);
+        color: var(--mc-primary);
+        border-bottom: 3px solid var(--mc-primary);
+    }
+
+    .tab-content {
+        display: none;
+        padding: 30px;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .search-results {
+        position: absolute;
+        z-index: 1000;
+        background: rgba(0, 20, 40, 0.95);
+        border: 1px solid var(--mc-primary);
+        border-radius: 4px;
+        margin-top: 2px;
+        max-height: 200px;
+        overflow-y: auto;
+        width: calc(100% - 20px);
+        display: none;
+    }
+
+    .search-result-item {
+        padding: 10px;
+        cursor: pointer;
+        color: var(--mc-text);
+        border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+    }
+
+    .search-result-item:hover {
+        background: rgba(0, 255, 255, 0.1);
+        color: var(--mc-primary);
+    }
+
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+
+    .tag-chip {
+        display: inline-block;
+        background: rgba(0, 255, 255, 0.2);
+        color: var(--mc-primary);
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        margin: 2px;
+        border: 1px solid var(--mc-primary);
+    }
+
+    .tags-display {
+        margin-top: 8px;
+        min-height: 30px;
+    }
+    
+    .project-selector {
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: rgba(0, 40, 80, 0.4);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 8px;
+    }
+    
+    .project-selector label {
+        display: block;
+        margin-bottom: 10px;
+        color: var(--mc-accent);
+        font-weight: 600;
+        font-family: 'Rajdhani', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .project-selector select {
+        width: 100%;
+        max-width: 500px;
+        padding: 12px 15px;
+        background: rgba(0, 20, 40, 0.8);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 4px;
+        color: var(--mc-text);
+        font-size: 1.1em;
+        font-family: 'Rajdhani', sans-serif;
+    }
+    
+    .project-selector select:focus {
+        outline: none;
+        border-color: var(--mc-primary);
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    }
+</style>
+
+<div class="container">
+    <h1><i class="fas fa-project-diagram"></i> Project Context Manager</h1>
+    <p class="subtitle">Project-Specific Entity Assignments & Relationship Definitions</p>
+    
+    <div class="info-box">
+        <h3><i class="fas fa-info-circle"></i> What is the Project Context Manager?</h3>
+        <p>
+            The <strong>Project Context Manager</strong> assigns contextual entities and defines semantic relationships 
+            <em>within a specific project</em>. Unlike the Name Mapping Dashboard (which translates external CAD names to your standards), 
+            this tool manages <strong>internal database relationships</strong> between elements that should remain synchronized.
+        </p>
+        <p style="margin-bottom: 0;">
+            <strong>Example Use Cases:</strong> Link keynote "Install AC Pavement" to both Detail D-12 and Block PAVE-AC, 
+            or associate hatch pattern AR-CONC with material "Concrete 3000 PSI". These relationships ensure consistency 
+            when multiple elements reference the same real-world object or specification.
+        </p>
+    </div>
+
+    <div class="comparison-box">
+        <h3><i class="fas fa-question-circle"></i> How This Differs From Other Tools</h3>
+        <div class="comparison-grid">
+            <div class="comparison-item">
+                <h4><i class="fas fa-chart-bar"></i> Name Mapping Dashboard</h4>
+                <p>
+                    <strong>Purpose:</strong> DXF translation layer<br>
+                    <strong>Example:</strong> Client's "WM-8-PVC" → Your "CIV-UTIL-WATER-8IN-PROP-LN"<br>
+                    <strong>When Used:</strong> During DXF import/export operations
+                </p>
+            </div>
+            <div class="comparison-item">
+                <h4><i class="fas fa-project-diagram"></i> Project Context Manager</h4>
+                <p>
+                    <strong>Purpose:</strong> Internal relationship definitions<br>
+                    <strong>Example:</strong> Keynote N-8 links to Detail D-12 and Block BLK-CURB<br>
+                    <strong>When Used:</strong> Ongoing project data management
+                </p>
+            </div>
+            <div class="comparison-item">
+                <h4><i class="fas fa-sitemap"></i> Relationship Sets</h4>
+                <p>
+                    <strong>Purpose:</strong> Dependency tracking & compliance auditing<br>
+                    <strong>Example:</strong> Monitor if spec change requires detail updates<br>
+                    <strong>When Used:</strong> QA/QC and change impact analysis
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="project-selector">
+        <label for="projectSelect">
             <i class="fas fa-folder-open"></i> Select Project:
         </label>
-        <select id="projectSelect" onchange="loadProjectMappings()" 
-                style="width: 100%; max-width: 500px; padding: 12px; background: rgba(0,20,40,0.6); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color); font-size: 1.1em;">
+        <select id="projectSelect" onchange="loadProjectMappings()">
             <option value="">-- Select a Project --</option>
         </select>
     </div>
@@ -45,73 +310,125 @@
             <!-- Keynote→Block Tab -->
             <div id="keynote-blocks-tab" class="tab-content active">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 class="orbitron">Keynote to Block Relationships</h3>
+                    <h2 class="orbitron"><i class="fas fa-link"></i> Keynote to Block Relationships</h2>
                     <button onclick="showAddKeynoteBlockModal()" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Add Relationship
                     </button>
                 </div>
                 <div id="keynoteBlocksTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-link"></i>
+                    <strong>Keynote→Block Relationships:</strong> Keynotes are annotation text that reference standard notes or specifications. 
+                    When a keynote mentions a physical object (like "Install fire hydrant per detail"), it should link to the corresponding CAD block symbol. 
+                    These relationships ensure that when a keynote is placed on a drawing, the associated block can be automatically suggested or validated. 
+                    This prevents mismatches where a note references one object type but the drawing shows a different symbol.
+                </div>
             </div>
 
             <!-- Keynote→Detail Tab -->
             <div id="keynote-details-tab" class="tab-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 class="orbitron">Keynote to Detail Relationships</h3>
+                    <h2 class="orbitron"><i class="fas fa-file-alt"></i> Keynote to Detail Relationships</h2>
                     <button onclick="showAddKeynoteDetailModal()" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Add Relationship
                     </button>
                 </div>
                 <div id="keynoteDetailsTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-file-alt"></i>
+                    <strong>Keynote→Detail Relationships:</strong> Many keynotes reference specific construction details or typical assemblies 
+                    (e.g., "See Detail D-12 for installation requirements"). These relationships formally link keynote text to detail drawings, 
+                    enabling automatic cross-referencing and ensuring that when a keynote is updated, all related details are flagged for review. 
+                    This is especially important when specifications change - the system can identify which details need updating.
+                </div>
             </div>
 
             <!-- Hatch→Material Tab -->
             <div id="hatch-materials-tab" class="tab-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 class="orbitron">Hatch to Material Relationships</h3>
+                    <h2 class="orbitron"><i class="fas fa-fill-drip"></i> Hatch to Material Relationships</h2>
                     <button onclick="showAddHatchMaterialModal()" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Add Relationship
                     </button>
                 </div>
                 <div id="hatchMaterialsTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-fill-drip"></i>
+                    <strong>Hatch→Material Relationships:</strong> Hatch patterns visually represent materials in CAD drawings 
+                    (concrete, asphalt, gravel, etc.). These relationships connect visual hatch patterns to material database records, 
+                    enabling material property lookups from drawings and ensuring consistent material representation. 
+                    For example, hatch pattern AR-CONC should always link to material "Concrete 3000 PSI", preventing situations 
+                    where the same hatch represents different materials across different drawings.
+                </div>
             </div>
 
             <!-- Detail→Material Tab -->
             <div id="detail-materials-tab" class="tab-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 class="orbitron">Detail to Material Relationships</h3>
+                    <h2 class="orbitron"><i class="fas fa-layer-group"></i> Detail to Material Relationships</h2>
                     <button onclick="showAddDetailMaterialModal()" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Add Relationship
                     </button>
                 </div>
                 <div id="detailMaterialsTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-layer-group"></i>
+                    <strong>Detail→Material Relationships:</strong> Construction details often specify particular materials 
+                    (e.g., Detail D-5 "Curb Section" uses material "Concrete 3000 PSI"). These relationships link detail drawings 
+                    to their constituent materials, supporting automatic bill-of-materials generation, specification compliance checking, 
+                    and change impact analysis. When a material specification changes, you can immediately identify which details 
+                    need to be updated to reflect the new material properties.
+                </div>
             </div>
 
             <!-- Block→Spec Tab -->
             <div id="block-specs-tab" class="tab-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 class="orbitron">Block to Specification Relationships</h3>
+                    <h2 class="orbitron"><i class="fas fa-book"></i> Block to Specification Relationships</h2>
                     <button onclick="showAddBlockSpecModal()" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Add Relationship
                     </button>
                 </div>
                 <div id="blockSpecsTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-book"></i>
+                    <strong>Block→Spec Relationships:</strong> CAD blocks representing physical objects (valves, manholes, trees) 
+                    often have associated technical specifications. These relationships link block symbols to specification sections 
+                    (e.g., Block "VALVE-GATE-8IN" → Spec Section 33 05 23.13 "Gate Valves"). This enables automatic spec references 
+                    in quantity takeoffs, ensures procurement uses correct specifications, and allows specification updates to 
+                    trigger reviews of affected drawings.
+                </div>
             </div>
 
             <!-- Cross-References Tab -->
             <div id="cross-references-tab" class="tab-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 class="orbitron">Generic Element Cross-References</h3>
+                    <h2 class="orbitron"><i class="fas fa-random"></i> Generic Element Cross-References</h2>
                     <button onclick="showAddCrossRefModal()" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Add Cross-Reference
                     </button>
                 </div>
                 <div id="crossReferencesTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-random"></i>
+                    <strong>Generic Cross-References:</strong> This flexible relationship type handles any element-to-element connection 
+                    not covered by the predefined relationship types. Use this for custom relationships specific to your workflow, 
+                    such as linking survey points to benchmark monuments, connecting utility lines to easement documents, 
+                    or associating alignment stations with right-of-way parcels. These custom relationships extend the system's 
+                    relationship tracking capabilities without requiring code changes.
+                </div>
             </div>
         </div>
     </div>
 
     <div id="emptyMessage" class="alert" style="text-align: center;">
-        <i class="fas fa-info-circle"></i> Select a project to manage context mappings
+        <i class="fas fa-info-circle"></i> Select a project to manage context relationships
     </div>
 </div>
 
@@ -131,99 +448,6 @@
         </div>
     </div>
 </div>
-
-<style>
-.tabs-container {
-    background: rgba(0, 20, 40, 0.4);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.tabs-header {
-    display: flex;
-    background: rgba(0, 40, 80, 0.6);
-    border-bottom: 2px solid var(--neon-cyan);
-    flex-wrap: wrap;
-}
-
-.tab-btn {
-    flex: 1;
-    min-width: 150px;
-    padding: 15px 20px;
-    background: transparent;
-    border: none;
-    color: var(--text-color);
-    cursor: pointer;
-    transition: all 0.3s;
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1em;
-    border-right: 1px solid var(--border-color);
-}
-
-.tab-btn:hover {
-    background: rgba(0, 100, 150, 0.3);
-}
-
-.tab-btn.active {
-    background: rgba(0, 200, 255, 0.2);
-    color: var(--neon-cyan);
-    border-bottom: 3px solid var(--neon-cyan);
-}
-
-.tab-content {
-    display: none;
-    padding: 30px;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-.search-results {
-    position: absolute;
-    z-index: 1000;
-    background: rgba(0, 20, 40, 0.95);
-    border: 1px solid var(--neon-cyan);
-    border-radius: 4px;
-    margin-top: 2px;
-    max-height: 200px;
-    overflow-y: auto;
-    width: calc(100% - 20px);
-    display: none;
-}
-
-.search-result-item {
-    padding: 10px;
-    cursor: pointer;
-    color: var(--text-color);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.search-result-item:hover {
-    background: rgba(0, 100, 150, 0.4);
-    color: var(--neon-cyan);
-}
-
-.search-result-item:last-child {
-    border-bottom: none;
-}
-
-.tag-chip {
-    display: inline-block;
-    background: rgba(0, 100, 150, 0.4);
-    color: var(--neon-cyan);
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.85em;
-    margin: 2px;
-    border: 1px solid var(--neon-cyan);
-}
-
-.tags-display {
-    margin-top: 8px;
-    min-height: 30px;
-}
-</style>
 
 <script src="/static/js/project_context_manager.js"></script>
 {% endblock %}

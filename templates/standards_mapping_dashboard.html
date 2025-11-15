@@ -3,12 +3,268 @@
 {% block title %}CAD Standards Mapping Dashboard{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h2 class="orbitron"><i class="fas fa-project-diagram neon-cyan"></i> CAD Standards Mapping Dashboard</h2>
-    <p class="subtitle">Comprehensive visualization of DXF↔Database mappings and element relationships</p>
-</div>
+<style>
+    .tab-summary {
+        margin-top: 2rem;
+        padding: 1.25rem 1.5rem;
+        background: linear-gradient(135deg, rgba(0, 255, 255, 0.05) 0%, rgba(0, 255, 255, 0.02) 100%);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-left: 4px solid var(--mc-accent);
+        border-radius: 8px;
+        font-size: 14px;
+        line-height: 1.7;
+        color: rgba(255, 255, 255, 0.85);
+    }
+    
+    .tab-summary i {
+        color: var(--mc-accent);
+        margin-right: 0.5rem;
+        font-size: 16px;
+    }
+    
+    .tab-summary strong {
+        color: var(--mc-accent);
+        font-weight: 600;
+    }
+    
+    .tab-summary code {
+        background: rgba(0, 255, 255, 0.1);
+        padding: 2px 6px;
+        border-radius: 3px;
+        color: var(--mc-primary);
+        font-family: 'Courier New', monospace;
+    }
+    
+    .info-box {
+        padding: 1rem;
+        background: rgba(0, 255, 100, 0.1);
+        border: 1px solid rgba(0, 255, 100, 0.3);
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-box h3 {
+        margin: 0 0 0.75rem 0;
+        color: var(--mc-accent);
+        font-size: 16px;
+    }
+    
+    .info-box i {
+        color: var(--mc-accent);
+    }
+    
+    .layer-example {
+        background: rgba(0, 20, 40, 0.8);
+        border: 1px solid rgba(0, 255, 255, 0.3);
+        border-radius: 6px;
+        padding: 1rem;
+        margin: 1rem 0;
+        font-family: 'Courier New', monospace;
+        color: var(--mc-primary);
+        line-height: 1.8;
+    }
+    
+    .layer-example .arrow {
+        color: var(--mc-accent);
+        font-weight: bold;
+        margin: 0 0.5rem;
+    }
 
-<div class="panel">
+    .tabs-container {
+        background: rgba(0, 20, 40, 0.4);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .tabs-header {
+        display: flex;
+        background: rgba(0, 40, 80, 0.6);
+        border-bottom: 2px solid var(--mc-primary);
+    }
+
+    .tab-btn {
+        flex: 1;
+        padding: 15px 20px;
+        background: transparent;
+        border: none;
+        color: var(--mc-text);
+        cursor: pointer;
+        transition: var(--mc-transition);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1.1em;
+        border-right: 1px solid rgba(0, 255, 255, 0.2);
+    }
+
+    .tab-btn:hover {
+        background: rgba(0, 255, 255, 0.1);
+    }
+
+    .tab-btn.active {
+        background: rgba(0, 255, 255, 0.2);
+        color: var(--mc-primary);
+        border-bottom: 3px solid var(--mc-primary);
+    }
+
+    .tab-content {
+        display: none;
+        padding: 30px;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .subtabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .subtab-btn {
+        padding: 10px 20px;
+        background: rgba(0, 40, 80, 0.4);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 4px;
+        color: var(--mc-text);
+        cursor: pointer;
+        transition: var(--mc-transition);
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .subtab-btn:hover {
+        background: rgba(0, 255, 255, 0.1);
+        border-color: var(--mc-primary);
+    }
+
+    .subtab-btn.active {
+        background: rgba(0, 255, 255, 0.2);
+        border-color: var(--mc-primary);
+        color: var(--mc-primary);
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    }
+
+    .subtab-content {
+        display: none;
+    }
+
+    .subtab-content.active {
+        display: block;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+
+    .stat-card {
+        display: flex;
+        align-items: center;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, rgba(0, 40, 80, 0.6) 0%, rgba(0, 60, 100, 0.4) 100%);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 8px;
+        transition: var(--mc-transition);
+    }
+
+    .stat-card:hover {
+        border-color: var(--mc-primary);
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+        transform: translateY(-2px);
+    }
+
+    .stat-icon {
+        font-size: 3em;
+        color: var(--mc-primary);
+        margin-right: 1.5rem;
+        text-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+    }
+
+    .stat-content {
+        flex: 1;
+    }
+
+    .stat-label {
+        color: var(--mc-muted);
+        font-size: 0.9em;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .stat-value {
+        font-size: 2.5em;
+        font-weight: bold;
+        color: var(--mc-accent);
+        font-family: 'Orbitron', monospace;
+        text-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+    }
+
+    .table-controls {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 15px;
+        align-items: center;
+    }
+
+    .table-controls input {
+        flex: 1;
+        padding: 10px 15px;
+        background: rgba(0, 20, 40, 0.8);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 4px;
+        color: var(--mc-text);
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .table-controls input:focus {
+        outline: none;
+        border-color: var(--mc-primary);
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 500;
+    }
+
+    .badge-import {
+        background: rgba(0, 255, 136, 0.2);
+        color: var(--mc-accent);
+        border: 1px solid var(--mc-accent);
+    }
+
+    .badge-export {
+        background: rgba(255, 170, 0, 0.2);
+        color: #ffaa00;
+        border: 1px solid #ffaa00;
+    }
+
+    .badge-both {
+        background: rgba(0, 255, 255, 0.2);
+        color: var(--mc-primary);
+        border: 1px solid var(--mc-primary);
+    }
+
+    .search-panel {
+        background: rgba(0, 40, 80, 0.4);
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 255, 255, 0.2);
+    }
+</style>
+
+<div class="container">
+    <h1><i class="fas fa-chart-bar"></i> CAD Standards Mapping Dashboard</h1>
+    <p class="subtitle">DXF Alias Translation System - Bridging Client CAD Conventions with Canonical Standards</p>
+    
     <div class="tabs-container">
         <div class="tabs-header">
             <button class="tab-btn active" onclick="switchTab('overview')">
@@ -26,9 +282,27 @@
         </div>
 
         <div id="overview-tab" class="tab-content active">
-            <h3 class="orbitron"><i class="fas fa-info-circle"></i> Mapping System Overview</h3>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;">
+            <div class="info-box">
+                <h3><i class="fas fa-info-circle"></i> What is Name Mapping?</h3>
+                <p style="margin: 0 0 1rem 0; font-size: 14px; line-height: 1.6;">
+                    <strong>Name Mapping</strong> translates client-specific CAD naming conventions into your standardized database layer vocabulary during DXF import/export operations. 
+                    This allows you to ingest drawings from any client regardless of their layer naming system.
+                </p>
+                <div class="layer-example">
+                    <strong>Client's CAD Layer:</strong> <code>WM-8-PVC</code> or <code>WATER-MAIN-8IN</code>
+                    <br>
+                    <span class="arrow">→</span>
+                    <br>
+                    <strong>Your Canonical Layer:</strong> <code>CIV-UTIL-WATER-8IN-PROP-LN</code>
+                    <br><br>
+                    <span style="color: var(--mc-muted); font-size: 0.9em;">
+                        <i class="fas fa-lightbulb"></i> The mapping system automatically converts during import, 
+                        ensuring all data is stored using your standardized DISCIPLINE-CATEGORY-TYPE-ATTRIBUTES-PHASE-GEOMETRY format.
+                    </span>
+                </div>
+            </div>
+
+            <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-cube"></i></div>
                     <div class="stat-content">
@@ -73,20 +347,17 @@
                 </div>
             </div>
 
-            <div class="info-section">
-                <h4><i class="fas fa-info-circle neon-cyan"></i> About This Dashboard</h4>
-                <p>This dashboard provides comprehensive visualization and management of your CAD standards mapping system:</p>
-                <ul>
-                    <li><strong>Name Mappings (DXF ↔ Database):</strong> Bidirectional translation between DXF file names and canonical database names for blocks, details, hatches, materials, and keynotes</li>
-                    <li><strong>Project Relationships:</strong> Semantic connections between elements within projects (keynotes→blocks→details→materials)</li>
-                    <li><strong>Multi-Client Support:</strong> Scoped mappings for different clients and projects</li>
-                    <li><strong>AI-Powered Search:</strong> Full-text search across all mappings with weighted relevance</li>
-                </ul>
+            <div class="tab-summary">
+                <i class="fas fa-info-circle"></i>
+                <strong>How This System Works:</strong> The Name Mapping Dashboard manages bidirectional translation between client DXF names and your canonical database standards. 
+                During import, client layer names like <code>SS-MH-48</code> are mapped to <code>CIV-UTIL-STORM-48IN-EXIST-PT</code>. 
+                During export, the reverse happens - your standardized layers are optionally translated back to client-preferred naming. 
+                This system supports multiple clients with different conventions, all feeding into your unified database structure defined in the Layer Vocabulary tool.
             </div>
         </div>
 
         <div id="name-mappings-tab" class="tab-content">
-            <h3 class="orbitron"><i class="fas fa-exchange-alt"></i> DXF ↔ Database Name Mappings</h3>
+            <h2 class="orbitron"><i class="fas fa-exchange-alt"></i> DXF ↔ Database Name Mappings</h2>
             
             <div class="subtabs">
                 <button class="subtab-btn active" onclick="switchSubtab('blocks')">Blocks</button>
@@ -104,6 +375,14 @@
                     </a>
                 </div>
                 <div id="blockMappingsTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-cube"></i>
+                    <strong>Block Name Mappings:</strong> CAD blocks are reusable symbols representing objects like manholes, valves, trees, or utility structures. 
+                    Client drawings often use custom block names like <code>MH-48</code> or <code>VALVE-GATE-8</code>. 
+                    These mappings translate those names to your canonical block references (e.g., <code>STM-MANHOLE-48IN</code>, <code>WTR-VALVE-GATE-8IN</code>) 
+                    so the DXF import process can correctly identify and classify each block in your database.
+                </div>
             </div>
 
             <div id="details-subtab" class="subtab-content">
@@ -114,6 +393,14 @@
                     </a>
                 </div>
                 <div id="detailMappingsTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-drafting-compass"></i>
+                    <strong>Detail Name Mappings:</strong> Detail drawings (plan views, sections, typical assemblies) are referenced by name in CAD files. 
+                    Clients may call a curb detail <code>D-12</code> or <code>CURB-DETAIL-A</code>, but you need a standardized reference system. 
+                    These mappings ensure detail callouts in imported drawings correctly link to your canonical detail library 
+                    (e.g., <code>CIV-DETAIL-CURB-SECTION-A</code>).
+                </div>
             </div>
 
             <div id="hatches-subtab" class="subtab-content">
@@ -124,6 +411,13 @@
                     </a>
                 </div>
                 <div id="hatchMappingsTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-fill-drip"></i>
+                    <strong>Hatch Pattern Mappings:</strong> Hatch patterns visually represent materials (concrete, asphalt, gravel, etc.) in CAD drawings. 
+                    Different clients use different hatch pattern names - one might use <code>CONC</code>, another <code>AR-CONC</code>, and a third <code>CONCRETE-SOLID</code>. 
+                    These mappings standardize all variants to your canonical hatch pattern library, ensuring consistent material representation across all projects.
+                </div>
             </div>
 
             <div id="materials-subtab" class="subtab-content">
@@ -134,6 +428,13 @@
                     </a>
                 </div>
                 <div id="materialMappingsTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-tools"></i>
+                    <strong>Material Name Mappings:</strong> Material properties (PVC, AC, DI, CONC, etc.) are embedded in CAD entity attributes and layer names. 
+                    Client abbreviations vary wildly - <code>PVC</code>, <code>POLYVINYL</code>, <code>P</code>, or <code>PLASTIC</code> might all mean the same thing. 
+                    These mappings create a unified material vocabulary, ensuring accurate material tagging during import regardless of client naming conventions.
+                </div>
             </div>
 
             <div id="notes-subtab" class="subtab-content">
@@ -144,11 +445,28 @@
                     </a>
                 </div>
                 <div id="noteMappingsTable"></div>
+                
+                <div class="tab-summary">
+                    <i class="fas fa-sticky-note"></i>
+                    <strong>Note Name Mappings:</strong> Keynotes and annotation text in CAD files reference standard notes (installation requirements, specifications, etc.). 
+                    Client drawings may use note codes like <code>N-8</code>, <code>NOTE-INSTALL-AC</code>, or even full text strings. 
+                    These mappings link client note references to your standardized note library, enabling proper annotation import and cross-referencing with specs and details.
+                </div>
             </div>
         </div>
 
         <div id="relationships-tab" class="tab-content">
-            <h3 class="orbitron"><i class="fas fa-sitemap"></i> Project Context Relationships</h3>
+            <h2 class="orbitron"><i class="fas fa-sitemap"></i> Project Context Relationships</h2>
+            
+            <div class="info-box" style="margin-bottom: 1.5rem;">
+                <h3><i class="fas fa-question-circle"></i> What Are Project Relationships?</h3>
+                <p style="margin: 0; font-size: 14px; line-height: 1.6;">
+                    Project Relationships define semantic connections <em>between</em> different elements within a project context 
+                    (e.g., which keynote references which block, which hatch represents which material). 
+                    These are different from <strong>Name Mappings</strong> which translate external names to your standards. 
+                    Relationships ensure internal consistency across your database.
+                </p>
+            </div>
             
             <div class="subtabs">
                 <button class="subtab-btn active" onclick="switchSubtab('keynote-blocks')">Keynote→Block</button>
@@ -173,10 +491,18 @@
             <div id="block-specs-subtab" class="subtab-content">
                 <div id="blockSpecsTable"></div>
             </div>
+            
+            <div class="tab-summary">
+                <i class="fas fa-sitemap"></i>
+                <strong>About Relationships:</strong> These cross-references define how different standards elements relate to each other within your system. 
+                For example, a keynote "AC Pavement Installation" might reference both Detail D-12 and Block PAVE-AC-2, ensuring those elements stay synchronized. 
+                Unlike Name Mappings (which handle external translation), relationships manage internal database integrity. 
+                These are manually defined based on your organizational standards and project requirements.
+            </div>
         </div>
 
         <div id="search-tab" class="tab-content">
-            <h3 class="orbitron"><i class="fas fa-search"></i> Universal Search</h3>
+            <h2 class="orbitron"><i class="fas fa-search"></i> Universal Search</h2>
             <div class="search-panel">
                 <input type="text" id="universalSearch" placeholder="Search across all mappings and relationships..." style="width: 100%; padding: 15px; font-size: 1.1em;">
                 <button onclick="performUniversalSearch()" class="btn btn-primary" style="margin-top: 10px;">
@@ -184,197 +510,16 @@
                 </button>
             </div>
             <div id="searchResults" style="margin-top: 20px;"></div>
+            
+            <div class="tab-summary">
+                <i class="fas fa-search"></i>
+                <strong>Search Capabilities:</strong> This universal search queries across all mapping types (blocks, details, hatches, materials, notes) 
+                and project relationships simultaneously. Search by canonical name, DXF alias, description, or any text field. 
+                Results are ranked by relevance and grouped by type, making it easy to locate specific mappings or identify conflicts.
+            </div>
         </div>
     </div>
 </div>
-
-<style>
-.tabs-container {
-    background: rgba(0, 20, 40, 0.4);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.tabs-header {
-    display: flex;
-    background: rgba(0, 40, 80, 0.6);
-    border-bottom: 2px solid var(--neon-cyan);
-}
-
-.tab-btn {
-    flex: 1;
-    padding: 15px 20px;
-    background: transparent;
-    border: none;
-    color: var(--text-color);
-    cursor: pointer;
-    transition: all 0.3s;
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1.1em;
-    border-right: 1px solid var(--border-color);
-}
-
-.tab-btn:hover {
-    background: rgba(0, 100, 150, 0.3);
-}
-
-.tab-btn.active {
-    background: rgba(0, 200, 255, 0.2);
-    color: var(--neon-cyan);
-    border-bottom: 3px solid var(--neon-cyan);
-}
-
-.tab-content {
-    display: none;
-    padding: 30px;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-.subtabs {
-    display: flex;
-    gap: 5px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-
-.subtab-btn {
-    padding: 10px 20px;
-    background: rgba(0, 40, 80, 0.4);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--text-color);
-    cursor: pointer;
-    transition: all 0.3s;
-}
-
-.subtab-btn:hover {
-    background: rgba(0, 100, 150, 0.3);
-}
-
-.subtab-btn.active {
-    background: rgba(0, 200, 255, 0.2);
-    border-color: var(--neon-cyan);
-    color: var(--neon-cyan);
-}
-
-.subtab-content {
-    display: none;
-}
-
-.subtab-content.active {
-    display: block;
-}
-
-.stat-card {
-    display: flex;
-    align-items: center;
-    padding: 20px;
-    background: linear-gradient(135deg, rgba(0, 40, 80, 0.6) 0%, rgba(0, 60, 100, 0.4) 100%);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    transition: all 0.3s;
-}
-
-.stat-card:hover {
-    border-color: var(--neon-cyan);
-    box-shadow: 0 0 15px rgba(0, 200, 255, 0.3);
-}
-
-.stat-icon {
-    font-size: 3em;
-    color: var(--neon-cyan);
-    margin-right: 20px;
-}
-
-.stat-content {
-    flex: 1;
-}
-
-.stat-label {
-    color: var(--text-secondary);
-    font-size: 0.9em;
-    margin-bottom: 5px;
-}
-
-.stat-value {
-    font-size: 2.5em;
-    font-weight: bold;
-    color: var(--neon-cyan);
-    font-family: 'Orbitron', monospace;
-}
-
-.info-section {
-    background: rgba(0, 100, 150, 0.1);
-    border-left: 4px solid var(--neon-cyan);
-    padding: 20px;
-    margin-top: 20px;
-    border-radius: 4px;
-}
-
-.info-section h4 {
-    margin-top: 0;
-    color: var(--neon-cyan);
-}
-
-.info-section ul {
-    margin: 10px 0;
-}
-
-.info-section li {
-    margin: 8px 0;
-}
-
-.table-controls {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.table-controls input {
-    flex: 1;
-    padding: 10px;
-    background: rgba(0, 20, 40, 0.6);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--text-color);
-}
-
-.badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.85em;
-    font-weight: 500;
-}
-
-.badge-import {
-    background: rgba(0, 200, 100, 0.3);
-    color: #0f0;
-    border: 1px solid #0f0;
-}
-
-.badge-export {
-    background: rgba(200, 100, 0, 0.3);
-    color: #fa0;
-    border: 1px solid #fa0;
-}
-
-.badge-both {
-    background: rgba(0, 100, 200, 0.3);
-    color: var(--neon-cyan);
-    border: 1px solid var(--neon-cyan);
-}
-
-.search-panel {
-    background: rgba(0, 40, 80, 0.4);
-    padding: 20px;
-    border-radius: 8px;
-}
-</style>
 
 <script src="/static/js/standards_mapping_dashboard.js"></script>
 {% endblock %}

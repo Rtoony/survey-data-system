@@ -68,7 +68,7 @@
                 </div>
             </div>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-mapping-dashboard', '/project-context-manager', '/data-manager/block-mappings', '/data-manager/detail-mappings', '/data-manager/hatch-mappings', '/data-manager/material-mappings', '/data-manager/note-mappings', '/standards-export'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-mapping-dashboard', '/project-context-manager', '/standards-export'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-map-signs"></i>
                     <span>Mapping</span>
@@ -76,33 +76,12 @@
                 </button>
                 <div class="mc-dropdown">
                     <a href="/standards-mapping-dashboard" class="mc-dropdown-item {% if request.path == '/standards-mapping-dashboard' %}active{% endif %}">
-                        <i class="fas fa-th-large"></i>
+                        <i class="fas fa-chart-bar"></i>
                         Mapping Dashboard
                     </a>
                     <a href="/project-context-manager" class="mc-dropdown-item {% if request.path == '/project-context-manager' %}active{% endif %}">
                         <i class="fas fa-project-diagram"></i>
                         Project Context Manager
-                    </a>
-                    <div class="mc-dropdown-divider"></div>
-                    <a href="/data-manager/block-mappings" class="mc-dropdown-item {% if request.path == '/data-manager/block-mappings' %}active{% endif %}">
-                        <i class="fas fa-cube"></i>
-                        Block Name Mappings
-                    </a>
-                    <a href="/data-manager/detail-mappings" class="mc-dropdown-item {% if request.path == '/data-manager/detail-mappings' %}active{% endif %}">
-                        <i class="fas fa-file-alt"></i>
-                        Detail Name Mappings
-                    </a>
-                    <a href="/data-manager/hatch-mappings" class="mc-dropdown-item {% if request.path == '/data-manager/hatch-mappings' %}active{% endif %}">
-                        <i class="fas fa-fill-drip"></i>
-                        Hatch Name Mappings
-                    </a>
-                    <a href="/data-manager/material-mappings" class="mc-dropdown-item {% if request.path == '/data-manager/material-mappings' %}active{% endif %}">
-                        <i class="fas fa-tools"></i>
-                        Material Name Mappings
-                    </a>
-                    <a href="/data-manager/note-mappings" class="mc-dropdown-item {% if request.path == '/data-manager/note-mappings' %}active{% endif %}">
-                        <i class="fas fa-sticky-note"></i>
-                        Note Name Mappings
                     </a>
                     <div class="mc-dropdown-divider"></div>
                     <a href="/standards-export" class="mc-dropdown-item {% if request.path == '/standards-export' %}active{% endif %}">
