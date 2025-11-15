@@ -17492,6 +17492,35 @@ def remove_relationship_member(member_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/entity-types/<entity_type>/filterable-columns')
+def get_filterable_columns(entity_type):
+    """Get filterable columns for an entity type from the Registry"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute("""
+            SELECT 
+                column_name,
+                display_name,
+                data_type,
+                operators_supported,
+                description,
+                help_text,
+                sort_order
+            FROM filterable_entity_columns
+            WHERE entity_type = %s AND is_active = true
+            ORDER BY sort_order ASC, display_name ASC
+        """, (entity_type,))
+        
+        columns = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'columns': columns})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/relationship-sets/<set_id>/rules', methods=['POST'])
 def add_relationship_rule(set_id):
     """Add a rule to a relationship set"""
