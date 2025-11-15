@@ -794,11 +794,27 @@ const PROJECT_ID = '{{ project_id }}';
 let currentSets = [];
 let namingTemplates = [];
 let selectedTemplate = null;
+let currentProject = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    loadProjectInfo();
     loadRelationshipSets();
     loadNamingTemplates();
 });
+
+async function loadProjectInfo() {
+    try {
+        const response = await fetch(`/api/projects/${PROJECT_ID}`);
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        currentProject = data.project || data;
+        
+    } catch (error) {
+        console.error('Error loading project info:', error);
+    }
+}
 
 async function loadRelationshipSets() {
     try {
@@ -930,8 +946,21 @@ function generateTokenFields() {
         input.placeholder = getTokenPlaceholder(token);
         if (isRequired) input.required = true;
         
-        // Add example value from template if available
-        if (selectedTemplate.example_tokens && selectedTemplate.example_tokens[token]) {
+        // Auto-populate PROJECT_CODE from current project
+        if (token === 'PROJECT_CODE' && currentProject) {
+            const projectCode = getProjectCode();
+            input.value = projectCode;
+            
+            // Add helpful note to label
+            const note = document.createElement('small');
+            note.style.color = 'var(--text-muted)';
+            note.style.fontWeight = '400';
+            note.style.marginLeft = '8px';
+            note.textContent = '(auto-filled from current project)';
+            label.appendChild(note);
+        }
+        // Add example value from template if available (for non-auto-filled tokens)
+        else if (selectedTemplate.example_tokens && selectedTemplate.example_tokens[token]) {
             input.placeholder = `e.g., ${selectedTemplate.example_tokens[token]}`;
         }
         
@@ -942,6 +971,27 @@ function generateTokenFields() {
         formGroup.appendChild(input);
         container.appendChild(formGroup);
     });
+}
+
+function getProjectCode() {
+    if (!currentProject) return '';
+    
+    // Use project_number if it exists
+    if (currentProject.project_number && currentProject.project_number.trim()) {
+        return currentProject.project_number.trim();
+    }
+    
+    // Otherwise, generate from project_name
+    if (currentProject.project_name) {
+        // Convert "Rtoony's Test 5" → "RTOONY-TEST-5"
+        return currentProject.project_name
+            .toUpperCase()
+            .replace(/[^A-Z0-9\s]/g, '') // Remove special chars except spaces
+            .trim()
+            .replace(/\s+/g, '-'); // Replace spaces with dashes
+    }
+    
+    return '';
 }
 
 function getTokenPlaceholder(token) {
