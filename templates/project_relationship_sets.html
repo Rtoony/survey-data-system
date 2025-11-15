@@ -140,14 +140,56 @@
         <div class="modal-body">
             <div id="setDetailInfo" style="margin-bottom: var(--spacing-lg);"></div>
             
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-cube"></i> Members</h3>
-                    <button class="btn btn-primary" onclick="showAddMemberModal()">
-                        <i class="fas fa-plus"></i> Add Member
-                    </button>
+            <!-- Tab Navigation -->
+            <div class="detail-tabs" style="display: flex; gap: 8px; margin-bottom: var(--spacing-md); border-bottom: 2px solid rgba(0, 255, 255, 0.2);">
+                <button class="tab-button active" onclick="switchDetailTab('members')">
+                    <i class="fas fa-cube"></i> Members
+                </button>
+                <button class="tab-button" onclick="switchDetailTab('violations')">
+                    <i class="fas fa-exclamation-triangle"></i> Violations
+                </button>
+                <button class="tab-button" onclick="switchDetailTab('rules')">
+                    <i class="fas fa-tasks"></i> Rules
+                </button>
+            </div>
+            
+            <!-- Members Tab -->
+            <div id="membersTab" class="detail-tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-cube"></i> Members</h3>
+                        <button class="btn btn-primary" onclick="showAddMemberModal()">
+                            <i class="fas fa-plus"></i> Add Member
+                        </button>
+                    </div>
+                    <div id="membersList"></div>
                 </div>
-                <div id="membersList"></div>
+            </div>
+            
+            <!-- Violations Tab -->
+            <div id="violationsTab" class="detail-tab-content" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Violations</h3>
+                        <button class="btn btn-secondary" onclick="refreshViolations()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                    <div id="violationsList"></div>
+                </div>
+            </div>
+            
+            <!-- Rules Tab -->
+            <div id="rulesTab" class="detail-tab-content" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-tasks"></i> Rules</h3>
+                        <button class="btn btn-primary" onclick="showAddRuleModal()">
+                            <i class="fas fa-plus"></i> Add Rule
+                        </button>
+                    </div>
+                    <div id="rulesList"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -524,6 +566,105 @@
     font-size: 14px;
     color: var(--mc-text);
     font-weight: 600;
+}
+
+.tab-button {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--mc-muted);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.tab-button:hover {
+    color: var(--mc-text);
+}
+
+.tab-button.active {
+    color: var(--mc-accent);
+    border-bottom-color: var(--mc-accent);
+}
+
+.violation-card {
+    background: rgba(255, 68, 68, 0.05);
+    border: 1px solid rgba(255, 68, 68, 0.3);
+    border-left: 3px solid var(--mc-danger);
+    border-radius: var(--mc-radius-sm);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+}
+
+.violation-card.resolved {
+    background: rgba(0, 255, 136, 0.05);
+    border-color: rgba(0, 255, 136, 0.3);
+    border-left-color: var(--mc-accent);
+    opacity: 0.7;
+}
+
+.violation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.violation-type {
+    font-weight: 600;
+    color: var(--mc-danger);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}
+
+.violation-card.resolved .violation-type {
+    color: var(--mc-accent);
+}
+
+.violation-description {
+    color: var(--mc-text);
+    font-size: 14px;
+    margin-bottom: var(--spacing-sm);
+}
+
+.violation-meta {
+    font-size: 12px;
+    color: var(--mc-muted);
+    margin-bottom: var(--spacing-sm);
+}
+
+.violation-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.empty-violations {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--mc-muted);
+}
+
+.rule-card {
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: var(--mc-radius-sm);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+}
+
+.rule-name {
+    font-weight: 600;
+    color: var(--mc-primary);
+    margin-bottom: 4px;
+}
+
+.rule-condition {
+    font-size: 13px;
+    color: var(--mc-muted);
+    font-family: 'Courier New', monospace;
 }
 </style>
 
@@ -1152,6 +1293,221 @@ async function removeMember(memberId) {
         
     } catch (error) {
         alert('Error removing member: ' + error.message);
+    }
+}
+
+// Tab Management
+function switchDetailTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    event.target.closest('.tab-button').classList.add('active');
+    
+    // Hide all tabs
+    document.getElementById('membersTab').style.display = 'none';
+    document.getElementById('violationsTab').style.display = 'none';
+    document.getElementById('rulesTab').style.display = 'none';
+    
+    // Show selected tab
+    document.getElementById(tabName + 'Tab').style.display = 'block';
+    
+    // Load data for the tab if needed (only if currentSetId is set)
+    if (currentSetId) {
+        if (tabName === 'violations') {
+            loadViolations();
+        } else if (tabName === 'rules') {
+            loadRules();
+        }
+    }
+}
+
+// Violations Management
+async function loadViolations() {
+    if (!currentSetId) return;
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/${currentSetId}/violations`);
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        renderViolations(data.violations || []);
+        
+    } catch (error) {
+        console.error('Error loading violations:', error);
+        document.getElementById('violationsList').innerHTML = `
+            <div class="empty-violations">
+                <i class="fas fa-exclamation-circle" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                <p>Error loading violations: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+function renderViolations(violations) {
+    const container = document.getElementById('violationsList');
+    
+    if (!violations || violations.length === 0) {
+        container.innerHTML = `
+            <div class="empty-violations">
+                <i class="fas fa-check-circle" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3; color: var(--mc-accent);"></i>
+                <p>No violations found!</p>
+                <p style="font-size: 13px;">All members and rules are in sync.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = violations.map(violation => {
+        const resolvedClass = violation.status === 'resolved' ? 'resolved' : '';
+        const typeFriendly = violation.violation_type.replace('_', ' ').toUpperCase();
+        
+        return `
+            <div class="violation-card ${resolvedClass}">
+                <div class="violation-header">
+                    <span class="violation-type">${typeFriendly}</span>
+                    <span class="badge" style="background: rgba(255, 165, 0, 0.2); color: #ffa500; padding: 4px 8px; border-radius: 3px; font-size: 11px;">
+                        ${violation.status.toUpperCase()}
+                    </span>
+                </div>
+                <div class="violation-description">${escapeHtml(violation.description || 'No description')}</div>
+                ${violation.details ? `<div class="violation-meta">Details: ${escapeHtml(JSON.stringify(violation.details))}</div>` : ''}
+                <div class="violation-meta">Detected: ${new Date(violation.created_at).toLocaleString()}</div>
+                ${violation.status === 'open' ? `
+                    <div class="violation-actions">
+                        <button class="btn btn-sm btn-primary" onclick="resolveViolation('${violation.violation_id}')">
+                            <i class="fas fa-check"></i> Resolve
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="acknowledgeViolation('${violation.violation_id}')">
+                            <i class="fas fa-flag"></i> Acknowledge
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+async function refreshViolations() {
+    loadViolations();
+}
+
+async function resolveViolation(violationId) {
+    if (!confirm('Mark this violation as resolved?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/violations/${violationId}/resolve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resolution_notes: 'Manually resolved by user' })
+        });
+        
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        
+        loadViolations();
+        
+    } catch (error) {
+        alert('Error resolving violation: ' + error.message);
+    }
+}
+
+async function acknowledgeViolation(violationId) {
+    const notes = prompt('Enter acknowledgement notes (optional):');
+    if (notes === null) return; // User cancelled
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/violations/${violationId}/acknowledge`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes: notes || 'Acknowledged' })
+        });
+        
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        
+        loadViolations();
+        
+    } catch (error) {
+        alert('Error acknowledging violation: ' + error.message);
+    }
+}
+
+// Rules Management
+async function loadRules() {
+    if (!currentSetId) return;
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/${currentSetId}`);
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        renderRules(data.rules || []);
+        
+    } catch (error) {
+        console.error('Error loading rules:', error);
+        document.getElementById('rulesList').innerHTML = `
+            <div class="empty-violations">
+                <p>Error loading rules: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+function renderRules(rules) {
+    const container = document.getElementById('rulesList');
+    
+    if (!rules || rules.length === 0) {
+        container.innerHTML = `
+            <div class="empty-violations">
+                <i class="fas fa-tasks" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                <p>No rules defined yet.</p>
+                <p style="font-size: 13px;">Click "Add Rule" to create compliance rules.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = rules.map(rule => {
+        return `
+            <div class="rule-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div class="rule-name">${escapeHtml(rule.rule_name || 'Unnamed Rule')}</div>
+                        <div class="rule-condition">${escapeHtml(rule.rule_description || JSON.stringify(rule.rule_condition))}</div>
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="deleteRule('${rule.rule_id}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function showAddRuleModal() {
+    alert('Rule builder coming soon!');
+}
+
+async function deleteRule(ruleId) {
+    if (!confirm('Delete this rule?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/relationship-sets/rules/${ruleId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        
+        loadRules();
+        
+    } catch (error) {
+        alert('Error deleting rule: ' + error.message);
     }
 }
 
