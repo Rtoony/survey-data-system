@@ -193,6 +193,11 @@ def nl_query_page():
     """Natural Language Query Interface page"""
     return render_template('nl_query.html')
 
+@app.route('/tools/advanced-search')
+def advanced_search_page():
+    """Advanced Search & Filtering Interface page"""
+    return render_template('advanced_search.html')
+
 @app.route('/tools/survey-code-tester')
 def survey_code_tester():
     """Survey Code Testing Interface - Test parsing, preview CAD output, simulate field shots"""
@@ -19549,6 +19554,518 @@ def use_nl_query_template(template_id):
             'sql': sql_filled,
             'template_id': str(template_id)
         })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# ADVANCED SEARCH & FILTERING API
+# ============================================
+
+@app.route('/api/search/execute', methods=['POST'])
+def execute_advanced_search():
+    """Execute an advanced search with filters"""
+    try:
+        data = request.get_json()
+        entity_type = data.get('entity_type')
+        filter_config = data.get('filter_config', {})
+        sort_field = data.get('sort_field', 'created_at')
+        sort_direction = data.get('sort_direction', 'DESC')
+        page = data.get('page', 1)
+        per_page = data.get('per_page', 50)
+
+        if not entity_type:
+            return jsonify({'error': 'entity_type is required'}), 400
+
+        # Build query based on entity type and filters
+        query, params = build_search_query(entity_type, filter_config, sort_field, sort_direction, page, per_page)
+
+        # Execute search
+        start_time = datetime.now()
+        results = execute_query(query, params)
+        execution_time = int((datetime.now() - start_time).total_seconds() * 1000)
+
+        # Save to search history
+        history_query = """
+            INSERT INTO search_history
+            (entity_type, filter_config, result_count, execution_time_ms, executed_by)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING search_id
+        """
+        history_result = execute_query(
+            history_query,
+            (entity_type, json.dumps(filter_config), len(results) if results else 0, execution_time, 'system')
+        )
+
+        search_id = history_result[0]['search_id'] if history_result else None
+
+        return jsonify({
+            'results': results if results else [],
+            'count': len(results) if results else 0,
+            'execution_time_ms': execution_time,
+            'search_id': str(search_id) if search_id else None,
+            'page': page,
+            'per_page': per_page
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def build_search_query(entity_type, filter_config, sort_field, sort_direction, page, per_page):
+    """Build SQL query based on entity type and filters"""
+    params = []
+
+    # Base queries for different entity types
+    if entity_type == 'utility_structures':
+        base_query = """
+            SELECT us.structure_id, us.structure_number, us.structure_type,
+                   sts.type_name, us.rim_elevation, us.invert_elevation,
+                   p.project_name, p.municipality,
+                   ST_X(us.rim_geometry) as lon, ST_Y(us.rim_geometry) as lat
+            FROM utility_structures us
+            LEFT JOIN structure_type_standards sts ON us.structure_type_id = sts.type_id
+            LEFT JOIN projects p ON us.project_id = p.project_id
+            WHERE us.is_active = TRUE
+        """
+    elif entity_type == 'survey_points':
+        base_query = """
+            SELECT sp.point_id, sp.point_number, sp.point_description,
+                   spd.description_text, sp.northing, sp.easting, sp.elevation,
+                   sp.survey_date, smt.method_name, sp.surveyed_by,
+                   p.project_name
+            FROM survey_points sp
+            LEFT JOIN survey_point_description_standards spd ON sp.point_description_id = spd.description_id
+            LEFT JOIN survey_method_types smt ON sp.survey_method_id = smt.method_id
+            LEFT JOIN projects p ON sp.project_id = p.project_id
+            WHERE sp.is_active = TRUE
+        """
+    elif entity_type == 'utility_lines':
+        base_query = """
+            SELECT ul.line_id, ul.line_number, ul.line_type, ul.material,
+                   ul.diameter, ul.slope, ul.length_ft,
+                   us1.structure_number as upstream_structure,
+                   us2.structure_number as downstream_structure,
+                   p.project_name
+            FROM utility_lines ul
+            LEFT JOIN utility_structures us1 ON ul.upstream_structure_id = us1.structure_id
+            LEFT JOIN utility_structures us2 ON ul.downstream_structure_id = us2.structure_id
+            LEFT JOIN projects p ON ul.project_id = p.project_id
+            WHERE ul.is_active = TRUE
+        """
+    elif entity_type == 'projects':
+        base_query = """
+            SELECT p.project_id, p.project_number, p.project_name,
+                   p.client, p.municipality, p.status, p.start_date,
+                   COUNT(DISTINCT us.structure_id) as structure_count,
+                   COUNT(DISTINCT sp.point_id) as point_count,
+                   COUNT(DISTINCT ul.line_id) as line_count
+            FROM projects p
+            LEFT JOIN utility_structures us ON us.project_id = p.project_id
+            LEFT JOIN survey_points sp ON sp.project_id = p.project_id
+            LEFT JOIN utility_lines ul ON ul.project_id = p.project_id
+            WHERE p.is_active = TRUE
+        """
+    else:
+        raise ValueError(f"Unsupported entity type: {entity_type}")
+
+    # Apply filters
+    where_clauses = []
+
+    # Text search filters
+    if 'search_text' in filter_config and filter_config['search_text']:
+        search_text = f"%{filter_config['search_text']}%"
+        params.append(search_text)
+        if entity_type == 'utility_structures':
+            where_clauses.append("(us.structure_number ILIKE %s OR us.structure_type ILIKE %s)")
+            params.append(search_text)
+        elif entity_type == 'survey_points':
+            where_clauses.append("(sp.point_number ILIKE %s OR sp.point_description ILIKE %s)")
+            params.append(search_text)
+
+    # Specific field filters
+    if 'structure_type_id' in filter_config and filter_config['structure_type_id']:
+        where_clauses.append("us.structure_type_id = %s")
+        params.append(filter_config['structure_type_id'])
+
+    if 'project_id' in filter_config and filter_config['project_id']:
+        where_clauses.append(f"{entity_type[0:2]}.project_id = %s")
+        params.append(filter_config['project_id'])
+
+    if 'material' in filter_config and filter_config['material']:
+        where_clauses.append("ul.material ILIKE %s")
+        params.append(f"%{filter_config['material']}%")
+
+    # Elevation range
+    if 'elevation_range' in filter_config:
+        elev_range = filter_config['elevation_range']
+        if elev_range.get('min') is not None:
+            where_clauses.append("sp.elevation >= %s")
+            params.append(elev_range['min'])
+        if elev_range.get('max') is not None:
+            where_clauses.append("sp.elevation <= %s")
+            params.append(elev_range['max'])
+
+    # Date range
+    if 'date_range' in filter_config:
+        date_range = filter_config['date_range']
+        field = date_range.get('field', 'created_at')
+        if date_range.get('start'):
+            where_clauses.append(f"{field} >= %s")
+            params.append(date_range['start'])
+        if date_range.get('end'):
+            where_clauses.append(f"{field} <= %s")
+            params.append(date_range['end'])
+
+    # Spatial search
+    if 'spatial_search' in filter_config:
+        spatial = filter_config['spatial_search']
+        if spatial['type'] == 'radius':
+            where_clauses.append(
+                "ST_DWithin(us.rim_geometry, ST_SetSRID(ST_MakePoint(%s, %s), 2226), %s)"
+            )
+            params.extend([spatial['center_lon'], spatial['center_lat'], spatial['radius_feet']])
+        elif spatial['type'] == 'bbox':
+            where_clauses.append(
+                "sp.northing BETWEEN %s AND %s AND sp.easting BETWEEN %s AND %s"
+            )
+            params.extend([
+                spatial['min_northing'], spatial['max_northing'],
+                spatial['min_easting'], spatial['max_easting']
+            ])
+
+    # Special filters
+    if filter_config.get('has_no_connections'):
+        where_clauses.append("""
+            NOT EXISTS (
+                SELECT 1 FROM utility_lines ul1
+                WHERE ul1.upstream_structure_id = us.structure_id
+                   OR ul1.downstream_structure_id = us.structure_id
+            )
+        """)
+
+    if filter_config.get('elevation_null'):
+        where_clauses.append("sp.elevation IS NULL")
+
+    # Combine where clauses
+    if where_clauses:
+        base_query += " AND " + " AND ".join(where_clauses)
+
+    # Add GROUP BY for projects
+    if entity_type == 'projects':
+        base_query += " GROUP BY p.project_id, p.project_number, p.project_name, p.client, p.municipality, p.status, p.start_date"
+
+    # Add sorting
+    base_query += f" ORDER BY {sort_field} {sort_direction}"
+
+    # Add pagination
+    offset = (page - 1) * per_page
+    base_query += f" LIMIT {per_page} OFFSET {offset}"
+
+    return base_query, params
+
+@app.route('/api/search/facets/<entity_type>')
+def get_search_facets(entity_type):
+    """Get available facet values for filtering"""
+    try:
+        facet_name = request.args.get('facet')
+
+        # Get from cache first
+        cache_query = """
+            SELECT facet_value, record_count
+            FROM search_facet_cache
+            WHERE entity_type = %s
+              AND facet_name = %s
+              AND is_valid = TRUE
+            ORDER BY record_count DESC
+        """
+
+        cached_results = execute_query(cache_query, (entity_type, facet_name))
+
+        if cached_results:
+            return jsonify(cached_results)
+
+        # If not cached, compute on the fly
+        # (In production, you'd trigger a background cache rebuild)
+        return jsonify([])
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/templates')
+def get_search_templates():
+    """Get all saved search templates"""
+    try:
+        category = request.args.get('category')
+        is_public = request.args.get('is_public', 'true') == 'true'
+        entity_type = request.args.get('entity_type')
+
+        where_clauses = ["is_active = TRUE"]
+        params = []
+
+        if category:
+            where_clauses.append("category = %s")
+            params.append(category)
+
+        if is_public:
+            where_clauses.append("is_public = TRUE")
+
+        if entity_type:
+            where_clauses.append("entity_type = %s")
+            params.append(entity_type)
+
+        where_sql = " AND ".join(where_clauses)
+
+        query = f"""
+            SELECT template_id, template_name, template_description,
+                   entity_type, category, filter_config, enabled_facets,
+                   visible_columns, usage_count, tags, is_system_template
+            FROM saved_search_templates
+            WHERE {where_sql}
+            ORDER BY usage_count DESC, template_name
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/templates', methods=['POST'])
+def create_search_template():
+    """Create a new search template"""
+    try:
+        data = request.get_json()
+
+        query = """
+            INSERT INTO saved_search_templates
+            (template_name, template_description, entity_type, filter_config,
+             enabled_facets, default_sort, visible_columns, category, tags,
+             is_public, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING template_id
+        """
+
+        result = execute_query(query, (
+            data.get('template_name'),
+            data.get('template_description'),
+            data.get('entity_type'),
+            json.dumps(data.get('filter_config', {})),
+            json.dumps(data.get('enabled_facets', [])),
+            data.get('default_sort'),
+            json.dumps(data.get('visible_columns', [])),
+            data.get('category'),
+            json.dumps(data.get('tags', [])),
+            data.get('is_public', False),
+            data.get('created_by', 'system')
+        ))
+
+        return jsonify({
+            'template_id': str(result[0]['template_id']),
+            'message': 'Template created successfully'
+        }), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/templates/<uuid:template_id>', methods=['PUT'])
+def update_search_template(template_id):
+    """Update a search template"""
+    try:
+        data = request.get_json()
+
+        query = """
+            UPDATE saved_search_templates
+            SET template_name = COALESCE(%s, template_name),
+                template_description = COALESCE(%s, template_description),
+                filter_config = COALESCE(%s, filter_config),
+                enabled_facets = COALESCE(%s, enabled_facets),
+                visible_columns = COALESCE(%s, visible_columns),
+                category = COALESCE(%s, category),
+                tags = COALESCE(%s, tags),
+                is_public = COALESCE(%s, is_public)
+            WHERE template_id = %s
+            RETURNING template_id
+        """
+
+        result = execute_query(query, (
+            data.get('template_name'),
+            data.get('template_description'),
+            json.dumps(data.get('filter_config')) if 'filter_config' in data else None,
+            json.dumps(data.get('enabled_facets')) if 'enabled_facets' in data else None,
+            json.dumps(data.get('visible_columns')) if 'visible_columns' in data else None,
+            data.get('category'),
+            json.dumps(data.get('tags')) if 'tags' in data else None,
+            data.get('is_public'),
+            str(template_id)
+        ))
+
+        if not result:
+            return jsonify({'error': 'Template not found'}), 404
+
+        return jsonify({'message': 'Template updated successfully'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/templates/<uuid:template_id>', methods=['DELETE'])
+def delete_search_template(template_id):
+    """Delete (soft delete) a search template"""
+    try:
+        query = """
+            UPDATE saved_search_templates
+            SET is_active = FALSE
+            WHERE template_id = %s
+            RETURNING template_id
+        """
+
+        result = execute_query(query, (str(template_id),))
+
+        if not result:
+            return jsonify({'error': 'Template not found'}), 404
+
+        return jsonify({'message': 'Template deleted successfully'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/history')
+def get_search_history():
+    """Get search history with optional filtering"""
+    try:
+        bookmarked_only = request.args.get('bookmarked_only', 'false') == 'true'
+        entity_type = request.args.get('entity_type')
+        limit = int(request.args.get('limit', 50))
+
+        where_clauses = []
+        params = []
+
+        if bookmarked_only:
+            where_clauses.append("is_bookmarked = TRUE")
+
+        if entity_type:
+            where_clauses.append("entity_type = %s")
+            params.append(entity_type)
+
+        where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
+        query = f"""
+            SELECT search_id, entity_type, filter_config, result_count,
+                   execution_time_ms, executed_at, is_bookmarked,
+                   exported_format, template_id
+            FROM search_history
+            {where_sql}
+            ORDER BY executed_at DESC
+            LIMIT %s
+        """
+
+        params.append(limit)
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/history/<uuid:search_id>', methods=['PUT'])
+def update_search_history(search_id):
+    """Update search history (bookmark, feedback, etc.)"""
+    try:
+        data = request.get_json()
+
+        query = """
+            UPDATE search_history
+            SET is_bookmarked = COALESCE(%s, is_bookmarked),
+                was_helpful = COALESCE(%s, was_helpful),
+                search_context = COALESCE(%s, search_context)
+            WHERE search_id = %s
+            RETURNING search_id
+        """
+
+        result = execute_query(query, (
+            data.get('is_bookmarked'),
+            data.get('was_helpful'),
+            data.get('search_context'),
+            str(search_id)
+        ))
+
+        if not result:
+            return jsonify({'error': 'Search not found'}), 404
+
+        return jsonify({'message': 'Search history updated successfully'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/export', methods=['POST'])
+def export_search_results():
+    """Export search results to various formats"""
+    try:
+        data = request.get_json()
+        search_id = data.get('search_id')
+        export_format = data.get('format', 'csv')  # csv, excel, pdf
+        results = data.get('results', [])
+
+        if not results:
+            return jsonify({'error': 'No results to export'}), 400
+
+        if export_format == 'csv':
+            # Create CSV
+            output = io.StringIO()
+            if results:
+                writer = csv.DictWriter(output, fieldnames=results[0].keys())
+                writer.writeheader()
+                writer.writerows(results)
+
+            # Track export
+            if search_id:
+                execute_query(
+                    "UPDATE search_history SET exported_format = %s, exported_at = CURRENT_TIMESTAMP WHERE search_id = %s",
+                    ('csv', search_id)
+                )
+
+            response = make_response(output.getvalue())
+            response.headers['Content-Type'] = 'text/csv'
+            response.headers['Content-Disposition'] = f'attachment; filename=search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+            return response
+
+        elif export_format == 'excel':
+            # Create Excel workbook
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Search Results"
+
+            if results:
+                # Headers
+                headers = list(results[0].keys())
+                ws.append(headers)
+
+                # Style headers
+                for cell in ws[1]:
+                    cell.font = Font(bold=True)
+                    cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+
+                # Data rows
+                for row in results:
+                    ws.append([row.get(h) for h in headers])
+
+            # Save to bytes
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+
+            # Track export
+            if search_id:
+                execute_query(
+                    "UPDATE search_history SET exported_format = %s, exported_at = CURRENT_TIMESTAMP WHERE search_id = %s",
+                    ('excel', search_id)
+                )
+
+            response = make_response(output.read())
+            response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            response.headers['Content-Disposition'] = f'attachment; filename=search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            return response
+
+        else:
+            return jsonify({'error': f'Unsupported format: {export_format}'}), 400
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

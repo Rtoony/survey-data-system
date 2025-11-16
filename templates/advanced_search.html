@@ -1,0 +1,1277 @@
+{% extends "base.html" %}
+
+{% block title %}Advanced Search & Filtering{% endblock %}
+
+{% block content %}
+<div class="mc-page-header">
+    <div class="mc-header-content">
+        <div>
+            <h1><i class="fas fa-search"></i> Advanced Search & Filtering</h1>
+            <p class="mc-text-muted">Powerful faceted search across all entity types with saved templates</p>
+        </div>
+        <div class="mc-header-actions">
+            <button class="mc-btn mc-btn-secondary" id="clearFiltersBtn">
+                <i class="fas fa-eraser"></i> Clear Filters
+            </button>
+            <button class="mc-btn mc-btn-primary" id="saveTemplateBtn">
+                <i class="fas fa-save"></i> Save as Template
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="advanced-search-container">
+    <!-- Left Sidebar: Filters & Templates -->
+    <div class="search-sidebar">
+        <!-- Entity Type Selector -->
+        <div class="mc-card">
+            <h3 class="section-title"><i class="fas fa-database"></i> Entity Type</h3>
+            <select class="mc-input" id="entityTypeSelect">
+                <option value="utility_structures">Utility Structures</option>
+                <option value="survey_points">Survey Points</option>
+                <option value="utility_lines">Utility Lines</option>
+                <option value="projects">Projects</option>
+            </select>
+        </div>
+
+        <!-- Template Browser -->
+        <div class="mc-card">
+            <div class="section-header">
+                <h3 class="section-title"><i class="fas fa-bookmark"></i> Search Templates</h3>
+                <button class="icon-btn" id="refreshTemplatesBtn" title="Refresh templates">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="template-filters">
+                <select class="mc-input mc-input-sm" id="templateCategoryFilter">
+                    <option value="">All Categories</option>
+                    <option value="Quality Control">Quality Control</option>
+                    <option value="Spatial Analysis">Spatial Analysis</option>
+                    <option value="Inventory">Inventory</option>
+                    <option value="Temporal Analysis">Temporal Analysis</option>
+                    <option value="Compliance">Compliance</option>
+                    <option value="Project Management">Project Management</option>
+                    <option value="Analysis">Analysis</option>
+                </select>
+            </div>
+            <div class="template-list" id="templateList">
+                <!-- Templates will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Recent Searches -->
+        <div class="mc-card">
+            <div class="section-header">
+                <h3 class="section-title"><i class="fas fa-history"></i> Recent Searches</h3>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="bookmarkedOnlyCheckbox">
+                    <span>Bookmarked only</span>
+                </label>
+            </div>
+            <div class="history-list" id="historyList">
+                <!-- History items will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content: Filters & Results -->
+    <div class="search-main">
+        <!-- Filter Panels -->
+        <div class="mc-card filters-card">
+            <h3 class="section-title"><i class="fas fa-filter"></i> Filters</h3>
+            <div class="filters-grid">
+                <!-- Text Search -->
+                <div class="filter-group">
+                    <label class="mc-label">Search Text</label>
+                    <input type="text" class="mc-input" id="searchTextInput" placeholder="Search by number, type, description...">
+                </div>
+
+                <!-- Project Filter -->
+                <div class="filter-group">
+                    <label class="mc-label">Project</label>
+                    <select class="mc-input" id="projectFilter">
+                        <option value="">All Projects</option>
+                        <!-- Projects will be loaded dynamically -->
+                    </select>
+                </div>
+
+                <!-- Structure Type Filter (for utility_structures) -->
+                <div class="filter-group" id="structureTypeFilterGroup" style="display: none;">
+                    <label class="mc-label">Structure Type</label>
+                    <select class="mc-input" id="structureTypeFilter">
+                        <option value="">All Types</option>
+                        <!-- Types will be loaded dynamically -->
+                    </select>
+                </div>
+
+                <!-- Material Filter (for utility_lines) -->
+                <div class="filter-group" id="materialFilterGroup" style="display: none;">
+                    <label class="mc-label">Material</label>
+                    <input type="text" class="mc-input" id="materialFilter" placeholder="PVC, Steel, Concrete...">
+                </div>
+
+                <!-- Elevation Range (for survey_points) -->
+                <div class="filter-group" id="elevationFilterGroup" style="display: none;">
+                    <label class="mc-label">Elevation Range (ft)</label>
+                    <div class="range-inputs">
+                        <input type="number" class="mc-input" id="elevationMin" placeholder="Min" step="0.01">
+                        <span>to</span>
+                        <input type="number" class="mc-input" id="elevationMax" placeholder="Max" step="0.01">
+                    </div>
+                </div>
+
+                <!-- Date Range -->
+                <div class="filter-group" id="dateRangeFilterGroup">
+                    <label class="mc-label">Date Range</label>
+                    <div class="range-inputs">
+                        <input type="date" class="mc-input" id="dateStart">
+                        <span>to</span>
+                        <input type="date" class="mc-input" id="dateEnd">
+                    </div>
+                </div>
+
+                <!-- Special Filters -->
+                <div class="filter-group">
+                    <label class="mc-label">Special Filters</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label" id="orphanedCheckboxLabel" style="display: none;">
+                            <input type="checkbox" id="orphanedCheckbox">
+                            <span>Orphaned structures (no connections)</span>
+                        </label>
+                        <label class="checkbox-label" id="missingElevationLabel" style="display: none;">
+                            <input type="checkbox" id="missingElevationCheckbox">
+                            <span>Missing elevation data</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Spatial Search (Advanced) -->
+            <details class="advanced-section">
+                <summary><i class="fas fa-map-marker-alt"></i> Spatial Search</summary>
+                <div class="spatial-search-options">
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="spatialType" value="none" checked>
+                            <span>No spatial filter</span>
+                        </label>
+                        <label class="radio-label" id="radiusSearchLabel" style="display: none;">
+                            <input type="radio" name="spatialType" value="radius">
+                            <span>Radius search (for structures)</span>
+                        </label>
+                        <label class="radio-label" id="bboxSearchLabel" style="display: none;">
+                            <input type="radio" name="spatialType" value="bbox">
+                            <span>Bounding box (for points)</span>
+                        </label>
+                    </div>
+
+                    <div id="radiusInputs" class="spatial-inputs" style="display: none;">
+                        <div class="filter-group">
+                            <label class="mc-label">Center Point (Lon, Lat)</label>
+                            <div class="range-inputs">
+                                <input type="number" class="mc-input" id="centerLon" placeholder="Longitude" step="0.000001">
+                                <input type="number" class="mc-input" id="centerLat" placeholder="Latitude" step="0.000001">
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label class="mc-label">Radius (feet)</label>
+                            <input type="number" class="mc-input" id="radiusFeet" placeholder="100" step="1">
+                        </div>
+                    </div>
+
+                    <div id="bboxInputs" class="spatial-inputs" style="display: none;">
+                        <div class="filter-group">
+                            <label class="mc-label">Northing Range</label>
+                            <div class="range-inputs">
+                                <input type="number" class="mc-input" id="minNorthing" placeholder="Min" step="0.01">
+                                <input type="number" class="mc-input" id="maxNorthing" placeholder="Max" step="0.01">
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label class="mc-label">Easting Range</label>
+                            <div class="range-inputs">
+                                <input type="number" class="mc-input" id="minEasting" placeholder="Min" step="0.01">
+                                <input type="number" class="mc-input" id="maxEasting" placeholder="Max" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <div class="filter-actions">
+                <button class="mc-btn mc-btn-primary mc-btn-lg" id="executeSearchBtn">
+                    <i class="fas fa-search"></i> Search
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="mc-card results-card">
+            <div class="results-header">
+                <h3 class="section-title">
+                    <i class="fas fa-table"></i> Results
+                    <span class="result-count" id="resultCount">0 items</span>
+                </h3>
+                <div class="results-actions">
+                    <select class="mc-input mc-input-sm" id="resultsPerPage">
+                        <option value="25">25 per page</option>
+                        <option value="50" selected>50 per page</option>
+                        <option value="100">100 per page</option>
+                        <option value="200">200 per page</option>
+                    </select>
+                    <div class="mc-btn-group">
+                        <button class="mc-btn mc-btn-sm mc-btn-secondary" id="exportCSVBtn">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                        <button class="mc-btn mc-btn-sm mc-btn-secondary" id="exportExcelBtn">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-container">
+                <div class="empty-state" id="emptyState">
+                    <i class="fas fa-search fa-3x"></i>
+                    <h3>No search performed yet</h3>
+                    <p>Configure your filters above and click "Search" to see results</p>
+                </div>
+
+                <div class="loading-state" id="loadingState" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Searching...</p>
+                </div>
+
+                <div id="resultsTableContainer" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="mc-table" id="resultsTable">
+                            <thead id="resultsTableHead">
+                                <!-- Headers will be generated dynamically -->
+                            </thead>
+                            <tbody id="resultsTableBody">
+                                <!-- Results will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination-container">
+                        <div class="pagination-info" id="paginationInfo"></div>
+                        <div class="pagination-controls">
+                            <button class="mc-btn mc-btn-sm" id="prevPageBtn" disabled>
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </button>
+                            <span class="page-indicator" id="pageIndicator">Page 1</span>
+                            <button class="mc-btn mc-btn-sm" id="nextPageBtn">
+                                Next <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save Template Modal -->
+<div class="mc-modal" id="saveTemplateModal">
+    <div class="mc-modal-content">
+        <div class="mc-modal-header">
+            <h2><i class="fas fa-save"></i> Save Search Template</h2>
+            <button class="mc-modal-close" id="closeTemplateModal">&times;</button>
+        </div>
+        <div class="mc-modal-body">
+            <div class="filter-group">
+                <label class="mc-label">Template Name *</label>
+                <input type="text" class="mc-input" id="templateName" placeholder="My Custom Search">
+            </div>
+            <div class="filter-group">
+                <label class="mc-label">Description</label>
+                <textarea class="mc-input" id="templateDescription" rows="3" placeholder="Describe what this search finds..."></textarea>
+            </div>
+            <div class="filter-group">
+                <label class="mc-label">Category</label>
+                <input type="text" class="mc-input" id="templateCategory" placeholder="Quality Control, Analysis, etc.">
+            </div>
+            <div class="filter-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="templatePublicCheckbox">
+                    <span>Make this template public</span>
+                </label>
+            </div>
+        </div>
+        <div class="mc-modal-footer">
+            <button class="mc-btn mc-btn-secondary" id="cancelTemplateBtn">Cancel</button>
+            <button class="mc-btn mc-btn-primary" id="confirmSaveTemplateBtn">Save Template</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.advanced-search-container {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+}
+
+.search-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
+
+.search-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.section-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--spacing-md) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.section-title i {
+    color: var(--accent-cyan);
+}
+
+.result-count {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: normal;
+    margin-left: var(--spacing-sm);
+}
+
+/* Template List */
+.template-filters {
+    margin-bottom: var(--spacing-md);
+}
+
+.template-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.template-item {
+    padding: var(--spacing-sm);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.template-item:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent-cyan);
+}
+
+.template-item.active {
+    background: var(--accent-cyan);
+    color: white;
+}
+
+.template-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-xs);
+}
+
+.template-item-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.template-item-badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    background: var(--accent-purple);
+    color: white;
+    border-radius: var(--radius-sm);
+}
+
+.template-item-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+
+.template-item.active .template-item-desc {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* History List */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.history-item {
+    padding: var(--spacing-sm);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.85rem;
+}
+
+.history-item:hover {
+    background: var(--bg-secondary);
+}
+
+.history-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.history-item-type {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.history-item-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.history-item-results {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Filters */
+.filters-card {
+    background: var(--bg-secondary);
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.range-inputs {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.range-inputs input {
+    flex: 1;
+}
+
+.range-inputs span {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.advanced-section {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+}
+
+.advanced-section summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    transition: background 0.2s;
+}
+
+.advanced-section summary:hover {
+    background: var(--bg-tertiary);
+}
+
+.spatial-search-options {
+    margin-top: var(--spacing-md);
+}
+
+.spatial-inputs {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+}
+
+.filter-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--spacing-lg);
+}
+
+/* Results */
+.results-card {
+    min-height: 400px;
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.results-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.results-container {
+    position: relative;
+    min-height: 300px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-xl) var(--spacing-lg);
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    color: var(--accent-cyan);
+    margin-bottom: var(--spacing-md);
+}
+
+.empty-state h3 {
+    margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+    color: var(--text-secondary);
+}
+
+.loading-state {
+    text-align: center;
+    padding: var(--spacing-xl) var(--spacing-lg);
+}
+
+.spinner {
+    border: 3px solid var(--bg-tertiary);
+    border-top: 3px solid var(--accent-cyan);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto var(--spacing-md) auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.table-responsive {
+    overflow-x: auto;
+    margin-bottom: var(--spacing-md);
+}
+
+.mc-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.mc-table th {
+    background: var(--bg-tertiary);
+    padding: var(--spacing-sm);
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.mc-table td {
+    padding: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.85rem;
+}
+
+.mc-table tbody tr:hover {
+    background: var(--bg-tertiary);
+}
+
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+}
+
+.pagination-info {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.page-indicator {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: var(--accent-cyan);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    transition: background 0.2s;
+}
+
+.icon-btn:hover {
+    background: var(--bg-tertiary);
+}
+
+/* Modal */
+.mc-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+.mc-modal.active {
+    display: flex;
+}
+
+.mc-modal-content {
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.mc-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.mc-modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.mc-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+}
+
+.mc-modal-close:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.mc-modal-body {
+    padding: var(--spacing-lg);
+}
+
+.mc-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 1024px) {
+    .advanced-search-container {
+        grid-template-columns: 1fr;
+    }
+
+    .search-sidebar {
+        max-height: none;
+    }
+}
+</style>
+
+<script>
+let currentPage = 1;
+let currentPerPage = 50;
+let currentResults = [];
+let currentSearchId = null;
+let currentEntityType = 'utility_structures';
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    loadTemplates();
+    loadSearchHistory();
+    setupEventListeners();
+    updateEntityTypeUI();
+});
+
+function setupEventListeners() {
+    // Entity type change
+    document.getElementById('entityTypeSelect').addEventListener('change', function() {
+        currentEntityType = this.value;
+        updateEntityTypeUI();
+        loadTemplates();
+    });
+
+    // Search button
+    document.getElementById('executeSearchBtn').addEventListener('click', executeSearch);
+
+    // Clear filters
+    document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
+
+    // Save template
+    document.getElementById('saveTemplateBtn').addEventListener('click', openSaveTemplateModal);
+    document.getElementById('closeTemplateModal').addEventListener('click', closeSaveTemplateModal);
+    document.getElementById('cancelTemplateBtn').addEventListener('click', closeSaveTemplateModal);
+    document.getElementById('confirmSaveTemplateBtn').addEventListener('click', saveTemplate);
+
+    // Pagination
+    document.getElementById('prevPageBtn').addEventListener('click', () => changePage(-1));
+    document.getElementById('nextPageBtn').addEventListener('click', () => changePage(1));
+    document.getElementById('resultsPerPage').addEventListener('change', function() {
+        currentPerPage = parseInt(this.value);
+        currentPage = 1;
+        executeSearch();
+    });
+
+    // Export buttons
+    document.getElementById('exportCSVBtn').addEventListener('click', () => exportResults('csv'));
+    document.getElementById('exportExcelBtn').addEventListener('click', () => exportResults('excel'));
+
+    // Template category filter
+    document.getElementById('templateCategoryFilter').addEventListener('change', loadTemplates);
+
+    // Bookmarked filter
+    document.getElementById('bookmarkedOnlyCheckbox').addEventListener('change', loadSearchHistory);
+
+    // Refresh templates
+    document.getElementById('refreshTemplatesBtn').addEventListener('click', loadTemplates);
+
+    // Spatial search radio buttons
+    document.querySelectorAll('input[name="spatialType"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.getElementById('radiusInputs').style.display = this.value === 'radius' ? 'block' : 'none';
+            document.getElementById('bboxInputs').style.display = this.value === 'bbox' ? 'block' : 'none';
+        });
+    });
+}
+
+function updateEntityTypeUI() {
+    // Show/hide filters based on entity type
+    const isStructures = currentEntityType === 'utility_structures';
+    const isPoints = currentEntityType === 'survey_points';
+    const isLines = currentEntityType === 'utility_lines';
+
+    document.getElementById('structureTypeFilterGroup').style.display = isStructures ? 'block' : 'none';
+    document.getElementById('materialFilterGroup').style.display = isLines ? 'block' : 'none';
+    document.getElementById('elevationFilterGroup').style.display = isPoints ? 'block' : 'none';
+    document.getElementById('orphanedCheckboxLabel').style.display = isStructures ? 'block' : 'none';
+    document.getElementById('missingElevationLabel').style.display = isPoints ? 'block' : 'none';
+    document.getElementById('radiusSearchLabel').style.display = isStructures ? 'block' : 'none';
+    document.getElementById('bboxSearchLabel').style.display = isPoints ? 'block' : 'none';
+}
+
+async function loadTemplates() {
+    const category = document.getElementById('templateCategoryFilter').value;
+    try {
+        const params = new URLSearchParams({
+            entity_type: currentEntityType,
+            is_public: 'true'
+        });
+        if (category) params.append('category', category);
+
+        const response = await fetch(`/api/search/templates?${params}`);
+        const templates = await response.json();
+
+        const templateList = document.getElementById('templateList');
+        if (templates.length === 0) {
+            templateList.innerHTML = '<div style="text-align: center; padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">No templates found</div>';
+            return;
+        }
+
+        templateList.innerHTML = templates.map(t => `
+            <div class="template-item" data-template-id="${t.template_id}">
+                <div class="template-item-header">
+                    <div class="template-item-name">${t.template_name}</div>
+                    ${t.is_system_template ? '<div class="template-item-badge">SYSTEM</div>' : ''}
+                </div>
+                <div class="template-item-desc">${t.template_description || ''}</div>
+            </div>
+        `).join('');
+
+        // Add click handlers
+        templateList.querySelectorAll('.template-item').forEach(item => {
+            item.addEventListener('click', () => loadTemplate(item.dataset.templateId));
+        });
+    } catch (error) {
+        console.error('Error loading templates:', error);
+    }
+}
+
+async function loadTemplate(templateId) {
+    try {
+        const response = await fetch(`/api/search/templates?entity_type=${currentEntityType}`);
+        const templates = await response.json();
+        const template = templates.find(t => t.template_id === templateId);
+
+        if (!template) return;
+
+        // Apply filter config
+        applyFilterConfig(template.filter_config);
+
+        // Highlight selected template
+        document.querySelectorAll('.template-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.templateId === templateId);
+        });
+
+        // Auto-execute search
+        executeSearch();
+    } catch (error) {
+        console.error('Error loading template:', error);
+    }
+}
+
+function applyFilterConfig(config) {
+    // Clear existing filters first
+    clearFilters();
+
+    // Apply each filter
+    if (config.search_text) {
+        document.getElementById('searchTextInput').value = config.search_text;
+    }
+    if (config.project_id) {
+        document.getElementById('projectFilter').value = config.project_id;
+    }
+    if (config.structure_type_id) {
+        document.getElementById('structureTypeFilter').value = config.structure_type_id;
+    }
+    if (config.material) {
+        document.getElementById('materialFilter').value = config.material;
+    }
+    if (config.elevation_range) {
+        if (config.elevation_range.min !== null) {
+            document.getElementById('elevationMin').value = config.elevation_range.min;
+        }
+        if (config.elevation_range.max !== null) {
+            document.getElementById('elevationMax').value = config.elevation_range.max;
+        }
+    }
+    if (config.has_no_connections) {
+        document.getElementById('orphanedCheckbox').checked = true;
+    }
+    if (config.elevation_null) {
+        document.getElementById('missingElevationCheckbox').checked = true;
+    }
+}
+
+function clearFilters() {
+    document.getElementById('searchTextInput').value = '';
+    document.getElementById('projectFilter').value = '';
+    document.getElementById('structureTypeFilter').value = '';
+    document.getElementById('materialFilter').value = '';
+    document.getElementById('elevationMin').value = '';
+    document.getElementById('elevationMax').value = '';
+    document.getElementById('dateStart').value = '';
+    document.getElementById('dateEnd').value = '';
+    document.getElementById('orphanedCheckbox').checked = false;
+    document.getElementById('missingElevationCheckbox').checked = false;
+    document.querySelectorAll('input[name="spatialType"]')[0].checked = true;
+    document.getElementById('radiusInputs').style.display = 'none';
+    document.getElementById('bboxInputs').style.display = 'none';
+    document.querySelectorAll('.template-item').forEach(item => item.classList.remove('active'));
+}
+
+function buildFilterConfig() {
+    const config = {};
+
+    const searchText = document.getElementById('searchTextInput').value.trim();
+    if (searchText) config.search_text = searchText;
+
+    const projectId = document.getElementById('projectFilter').value;
+    if (projectId) config.project_id = projectId;
+
+    if (currentEntityType === 'utility_structures') {
+        const structureTypeId = document.getElementById('structureTypeFilter').value;
+        if (structureTypeId) config.structure_type_id = structureTypeId;
+
+        if (document.getElementById('orphanedCheckbox').checked) {
+            config.has_no_connections = true;
+        }
+    }
+
+    if (currentEntityType === 'utility_lines') {
+        const material = document.getElementById('materialFilter').value.trim();
+        if (material) config.material = material;
+    }
+
+    if (currentEntityType === 'survey_points') {
+        const elevMin = document.getElementById('elevationMin').value;
+        const elevMax = document.getElementById('elevationMax').value;
+        if (elevMin || elevMax) {
+            config.elevation_range = {};
+            if (elevMin) config.elevation_range.min = parseFloat(elevMin);
+            if (elevMax) config.elevation_range.max = parseFloat(elevMax);
+        }
+
+        if (document.getElementById('missingElevationCheckbox').checked) {
+            config.elevation_null = true;
+        }
+    }
+
+    const dateStart = document.getElementById('dateStart').value;
+    const dateEnd = document.getElementById('dateEnd').value;
+    if (dateStart || dateEnd) {
+        config.date_range = { field: 'created_at' };
+        if (dateStart) config.date_range.start = dateStart;
+        if (dateEnd) config.date_range.end = dateEnd;
+    }
+
+    // Spatial search
+    const spatialType = document.querySelector('input[name="spatialType"]:checked').value;
+    if (spatialType === 'radius') {
+        const lon = document.getElementById('centerLon').value;
+        const lat = document.getElementById('centerLat').value;
+        const radius = document.getElementById('radiusFeet').value;
+        if (lon && lat && radius) {
+            config.spatial_search = {
+                type: 'radius',
+                center_lon: parseFloat(lon),
+                center_lat: parseFloat(lat),
+                radius_feet: parseFloat(radius)
+            };
+        }
+    } else if (spatialType === 'bbox') {
+        const minN = document.getElementById('minNorthing').value;
+        const maxN = document.getElementById('maxNorthing').value;
+        const minE = document.getElementById('minEasting').value;
+        const maxE = document.getElementById('maxEasting').value;
+        if (minN && maxN && minE && maxE) {
+            config.spatial_search = {
+                type: 'bbox',
+                min_northing: parseFloat(minN),
+                max_northing: parseFloat(maxN),
+                min_easting: parseFloat(minE),
+                max_easting: parseFloat(maxE)
+            };
+        }
+    }
+
+    return config;
+}
+
+async function executeSearch() {
+    const filterConfig = buildFilterConfig();
+
+    // Show loading state
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('resultsTableContainer').style.display = 'none';
+
+    try {
+        const response = await fetch('/api/search/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                entity_type: currentEntityType,
+                filter_config: filterConfig,
+                sort_field: 'created_at',
+                sort_direction: 'DESC',
+                page: currentPage,
+                per_page: currentPerPage
+            })
+        });
+
+        const data = await response.json();
+        currentResults = data.results || [];
+        currentSearchId = data.search_id;
+
+        displayResults(data);
+        loadSearchHistory(); // Refresh history
+    } catch (error) {
+        console.error('Error executing search:', error);
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'block';
+        document.getElementById('emptyState').innerHTML = `
+            <i class="fas fa-exclamation-triangle fa-3x" style="color: var(--accent-red);"></i>
+            <h3>Search Error</h3>
+            <p>${error.message || 'An error occurred while searching'}</p>
+        `;
+    }
+}
+
+function displayResults(data) {
+    document.getElementById('loadingState').style.display = 'none';
+
+    if (!data.results || data.results.length === 0) {
+        document.getElementById('emptyState').innerHTML = `
+            <i class="fas fa-search fa-3x"></i>
+            <h3>No results found</h3>
+            <p>Try adjusting your search filters</p>
+        `;
+        document.getElementById('emptyState').style.display = 'block';
+        document.getElementById('resultsTableContainer').style.display = 'none';
+        return;
+    }
+
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('resultsTableContainer').style.display = 'block';
+
+    // Update count
+    document.getElementById('resultCount').textContent = `${data.count} items`;
+
+    // Build table headers
+    const headers = Object.keys(data.results[0]);
+    const thead = document.getElementById('resultsTableHead');
+    thead.innerHTML = `<tr>${headers.map(h => `<th>${formatHeader(h)}</th>`).join('')}</tr>`;
+
+    // Build table body
+    const tbody = document.getElementById('resultsTableBody');
+    tbody.innerHTML = data.results.map(row => {
+        return `<tr>${headers.map(h => `<td>${formatCell(row[h])}</td>`).join('')}</tr>`;
+    }).join('');
+
+    // Update pagination
+    updatePagination(data);
+}
+
+function formatHeader(header) {
+    return header.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function formatCell(value) {
+    if (value === null || value === undefined) return '<span style="color: var(--text-muted);">-</span>';
+    if (typeof value === 'number') return value.toFixed(2);
+    return value;
+}
+
+function updatePagination(data) {
+    document.getElementById('pageIndicator').textContent = `Page ${currentPage}`;
+    document.getElementById('paginationInfo').textContent =
+        `Showing ${(currentPage - 1) * currentPerPage + 1}-${Math.min(currentPage * currentPerPage, data.count)} of ${data.count}`;
+
+    document.getElementById('prevPageBtn').disabled = currentPage === 1;
+    document.getElementById('nextPageBtn').disabled = data.count <= currentPage * currentPerPage;
+}
+
+function changePage(delta) {
+    currentPage += delta;
+    executeSearch();
+}
+
+async function exportResults(format) {
+    if (!currentResults || currentResults.length === 0) {
+        alert('No results to export');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/search/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                search_id: currentSearchId,
+                format: format,
+                results: currentResults
+            })
+        });
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `search_results_${new Date().toISOString().slice(0,10)}.${format === 'excel' ? 'xlsx' : format}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (error) {
+        console.error('Export error:', error);
+        alert('Failed to export results');
+    }
+}
+
+async function loadSearchHistory() {
+    const bookmarkedOnly = document.getElementById('bookmarkedOnlyCheckbox').checked;
+    try {
+        const params = new URLSearchParams({
+            bookmarked_only: bookmarkedOnly,
+            entity_type: currentEntityType,
+            limit: 10
+        });
+
+        const response = await fetch(`/api/search/history?${params}`);
+        const history = await response.json();
+
+        const historyList = document.getElementById('historyList');
+        if (history.length === 0) {
+            historyList.innerHTML = '<div style="text-align: center; padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">No history</div>';
+            return;
+        }
+
+        historyList.innerHTML = history.map(h => `
+            <div class="history-item" data-history-id="${h.search_id}">
+                <div class="history-item-header">
+                    <div class="history-item-type">${formatHeader(h.entity_type)}</div>
+                    <div class="history-item-time">${formatTime(h.executed_at)}</div>
+                </div>
+                <div class="history-item-results">${h.result_count || 0} results • ${h.execution_time_ms}ms</div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error loading history:', error);
+    }
+}
+
+function formatTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return 'Just now';
+}
+
+function openSaveTemplateModal() {
+    document.getElementById('saveTemplateModal').classList.add('active');
+}
+
+function closeSaveTemplateModal() {
+    document.getElementById('saveTemplateModal').classList.remove('active');
+}
+
+async function saveTemplate() {
+    const name = document.getElementById('templateName').value.trim();
+    if (!name) {
+        alert('Please enter a template name');
+        return;
+    }
+
+    const filterConfig = buildFilterConfig();
+
+    try {
+        const response = await fetch('/api/search/templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                template_name: name,
+                template_description: document.getElementById('templateDescription').value.trim(),
+                entity_type: currentEntityType,
+                filter_config: filterConfig,
+                category: document.getElementById('templateCategory').value.trim() || 'Custom',
+                is_public: document.getElementById('templatePublicCheckbox').checked,
+                created_by: 'user'
+            })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            alert('Template saved successfully!');
+            closeSaveTemplateModal();
+            loadTemplates();
+            // Clear form
+            document.getElementById('templateName').value = '';
+            document.getElementById('templateDescription').value = '';
+            document.getElementById('templateCategory').value = '';
+            document.getElementById('templatePublicCheckbox').checked = false;
+        } else {
+            alert(`Error: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Error saving template:', error);
+        alert('Failed to save template');
+    }
+}
+</script>
+
+{% endblock %}
