@@ -1,420 +1,259 @@
-{% extends "base.html" %}
+{% extends "base_specialized_tool.html" %}
 
-{% block title %}BMP Manager{% endblock %}
+{% block tool_title %}BMP Manager{% endblock %}
+{% block tool_icon %}fas fa-leaf{% endblock %}
+{% block tool_description %}Manage stormwater Best Management Practices (bioswales, detention basins, infiltration systems){% endblock %}
 
-{% block extra_head %}
-<script src="{{ url_for('static', filename='js/specialized-tool-info.js') }}"></script>
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block leaflet_assets %}
+<!-- Not using Leaflet, using SVG viewer instead -->
 {% endblock %}
 
-{% block content %}
-<div class="content">
-    <div class="page-header">
-        <div class="page-header-content">
-            <i class="fas fa-leaf neon-green"></i>
-            <div>
-                <h2 class="orbitron">BMP Manager</h2>
-                <p>Manage stormwater BMPs (bioswales, detention basins, infiltration systems)</p>
-            </div>
-        </div>
+{% block extra_head %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/specialized-tool-info.js') }}"></script>
+<script src="/static/js/entity_viewer_core.js"></script>
+{% endblock %}
+
+{% block sidebar_content %}
+<!-- BMP Selector -->
+<div class="tool-filter-section">
+    <h4>BMP Selection</h4>
+    <div class="tool-filter-item">
+        <label>Select BMP:</label>
+        <select id="bmpSelect" onchange="loadBMP()">
+            <option value="">Loading BMPs...</option>
+        </select>
     </div>
+</div>
 
-    <!-- Specialized Tool Info Card - Database Driven -->
-    <div id="toolInfoCard" style="margin: 20px;"></div>
-    <script>
-        // Load tool info from database when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            loadToolInfoCard('BIOR', 'toolInfoCard');
-        });
-    </script>
+<!-- Filters -->
+<div class="tool-filter-section">
+    <h4>BMP Type</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterBioretention" checked onchange="applyFilters()">
+        <label for="filterBioretention">Bioretention</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterInfiltration" checked onchange="applyFilters()">
+        <label for="filterInfiltration">Infiltration</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterDetention" checked onchange="applyFilters()">
+        <label for="filterDetention">Detention Basin</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterSwale" checked onchange="applyFilters()">
+        <label for="filterSwale">Swale</label>
+    </div>
+    <div class="tool-filter-item" style="margin-top: 0.75rem;">
+        <label>Status:</label>
+        <select id="filterStatus" onchange="applyFilters()">
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="proposed">Proposed</option>
+            <option value="maintained">Under Maintenance</option>
+        </select>
+    </div>
+</div>
 
-    <div class="bmp-editor-container">
-        <div class="editor-controls">
-            <label for="bmpSelect">Select BMP:</label>
-            <select id="bmpSelect" onchange="loadBMP()">
-                <option value="">Loading BMPs...</option>
-            </select>
-            <button class="btn-primary" onclick="saveChanges()" id="saveBtn" disabled>
-                <i class="fas fa-save"></i> Save Changes
-            </button>
-            <span id="statusMessage" class="status-message"></span>
-        </div>
+<!-- Quick Stats -->
+<div class="tool-stats-section" id="bmpStats" style="display:none;">
+    <h4>BMP Stats</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total BMPs:</span>
+        <span class="tool-stat-value" id="statTotal">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Treatment Vol:</span>
+        <span class="tool-stat-value" id="statVolume">0 CF</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Drainage Area:</span>
+        <span class="tool-stat-value" id="statArea">0 ac</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Active:</span>
+        <span class="tool-stat-value" id="statActive">0</span>
+    </div>
+</div>
 
-        <div class="bmp-details" id="bmpDetails" style="display:none;">
-            <div class="details-card">
-                <h3 id="bmpName">BMP Name</h3>
-                <p id="bmpInfo"></p>
+<!-- Actions -->
+<div id="bmpActions" style="display:none;">
+    <button class="tool-action-btn" onclick="addBMP()">
+        <i class="fas fa-plus"></i> Add New BMP
+    </button>
+    <button class="tool-action-btn" id="saveBtn" onclick="saveChanges()">
+        <i class="fas fa-save"></i> Save Changes
+    </button>
+    <button class="tool-action-btn secondary" onclick="exportData()">
+        <i class="fas fa-download"></i> Export Report
+    </button>
+</div>
+
+<!-- Status Messages -->
+<div id="statusContainer" style="margin-top: 1rem;"></div>
+{% endblock %}
+
+{% block main_content %}
+<!-- Top Area: Interactive Map -->
+<div class="tool-top-area">
+    <div class="tool-loading" id="loadingMessage" style="display:none;">
+        Loading BMPs...
+    </div>
+    <div class="tool-empty-state" id="emptyState">
+        <i class="fas fa-leaf" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+        <p>Select a BMP to begin</p>
+        <p style="font-size: 0.8rem; opacity: 0.7;">Choose a BMP from the sidebar or add a new one</p>
+    </div>
+    
+    <!-- SVG Viewer for BMP visualization -->
+    <div id="bmpViewer" style="display:none; width: 100%; height: 100%; position: relative;">
+        <svg id="bmpCanvas" width="100%" height="100%"></svg>
+        
+        <!-- Legend overlay -->
+        <div style="position: absolute; top: 1rem; left: 1rem; background: rgba(0,0,0,0.9); border: 1px solid var(--mc-primary); border-radius: 8px; padding: 1rem; max-width: 250px;">
+            <div style="color: var(--mc-primary); font-family: 'Orbitron', monospace; font-size: 0.9rem; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--mc-primary);">
+                Legend
             </div>
+            <div id="viewerLegend">Loading...</div>
         </div>
-
-        <div class="editor-workspace" id="workspace" style="display:none;">
-            <div class="viewer-container">
-                <div class="viewer-main">
-                    <div class="viewer-canvas-container">
-                        <div id="loadingMessage" class="loading-message">Loading BMP...</div>
-                        <svg id="bmpCanvas" width="100%" height="100%"></svg>
-                    </div>
-                    <div class="viewer-sidebar">
-                        <div class="legend-panel">
-                            <div class="panel-title">Legend</div>
-                            <div id="viewerLegend">Select a BMP to view</div>
-                        </div>
-                        <div class="info-panel">
-                            <div class="panel-title">Entity Info</div>
-                            <div id="entityInfo">Hover or click an entity</div>
-                        </div>
-                    </div>
-                </div>
+        
+        <!-- Info overlay -->
+        <div style="position: absolute; bottom: 1rem; left: 1rem; background: rgba(0,0,0,0.9); border: 1px solid var(--mc-primary); border-radius: 8px; padding: 1rem; max-width: 300px;">
+            <div style="color: var(--mc-primary); font-family: 'Orbitron', monospace; font-size: 0.9rem; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--mc-primary);">
+                BMP Info
             </div>
-
-            <div class="tables-container">
-                <div class="table-section full-width">
-                    <h3>BMP Details</h3>
-                    <div class="table-wrapper">
-                        <table id="bmpTable" class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>BMP Name</th>
-                                    <th>Type</th>
-                                    <th>Status</th>
-                                    <th>Treatment Vol (CF)</th>
-                                    <th>Storage Vol (CF)</th>
-                                    <th>Infiltration Rate (in/hr)</th>
-                                    <th>Bypass Elev (ft)</th>
-                                    <th>Maintenance Schedule</th>
-                                    <th>Drainage Area (ac)</th>
-                                    <th>Design Storm</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="10">No BMP data found</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="table-section full-width">
-                    <h3>Inflow/Outflow Connections</h3>
-                    <div class="table-wrapper">
-                        <table id="connectionsTable" class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Connection Type</th>
-                                    <th>Connected Structure</th>
-                                    <th>Connected Line</th>
-                                    <th>Invert Elevation (ft)</th>
-                                    <th>Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="5">No connections found</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <div id="entityInfo" style="color: var(--mc-text); font-family: 'Rajdhani', sans-serif; font-size: 0.85rem;">
+                Click or hover on a BMP
             </div>
         </div>
     </div>
 </div>
 
-<style>
-.bmp-editor-container {
-    padding: 20px;
-}
+<!-- Resizer -->
+<div class="tool-resizer" id="resizer"></div>
 
-.editor-controls {
-    background: rgba(0, 20, 40, 0.6);
-    border: 1px solid var(--neon-blue);
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
+<!-- Bottom Area: Data Tables -->
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active" data-tab="properties" data-tab-group="bmp" onclick="switchTab('properties', 'bmp')">
+            <i class="fas fa-info-circle"></i> BMP Properties
+        </button>
+        <button class="tool-data-tab" data-tab="connections" data-tab-group="bmp" onclick="switchTab('connections', 'bmp')">
+            <i class="fas fa-project-diagram"></i> Connections
+        </button>
+        <button class="tool-data-tab" data-tab="maintenance" data-tab-group="bmp" onclick="switchTab('maintenance', 'bmp')">
+            <i class="fas fa-tools"></i> Maintenance
+        </button>
+    </div>
+    
+    <div class="tool-data-content">
+        <!-- Properties Tab -->
+        <div class="tool-tab-content" data-tab="properties" data-tab-group="bmp">
+            <table class="tool-data-table" id="propertiesTable">
+                <thead>
+                    <tr>
+                        <th>BMP Name</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Treatment Vol (CF)</th>
+                        <th>Storage Vol (CF)</th>
+                        <th>Infiltration Rate (in/hr)</th>
+                        <th>Bypass Elev (ft)</th>
+                        <th>Drainage Area (ac)</th>
+                        <th>Design Storm</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="9" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No BMP data loaded</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Connections Tab -->
+        <div class="tool-tab-content" data-tab="connections" data-tab-group="bmp" style="display:none;">
+            <table class="tool-data-table" id="connectionsTable">
+                <thead>
+                    <tr>
+                        <th>Connection Type</th>
+                        <th>Connected Structure</th>
+                        <th>Connected Line</th>
+                        <th>Invert Elevation (ft)</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="5" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No connections found</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Maintenance Tab -->
+        <div class="tool-tab-content" data-tab="maintenance" data-tab-group="bmp" style="display:none;">
+            <div style="padding: 1rem;">
+                <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Maintenance Schedule</h4>
+                <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">
+                    Track maintenance activities, inspections, and recommended actions for BMP performance.
+                </p>
+                <table class="tool-data-table" id="maintenanceTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Activity</th>
+                            <th>Performed By</th>
+                            <th>Notes</th>
+                            <th>Next Due</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="5" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No maintenance records</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-.editor-controls label {
-    color: var(--neon-cyan);
-    font-weight: bold;
-}
-
-.editor-controls select {
-    flex: 1;
-    max-width: 400px;
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--neon-blue);
-    color: var(--text-primary);
-    border-radius: 4px;
-}
-
-.details-card {
-    background: rgba(0, 20, 40, 0.6);
-    border: 1px solid var(--neon-cyan);
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-.details-card h3 {
-    color: var(--neon-cyan);
-    margin: 0 0 10px 0;
-}
-
-.editor-workspace {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.viewer-container {
-    background: rgba(0, 20, 40, 0.6);
-    border: 1px solid var(--mc-primary);
-    border-radius: 8px;
-    padding: 1rem;
-}
-
-.viewer-main {
-    display: flex;
-    gap: 1rem;
-    height: 600px;
-}
-
-.viewer-canvas-container {
-    flex: 1;
-    background: #000;
-    border: 2px solid var(--mc-primary);
-    border-radius: 8px;
-    position: relative;
-    overflow: hidden;
-}
-
-.loading-message {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: var(--mc-primary);
-    font-size: 1.2rem;
-    text-align: center;
-    z-index: 10;
-}
-
-#bmpCanvas {
-    display: block;
-}
-
-.viewer-sidebar {
-    width: 300px;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.legend-panel,
-.info-panel {
-    background: rgba(0, 0, 0, 0.9);
-    border: 1px solid var(--mc-primary);
-    border-radius: 8px;
-    padding: 1rem;
-}
-
-.legend-panel {
-    flex: 1;
-    overflow-y: auto;
-}
-
-.info-panel {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.panel-title {
-    color: var(--mc-primary);
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1rem;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--mc-primary);
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0;
-    font-size: 0.85rem;
-}
-
-.legend-color {
-    width: 20px;
-    height: 3px;
-}
-
-.legend-color.point {
-    height: 12px;
-    width: 12px;
-    border-radius: 50%;
-}
-
-.legend-color.polygon {
-    height: 16px;
-    width: 20px;
-    opacity: 0.6;
-}
-
-.legend-count {
-    margin-left: auto;
-    color: var(--mc-accent);
-    font-weight: bold;
-}
-
-.entity-highlighted {
-    stroke-width: 3 !important;
-    opacity: 1 !important;
-    filter: drop-shadow(0 0 4px currentColor);
-}
-
-.entity-selected {
-    stroke-width: 4 !important;
-    opacity: 1 !important;
-    filter: drop-shadow(0 0 8px currentColor);
-}
-
-.table-row-selected {
-    background: rgba(0, 255, 136, 0.15) !important;
-    border-left: 3px solid var(--mc-accent);
-}
-
-.tables-container {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.table-section {
-    background: rgba(0, 20, 40, 0.6);
-    border: 1px solid var(--neon-blue);
-    padding: 20px;
-    border-radius: 8px;
-}
-
-.table-section.full-width {
-    width: 100%;
-}
-
-.table-section h3 {
-    color: var(--neon-cyan);
-    margin: 0 0 15px 0;
-}
-
-.table-wrapper {
-    overflow-x: auto;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.data-table th {
-    background: rgba(0, 255, 255, 0.1);
-    color: var(--neon-cyan);
-    padding: 10px;
-    text-align: left;
-    border-bottom: 2px solid var(--neon-cyan);
-    font-size: 0.9rem;
-}
-
-.data-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
-    color: var(--text-primary);
-    font-size: 0.85rem;
-}
-
-.data-table tbody tr:hover {
-    background: rgba(0, 255, 255, 0.05);
-}
-
-.data-table tbody tr.table-row {
-    cursor: pointer;
-}
-
-.data-table input {
-    width: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--neon-blue);
-    color: var(--text-primary);
-    padding: 4px 8px;
-    border-radius: 3px;
-}
-
-.data-table input:focus {
-    outline: none;
-    border-color: var(--neon-cyan);
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, var(--neon-cyan), var(--neon-blue));
-    color: #000;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-.btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.status-message {
-    color: var(--neon-green);
-    font-weight: bold;
-}
-
-.status-message.error {
-    color: #ff6b6b;
-}
-</style>
-
-<script src="/static/js/entity_viewer_core.js"></script>
-<script>
-let currentBmpId = null;
-let bmpData = null;
-let connectionsData = [];
-let changedData = { bmp: {}, connections: {} };
-
+{% block extra_js %}
+let currentBMP = null;
+let bmpsData = [];
+let changedData = {};
 let viewer = null;
 
-const BMP_TYPE_COLORS = {
-    'bioswale': '#2ecc71',
-    'detention_basin': '#3498db',
-    'retention_basin': '#1abc9c',
-    'infiltration_trench': '#95a5a6',
-    'permeable_pavement': '#34495e',
-    'rain_garden': '#27ae60',
-    'other': '#00ffff'
-};
+document.addEventListener('DOMContentLoaded', function() {
+    loadBMPs();
+    setupResizer();
+    // Load tool info from database
+    loadToolInfoCard('BIOR', 'toolInfoCard');
+});
 
 async function loadBMPs() {
     try {
-        const response = await fetch('/api/bmps');
+        const projectId = sessionStorage.getItem('active_project_id');
+        if (!projectId) {
+            showStatus('Please select a project first', true);
+            return;
+        }
+        
+        const response = await fetch(`/api/projects/${projectId}/bmps`);
         const data = await response.json();
         
         const select = document.getElementById('bmpSelect');
         select.innerHTML = '<option value="">Select a BMP...</option>';
         
         if (data.bmps && data.bmps.length > 0) {
+            bmpsData = data.bmps;
             data.bmps.forEach(bmp => {
                 const option = document.createElement('option');
                 option.value = bmp.bmp_id;
-                option.textContent = `${bmp.bmp_name} (${bmp.bmp_type}) - ${bmp.bmp_status}`;
+                option.textContent = `${bmp.bmp_name} (${bmp.bmp_type})`;
                 select.appendChild(option);
             });
         } else {
-            select.innerHTML = '<option value="">No BMPs found - import a DXF or create BMPs first</option>';
+            select.innerHTML = '<option value="">No BMPs found - import a DXF or create new</option>';
         }
     } catch (error) {
         console.error('Error loading BMPs:', error);
@@ -424,190 +263,204 @@ async function loadBMPs() {
 
 async function loadBMP() {
     const bmpId = document.getElementById('bmpSelect').value;
+    
     if (!bmpId) {
-        document.getElementById('workspace').style.display = 'none';
-        document.getElementById('bmpDetails').style.display = 'none';
+        document.getElementById('bmpViewer').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'block';
+        document.getElementById('bmpStats').style.display = 'none';
+        document.getElementById('bmpActions').style.display = 'none';
         return;
     }
     
+    document.getElementById('loadingMessage').style.display = 'block';
+    document.getElementById('emptyState').style.display = 'none';
+    
     try {
-        const [bmpRes, connectionsRes] = await Promise.all([
-            fetch(`/api/bmps/${bmpId}`),
-            fetch(`/api/bmps/${bmpId}/connections`)
-        ]);
+        currentBMP = bmpsData.find(b => b.bmp_id === bmpId);
         
-        bmpData = (await bmpRes.json()).bmp;
-        connectionsData = (await connectionsRes.json()).connections || [];
-        
-        currentBmpId = bmpId;
-        changedData = { bmp: {}, connections: {} };
-        
-        displayBMPInfo();
-        displayBMPDetails();
+        displayStats();
+        displayProperties();
         displayConnections();
         
-        document.getElementById('workspace').style.display = 'flex';
-        document.getElementById('bmpDetails').style.display = 'block';
-        document.getElementById('saveBtn').disabled = false;
+        document.getElementById('bmpStats').style.display = 'block';
+        document.getElementById('bmpActions').style.display = 'block';
+        document.getElementById('bmpViewer').style.display = 'block';
+        document.getElementById('loadingMessage').style.display = 'none';
         
         setTimeout(() => renderViewer(), 50);
     } catch (error) {
         console.error('Error loading BMP:', error);
         showStatus('Error loading BMP data', true);
+        document.getElementById('loadingMessage').style.display = 'none';
     }
 }
 
-function displayBMPInfo() {
-    document.getElementById('bmpName').textContent = bmpData.bmp_name || 'Unnamed BMP';
-    const type = (bmpData.bmp_type || 'Unknown').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    const status = bmpData.bmp_status || 'Active';
-    document.getElementById('bmpInfo').textContent = `Type: ${type} | Status: ${status}`;
+function displayStats() {
+    if (!currentBMP) return;
+    
+    document.getElementById('statTotal').textContent = bmpsData.length;
+    
+    const totalVolume = bmpsData.reduce((sum, bmp) => sum + (parseFloat(bmp.treatment_volume_cf) || 0), 0);
+    document.getElementById('statVolume').textContent = totalVolume.toFixed(0) + ' CF';
+    
+    const totalArea = bmpsData.reduce((sum, bmp) => sum + (parseFloat(bmp.drainage_area_ac) || 0), 0);
+    document.getElementById('statArea').textContent = totalArea.toFixed(2) + ' ac';
+    
+    const activeCount = bmpsData.filter(b => b.bmp_status === 'active').length;
+    document.getElementById('statActive').textContent = activeCount;
 }
 
-function displayBMPDetails() {
-    const tbody = document.getElementById('bmpTable').getElementsByTagName('tbody')[0];
-    tbody.innerHTML = '';
+function displayProperties() {
+    if (!currentBMP) return;
     
-    const row = tbody.insertRow();
-    row.className = 'table-row';
-    
-    const fields = [
-        { key: 'bmp_name', editable: true },
-        { key: 'bmp_type', editable: true },
-        { key: 'bmp_status', editable: true },
-        { key: 'treatment_volume_cf', editable: true },
-        { key: 'storage_volume_cf', editable: true },
-        { key: 'infiltration_rate_in_hr', editable: true },
-        { key: 'bypass_elevation_ft', editable: true },
-        { key: 'maintenance_schedule', editable: true },
-        { key: 'drainage_area_acres', editable: true },
-        { key: 'design_storm', editable: true }
-    ];
-    
-    fields.forEach(field => {
-        const cell = row.insertCell();
-        const value = bmpData[field.key] || '';
-        
-        if (field.editable) {
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = value;
-            input.dataset.field = field.key;
-            input.addEventListener('input', (e) => {
-                changedData.bmp[field.key] = e.target.value;
-                document.getElementById('saveBtn').disabled = false;
-            });
-            cell.appendChild(input);
-        } else {
-            cell.textContent = value;
-        }
-    });
+    const tbody = document.querySelector('#propertiesTable tbody');
+    tbody.innerHTML = `
+        <tr data-entity-id="${currentBMP.bmp_id}" onclick="selectBMP('${currentBMP.bmp_id}')">
+            <td><input type="text" value="${currentBMP.bmp_name || ''}" onchange="updateBMP('bmp_name', this.value)" onclick="event.stopPropagation()"></td>
+            <td>${currentBMP.bmp_type || ''}</td>
+            <td><input type="text" value="${currentBMP.bmp_status || ''}" onchange="updateBMP('bmp_status', this.value)" onclick="event.stopPropagation()"></td>
+            <td><input type="number" step="0.1" value="${currentBMP.treatment_volume_cf || ''}" onchange="updateBMP('treatment_volume_cf', this.value)" onclick="event.stopPropagation()"></td>
+            <td><input type="number" step="0.1" value="${currentBMP.storage_volume_cf || ''}" onchange="updateBMP('storage_volume_cf', this.value)" onclick="event.stopPropagation()"></td>
+            <td><input type="number" step="0.01" value="${currentBMP.infiltration_rate_inhr || ''}" onchange="updateBMP('infiltration_rate_inhr', this.value)" onclick="event.stopPropagation()"></td>
+            <td><input type="number" step="0.01" value="${currentBMP.bypass_elevation_ft || ''}" onchange="updateBMP('bypass_elevation_ft', this.value)" onclick="event.stopPropagation()"></td>
+            <td><input type="number" step="0.01" value="${currentBMP.drainage_area_ac || ''}" onchange="updateBMP('drainage_area_ac', this.value)" onclick="event.stopPropagation()"></td>
+            <td><input type="text" value="${currentBMP.design_storm || ''}" onchange="updateBMP('design_storm', this.value)" onclick="event.stopPropagation()"></td>
+        </tr>
+    `;
 }
 
 function displayConnections() {
-    const tbody = document.getElementById('connectionsTable').getElementsByTagName('tbody')[0];
-    tbody.innerHTML = '';
-    
-    if (!connectionsData || connectionsData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5">No connections found</td></tr>';
-        return;
-    }
-    
-    connectionsData.forEach(conn => {
-        const row = tbody.insertRow();
-        row.className = 'table-row';
-        
-        row.insertCell().textContent = (conn.connection_type || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        row.insertCell().textContent = conn.structure_number || 'N/A';
-        row.insertCell().textContent = conn.line_number || 'N/A';
-        row.insertCell().textContent = conn.invert_elevation_ft || 'N/A';
-        row.insertCell().textContent = conn.notes || '';
-    });
+    const tbody = document.querySelector('#connectionsTable tbody');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No connections found</td></tr>';
 }
 
-async function renderViewer() {
-    if (!currentBmpId) return;
-    
-    viewer = new EntityViewerCore({
-        svgId: 'bmpCanvas',
-        legendId: 'viewerLegend',
-        infoId: 'entityInfo',
-        loadingId: 'loadingMessage',
-        fetchEntitiesUrl: `/api/bmps/${currentBmpId}/viewer-entities`,
-        entityTypeColors: {
-            'bmp_polygon': BMP_TYPE_COLORS[bmpData.bmp_type] || '#00ffff',
-            'connected_structure': '#ff9900',
-            'connected_line': '#9966ff',
-            ...BMP_TYPE_COLORS
-        },
-        infoPropertyMap: [
-            { key: 'bmp_name', label: 'BMP Name' },
-            { key: 'bmp_type', label: 'Type' },
-            { key: 'bmp_status', label: 'Status' },
-            { key: 'treatment_volume_cf', label: 'Treatment Vol (CF)' },
-            { key: 'storage_volume_cf', label: 'Storage Vol (CF)' },
-            { key: 'infiltration_rate_in_hr', label: 'Infiltration (in/hr)' },
-            { key: 'bypass_elevation_ft', label: 'Bypass Elev (ft)' },
-            { key: 'drainage_area_acres', label: 'Drainage Area (ac)' },
-            { key: 'design_storm', label: 'Design Storm' },
-            { key: 'structure_number', label: 'Structure #' },
-            { key: 'structure_type', label: 'Type' },
-            { key: 'line_number', label: 'Line #' },
-            { key: 'material', label: 'Material' },
-            { key: 'diameter_mm', label: 'Diameter (mm)' }
-        ],
-        onEntitySelect: null
-    });
-    
-    await viewer.renderViewer();
+function selectBMP(bmpId) {
+    document.querySelectorAll('#propertiesTable tbody tr').forEach(tr => tr.classList.remove('selected'));
+    const row = document.querySelector(`#propertiesTable tbody tr[data-entity-id="${bmpId}"]`);
+    if (row) {
+        row.classList.add('selected');
+    }
+}
+
+function updateBMP(field, value) {
+    if (!currentBMP) return;
+    changedData[field] = value;
+    showStatus('Changes pending - click Save to apply', false);
 }
 
 async function saveChanges() {
-    if (!currentBmpId) return;
-    
-    const hasChanges = Object.keys(changedData.bmp).length > 0;
-    
-    if (!hasChanges) {
+    if (!currentBMP || Object.keys(changedData).length === 0) {
         showStatus('No changes to save', false);
         return;
     }
     
+    showStatus('Saving changes...', false);
+    
     try {
-        showStatus('Saving changes...', false);
+        const response = await fetch(`/api/bmps/${currentBMP.bmp_id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(changedData)
+        });
         
-        if (Object.keys(changedData.bmp).length > 0) {
-            const response = await fetch(`/api/bmps/${currentBmpId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(changedData.bmp)
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to save BMP changes');
-            }
+        if (response.ok) {
+            showStatus('Changes saved successfully', false);
+            changedData = {};
+            setTimeout(() => showStatus('', false), 3000);
+            await loadBMPs();
+        } else {
+            showStatus('Error saving changes', true);
         }
-        
-        changedData = { bmp: {}, connections: {} };
-        showStatus('Changes saved successfully!', false);
-        
-        await loadBMP();
-        
     } catch (error) {
         console.error('Error saving changes:', error);
         showStatus('Error saving changes: ' + error.message, true);
     }
 }
 
-function showStatus(message, isError) {
-    const statusEl = document.getElementById('statusMessage');
-    statusEl.textContent = message;
-    statusEl.className = 'status-message' + (isError ? ' error' : '');
+async function renderViewer() {
+    if (!currentBMP) return;
     
-    setTimeout(() => {
-        statusEl.textContent = '';
-    }, 5000);
+    const projectId = sessionStorage.getItem('active_project_id');
+    
+    viewer = new EntityViewerCore({
+        svgId: 'bmpCanvas',
+        legendId: 'viewerLegend',
+        infoId: 'entityInfo',
+        loadingId: 'loadingMessage',
+        fetchEntitiesUrl: `/api/projects/${projectId}/bmps/viewer-entities`,
+        entityTypeColors: {
+            'bioretention': '#6a994e',
+            'infiltration': '#0096ff',
+            'detention': '#f7b801',
+            'swale': '#00ff88'
+        },
+        infoPropertyMap: [
+            { key: 'bmp_name', label: 'BMP Name' },
+            { key: 'bmp_type', label: 'Type' },
+            { key: 'treatment_volume_cf', label: 'Treatment Volume (CF)' },
+            { key: 'drainage_area_ac', label: 'Drainage Area (ac)' },
+            { key: 'bmp_status', label: 'Status' }
+        ],
+        onEntitySelect: (entityId, entityType) => {
+            selectBMP(entityId);
+        },
+        enableZoomPan: true,
+        showGrid: true,
+        showNorthArrow: true,
+        showScaleBar: true
+    });
+    
+    await viewer.renderViewer();
 }
 
-loadBMPs();
-</script>
+function applyFilters() {
+    console.log('Filters applied');
+}
+
+function addBMP() {
+    showStatus('Add BMP functionality coming soon...', false);
+    setTimeout(() => showStatus('', false), 2000);
+}
+
+function exportData() {
+    showStatus('Export functionality coming soon...', false);
+    setTimeout(() => showStatus('', false), 2000);
+}
+
+function showStatus(message, isError) {
+    const container = document.getElementById('statusContainer');
+    if (!message) {
+        container.innerHTML = '';
+        return;
+    }
+    container.innerHTML = `<div class="tool-status-message ${isError ? 'error' : ''}">${message}</div>`;
+}
+
+function setupResizer() {
+    const resizer = document.getElementById('resizer');
+    const bottomArea = document.querySelector('.tool-bottom-area');
+    let isResizing = false;
+    
+    resizer.addEventListener('mousedown', function(e) {
+        isResizing = true;
+        document.body.style.cursor = 'ns-resize';
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+        if (!isResizing) return;
+        
+        const container = document.querySelector('.main-content-area');
+        const containerRect = container.getBoundingClientRect();
+        const newHeight = containerRect.bottom - e.clientY;
+        
+        if (newHeight >= 200 && newHeight <= containerRect.height * 0.8) {
+            bottomArea.style.height = newHeight + 'px';
+        }
+    });
+    
+    document.addEventListener('mouseup', function() {
+        isResizing = false;
+        document.body.style.cursor = 'default';
+    });
+}
 {% endblock %}

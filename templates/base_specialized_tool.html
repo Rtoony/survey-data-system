@@ -1,0 +1,690 @@
+{% extends "base.html" %}
+
+{#
+SPECIALIZED TOOL TEMPLATE
+=========================
+This is a reusable base template for all specialized tools in the ACAD-GIS system.
+It provides a consistent layout and presentation similar to the Project Command Center.
+
+USAGE:
+------
+Extend this template and define the following blocks:
+
+REQUIRED BLOCKS:
+- tool_title: The title of the specialized tool
+- tool_icon: Icon class (e.g., "fas fa-water")
+- tool_description: Short description of what the tool does
+- sidebar_content: Left sidebar content (filters, controls, stats)
+- main_content: Main workspace content
+
+OPTIONAL BLOCKS:
+- extra_css: Additional CSS specific to your tool
+- extra_js: Additional JavaScript specific to your tool
+- extra_head: Additional head content (libraries, etc.)
+
+LAYOUT OPTIONS:
+---------------
+This template supports two layout modes by default:
+
+Option A (Simple): 
+  - Sidebar + Main Content Area
+  
+Option B (Complex):
+  - Sidebar + Top Area (map/visual) + Bottom Area (data tables/charts)
+  - Use class "tool-complex-layout" on main-content-area to enable
+
+EXAMPLE:
+--------
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}My Tool Name{% endblock %}
+{% block tool_icon %}fas fa-wrench{% endblock %}
+{% block tool_description %}Does amazing things{% endblock %}
+
+{% block sidebar_content %}
+  <div class="tool-filter-section">
+    <h4>Filters</h4>
+    <!-- Your filters here -->
+  </div>
+{% endblock %}
+
+{% block main_content %}
+  <!-- Your main workspace here -->
+{% endblock %}
+
+#}
+
+{% block title %}{{ self.tool_title() }}{% endblock %}
+
+{% block extra_head %}
+<!-- Leaflet CSS (if needed for maps) - override in child template if not needed -->
+{% block leaflet_assets %}{% endblock %}
+
+<style>
+    /* Normal body - allow scrolling */
+    body {
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* Full-screen mode only when active */
+    body.fullscreen-mode {
+        overflow: hidden !important;
+    }
+
+    :root {
+        --mc-primary: #00ffff;
+        --mc-accent: #00ff88;
+        --mc-bg-dark: rgba(0, 20, 40, 0.95);
+        --mc-bg-section: rgba(0, 40, 80, 0.6);
+        --mc-text: #e0f0ff;
+        --header-height: 140px;
+        --sidebar-width: 250px;
+    }
+
+    /* ============================================
+       TOOL CONTAINER - Full Screen Layout
+       ============================================ */
+    .specialized-tool-container {
+        display: flex;
+        flex-direction: column;
+        min-height: calc(100vh - var(--header-height));
+        overflow: auto;
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* Only hide overflow in fullscreen mode */
+    body.fullscreen-mode .specialized-tool-container {
+        height: 100vh !important;
+        overflow: hidden;
+    }
+
+    /* Main content area with sidebar + workspace */
+    .tool-main {
+        display: grid;
+        grid-template-columns: var(--sidebar-width) 1fr;
+        gap: 0;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    /* ============================================
+       LEFT SIDEBAR - Tool Controls
+       ============================================ */
+    .tool-sidebar {
+        background: var(--mc-bg-dark);
+        border-right: 1px solid var(--mc-primary);
+        border-radius: 0;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        overflow-y: auto;
+    }
+
+    .tool-sidebar h3 {
+        color: var(--mc-primary);
+        font-family: 'Orbitron', monospace;
+        font-size: 1.1rem;
+        margin: 0 0 1rem 0;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
+    /* Tool Info Section */
+    .tool-info-box {
+        background: var(--mc-bg-section);
+        border: 1px solid var(--mc-primary);
+        border-radius: 4px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .tool-name {
+        color: var(--mc-accent);
+        font-family: 'Orbitron', monospace;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .tool-name i {
+        color: var(--mc-primary);
+    }
+
+    .tool-description {
+        color: rgba(255, 255, 255, 0.7);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+
+    /* Filter/Control Sections */
+    .tool-filter-section,
+    .tool-stats-section {
+        margin-bottom: 1rem;
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 4px;
+        background: rgba(0, 30, 60, 0.3);
+        padding: 1rem;
+    }
+
+    .tool-filter-section h4,
+    .tool-stats-section h4 {
+        color: var(--mc-accent);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        margin: 0 0 0.75rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(0, 255, 136, 0.3);
+    }
+
+    .tool-filter-item {
+        margin-bottom: 0.75rem;
+    }
+
+    .tool-filter-item label {
+        display: block;
+        color: var(--mc-text);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .tool-filter-item select,
+    .tool-filter-item input[type="text"],
+    .tool-filter-item input[type="number"] {
+        width: 100%;
+        padding: 0.5rem;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--mc-primary);
+        color: var(--mc-text);
+        border-radius: 4px;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .tool-filter-item select:focus,
+    .tool-filter-item input:focus {
+        outline: none;
+        border-color: var(--mc-accent);
+    }
+
+    .tool-checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0;
+        cursor: pointer;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.8rem;
+        color: var(--mc-text);
+    }
+
+    .tool-checkbox-item input[type="checkbox"] {
+        cursor: pointer;
+        accent-color: var(--mc-accent);
+    }
+
+    /* Stats Display */
+    .tool-stat-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.4rem 0;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+    }
+
+    .tool-stat-item:last-child {
+        border-bottom: none;
+    }
+
+    .tool-stat-label {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .tool-stat-value {
+        color: var(--mc-accent);
+        font-weight: bold;
+    }
+
+    /* Action Buttons */
+    .tool-action-btn {
+        width: 100%;
+        padding: 0.75rem;
+        background: linear-gradient(135deg, var(--mc-accent), var(--mc-primary));
+        border: none;
+        border-radius: 4px;
+        color: #000;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .tool-action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 255, 136, 0.4);
+    }
+
+    .tool-action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .tool-action-btn.secondary {
+        background: rgba(0, 255, 255, 0.2);
+        color: var(--mc-accent);
+        border: 1px solid var(--mc-accent);
+    }
+
+    /* ============================================
+       MAIN CONTENT AREA
+       ============================================ */
+    .main-content-area {
+        background: rgba(0, 0, 0, 0.9);
+        border: none;
+        border-radius: 0;
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Simple Layout: Just content */
+    .main-content-area.tool-simple-layout {
+        padding: 1rem;
+        overflow-y: auto;
+    }
+
+    /* Complex Layout: Top + Bottom areas */
+    .main-content-area.tool-complex-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .tool-top-area {
+        flex: 1;
+        min-height: 0;
+        position: relative;
+        background: #000;
+        border-bottom: 1px solid var(--mc-primary);
+    }
+
+    .tool-bottom-area {
+        height: 400px;
+        min-height: 200px;
+        max-height: 60vh;
+        overflow: hidden;
+        background: var(--mc-bg-dark);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    /* Resizer handle between top and bottom */
+    .tool-resizer {
+        height: 4px;
+        background: var(--mc-primary);
+        cursor: ns-resize;
+        position: relative;
+        transition: background 0.2s;
+    }
+
+    .tool-resizer:hover {
+        background: var(--mc-accent);
+    }
+
+    /* ============================================
+       DATA TABLES (for bottom area)
+       ============================================ */
+    .tool-data-tabs {
+        display: flex;
+        gap: 0;
+        background: rgba(0, 20, 40, 0.8);
+        border-bottom: 1px solid var(--mc-primary);
+        padding: 0 1rem;
+    }
+
+    .tool-data-tab {
+        padding: 0.75rem 1.5rem;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: rgba(255, 255, 255, 0.6);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .tool-data-tab:hover {
+        color: var(--mc-text);
+        background: rgba(0, 255, 255, 0.05);
+    }
+
+    .tool-data-tab.active {
+        color: var(--mc-accent);
+        border-bottom-color: var(--mc-accent);
+    }
+
+    .tool-data-content {
+        flex: 1;
+        overflow: auto;
+        padding: 1rem;
+    }
+
+    .tool-data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .tool-data-table th {
+        background: rgba(0, 255, 255, 0.1);
+        color: var(--mc-accent);
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 2px solid var(--mc-accent);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .tool-data-table td {
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+        color: var(--mc-text);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+    }
+
+    .tool-data-table tbody tr:hover {
+        background: rgba(0, 255, 255, 0.05);
+    }
+
+    .tool-data-table tbody tr.selected {
+        background: rgba(0, 255, 136, 0.15);
+        border-left: 3px solid var(--mc-accent);
+    }
+
+    .tool-data-table tbody tr {
+        cursor: pointer;
+    }
+
+    .tool-data-table input {
+        width: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--mc-primary);
+        color: var(--mc-text);
+        padding: 0.3rem 0.5rem;
+        border-radius: 3px;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .tool-data-table input:focus {
+        outline: none;
+        border-color: var(--mc-accent);
+    }
+
+    /* ============================================
+       FULL SCREEN MODE
+       ============================================ */
+    body.fullscreen-mode .sticky-header-container {
+        display: none !important;
+    }
+
+    body.fullscreen-mode .specialized-tool-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 100vh !important;
+        z-index: 100;
+    }
+
+    .fullscreen-toggle-btn {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        z-index: 1000;
+        background: var(--mc-bg-dark);
+        border: 2px solid var(--mc-accent);
+        color: var(--mc-accent);
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+        font-weight: bold;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .fullscreen-toggle-btn:hover {
+        background: var(--mc-accent);
+        color: var(--mc-bg-dark);
+        box-shadow: 0 0 25px rgba(0, 255, 136, 0.6);
+        transform: scale(1.05);
+    }
+
+    .fullscreen-toggle-btn i {
+        margin-right: 5px;
+    }
+
+    /* ============================================
+       UTILITY CLASSES
+       ============================================ */
+    .tool-loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: var(--mc-primary);
+        font-family: 'Orbitron', monospace;
+        font-size: 1.2rem;
+        text-align: center;
+        z-index: 100;
+    }
+
+    .tool-empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: rgba(255, 255, 255, 0.5);
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .tool-status-message {
+        padding: 0.75rem 1rem;
+        background: rgba(0, 255, 136, 0.1);
+        border: 1px solid var(--mc-accent);
+        border-radius: 4px;
+        color: var(--mc-accent);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        margin-bottom: 1rem;
+    }
+
+    .tool-status-message.error {
+        background: rgba(255, 107, 107, 0.1);
+        border-color: #ff6b6b;
+        color: #ff6b6b;
+    }
+
+    /* Custom scrollbars */
+    .tool-sidebar::-webkit-scrollbar,
+    .tool-data-content::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .tool-sidebar::-webkit-scrollbar-track,
+    .tool-data-content::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .tool-sidebar::-webkit-scrollbar-thumb,
+    .tool-data-content::-webkit-scrollbar-thumb {
+        background: var(--mc-primary);
+        border-radius: 4px;
+    }
+
+    .tool-sidebar::-webkit-scrollbar-thumb:hover,
+    .tool-data-content::-webkit-scrollbar-thumb:hover {
+        background: var(--mc-accent);
+    }
+
+    {% block extra_css %}{% endblock %}
+</style>
+
+<script>
+// Set header height SYNCHRONOUSLY before page renders to prevent layout shift
+(function() {
+    function updateHeaderHeight() {
+        const header = document.querySelector('.sticky-header-container');
+        if (header) {
+            const height = header.offsetHeight;
+            document.documentElement.style.setProperty('--header-height', height + 'px');
+        }
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', updateHeaderHeight);
+    } else {
+        updateHeaderHeight();
+    }
+})();
+</script>
+{% endblock %}
+
+{% block content %}
+<script>
+// Calculate header height BEFORE rendering content
+(function() {
+    const header = document.querySelector('.sticky-header-container');
+    if (header) {
+        const height = header.offsetHeight;
+        document.documentElement.style.setProperty('--header-height', height + 'px');
+    }
+})();
+</script>
+
+<div class="specialized-tool-container">
+    <!-- Fullscreen Toggle Button -->
+    <button class="fullscreen-toggle-btn" onclick="toggleFullscreen()">
+        <i class="fas fa-expand"></i>
+        <span id="fullscreenText">Fullscreen (F)</span>
+    </button>
+
+    <!-- Main Content: Sidebar + Workspace -->
+    <div class="tool-main">
+        <!-- Left Sidebar - Tool Controls -->
+        <div class="tool-sidebar">
+            <div class="tool-info-box">
+                <div class="tool-name">
+                    <i class="{% block tool_icon %}fas fa-wrench{% endblock %}"></i>
+                    <span>{% block tool_title %}Specialized Tool{% endblock %}</span>
+                </div>
+                <div class="tool-description">
+                    {% block tool_description %}Tool description goes here{% endblock %}
+                </div>
+            </div>
+            
+            {% block sidebar_content %}
+            <!-- Sidebar content (filters, controls, stats) goes here -->
+            <div class="tool-filter-section">
+                <h4>Filters</h4>
+                <p style="color: rgba(255,255,255,0.5); font-size: 0.8rem;">No filters configured</p>
+            </div>
+            {% endblock %}
+        </div>
+        
+        <!-- Main Workspace -->
+        <div class="main-content-area {% block content_layout_class %}tool-simple-layout{% endblock %}">
+            {% block main_content %}
+            <!-- Main workspace content goes here -->
+            <div class="tool-empty-state">
+                <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+                <p>No content configured for this tool yet.</p>
+            </div>
+            {% endblock %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Fullscreen toggle functionality
+let isFullscreen = false;
+
+function toggleFullscreen() {
+    isFullscreen = !isFullscreen;
+    document.body.classList.toggle('fullscreen-mode', isFullscreen);
+    
+    const btn = document.querySelector('.fullscreen-toggle-btn');
+    const icon = btn.querySelector('i');
+    const text = document.getElementById('fullscreenText');
+    
+    if (isFullscreen) {
+        icon.className = 'fas fa-compress';
+        text.textContent = 'Exit Fullscreen (F)';
+    } else {
+        icon.className = 'fas fa-expand';
+        text.textContent = 'Fullscreen (F)';
+    }
+}
+
+// Keyboard shortcut for fullscreen (F key)
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'f' || e.key === 'F') {
+        // Only if not typing in an input
+        if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+            e.preventDefault();
+            toggleFullscreen();
+        }
+    }
+});
+
+// Tab switching functionality (if using tabs in bottom area)
+function switchTab(tabName, tabGroup = 'default') {
+    // Remove active class from all tabs in this group
+    document.querySelectorAll(`.tool-data-tab[data-tab-group="${tabGroup}"]`).forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Add active class to clicked tab
+    const clickedTab = document.querySelector(`.tool-data-tab[data-tab="${tabName}"][data-tab-group="${tabGroup}"]`);
+    if (clickedTab) {
+        clickedTab.classList.add('active');
+    }
+    
+    // Hide all content panels in this group
+    document.querySelectorAll(`.tool-tab-content[data-tab-group="${tabGroup}"]`).forEach(content => {
+        content.style.display = 'none';
+    });
+    
+    // Show the selected content panel
+    const content = document.querySelector(`.tool-tab-content[data-tab="${tabName}"][data-tab-group="${tabGroup}"]`);
+    if (content) {
+        content.style.display = 'block';
+    }
+}
+
+{% block extra_js %}{% endblock %}
+</script>
+{% endblock %}

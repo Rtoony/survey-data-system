@@ -1,384 +1,217 @@
-{% extends "base.html" %}
+{% extends "base_specialized_tool.html" %}
 
-{% block title %}Gravity Pipe Network Manager{% endblock %}
+{% block tool_title %}Gravity Pipe Network Manager{% endblock %}
+{% block tool_icon %}fas fa-water{% endblock %}
+{% block tool_description %}Interactive tool for analyzing, editing, and managing gravity pipe networks with hydraulic calculations{% endblock %}
 
-{% block extra_head %}
-<script src="{{ url_for('static', filename='js/specialized-tool-info.js') }}"></script>
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block leaflet_assets %}
+<!-- Not using Leaflet, using SVG viewer instead -->
 {% endblock %}
 
-{% block content %}
-<div class="content">
-    <div class="page-header">
-        <div class="page-header-content">
-            <i class="fas fa-water neon-blue"></i>
-            <div>
-                <h2 class="orbitron">Gravity Pipe Network Manager</h2>
-                <p>Edit gravity networks (Storm and Sanitary) with preserved geometry</p>
-            </div>
-        </div>
+{% block extra_head %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/specialized-tool-info.js') }}"></script>
+<script src="/static/js/entity_viewer_core.js"></script>
+{% endblock %}
+
+{% block sidebar_content %}
+<!-- Network Selector -->
+<div class="tool-filter-section">
+    <h4>Network Selection</h4>
+    <div class="tool-filter-item">
+        <label>Select Network:</label>
+        <select id="networkSelect" onchange="loadNetwork()">
+            <option value="">Loading networks...</option>
+        </select>
     </div>
+</div>
 
-    <!-- Specialized Tool Info Card - Database Driven -->
-    <div id="toolInfoCard" style="margin: 20px;"></div>
-    <script>
-        // Load tool info from database when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            loadToolInfoCard('GRAV', 'toolInfoCard');
-        });
-    </script>
+<!-- Filters -->
+<div class="tool-filter-section">
+    <h4>Filters</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterStorm" checked onchange="applyFilters()">
+        <label for="filterStorm">Storm Drain</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterSanitary" checked onchange="applyFilters()">
+        <label for="filterSanitary">Sanitary Sewer</label>
+    </div>
+    <div class="tool-filter-item" style="margin-top: 0.75rem;">
+        <label>Phase:</label>
+        <select id="filterPhase" onchange="applyFilters()">
+            <option value="all">All Phases</option>
+            <option value="existing">Existing</option>
+            <option value="proposed">Proposed</option>
+        </select>
+    </div>
+</div>
 
-    <div class="network-editor-container">
-        <div class="editor-controls">
-            <label for="networkSelect">Select Network:</label>
-            <select id="networkSelect" onchange="loadNetwork()">
-                <option value="">Loading networks...</option>
-            </select>
-            <button class="btn-primary" onclick="autoConnectPipes()" id="autoConnectBtn" disabled>
-                <i class="fas fa-link"></i> Auto-Connect Pipes
-            </button>
-            <button class="btn-primary" onclick="saveChanges()" id="saveBtn" disabled>
-                <i class="fas fa-save"></i> Save Changes
-            </button>
-            <span id="statusMessage" class="status-message"></span>
-        </div>
+<!-- Quick Stats -->
+<div class="tool-stats-section" id="networkStats" style="display:none;">
+    <h4>Network Stats</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Pipes:</span>
+        <span class="tool-stat-value" id="statPipes">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Structures:</span>
+        <span class="tool-stat-value" id="statStructures">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Length:</span>
+        <span class="tool-stat-value" id="statLength">0 ft</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Connected:</span>
+        <span class="tool-stat-value" id="statConnected">0%</span>
+    </div>
+</div>
 
-        <div class="network-details" id="networkDetails" style="display:none;">
-            <div class="details-card">
-                <h3 id="networkName">Network Name</h3>
-                <p id="networkInfo"></p>
+<!-- Actions -->
+<div id="networkActions" style="display:none;">
+    <button class="tool-action-btn" id="autoConnectBtn" onclick="autoConnectPipes()">
+        <i class="fas fa-link"></i> Auto-Connect Pipes
+    </button>
+    <button class="tool-action-btn" id="saveBtn" onclick="saveChanges()">
+        <i class="fas fa-save"></i> Save Changes
+    </button>
+    <button class="tool-action-btn secondary" onclick="exportNetwork()">
+        <i class="fas fa-download"></i> Export Data
+    </button>
+</div>
+
+<!-- Status Messages -->
+<div id="statusContainer" style="margin-top: 1rem;"></div>
+{% endblock %}
+
+{% block main_content %}
+<!-- Top Area: Interactive Map -->
+<div class="tool-top-area">
+    <div class="tool-loading" id="loadingMessage" style="display:none;">
+        Loading network...
+    </div>
+    <div class="tool-empty-state" id="emptyState">
+        <i class="fas fa-project-diagram" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+        <p>Select a gravity pipe network to begin</p>
+        <p style="font-size: 0.8rem; opacity: 0.7;">Choose a network from the sidebar</p>
+    </div>
+    
+    <!-- SVG Viewer for network visualization -->
+    <div id="networkViewer" style="display:none; width: 100%; height: 100%; position: relative;">
+        <svg id="networkCanvas" width="100%" height="100%"></svg>
+        
+        <!-- Legend overlay -->
+        <div style="position: absolute; top: 1rem; left: 1rem; background: rgba(0,0,0,0.9); border: 1px solid var(--mc-primary); border-radius: 8px; padding: 1rem; max-width: 250px;">
+            <div style="color: var(--mc-primary); font-family: 'Orbitron', monospace; font-size: 0.9rem; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--mc-primary);">
+                Legend
             </div>
+            <div id="viewerLegend">Loading...</div>
         </div>
-
-        <div class="editor-workspace" id="workspace" style="display:none;">
-            <div class="viewer-container">
-                <div class="viewer-main">
-                    <div class="viewer-canvas-container">
-                        <div id="loadingMessage" class="loading-message">Loading network...</div>
-                        <svg id="networkCanvas" width="100%" height="100%"></svg>
-                    </div>
-                    <div class="viewer-sidebar">
-                        <div class="legend-panel">
-                            <div class="panel-title">Legend</div>
-                            <div id="viewerLegend">Select a network to view</div>
-                        </div>
-                        <div class="info-panel">
-                            <div class="panel-title">Entity Info</div>
-                            <div id="entityInfo">Hover or click an entity</div>
-                        </div>
-                    </div>
-                </div>
+        
+        <!-- Info overlay -->
+        <div style="position: absolute; bottom: 1rem; left: 1rem; background: rgba(0,0,0,0.9); border: 1px solid var(--mc-primary); border-radius: 8px; padding: 1rem; max-width: 300px;">
+            <div style="color: var(--mc-primary); font-family: 'Orbitron', monospace; font-size: 0.9rem; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--mc-primary);">
+                Selected Entity
             </div>
-
-            <div class="tables-container">
-                <div class="table-section">
-                    <h3>Structures</h3>
-                    <div class="table-wrapper">
-                        <table id="structuresTable" class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Structure #</th>
-                                    <th>Type</th>
-                                    <th>Rim Elev (ft)</th>
-                                    <th>Invert Elev (ft)</th>
-                                    <th>Depth (ft)</th>
-                                    <th>Size (in)</th>
-                                    <th>Condition</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="7">No structures found</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="table-section">
-                    <h3>Pipes</h3>
-                    <div class="table-wrapper">
-                        <table id="pipesTable" class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Pipe #</th>
-                                    <th>From</th>
-                                    <th>To</th>
-                                    <th>Diameter (mm)</th>
-                                    <th>Material</th>
-                                    <th>Invert Start</th>
-                                    <th>Invert End</th>
-                                    <th>Slope</th>
-                                    <th>Length</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="9">No pipes found</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <div id="entityInfo" style="color: var(--mc-text); font-family: 'Rajdhani', sans-serif; font-size: 0.85rem;">
+                Click or hover on an entity
             </div>
         </div>
     </div>
 </div>
 
-<style>
-.network-editor-container {
-    padding: 20px;
-}
+<!-- Resizer -->
+<div class="tool-resizer" id="resizer"></div>
 
-.editor-controls {
-    background: rgba(0, 20, 40, 0.6);
-    border: 1px solid var(--neon-blue);
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
+<!-- Bottom Area: Data Tables -->
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active" data-tab="pipes" data-tab-group="network" onclick="switchTab('pipes', 'network')">
+            <i class="fas fa-grip-lines"></i> Pipes (<span id="pipeCount">0</span>)
+        </button>
+        <button class="tool-data-tab" data-tab="structures" data-tab-group="network" onclick="switchTab('structures', 'network')">
+            <i class="fas fa-circle"></i> Structures (<span id="structureCount">0</span>)
+        </button>
+        <button class="tool-data-tab" data-tab="analysis" data-tab-group="network" onclick="switchTab('analysis', 'network')">
+            <i class="fas fa-calculator"></i> Analysis
+        </button>
+    </div>
+    
+    <div class="tool-data-content">
+        <!-- Pipes Tab -->
+        <div class="tool-tab-content" data-tab="pipes" data-tab-group="network">
+            <table class="tool-data-table" id="pipesTable">
+                <thead>
+                    <tr>
+                        <th>Pipe #</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Diameter (in)</th>
+                        <th>Material</th>
+                        <th>Invert Start (ft)</th>
+                        <th>Invert End (ft)</th>
+                        <th>Slope (%)</th>
+                        <th>Length (ft)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="9" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No pipes loaded</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Structures Tab -->
+        <div class="tool-tab-content" data-tab="structures" data-tab-group="network" style="display:none;">
+            <table class="tool-data-table" id="structuresTable">
+                <thead>
+                    <tr>
+                        <th>Structure #</th>
+                        <th>Type</th>
+                        <th>Rim Elev (ft)</th>
+                        <th>Invert Elev (ft)</th>
+                        <th>Depth (ft)</th>
+                        <th>Size (in)</th>
+                        <th>Condition</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="7" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No structures loaded</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Analysis Tab -->
+        <div class="tool-tab-content" data-tab="analysis" data-tab-group="network" style="display:none;">
+            <div style="padding: 1rem;">
+                <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Hydraulic Analysis</h4>
+                <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">
+                    Analyze pipe slopes, velocities, and capacities based on network data.
+                </p>
+                <button class="tool-action-btn" onclick="runAnalysis()">
+                    <i class="fas fa-play"></i> Run Hydraulic Analysis
+                </button>
+                <div id="analysisResults" style="margin-top: 1rem;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-.editor-controls label {
-    color: var(--neon-cyan);
-    font-weight: bold;
-}
-
-.editor-controls select {
-    flex: 1;
-    max-width: 400px;
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--neon-blue);
-    color: var(--text-primary);
-    border-radius: 4px;
-}
-
-.details-card {
-    background: rgba(0, 20, 40, 0.6);
-    border: 1px solid var(--neon-cyan);
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-.details-card h3 {
-    color: var(--neon-cyan);
-    margin: 0 0 10px 0;
-}
-
-.editor-workspace {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.viewer-container {
-    background: rgba(0, 20, 40, 0.6);
-    border: 1px solid var(--mc-primary);
-    border-radius: 8px;
-    padding: 1rem;
-}
-
-.viewer-main {
-    display: flex;
-    gap: 1rem;
-    height: 600px;
-}
-
-.viewer-canvas-container {
-    flex: 1;
-    background: #000;
-    border: 2px solid var(--mc-primary);
-    border-radius: 8px;
-    position: relative;
-    overflow: hidden;
-}
-
-.loading-message {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: var(--mc-primary);
-    font-size: 1.2rem;
-    text-align: center;
-    z-index: 10;
-}
-
-#networkCanvas {
-    display: block;
-}
-
-.viewer-sidebar {
-    width: 300px;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.legend-panel,
-.info-panel {
-    background: rgba(0, 0, 0, 0.9);
-    border: 1px solid var(--mc-primary);
-    border-radius: 8px;
-    padding: 1rem;
-}
-
-.legend-panel {
-    flex: 1;
-    overflow-y: auto;
-}
-
-.info-panel {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.panel-title {
-    color: var(--mc-primary);
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1rem;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--mc-primary);
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0;
-    font-size: 0.85rem;
-}
-
-.legend-color {
-    width: 20px;
-    height: 3px;
-}
-
-.legend-color.point {
-    height: 12px;
-    width: 12px;
-    border-radius: 50%;
-}
-
-.legend-count {
-    margin-left: auto;
-    color: var(--mc-accent);
-    font-weight: bold;
-}
-
-.entity-highlighted {
-    stroke-width: 3 !important;
-    opacity: 1 !important;
-    filter: drop-shadow(0 0 4px currentColor);
-}
-
-.entity-selected {
-    stroke-width: 4 !important;
-    opacity: 1 !important;
-    filter: drop-shadow(0 0 8px currentColor);
-}
-
-.table-row-selected {
-    background: rgba(0, 255, 136, 0.15) !important;
-    border-left: 3px solid var(--mc-accent);
-}
-
-.tables-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-.table-section {
-    background: rgba(0, 20, 40, 0.6);
-    border: 1px solid var(--neon-blue);
-    padding: 20px;
-    border-radius: 8px;
-}
-
-.table-section h3 {
-    color: var(--neon-cyan);
-    margin: 0 0 15px 0;
-}
-
-.table-wrapper {
-    overflow-x: auto;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.data-table th {
-    background: rgba(0, 255, 255, 0.1);
-    color: var(--neon-cyan);
-    padding: 10px;
-    text-align: left;
-    border-bottom: 2px solid var(--neon-cyan);
-}
-
-.data-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
-    color: var(--text-primary);
-}
-
-.data-table tbody tr:hover {
-    background: rgba(0, 255, 255, 0.05);
-}
-
-.data-table tbody tr.table-row {
-    cursor: pointer;
-}
-
-.data-table input {
-    width: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--neon-blue);
-    color: var(--text-primary);
-    padding: 4px 8px;
-    border-radius: 3px;
-}
-
-.data-table input:focus {
-    outline: none;
-    border-color: var(--neon-cyan);
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, var(--neon-cyan), var(--neon-blue));
-    color: #000;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-.btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.status-message {
-    color: var(--neon-green);
-    font-weight: bold;
-}
-
-.status-message.error {
-    color: #ff6b6b;
-}
-</style>
-
-<script src="/static/js/entity_viewer_core.js"></script>
-<script>
+{% block extra_js %}
 let currentNetwork = null;
 let structuresData = [];
 let pipesData = [];
 let changedData = { structures: {}, pipes: {} };
-
 let viewer = null;
+
+// Load networks on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadNetworks();
+    setupResizer();
+});
 
 async function loadNetworks() {
     try {
@@ -392,7 +225,7 @@ async function loadNetworks() {
             data.networks.forEach(network => {
                 const option = document.createElement('option');
                 option.value = network.network_id;
-                option.textContent = `${network.network_name} (${network.line_count} pipes, ${network.structure_count} structures)`;
+                option.textContent = `${network.network_name} (${network.line_count || 0} pipes, ${network.structure_count || 0} structures)`;
                 select.appendChild(option);
             });
         } else {
@@ -406,11 +239,17 @@ async function loadNetworks() {
 
 async function loadNetwork() {
     const networkId = document.getElementById('networkSelect').value;
+    
     if (!networkId) {
-        document.getElementById('workspace').style.display = 'none';
-        document.getElementById('networkDetails').style.display = 'none';
+        document.getElementById('networkViewer').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'block';
+        document.getElementById('networkStats').style.display = 'none';
+        document.getElementById('networkActions').style.display = 'none';
         return;
     }
+    
+    document.getElementById('loadingMessage').style.display = 'block';
+    document.getElementById('emptyState').style.display = 'none';
     
     try {
         const [networkRes, pipesRes, structsRes] = await Promise.all([
@@ -425,78 +264,100 @@ async function loadNetwork() {
         
         changedData = { structures: {}, pipes: {} };
         
-        displayNetworkInfo();
-        displayStructures();
+        displayStats();
         displayPipes();
+        displayStructures();
         
-        document.getElementById('workspace').style.display = 'grid';
-        document.getElementById('networkDetails').style.display = 'block';
-        document.getElementById('saveBtn').disabled = false;
-        document.getElementById('autoConnectBtn').disabled = false;
+        document.getElementById('networkStats').style.display = 'block';
+        document.getElementById('networkActions').style.display = 'block';
+        document.getElementById('networkViewer').style.display = 'block';
+        document.getElementById('loadingMessage').style.display = 'none';
         
         setTimeout(() => renderViewer(), 50);
     } catch (error) {
         console.error('Error loading network:', error);
         showStatus('Error loading network data', true);
+        document.getElementById('loadingMessage').style.display = 'none';
     }
 }
 
-function displayNetworkInfo() {
-    document.getElementById('networkName').textContent = currentNetwork.network_name;
-    document.getElementById('networkInfo').textContent = 
-        `Project: ${currentNetwork.project_name} | System: ${currentNetwork.utility_system} | Status: ${currentNetwork.network_status}`;
-}
-
-function displayStructures() {
-    const tbody = document.querySelector('#structuresTable tbody');
+function displayStats() {
+    document.getElementById('statPipes').textContent = pipesData.length;
+    document.getElementById('statStructures').textContent = structuresData.length;
     
-    if (structuresData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7">No structures found</td></tr>';
-        return;
-    }
+    const totalLength = pipesData.reduce((sum, pipe) => sum + (parseFloat(pipe.length) || 0), 0);
+    document.getElementById('statLength').textContent = totalLength.toFixed(1) + ' ft';
     
-    tbody.innerHTML = structuresData.map(struct => `
-        <tr class="table-row" data-entity-id="${struct.structure_id}" data-entity-type="structure" onclick="if(viewer) viewer.selectEntityFromTable(event, '${struct.structure_id}', 'structure')">
-            <td><input type="text" value="${struct.structure_number || ''}" onchange="updateStructure('${struct.structure_id}', 'structure_number', this.value)"></td>
-            <td>${struct.structure_type || ''}</td>
-            <td><input type="number" step="0.01" value="${struct.rim_elevation || ''}" onchange="updateStructure('${struct.structure_id}', 'rim_elevation', this.value)"></td>
-            <td><input type="number" step="0.01" value="${struct.invert_elevation || ''}" onchange="updateStructure('${struct.structure_id}', 'invert_elevation', this.value)"></td>
-            <td>${struct.manhole_depth_ft || ''}</td>
-            <td><input type="number" value="${struct.size_mm ? Math.round(struct.size_mm / 25.4) : ''}" onchange="updateStructure('${struct.structure_id}', 'size_mm', this.value * 25.4)"></td>
-            <td><input type="text" value="${struct.condition || ''}" onchange="updateStructure('${struct.structure_id}', 'condition', this.value)"></td>
-        </tr>
-    `).join('');
+    const connectedPipes = pipesData.filter(p => p.from_structure_id && p.to_structure_id).length;
+    const connectPercent = pipesData.length > 0 ? ((connectedPipes / pipesData.length) * 100).toFixed(0) : 0;
+    document.getElementById('statConnected').textContent = connectPercent + '%';
+    
+    document.getElementById('pipeCount').textContent = pipesData.length;
+    document.getElementById('structureCount').textContent = structuresData.length;
 }
 
 function displayPipes() {
     const tbody = document.querySelector('#pipesTable tbody');
     
     if (pipesData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9">No pipes found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No pipes found</td></tr>';
         return;
     }
     
     tbody.innerHTML = pipesData.map(pipe => `
-        <tr class="table-row" data-entity-id="${pipe.line_id}" data-entity-type="pipe" onclick="if(viewer) viewer.selectEntityFromTable(event, '${pipe.line_id}', 'pipe')">
-            <td><input type="text" value="${pipe.line_number || ''}" onchange="updatePipe('${pipe.line_id}', 'line_number', this.value)"></td>
+        <tr data-entity-id="${pipe.line_id}" onclick="selectPipe('${pipe.line_id}')">
+            <td><input type="text" value="${pipe.line_number || ''}" onchange="updatePipe('${pipe.line_id}', 'line_number', this.value)" onclick="event.stopPropagation()"></td>
             <td>${pipe.from_structure_number || 'N/A'}</td>
             <td>${pipe.to_structure_number || 'N/A'}</td>
-            <td><input type="number" value="${pipe.diameter_mm || ''}" onchange="updatePipe('${pipe.line_id}', 'diameter_mm', this.value)"></td>
-            <td><input type="text" value="${pipe.material || ''}" onchange="updatePipe('${pipe.line_id}', 'material', this.value)"></td>
-            <td><input type="number" step="0.01" value="${pipe.invert_elevation_start || ''}" onchange="updatePipe('${pipe.line_id}', 'invert_elevation_start', this.value)"></td>
-            <td><input type="number" step="0.01" value="${pipe.invert_elevation_end || ''}" onchange="updatePipe('${pipe.line_id}', 'invert_elevation_end', this.value)"></td>
+            <td><input type="number" value="${pipe.diameter_mm ? Math.round(pipe.diameter_mm / 25.4) : ''}" onchange="updatePipe('${pipe.line_id}', 'diameter_mm', this.value * 25.4)" onclick="event.stopPropagation()"></td>
+            <td><input type="text" value="${pipe.material || ''}" onchange="updatePipe('${pipe.line_id}', 'material', this.value)" onclick="event.stopPropagation()"></td>
+            <td><input type="number" step="0.01" value="${pipe.invert_elevation_start || ''}" onchange="updatePipe('${pipe.line_id}', 'invert_elevation_start', this.value)" onclick="event.stopPropagation()"></td>
+            <td><input type="number" step="0.01" value="${pipe.invert_elevation_end || ''}" onchange="updatePipe('${pipe.line_id}', 'invert_elevation_end', this.value)" onclick="event.stopPropagation()"></td>
             <td>${pipe.slope || ''}</td>
-            <td>${pipe.length ? pipe.length.toFixed(1) : ''}</td>
+            <td>${pipe.length ? parseFloat(pipe.length).toFixed(1) : ''}</td>
         </tr>
     `).join('');
 }
 
-function updateStructure(structureId, field, value) {
-    if (!changedData.structures[structureId]) {
-        changedData.structures[structureId] = {};
+function displayStructures() {
+    const tbody = document.querySelector('#structuresTable tbody');
+    
+    if (structuresData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No structures found</td></tr>';
+        return;
     }
-    changedData.structures[structureId][field] = value;
-    showStatus('Changes pending - click Save to apply', false);
+    
+    tbody.innerHTML = structuresData.map(struct => `
+        <tr data-entity-id="${struct.structure_id}" onclick="selectStructure('${struct.structure_id}')">
+            <td><input type="text" value="${struct.structure_number || ''}" onchange="updateStructure('${struct.structure_id}', 'structure_number', this.value)" onclick="event.stopPropagation()"></td>
+            <td>${struct.structure_type || ''}</td>
+            <td><input type="number" step="0.01" value="${struct.rim_elevation || ''}" onchange="updateStructure('${struct.structure_id}', 'rim_elevation', this.value)" onclick="event.stopPropagation()"></td>
+            <td><input type="number" step="0.01" value="${struct.invert_elevation || ''}" onchange="updateStructure('${struct.structure_id}', 'invert_elevation', this.value)" onclick="event.stopPropagation()"></td>
+            <td>${struct.manhole_depth_ft || ''}</td>
+            <td><input type="number" value="${struct.size_mm ? Math.round(struct.size_mm / 25.4) : ''}" onchange="updateStructure('${struct.structure_id}', 'size_mm', this.value * 25.4)" onclick="event.stopPropagation()"></td>
+            <td><input type="text" value="${struct.condition || ''}" onchange="updateStructure('${struct.structure_id}', 'condition', this.value)" onclick="event.stopPropagation()"></td>
+        </tr>
+    `).join('');
+}
+
+function selectPipe(pipeId) {
+    document.querySelectorAll('#pipesTable tbody tr').forEach(tr => tr.classList.remove('selected'));
+    const row = document.querySelector(`#pipesTable tbody tr[data-entity-id="${pipeId}"]`);
+    if (row) {
+        row.classList.add('selected');
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    if (viewer) viewer.selectEntity(pipeId, 'pipe');
+}
+
+function selectStructure(structureId) {
+    document.querySelectorAll('#structuresTable tbody tr').forEach(tr => tr.classList.remove('selected'));
+    const row = document.querySelector(`#structuresTable tbody tr[data-entity-id="${structureId}"]`);
+    if (row) {
+        row.classList.add('selected');
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    if (viewer) viewer.selectEntity(structureId, 'structure');
 }
 
 function updatePipe(pipeId, field, value) {
@@ -507,10 +368,22 @@ function updatePipe(pipeId, field, value) {
     showStatus('Changes pending - click Save to apply', false);
 }
 
+function updateStructure(structureId, field, value) {
+    if (!changedData.structures[structureId]) {
+        changedData.structures[structureId] = {};
+    }
+    changedData.structures[structureId][field] = value;
+    showStatus('Changes pending - click Save to apply', false);
+}
+
 async function saveChanges() {
+    if (!currentNetwork) return;
+    
     let savedCount = 0;
     let errorCount = 0;
     const networkId = currentNetwork.network_id;
+    
+    showStatus('Saving changes...', false);
     
     try {
         for (const [structId, changes] of Object.entries(changedData.structures)) {
@@ -520,12 +393,8 @@ async function saveChanges() {
                 body: JSON.stringify(changes)
             });
             
-            if (response.ok) {
-                savedCount++;
-            } else {
-                errorCount++;
-                console.error(`Failed to save structure ${structId}:`, await response.text());
-            }
+            if (response.ok) savedCount++;
+            else errorCount++;
         }
         
         for (const [pipeId, changes] of Object.entries(changedData.pipes)) {
@@ -535,20 +404,17 @@ async function saveChanges() {
                 body: JSON.stringify(changes)
             });
             
-            if (response.ok) {
-                savedCount++;
-            } else {
-                errorCount++;
-                console.error(`Failed to save pipe ${pipeId}:`, await response.text());
-            }
+            if (response.ok) savedCount++;
+            else errorCount++;
         }
         
         changedData = { structures: {}, pipes: {} };
         
         if (errorCount > 0) {
-            showStatus(`Saved ${savedCount} changes, ${errorCount} failed - check console`, true);
+            showStatus(`Saved ${savedCount} changes, ${errorCount} failed`, true);
         } else {
             showStatus(`Saved ${savedCount} changes successfully`, false);
+            setTimeout(() => showStatus('', false), 3000);
         }
         
         await loadNetwork();
@@ -558,24 +424,17 @@ async function saveChanges() {
     }
 }
 
-
 async function autoConnectPipes() {
-    const networkId = currentNetwork?.network_id;
-    if (!networkId) {
-        showStatus('No network selected', true);
-        return;
-    }
+    if (!currentNetwork) return;
     
-    const confirmMsg = 'This will automatically connect pipes to nearby structures (within 5 feet). Continue?';
-    if (!confirm(confirmMsg)) {
+    if (!confirm('This will automatically connect pipes to nearby structures (within 5 feet). Continue?')) {
         return;
     }
     
     try {
         showStatus('Connecting pipes to structures...', false);
-        document.getElementById('autoConnectBtn').disabled = true;
         
-        const response = await fetch(`/api/pipe-networks/${networkId}/auto-connect`, {
+        const response = await fetch(`/api/pipe-networks/${currentNetwork.network_id}/auto-connect`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tolerance_feet: 5.0 })
@@ -584,37 +443,27 @@ async function autoConnectPipes() {
         const results = await response.json();
         
         if (results.success) {
-            const msg = `Connected ${results.fully_connected} of ${results.total_pipes} pipes successfully!`;
-            showStatus(msg, false);
-            
-            if (results.unconnected_start?.length > 0 || results.unconnected_end?.length > 0) {
-                console.log('Unconnected pipe starts:', results.unconnected_start);
-                console.log('Unconnected pipe ends:', results.unconnected_end);
-            }
-            
+            showStatus(`Connected ${results.fully_connected} of ${results.total_pipes} pipes!`, false);
+            setTimeout(() => showStatus('', false), 3000);
             await loadNetwork();
         } else {
             showStatus(`Error: ${results.error}`, true);
         }
-        
     } catch (error) {
         console.error('Error auto-connecting pipes:', error);
         showStatus('Error connecting pipes: ' + error.message, true);
-    } finally {
-        document.getElementById('autoConnectBtn').disabled = false;
     }
 }
 
 async function renderViewer() {
-    const networkId = currentNetwork?.network_id;
-    if (!networkId) return;
+    if (!currentNetwork) return;
     
     viewer = new EntityViewerCore({
         svgId: 'networkCanvas',
         legendId: 'viewerLegend',
         infoId: 'entityInfo',
         loadingId: 'loadingMessage',
-        fetchEntitiesUrl: `/api/pipe-networks/${networkId}/viewer-entities`,
+        fetchEntitiesUrl: `/api/pipe-networks/${currentNetwork.network_id}/viewer-entities`,
         entityTypeColors: {
             'storm_pipe': '#f7b801',
             'sanitary_pipe': '#0096ff',
@@ -651,14 +500,55 @@ async function renderViewer() {
     await viewer.renderViewer();
 }
 
-function showStatus(message, isError) {
-    const statusEl = document.getElementById('statusMessage');
-    statusEl.textContent = message;
-    statusEl.className = 'status-message' + (isError ? ' error' : '');
-    setTimeout(() => statusEl.textContent = '', 3000);
+function applyFilters() {
+    // Placeholder for filter logic
+    console.log('Filters applied');
 }
 
-loadNetworks();
-</script>
+function exportNetwork() {
+    showStatus('Export functionality coming soon...', false);
+    setTimeout(() => showStatus('', false), 2000);
+}
 
+function runAnalysis() {
+    showStatus('Analysis functionality coming soon...', false);
+    setTimeout(() => showStatus('', false), 2000);
+}
+
+function showStatus(message, isError) {
+    const container = document.getElementById('statusContainer');
+    if (!message) {
+        container.innerHTML = '';
+        return;
+    }
+    container.innerHTML = `<div class="tool-status-message ${isError ? 'error' : ''}">${message}</div>`;
+}
+
+function setupResizer() {
+    const resizer = document.getElementById('resizer');
+    const bottomArea = document.querySelector('.tool-bottom-area');
+    let isResizing = false;
+    
+    resizer.addEventListener('mousedown', function(e) {
+        isResizing = true;
+        document.body.style.cursor = 'ns-resize';
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+        if (!isResizing) return;
+        
+        const container = document.querySelector('.main-content-area');
+        const containerRect = container.getBoundingClientRect();
+        const newHeight = containerRect.bottom - e.clientY;
+        
+        if (newHeight >= 200 && newHeight <= containerRect.height * 0.8) {
+            bottomArea.style.height = newHeight + 'px';
+        }
+    });
+    
+    document.addEventListener('mouseup', function() {
+        isResizing = false;
+        document.body.style.cursor = 'default';
+    });
+}
 {% endblock %}
