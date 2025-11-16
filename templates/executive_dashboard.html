@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block title %}Executive Dashboard{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.dashboard-container {
+    padding: var(--mc-spacing-lg);
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--mc-spacing-xl);
+}
+
+.dashboard-controls {
+    display: flex;
+    gap: var(--mc-spacing-md);
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--mc-spacing-lg);
+    margin-bottom: var(--mc-spacing-xl);
+}
+
+.metric-card {
+    background: var(--mc-surface);
+    border: 2px solid var(--mc-primary);
+    border-radius: var(--mc-radius-lg);
+    padding: var(--mc-spacing-lg);
+    text-align: center;
+    transition: var(--mc-transition);
+}
+
+.metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--mc-shadow-lg);
+}
+
+.metric-value {
+    font-size: 3em;
+    font-weight: bold;
+    color: var(--mc-primary);
+    margin: var(--mc-spacing-sm) 0;
+}
+
+.metric-label {
+    color: var(--mc-muted);
+    font-size: 1.1em;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: var(--mc-spacing-lg);
+    margin-bottom: var(--mc-spacing-xl);
+}
+
+.chart-card {
+    background: var(--mc-surface);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: var(--mc-radius-lg);
+    padding: var(--mc-spacing-lg);
+}
+
+.chart-title {
+    color: var(--mc-primary);
+    font-size: 1.3em;
+    margin-bottom: var(--mc-spacing-md);
+    font-weight: 600;
+}
+
+.projects-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.projects-table th {
+    background: var(--mc-primary);
+    color: #000;
+    padding: var(--mc-spacing-sm);
+    text-align: left;
+}
+
+.projects-table td {
+    padding: var(--mc-spacing-sm);
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+    color: var(--mc-text);
+}
+
+.refresh-btn {
+    background: var(--mc-primary);
+    color: #000;
+    border: none;
+    padding: var(--mc-spacing-sm) var(--mc-spacing-lg);
+    border-radius: var(--mc-radius-sm);
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.refresh-btn:hover {
+    background: var(--mc-accent);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <div>
+            <h1 style="color: var(--mc-primary); margin: 0;">
+                <i class="fas fa-chart-line"></i> Executive Dashboard
+            </h1>
+            <p style="color: var(--mc-muted); margin-top: 5px;">Real-time system metrics and analytics</p>
+        </div>
+        <div class="dashboard-controls">
+            <select id="dateRangeSelect" style="padding: 8px; background: var(--mc-background); color: var(--mc-text); border: 1px solid var(--mc-primary); border-radius: 4px;">
+                <option value="7">Last 7 Days</option>
+                <option value="30" selected>Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+            </select>
+            <button class="refresh-btn" onclick="loadDashboardData()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Metrics Cards -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-label">Total Projects</div>
+            <div class="metric-value" id="totalProjects">-</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Total Entities</div>
+            <div class="metric-value" id="totalEntities">-</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Data Quality Score</div>
+            <div class="metric-value" id="qualityScore">-</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Survey Points</div>
+            <div class="metric-value" id="surveyPoints">-</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <div class="chart-title"><i class="fas fa-chart-bar"></i> Material Distribution</div>
+            <canvas id="materialChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title"><i class="fas fa-chart-line"></i> Survey Productivity</div>
+            <canvas id="productivityChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Project Health Table -->
+    <div class="chart-card">
+        <div class="chart-title"><i class="fas fa-project-diagram"></i> Project Health</div>
+        <table class="projects-table">
+            <thead>
+                <tr>
+                    <th>Project Name</th>
+                    <th>Entity Count</th>
+                    <th>Created</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="projectHealthTable">
+                <tr><td colspan="4" style="text-align: center; color: var(--mc-muted);">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+let materialChart, productivityChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+
+    // Auto-refresh every 30 seconds
+    setInterval(loadDashboardData, 30000);
+});
+
+document.getElementById('dateRangeSelect').addEventListener('change', loadDashboardData);
+
+function loadDashboardData() {
+    const dateRange = document.getElementById('dateRangeSelect').value;
+
+    fetch(`/api/dashboard/metrics?date_range=${dateRange}`)
+        .then(r => r.json())
+        .then(data => {
+            // Update metric cards
+            document.getElementById('totalProjects').textContent = data.total_projects;
+            document.getElementById('totalEntities').textContent = data.total_entities.toLocaleString();
+            document.getElementById('qualityScore').textContent = data.data_quality_score.toFixed(1) + '%';
+            document.getElementById('surveyPoints').textContent = data.survey_points.toLocaleString();
+
+            // Update Material Distribution Chart
+            updateMaterialChart(data.material_distribution);
+
+            // Update Survey Productivity Chart
+            updateProductivityChart(data.survey_productivity);
+
+            // Update Project Health Table
+            updateProjectHealth(data.project_health);
+        })
+        .catch(err => console.error('Dashboard error:', err));
+}
+
+function updateMaterialChart(data) {
+    const ctx = document.getElementById('materialChart').getContext('2d');
+
+    if (materialChart) {
+        materialChart.destroy();
+    }
+
+    materialChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: data.map(d => d.material || 'Unknown'),
+            datasets: [{
+                data: data.map(d => d.total_length),
+                backgroundColor: [
+                    'rgba(0, 255, 255, 0.8)',
+                    'rgba(255, 0, 255, 0.8)',
+                    'rgba(0, 255, 136, 0.8)',
+                    'rgba(255, 255, 0, 0.8)',
+                    'rgba(255, 100, 100, 0.8)'
+                ],
+                borderColor: '#0a0e27',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    labels: {color: '#e0e6ed'}
+                }
+            }
+        }
+    });
+}
+
+function updateProductivityChart(data) {
+    const ctx = document.getElementById('productivityChart').getContext('2d');
+
+    if (productivityChart) {
+        productivityChart.destroy();
+    }
+
+    productivityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(d => new Date(d.date).toLocaleDateString()),
+            datasets: [{
+                label: 'Points Collected',
+                data: data.map(d => d.points_collected),
+                borderColor: '#00ffff',
+                backgroundColor: 'rgba(0, 255, 255, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {color: '#e0e6ed'},
+                    grid: {color: 'rgba(0, 255, 255, 0.1)'}
+                },
+                x: {
+                    ticks: {color: '#e0e6ed'},
+                    grid: {color: 'rgba(0, 255, 255, 0.1)'}
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: {color: '#e0e6ed'}
+                }
+            }
+        }
+    });
+}
+
+function updateProjectHealth(data) {
+    const tbody = document.getElementById('projectHealthTable');
+    tbody.innerHTML = data.map(p => `
+        <tr>
+            <td>${p.name}</td>
+            <td>${p.entity_count}</td>
+            <td>${new Date(p.created_at).toLocaleDateString()}</td>
+            <td><span style="color: var(--mc-accent);">${p.status || 'Active'}</span></td>
+        </tr>
+    `).join('');
+}
+</script>
+{% endblock %}

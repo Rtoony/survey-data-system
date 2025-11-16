@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Report Builder{% endblock %}
+
+{% block extra_head %}
+<style>
+.report-builder-container {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: var(--spacing-lg);
+    height: calc(100vh - 200px);
+    margin-top: var(--spacing-lg);
+}
+
+.report-sidebar {
+    background: var(--mc-surface);
+    border-radius: var(--mc-radius-lg);
+    padding: var(--mc-spacing-lg);
+    overflow-y: auto;
+}
+
+.report-main {
+    background: var(--mc-surface);
+    border-radius: var(--mc-radius-lg);
+    padding: var(--mc-spacing-lg);
+    overflow-y: auto;
+}
+
+.template-item {
+    padding: var(--mc-spacing-md);
+    margin: var(--mc-spacing-sm) 0;
+    background: var(--mc-background);
+    border: 1px solid var(--mc-primary);
+    border-radius: var(--mc-radius-sm);
+    cursor: pointer;
+    transition: var(--mc-transition);
+}
+
+.template-item:hover {
+    background: rgba(0, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.template-item.active {
+    border-color: var(--mc-accent);
+    background: rgba(0, 255, 136, 0.1);
+}
+
+.param-form {
+    margin: var(--mc-spacing-lg) 0;
+}
+
+.form-group {
+    margin: var(--mc-spacing-md) 0;
+}
+
+.form-label {
+    display: block;
+    color: var(--mc-primary);
+    margin-bottom: var(--mc-spacing-xs);
+    font-weight: 600;
+}
+
+.form-input {
+    width: 100%;
+    padding: var(--mc-spacing-sm);
+    background: var(--mc-background);
+    border: 1px solid var(--mc-primary);
+    border-radius: var(--mc-radius-sm);
+    color: var(--mc-text);
+}
+
+.btn-generate {
+    background: linear-gradient(135deg, var(--mc-primary), var(--mc-accent));
+    color: #000;
+    padding: var(--mc-spacing-md) var(--mc-spacing-xl);
+    border: none;
+    border-radius: var(--mc-radius-sm);
+    font-weight: bold;
+    cursor: pointer;
+    transition: var(--mc-transition);
+}
+
+.btn-generate:hover {
+    transform: scale(1.05);
+    box-shadow: var(--mc-shadow-lg);
+}
+
+.history-table {
+    width: 100%;
+    margin-top: var(--mc-spacing-xl);
+    border-collapse: collapse;
+}
+
+.history-table th {
+    background: var(--mc-primary);
+    color: #000;
+    padding: var(--mc-spacing-sm);
+    text-align: left;
+}
+
+.history-table td {
+    padding: var(--mc-spacing-sm);
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.status-completed {
+    background: var(--mc-accent);
+    color: #000;
+}
+
+.status-failed {
+    background: var(--mc-danger);
+    color: #fff;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mc-page-header">
+    <div class="mc-header-content">
+        <div>
+            <h1><i class="fas fa-file-pdf"></i> Report Builder</h1>
+            <p class="mc-text-muted">Generate PDF and Excel reports from templates</p>
+        </div>
+    </div>
+</div>
+
+<div class="report-builder-container">
+    <!-- Left Sidebar: Templates -->
+    <div class="report-sidebar">
+        <h3 style="color: var(--mc-primary); margin-bottom: var(--mc-spacing-md);">
+            <i class="fas fa-bookmark"></i> Report Templates
+        </h3>
+
+        <div class="filter-group" style="margin-bottom: var(--mc-spacing-md);">
+            <select class="form-input" id="categoryFilter">
+                <option value="">All Categories</option>
+                <option value="Project">Project</option>
+                <option value="Survey">Survey</option>
+                <option value="QA/QC">QA/QC</option>
+                <option value="Utility">Utility</option>
+                <option value="Custom">Custom</option>
+            </select>
+        </div>
+
+        <div id="templateList">
+            <!-- Templates loaded via JavaScript -->
+        </div>
+    </div>
+
+    <!-- Main Content: Configuration & Generation -->
+    <div class="report-main">
+        <div id="templateDetails">
+            <h2 style="color: var(--mc-text);">Select a template to begin</h2>
+            <p style="color: var(--mc-muted);">Choose a report template from the sidebar to configure and generate reports.</p>
+        </div>
+
+        <div id="generationForm" style="display: none;">
+            <h2 id="templateName" style="color: var(--mc-primary);"></h2>
+            <p id="templateDescription" style="color: var(--mc-muted);"></p>
+
+            <div class="param-form">
+                <h3 style="color: var(--mc-text); margin: var(--mc-spacing-lg) 0;">Parameters</h3>
+                <div id="paramFields"></div>
+
+                <div class="form-group">
+                    <label class="form-label">Output Format</label>
+                    <select class="form-input" id="outputFormat">
+                        <option value="pdf">PDF</option>
+                        <option value="excel">Excel</option>
+                    </select>
+                </div>
+
+                <button class="btn-generate" id="generateBtn">
+                    <i class="fas fa-play"></i> Generate Report
+                </button>
+            </div>
+
+            <div id="generationStatus" style="margin-top: var(--mc-spacing-lg); display: none;">
+                <div style="padding: var(--mc-spacing-md); background: rgba(0, 255, 136, 0.1); border-left: 4px solid var(--mc-accent); border-radius: var(--mc-radius-sm);">
+                    <span id="statusMessage"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report History -->
+        <div style="margin-top: var(--mc-spacing-xl);">
+            <h3 style="color: var(--mc-primary); margin-bottom: var(--mc-spacing-md);">
+                <i class="fas fa-history"></i> Recent Reports
+            </h3>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Template</th>
+                        <th>Format</th>
+                        <th>Generated</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="historyList">
+                    <!-- History loaded via JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTemplateId = null;
+
+// Load templates on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadTemplates();
+    loadHistory();
+});
+
+function loadTemplates() {
+    fetch('/api/reports/templates')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('templateList');
+            list.innerHTML = data.templates.map(t => `
+                <div class="template-item" onclick="selectTemplate('${t.id}')">
+                    <div style="font-weight: bold; color: var(--mc-primary);">${t.name}</div>
+                    <div style="font-size: 0.9em; color: var(--mc-muted); margin-top: 3px;">${t.category}</div>
+                </div>
+            `).join('');
+        })
+        .catch(err => console.error('Error loading templates:', err));
+}
+
+function selectTemplate(templateId) {
+    currentTemplateId = templateId;
+
+    fetch(`/api/reports/templates?template_id=${templateId}`)
+        .then(r => r.json())
+        .then(data => {
+            const template = data.templates.find(t => t.id === templateId);
+            if (!template) return;
+
+            document.getElementById('templateDetails').style.display = 'none';
+            document.getElementById('generationForm').style.display = 'block';
+            document.getElementById('templateName').textContent = template.name;
+            document.getElementById('templateDescription').textContent = template.description;
+
+            // Build parameter fields
+            const params = template.parameters || {};
+            const paramFields = document.getElementById('paramFields');
+            paramFields.innerHTML = Object.entries(params).map(([key, config]) => `
+                <div class="form-group">
+                    <label class="form-label">${config.label || key}</label>
+                    <input type="text" class="form-input" id="param_${key}" ${config.required ? 'required' : ''} />
+                </div>
+            `).join('');
+
+            // Highlight selected template
+            document.querySelectorAll('.template-item').forEach(el => el.classList.remove('active'));
+            event.target.closest('.template-item').classList.add('active');
+        });
+}
+
+document.getElementById('generateBtn')?.addEventListener('click', function() {
+    if (!currentTemplateId) return;
+
+    const template_id = currentTemplateId;
+    const format = document.getElementById('outputFormat').value;
+
+    // Collect parameters
+    const parameters = {};
+    document.querySelectorAll('[id^="param_"]').forEach(input => {
+        const key = input.id.replace('param_', '');
+        parameters[key] = input.value;
+    });
+
+    const statusDiv = document.getElementById('generationStatus');
+    const statusMsg = document.getElementById('statusMessage');
+    statusDiv.style.display = 'block';
+    statusMsg.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating report...';
+
+    fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({template_id, parameters, format})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'completed') {
+            statusMsg.innerHTML = `<i class="fas fa-check"></i> Report generated successfully! <a href="/api/reports/download/${data.report_id}" style="color: var(--mc-accent);">Download</a>`;
+            loadHistory();
+        } else {
+            statusMsg.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Generation failed: ${data.error}`;
+        }
+    })
+    .catch(err => {
+        statusMsg.innerHTML = `<i class="fas fa-times"></i> Error: ${err.message}`;
+    });
+});
+
+function loadHistory() {
+    fetch('/api/reports/history?limit=10')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('historyList');
+            list.innerHTML = data.history.map(h => `
+                <tr>
+                    <td>${h.template_name}</td>
+                    <td>${h.file_format.toUpperCase()}</td>
+                    <td>${new Date(h.created_at).toLocaleString()}</td>
+                    <td><span class="status-badge status-${h.status}">${h.status}</span></td>
+                    <td>
+                        ${h.status === 'completed' ? `<a href="/api/reports/download/${h.id}" style="color: var(--mc-primary);"><i class="fas fa-download"></i> Download</a>` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        });
+}
+</script>
+{% endblock %}

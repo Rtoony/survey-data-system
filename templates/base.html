@@ -160,6 +160,21 @@
                         <i class="fas fa-tasks"></i>
                         <span>Batch Operations</span>
                     </a>
+                    <div class="mc-dropdown-divider"></div>
+                    <div class="mc-dropdown-header">📊 Analysis & Reporting</div>
+                    <a href="/tools/report-builder" class="mc-dropdown-item {% if request.path == '/tools/report-builder' %}active{% endif %}">
+                        <i class="fas fa-file-pdf"></i>
+                        <span>Report Builder</span>
+                    </a>
+                    <a href="/tools/executive-dashboard" class="mc-dropdown-item {% if request.path == '/tools/executive-dashboard' %}active{% endif %}">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Executive Dashboard</span>
+                    </a>
+                    <a href="/tools/validation-engine" class="mc-dropdown-item {% if request.path == '/tools/validation-engine' %}active{% endif %}">
+                        <i class="fas fa-shield-check"></i>
+                        <span>Validation Engine</span>
+                    </a>
+                    <div class="mc-dropdown-divider"></div>
                     <a href="/tools/specialized-tools-directory" class="mc-dropdown-item {% if request.path == '/tools/specialized-tools-directory' %}active{% endif %}">
                         <i class="fas fa-tools"></i>
                         Specialized Tools Directory
