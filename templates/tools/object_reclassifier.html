@@ -953,7 +953,7 @@ async function loadTypes(categoryId) {
     try {
         const response = await fetch(`/api/vocabulary/object-types?category_id=${categoryId}`);
         const data = await response.json();
-        vocabularyCache.types[categoryId] = data.types || [];
+        vocabularyCache.types[categoryId] = data.object_types || [];
         return vocabularyCache.types[categoryId];
     } catch (error) {
         console.error('Error loading types:', error);

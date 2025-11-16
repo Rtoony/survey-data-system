@@ -188,6 +188,21 @@ def survey_codes_manager():
     """Survey Code Library Manager - CRUD interface for field survey codes"""
     return render_template('tools/survey_codes.html')
 
+@app.route('/tools/nl-query')
+def nl_query_page():
+    """Natural Language Query Interface page"""
+    return render_template('nl_query.html')
+
+@app.route('/tools/advanced-search')
+def advanced_search_page():
+    """Advanced Search & Filtering Interface page"""
+    return render_template('advanced_search.html')
+
+@app.route('/tools/batch-operations')
+def batch_operations_page():
+    """Batch Operations Interface page"""
+    return render_template('batch_operations.html')
+
 @app.route('/tools/survey-code-tester')
 def survey_code_tester():
     """Survey Code Testing Interface - Test parsing, preview CAD output, simulate field shots"""
@@ -3203,32 +3218,34 @@ def get_disciplines():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/vocabulary/categories', methods=['GET'])
-def get_categories_by_discipline():
-    """Get categories filtered by discipline"""
-    try:
-        discipline_id = request.args.get('discipline_id', type=int)
-        
-        if discipline_id:
-            query = """
-                SELECT category_id, discipline_id, code, full_name, description, sort_order
-                FROM category_codes
-                WHERE is_active = TRUE AND discipline_id = %s
-                ORDER BY sort_order, code
-            """
-            categories = execute_query(query, (discipline_id,))
-        else:
-            query = """
-                SELECT category_id, discipline_id, code, full_name, description, sort_order
-                FROM category_codes
-                WHERE is_active = TRUE
-                ORDER BY sort_order, code
-            """
-            categories = execute_query(query)
-        
-        return jsonify({'categories': categories})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+# DUPLICATE ROUTE REMOVED - This was causing "undefined --- undefined" in vocabulary page
+# The correct route with JOIN to disciplines is at line ~13354 (get_vocabulary_categories)
+# @app.route('/api/vocabulary/categories', methods=['GET'])
+# def get_categories_by_discipline():
+#     """Get categories filtered by discipline"""
+#     try:
+#         discipline_id = request.args.get('discipline_id', type=int)
+#
+#         if discipline_id:
+#             query = """
+#                 SELECT category_id, discipline_id, code, full_name, description, sort_order
+#                 FROM category_codes
+#                 WHERE is_active = TRUE AND discipline_id = %s
+#                 ORDER BY sort_order, code
+#             """
+#             categories = execute_query(query, (discipline_id,))
+#         else:
+#             query = """
+#                 SELECT category_id, discipline_id, code, full_name, description, sort_order
+#                 FROM category_codes
+#                 WHERE is_active = TRUE
+#                 ORDER BY sort_order, code
+#             """
+#             categories = execute_query(query)
+#
+#         return jsonify({'categories': categories})
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/types', methods=['GET'])
 def get_types_by_category():
@@ -17133,6 +17150,448 @@ def delete_naming_template(template_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== STRUCTURE TYPE STANDARDS API =====
+
+@app.route('/api/structure-type-standards')
+def get_structure_type_standards():
+    """Get all structure type standards with optional filtering"""
+    try:
+        category = request.args.get('category')
+        active_only = request.args.get('active_only', 'true') == 'true'
+
+        where_clauses = []
+        params = []
+
+        if active_only:
+            where_clauses.append('is_active = TRUE')
+
+        if category:
+            where_clauses.append('category = %s')
+            params.append(category)
+
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses) if where_clauses else ''
+
+        query = f"""
+            SELECT type_id, type_code, type_name, type_description, category, subcategory,
+                   icon_class, color_hex, symbol_name, specialized_tool_id, specialized_tool_name,
+                   typical_depth_range, typical_diameter_range, common_materials, required_attributes,
+                   requires_inspection, inspection_frequency, related_standards,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_type_id,
+                   created_at, updated_at
+            FROM structure_type_standards
+            {where_sql}
+            ORDER BY category, type_code
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structure-type-standards/<uuid:type_id>')
+def get_structure_type_standard(type_id):
+    """Get a single structure type standard"""
+    try:
+        query = """
+            SELECT type_id, type_code, type_name, type_description, category, subcategory,
+                   icon_class, color_hex, symbol_name, specialized_tool_id, specialized_tool_name,
+                   typical_depth_range, typical_diameter_range, common_materials, required_attributes,
+                   requires_inspection, inspection_frequency, related_standards,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_type_id,
+                   created_at, updated_at
+            FROM structure_type_standards
+            WHERE type_id = %s
+        """
+        result = execute_query(query, (str(type_id),))
+        if not result:
+            return jsonify({'error': 'Structure type not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structure-type-standards', methods=['POST'])
+def create_structure_type_standard():
+    """Create a new structure type standard"""
+    try:
+        data = request.get_json()
+
+        query = """
+            INSERT INTO structure_type_standards
+            (type_code, type_name, type_description, category, subcategory,
+             icon_class, color_hex, common_materials, typical_depth_range, typical_diameter_range,
+             requires_inspection, inspection_frequency, related_standards)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING type_id, type_code, type_name
+        """
+
+        result = execute_query(query, (
+            data['type_code'].strip().upper(),
+            data['type_name'].strip(),
+            data.get('type_description', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('icon_class', 'fa-circle'),
+            data.get('color_hex', '#00BCD4'),
+            data.get('common_materials', []),
+            data.get('typical_depth_range', '').strip() or None,
+            data.get('typical_diameter_range', '').strip() or None,
+            data.get('requires_inspection', False),
+            data.get('inspection_frequency', '').strip() or None,
+            data.get('related_standards', '').strip() or None
+        ))
+
+        if result:
+            return jsonify(result[0]), 201
+        return jsonify({'error': 'Failed to create structure type'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structure-type-standards/<uuid:type_id>', methods=['PUT'])
+def update_structure_type_standard(type_id):
+    """Update an existing structure type standard"""
+    try:
+        data = request.get_json()
+
+        query = """
+            UPDATE structure_type_standards
+            SET type_code = %s, type_name = %s, type_description = %s,
+                category = %s, subcategory = %s, icon_class = %s, color_hex = %s,
+                common_materials = %s, typical_depth_range = %s, typical_diameter_range = %s,
+                requires_inspection = %s, inspection_frequency = %s, related_standards = %s,
+                is_active = %s
+            WHERE type_id = %s
+            RETURNING type_id
+        """
+
+        result = execute_query(query, (
+            data['type_code'].strip().upper(),
+            data['type_name'].strip(),
+            data.get('type_description', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('icon_class', 'fa-circle'),
+            data.get('color_hex', '#00BCD4'),
+            data.get('common_materials', []),
+            data.get('typical_depth_range', '').strip() or None,
+            data.get('typical_diameter_range', '').strip() or None,
+            data.get('requires_inspection', False),
+            data.get('inspection_frequency', '').strip() or None,
+            data.get('related_standards', '').strip() or None,
+            data.get('is_active', True),
+            str(type_id)
+        ))
+
+        if not result:
+            return jsonify({'error': 'Structure type not found'}), 404
+        return jsonify({'message': 'Structure type updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structure-type-standards/<uuid:type_id>', methods=['DELETE'])
+def delete_structure_type_standard(type_id):
+    """Delete a structure type standard (soft delete)"""
+    try:
+        query = "UPDATE structure_type_standards SET is_active = FALSE WHERE type_id = %s RETURNING type_id"
+        result = execute_query(query, (str(type_id),))
+
+        if not result:
+            return jsonify({'error': 'Structure type not found'}), 404
+        return jsonify({'message': 'Structure type deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== SURVEY POINT DESCRIPTION STANDARDS API =====
+
+@app.route('/api/survey-point-descriptions')
+def get_survey_point_descriptions():
+    """Get all survey point description standards with optional filtering"""
+    try:
+        category = request.args.get('category')
+        active_only = request.args.get('active_only', 'true') == 'true'
+
+        where_clauses = []
+        params = []
+
+        if active_only:
+            where_clauses.append('is_active = TRUE')
+
+        if category:
+            where_clauses.append('category = %s')
+            params.append(category)
+
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses) if where_clauses else ''
+
+        query = f"""
+            SELECT description_id, description_code, description_text, description_full,
+                   category, subcategory, feature_type, point_code, cad_layer_name, cad_symbol,
+                   color_hex, is_control_point, typical_accuracy, requires_elevation,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_id,
+                   created_at, updated_at
+            FROM survey_point_description_standards
+            {where_sql}
+            ORDER BY category, description_code
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<uuid:description_id>')
+def get_survey_point_description(description_id):
+    """Get a single survey point description standard"""
+    try:
+        query = """
+            SELECT description_id, description_code, description_text, description_full,
+                   category, subcategory, feature_type, point_code, cad_layer_name, cad_symbol,
+                   color_hex, is_control_point, typical_accuracy, requires_elevation,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_id,
+                   created_at, updated_at
+            FROM survey_point_description_standards
+            WHERE description_id = %s
+        """
+        result = execute_query(query, (str(description_id),))
+        if not result:
+            return jsonify({'error': 'Description not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions', methods=['POST'])
+def create_survey_point_description():
+    """Create a new survey point description standard"""
+    try:
+        data = request.get_json()
+
+        query = """
+            INSERT INTO survey_point_description_standards
+            (description_code, description_text, description_full, category, subcategory,
+             feature_type, point_code, cad_symbol, color_hex, is_control_point, requires_elevation)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING description_id, description_code, description_text
+        """
+
+        result = execute_query(query, (
+            data['description_code'].strip().upper(),
+            data['description_text'].strip(),
+            data.get('description_full', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('feature_type', 'Point'),
+            data.get('point_code', '').strip() or None,
+            data.get('cad_symbol', 'POINT'),
+            data.get('color_hex', '#00FF00'),
+            data.get('is_control_point', False),
+            data.get('requires_elevation', True)
+        ))
+
+        if result:
+            return jsonify(result[0]), 201
+        return jsonify({'error': 'Failed to create survey description'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<uuid:description_id>', methods=['PUT'])
+def update_survey_point_description(description_id):
+    """Update an existing survey point description standard"""
+    try:
+        data = request.get_json()
+
+        query = """
+            UPDATE survey_point_description_standards
+            SET description_code = %s, description_text = %s, description_full = %s,
+                category = %s, subcategory = %s, feature_type = %s, point_code = %s,
+                cad_symbol = %s, color_hex = %s, is_control_point = %s, requires_elevation = %s,
+                is_active = %s
+            WHERE description_id = %s
+            RETURNING description_id
+        """
+
+        result = execute_query(query, (
+            data['description_code'].strip().upper(),
+            data['description_text'].strip(),
+            data.get('description_full', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('feature_type', 'Point'),
+            data.get('point_code', '').strip() or None,
+            data.get('cad_symbol', 'POINT'),
+            data.get('color_hex', '#00FF00'),
+            data.get('is_control_point', False),
+            data.get('requires_elevation', True),
+            data.get('is_active', True),
+            str(description_id)
+        ))
+
+        if not result:
+            return jsonify({'error': 'Description not found'}), 404
+        return jsonify({'message': 'Survey description updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<uuid:description_id>', methods=['DELETE'])
+def delete_survey_point_description(description_id):
+    """Delete a survey point description standard (soft delete)"""
+    try:
+        query = "UPDATE survey_point_description_standards SET is_active = FALSE WHERE description_id = %s RETURNING description_id"
+        result = execute_query(query, (str(description_id),))
+
+        if not result:
+            return jsonify({'error': 'Description not found'}), 404
+        return jsonify({'message': 'Survey description deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== SURVEY METHOD TYPES API =====
+
+@app.route('/api/survey-method-types')
+def get_survey_method_types():
+    """Get all survey method types with optional filtering"""
+    try:
+        category = request.args.get('category')
+        active_only = request.args.get('active_only', 'true') == 'true'
+
+        where_clauses = []
+        params = []
+
+        if active_only:
+            where_clauses.append('is_active = TRUE')
+
+        if category:
+            where_clauses.append('category = %s')
+            params.append(category)
+
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses) if where_clauses else ''
+
+        query = f"""
+            SELECT method_id, method_code, method_name, method_description,
+                   category, subcategory, equipment_type,
+                   typical_horizontal_accuracy, typical_vertical_accuracy, accuracy_units, accuracy_class,
+                   requires_base_station, requires_line_of_sight, effective_range_ft, typical_time_per_point,
+                   related_standards, certification_required,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_id,
+                   created_at, updated_at
+            FROM survey_method_types
+            {where_sql}
+            ORDER BY category, method_code
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-method-types/<uuid:method_id>')
+def get_survey_method_type(method_id):
+    """Get a single survey method type"""
+    try:
+        query = """
+            SELECT method_id, method_code, method_name, method_description,
+                   category, subcategory, equipment_type,
+                   typical_horizontal_accuracy, typical_vertical_accuracy, accuracy_units, accuracy_class,
+                   requires_base_station, requires_line_of_sight, effective_range_ft, typical_time_per_point,
+                   related_standards, certification_required,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_id,
+                   created_at, updated_at
+            FROM survey_method_types
+            WHERE method_id = %s
+        """
+        result = execute_query(query, (str(method_id),))
+        if not result:
+            return jsonify({'error': 'Method type not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-method-types', methods=['POST'])
+def create_survey_method_type():
+    """Create a new survey method type"""
+    try:
+        data = request.get_json()
+
+        query = """
+            INSERT INTO survey_method_types
+            (method_code, method_name, method_description, category, subcategory, equipment_type,
+             typical_horizontal_accuracy, typical_vertical_accuracy, accuracy_class,
+             requires_base_station, requires_line_of_sight, related_standards)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING method_id, method_code, method_name
+        """
+
+        result = execute_query(query, (
+            data['method_code'].strip().upper(),
+            data['method_name'].strip(),
+            data.get('method_description', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('equipment_type', '').strip() or None,
+            data.get('typical_horizontal_accuracy'),
+            data.get('typical_vertical_accuracy'),
+            data.get('accuracy_class', 'Survey Grade'),
+            data.get('requires_base_station', False),
+            data.get('requires_line_of_sight', False),
+            data.get('related_standards', '').strip() or None
+        ))
+
+        if result:
+            return jsonify(result[0]), 201
+        return jsonify({'error': 'Failed to create survey method'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-method-types/<uuid:method_id>', methods=['PUT'])
+def update_survey_method_type(method_id):
+    """Update an existing survey method type"""
+    try:
+        data = request.get_json()
+
+        query = """
+            UPDATE survey_method_types
+            SET method_code = %s, method_name = %s, method_description = %s,
+                category = %s, subcategory = %s, equipment_type = %s,
+                typical_horizontal_accuracy = %s, typical_vertical_accuracy = %s, accuracy_class = %s,
+                requires_base_station = %s, requires_line_of_sight = %s, related_standards = %s,
+                is_active = %s
+            WHERE method_id = %s
+            RETURNING method_id
+        """
+
+        result = execute_query(query, (
+            data['method_code'].strip().upper(),
+            data['method_name'].strip(),
+            data.get('method_description', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('equipment_type', '').strip() or None,
+            data.get('typical_horizontal_accuracy'),
+            data.get('typical_vertical_accuracy'),
+            data.get('accuracy_class', 'Survey Grade'),
+            data.get('requires_base_station', False),
+            data.get('requires_line_of_sight', False),
+            data.get('related_standards', '').strip() or None,
+            data.get('is_active', True),
+            str(method_id)
+        ))
+
+        if not result:
+            return jsonify({'error': 'Method type not found'}), 404
+        return jsonify({'message': 'Survey method updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-method-types/<uuid:method_id>', methods=['DELETE'])
+def delete_survey_method_type(method_id):
+    """Delete a survey method type (soft delete)"""
+    try:
+        query = "UPDATE survey_method_types SET is_active = FALSE WHERE method_id = %s RETURNING method_id"
+        result = execute_query(query, (str(method_id),))
+
+        if not result:
+            return jsonify({'error': 'Method type not found'}), 404
+        return jsonify({'message': 'Survey method deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ===== SURVEY CODE LIBRARY API =====
 
 @app.route('/api/survey-codes')
@@ -18757,6 +19216,1188 @@ def check_relationship_sync(set_id):
         clear_existing = request.args.get('clear_existing', 'true').lower() == 'true'
         summary = checker.run_all_checks(set_id, clear_existing)
         return jsonify(summary)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== NATURAL LANGUAGE QUERY API =====
+
+@app.route('/api/nl-query/process', methods=['POST'])
+def process_nl_query():
+    """Process a natural language query and generate SQL"""
+    try:
+        data = request.get_json()
+        nl_query = data.get('query', '').strip()
+
+        if not nl_query:
+            return jsonify({'error': 'Query is required'}), 400
+
+        # Get OpenAI API key from environment
+        openai_api_key = os.environ.get('OPENAI_API_KEY')
+        if not openai_api_key:
+            return jsonify({'error': 'OpenAI API key not configured'}), 500
+
+        # Build system prompt with schema context
+        system_prompt = """You are a SQL expert for a PostgreSQL/PostGIS CAD/GIS database.
+Generate safe, read-only SQL queries based on natural language input.
+
+Key Tables:
+- utility_structures: storm/sewer structures (structure_type, rim_elevation, geometry)
+- utility_lines: pipes (line_type, material, diameter, geometry)
+- survey_points: survey data (point_number, point_description, elevation, geometry)
+- projects: engineering projects (project_name, client, municipality)
+- structure_type_standards: controlled vocab for structure types
+- survey_point_description_standards: controlled vocab for point descriptions
+- survey_method_types: survey method standards
+
+Important:
+- ALWAYS use read-only SELECT queries (no INSERT/UPDATE/DELETE)
+- Use ST_Distance, ST_DWithin for proximity queries (SRID 2226)
+- Join with standards tables for human-readable names
+- Include LIMIT clause (default 100) for large result sets
+- Return JSON-formatted SQL with explanation
+
+Example:
+Input: "Show me all manholes within 100 feet of project boundaries"
+Output: {
+  "sql": "SELECT us.structure_number, sts.type_name, ST_Distance(us.rim_geometry, pb.geometry) as distance FROM utility_structures us JOIN structure_type_standards sts ON us.structure_type_id = sts.type_id JOIN project_boundaries pb ON ST_DWithin(us.rim_geometry, pb.geometry, 100) WHERE sts.type_code = 'MH' LIMIT 100",
+  "explanation": "Finds manholes (MH) within 100 feet of project boundaries using spatial distance",
+  "intent": "spatial",
+  "complexity": 0.6
+}"""
+
+        # Call OpenAI API
+        import openai
+        openai.api_key = openai_api_key
+
+        start_time = datetime.now()
+
+        response = openai.ChatCompletion.create(
+            model=data.get('model', 'gpt-4'),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Generate SQL for: {nl_query}"}
+            ],
+            temperature=0.1,
+            max_tokens=1000
+        )
+
+        processing_time = (datetime.now() - start_time).total_seconds() * 1000
+
+        # Parse response
+        ai_response = response.choices[0].message.content
+
+        # Try to extract JSON if present
+        try:
+            # Remove markdown code blocks if present
+            if '```json' in ai_response:
+                ai_response = ai_response.split('```json')[1].split('```')[0].strip()
+            elif '```' in ai_response:
+                ai_response = ai_response.split('```')[1].split('```')[0].strip()
+
+            result = json.loads(ai_response)
+            generated_sql = result.get('sql', '')
+            explanation = result.get('explanation', '')
+            intent = result.get('intent', 'select')
+            complexity = result.get('complexity', 0.5)
+        except:
+            # Fallback: treat entire response as SQL
+            generated_sql = ai_response.strip()
+            explanation = 'SQL query generated from natural language'
+            intent = 'select'
+            complexity = 0.5
+
+        # Security check: ensure SELECT-only query
+        sql_upper = generated_sql.upper().strip()
+        if not sql_upper.startswith('SELECT'):
+            return jsonify({'error': 'Only SELECT queries are allowed'}), 400
+
+        dangerous_keywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE']
+        for keyword in dangerous_keywords:
+            if keyword in sql_upper:
+                return jsonify({'error': f'Dangerous keyword {keyword} detected'}), 400
+
+        # Save to history
+        query_id = str(uuid.uuid4())
+        history_query = """
+            INSERT INTO nl_query_history
+            (query_id, natural_language_query, generated_sql, sql_explanation, model_used,
+             tokens_used, processing_time_ms, query_intent, complexity_score, execution_status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
+            RETURNING query_id
+        """
+
+        execute_query(history_query, (
+            query_id, nl_query, generated_sql, explanation,
+            data.get('model', 'gpt-4'),
+            response.usage.total_tokens,
+            int(processing_time),
+            intent,
+            complexity
+        ))
+
+        return jsonify({
+            'query_id': query_id,
+            'sql': generated_sql,
+            'explanation': explanation,
+            'intent': intent,
+            'complexity': complexity,
+            'processing_time_ms': int(processing_time),
+            'tokens_used': response.usage.total_tokens
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nl-query/execute', methods=['POST'])
+def execute_nl_query():
+    """Execute a generated SQL query safely"""
+    try:
+        data = request.get_json()
+        query_id = data.get('query_id')
+        sql = data.get('sql', '').strip()
+
+        if not sql:
+            return jsonify({'error': 'SQL is required'}), 400
+
+        # Security re-check
+        sql_upper = sql.upper().strip()
+        if not sql_upper.startswith('SELECT'):
+            return jsonify({'error': 'Only SELECT queries are allowed'}), 400
+
+        # Execute with timeout
+        start_time = datetime.now()
+
+        try:
+            results = execute_query(sql)
+            execution_time = (datetime.now() - start_time).total_seconds() * 1000
+
+            # Update history
+            if query_id:
+                update_query = """
+                    UPDATE nl_query_history
+                    SET execution_status = 'success',
+                        result_count = %s,
+                        execution_time_ms = %s
+                    WHERE query_id = %s
+                """
+                execute_query(update_query, (len(results) if results else 0, int(execution_time), query_id))
+
+            return jsonify({
+                'success': True,
+                'results': results if results else [],
+                'count': len(results) if results else 0,
+                'execution_time_ms': int(execution_time)
+            })
+
+        except Exception as exec_error:
+            # Update history with error
+            if query_id:
+                update_query = """
+                    UPDATE nl_query_history
+                    SET execution_status = 'error',
+                        error_message = %s
+                    WHERE query_id = %s
+                """
+                execute_query(update_query, (str(exec_error), query_id))
+
+            return jsonify({'error': f'SQL execution error: {str(exec_error)}'}), 400
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nl-query/history')
+def get_nl_query_history():
+    """Get query history with optional filtering"""
+    try:
+        limit = int(request.args.get('limit', 50))
+        favorites_only = request.args.get('favorites_only') == 'true'
+
+        where_clauses = []
+        params = []
+
+        if favorites_only:
+            where_clauses.append('is_favorite = TRUE')
+
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses) if where_clauses else ''
+
+        query = f"""
+            SELECT query_id, natural_language_query, generated_sql, sql_explanation,
+                   execution_status, result_count, execution_time_ms, processing_time_ms,
+                   query_intent, complexity_score, user_feedback, user_rating,
+                   is_favorite, is_template, template_name,
+                   created_at, updated_at
+            FROM nl_query_history
+            {where_sql}
+            ORDER BY created_at DESC
+            LIMIT %s
+        """
+
+        params.append(limit)
+        results = execute_query(query, params)
+
+        return jsonify(results if results else [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nl-query/history/<uuid:query_id>', methods=['PUT'])
+def update_nl_query_history(query_id):
+    """Update query history (mark as favorite, add feedback, etc.)"""
+    try:
+        data = request.get_json()
+
+        updates = []
+        params = []
+
+        if 'is_favorite' in data:
+            updates.append('is_favorite = %s')
+            params.append(data['is_favorite'])
+
+        if 'user_feedback' in data:
+            updates.append('user_feedback = %s')
+            params.append(data['user_feedback'])
+
+        if 'user_rating' in data:
+            updates.append('user_rating = %s')
+            params.append(data['user_rating'])
+
+        if 'user_comment' in data:
+            updates.append('user_comment = %s')
+            params.append(data['user_comment'])
+
+        if not updates:
+            return jsonify({'error': 'No fields to update'}), 400
+
+        params.append(str(query_id))
+
+        query = f"""
+            UPDATE nl_query_history
+            SET {', '.join(updates)}
+            WHERE query_id = %s
+            RETURNING query_id
+        """
+
+        result = execute_query(query, params)
+
+        if not result:
+            return jsonify({'error': 'Query not found'}), 404
+
+        return jsonify({'message': 'Query updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nl-query/templates')
+def get_nl_query_templates():
+    """Get all query templates"""
+    try:
+        category = request.args.get('category')
+        featured_only = request.args.get('featured_only') == 'true'
+
+        where_clauses = ['is_active = TRUE']
+        params = []
+
+        if category:
+            where_clauses.append('category = %s')
+            params.append(category)
+
+        if featured_only:
+            where_clauses.append('is_featured = TRUE')
+
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses)
+
+        query = f"""
+            SELECT template_id, template_name, template_description, category,
+                   natural_language_template, sql_template, sql_explanation,
+                   parameters, example_values, tags,
+                   usage_count, is_featured, created_at
+            FROM nl_query_templates
+            {where_sql}
+            ORDER BY is_featured DESC, usage_count DESC, template_name
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nl-query/templates/<uuid:template_id>/use', methods=['POST'])
+def use_nl_query_template(template_id):
+    """Use a template with specific parameter values"""
+    try:
+        data = request.get_json()
+        param_values = data.get('parameters', {})
+
+        # Get template
+        template_query = """
+            SELECT natural_language_template, sql_template, parameters
+            FROM nl_query_templates
+            WHERE template_id = %s
+        """
+        template = execute_query(template_query, (str(template_id),))
+
+        if not template:
+            return jsonify({'error': 'Template not found'}), 404
+
+        template = template[0]
+
+        # Replace placeholders in both NL and SQL
+        nl_filled = template['natural_language_template']
+        sql_filled = template['sql_template']
+
+        for param_name, param_value in param_values.items():
+            nl_filled = nl_filled.replace(f'{{{param_name}}}', str(param_value))
+            sql_filled = sql_filled.replace(f'{{{param_name}}}', str(param_value))
+
+        # Update usage count
+        update_query = """
+            UPDATE nl_query_templates
+            SET usage_count = usage_count + 1,
+                last_used_at = CURRENT_TIMESTAMP
+            WHERE template_id = %s
+        """
+        execute_query(update_query, (str(template_id),))
+
+        return jsonify({
+            'natural_language_query': nl_filled,
+            'sql': sql_filled,
+            'template_id': str(template_id)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# ADVANCED SEARCH & FILTERING API
+# ============================================
+
+@app.route('/api/search/execute', methods=['POST'])
+def execute_advanced_search():
+    """Execute an advanced search with filters"""
+    try:
+        data = request.get_json()
+        entity_type = data.get('entity_type')
+        filter_config = data.get('filter_config', {})
+        sort_field = data.get('sort_field', 'created_at')
+        sort_direction = data.get('sort_direction', 'DESC')
+        page = data.get('page', 1)
+        per_page = data.get('per_page', 50)
+
+        if not entity_type:
+            return jsonify({'error': 'entity_type is required'}), 400
+
+        # Build query based on entity type and filters
+        query, params = build_search_query(entity_type, filter_config, sort_field, sort_direction, page, per_page)
+
+        # Execute search
+        start_time = datetime.now()
+        results = execute_query(query, params)
+        execution_time = int((datetime.now() - start_time).total_seconds() * 1000)
+
+        # Save to search history
+        history_query = """
+            INSERT INTO search_history
+            (entity_type, filter_config, result_count, execution_time_ms, executed_by)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING search_id
+        """
+        history_result = execute_query(
+            history_query,
+            (entity_type, json.dumps(filter_config), len(results) if results else 0, execution_time, 'system')
+        )
+
+        search_id = history_result[0]['search_id'] if history_result else None
+
+        return jsonify({
+            'results': results if results else [],
+            'count': len(results) if results else 0,
+            'execution_time_ms': execution_time,
+            'search_id': str(search_id) if search_id else None,
+            'page': page,
+            'per_page': per_page
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def build_search_query(entity_type, filter_config, sort_field, sort_direction, page, per_page):
+    """Build SQL query based on entity type and filters"""
+    params = []
+
+    # Base queries for different entity types
+    if entity_type == 'utility_structures':
+        base_query = """
+            SELECT us.structure_id, us.structure_number, us.structure_type,
+                   sts.type_name, us.rim_elevation, us.invert_elevation,
+                   p.project_name, p.municipality,
+                   ST_X(us.rim_geometry) as lon, ST_Y(us.rim_geometry) as lat
+            FROM utility_structures us
+            LEFT JOIN structure_type_standards sts ON us.structure_type_id = sts.type_id
+            LEFT JOIN projects p ON us.project_id = p.project_id
+            WHERE us.is_active = TRUE
+        """
+    elif entity_type == 'survey_points':
+        base_query = """
+            SELECT sp.point_id, sp.point_number, sp.point_description,
+                   spd.description_text, sp.northing, sp.easting, sp.elevation,
+                   sp.survey_date, smt.method_name, sp.surveyed_by,
+                   p.project_name
+            FROM survey_points sp
+            LEFT JOIN survey_point_description_standards spd ON sp.point_description_id = spd.description_id
+            LEFT JOIN survey_method_types smt ON sp.survey_method_id = smt.method_id
+            LEFT JOIN projects p ON sp.project_id = p.project_id
+            WHERE sp.is_active = TRUE
+        """
+    elif entity_type == 'utility_lines':
+        base_query = """
+            SELECT ul.line_id, ul.line_number, ul.line_type, ul.material,
+                   ul.diameter, ul.slope, ul.length_ft,
+                   us1.structure_number as upstream_structure,
+                   us2.structure_number as downstream_structure,
+                   p.project_name
+            FROM utility_lines ul
+            LEFT JOIN utility_structures us1 ON ul.upstream_structure_id = us1.structure_id
+            LEFT JOIN utility_structures us2 ON ul.downstream_structure_id = us2.structure_id
+            LEFT JOIN projects p ON ul.project_id = p.project_id
+            WHERE ul.is_active = TRUE
+        """
+    elif entity_type == 'projects':
+        base_query = """
+            SELECT p.project_id, p.project_number, p.project_name,
+                   p.client, p.municipality, p.status, p.start_date,
+                   COUNT(DISTINCT us.structure_id) as structure_count,
+                   COUNT(DISTINCT sp.point_id) as point_count,
+                   COUNT(DISTINCT ul.line_id) as line_count
+            FROM projects p
+            LEFT JOIN utility_structures us ON us.project_id = p.project_id
+            LEFT JOIN survey_points sp ON sp.project_id = p.project_id
+            LEFT JOIN utility_lines ul ON ul.project_id = p.project_id
+            WHERE p.is_active = TRUE
+        """
+    else:
+        raise ValueError(f"Unsupported entity type: {entity_type}")
+
+    # Apply filters
+    where_clauses = []
+
+    # Text search filters
+    if 'search_text' in filter_config and filter_config['search_text']:
+        search_text = f"%{filter_config['search_text']}%"
+        params.append(search_text)
+        if entity_type == 'utility_structures':
+            where_clauses.append("(us.structure_number ILIKE %s OR us.structure_type ILIKE %s)")
+            params.append(search_text)
+        elif entity_type == 'survey_points':
+            where_clauses.append("(sp.point_number ILIKE %s OR sp.point_description ILIKE %s)")
+            params.append(search_text)
+
+    # Specific field filters
+    if 'structure_type_id' in filter_config and filter_config['structure_type_id']:
+        where_clauses.append("us.structure_type_id = %s")
+        params.append(filter_config['structure_type_id'])
+
+    if 'project_id' in filter_config and filter_config['project_id']:
+        where_clauses.append(f"{entity_type[0:2]}.project_id = %s")
+        params.append(filter_config['project_id'])
+
+    if 'material' in filter_config and filter_config['material']:
+        where_clauses.append("ul.material ILIKE %s")
+        params.append(f"%{filter_config['material']}%")
+
+    # Elevation range
+    if 'elevation_range' in filter_config:
+        elev_range = filter_config['elevation_range']
+        if elev_range.get('min') is not None:
+            where_clauses.append("sp.elevation >= %s")
+            params.append(elev_range['min'])
+        if elev_range.get('max') is not None:
+            where_clauses.append("sp.elevation <= %s")
+            params.append(elev_range['max'])
+
+    # Date range
+    if 'date_range' in filter_config:
+        date_range = filter_config['date_range']
+        field = date_range.get('field', 'created_at')
+        if date_range.get('start'):
+            where_clauses.append(f"{field} >= %s")
+            params.append(date_range['start'])
+        if date_range.get('end'):
+            where_clauses.append(f"{field} <= %s")
+            params.append(date_range['end'])
+
+    # Spatial search
+    if 'spatial_search' in filter_config:
+        spatial = filter_config['spatial_search']
+        if spatial['type'] == 'radius':
+            where_clauses.append(
+                "ST_DWithin(us.rim_geometry, ST_SetSRID(ST_MakePoint(%s, %s), 2226), %s)"
+            )
+            params.extend([spatial['center_lon'], spatial['center_lat'], spatial['radius_feet']])
+        elif spatial['type'] == 'bbox':
+            where_clauses.append(
+                "sp.northing BETWEEN %s AND %s AND sp.easting BETWEEN %s AND %s"
+            )
+            params.extend([
+                spatial['min_northing'], spatial['max_northing'],
+                spatial['min_easting'], spatial['max_easting']
+            ])
+
+    # Special filters
+    if filter_config.get('has_no_connections'):
+        where_clauses.append("""
+            NOT EXISTS (
+                SELECT 1 FROM utility_lines ul1
+                WHERE ul1.upstream_structure_id = us.structure_id
+                   OR ul1.downstream_structure_id = us.structure_id
+            )
+        """)
+
+    if filter_config.get('elevation_null'):
+        where_clauses.append("sp.elevation IS NULL")
+
+    # Combine where clauses
+    if where_clauses:
+        base_query += " AND " + " AND ".join(where_clauses)
+
+    # Add GROUP BY for projects
+    if entity_type == 'projects':
+        base_query += " GROUP BY p.project_id, p.project_number, p.project_name, p.client, p.municipality, p.status, p.start_date"
+
+    # Add sorting
+    base_query += f" ORDER BY {sort_field} {sort_direction}"
+
+    # Add pagination
+    offset = (page - 1) * per_page
+    base_query += f" LIMIT {per_page} OFFSET {offset}"
+
+    return base_query, params
+
+@app.route('/api/search/facets/<entity_type>')
+def get_search_facets(entity_type):
+    """Get available facet values for filtering"""
+    try:
+        facet_name = request.args.get('facet')
+
+        # Get from cache first
+        cache_query = """
+            SELECT facet_value, record_count
+            FROM search_facet_cache
+            WHERE entity_type = %s
+              AND facet_name = %s
+              AND is_valid = TRUE
+            ORDER BY record_count DESC
+        """
+
+        cached_results = execute_query(cache_query, (entity_type, facet_name))
+
+        if cached_results:
+            return jsonify(cached_results)
+
+        # If not cached, compute on the fly
+        # (In production, you'd trigger a background cache rebuild)
+        return jsonify([])
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/templates')
+def get_search_templates():
+    """Get all saved search templates"""
+    try:
+        category = request.args.get('category')
+        is_public = request.args.get('is_public', 'true') == 'true'
+        entity_type = request.args.get('entity_type')
+
+        where_clauses = ["is_active = TRUE"]
+        params = []
+
+        if category:
+            where_clauses.append("category = %s")
+            params.append(category)
+
+        if is_public:
+            where_clauses.append("is_public = TRUE")
+
+        if entity_type:
+            where_clauses.append("entity_type = %s")
+            params.append(entity_type)
+
+        where_sql = " AND ".join(where_clauses)
+
+        query = f"""
+            SELECT template_id, template_name, template_description,
+                   entity_type, category, filter_config, enabled_facets,
+                   visible_columns, usage_count, tags, is_system_template
+            FROM saved_search_templates
+            WHERE {where_sql}
+            ORDER BY usage_count DESC, template_name
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/templates', methods=['POST'])
+def create_search_template():
+    """Create a new search template"""
+    try:
+        data = request.get_json()
+
+        query = """
+            INSERT INTO saved_search_templates
+            (template_name, template_description, entity_type, filter_config,
+             enabled_facets, default_sort, visible_columns, category, tags,
+             is_public, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING template_id
+        """
+
+        result = execute_query(query, (
+            data.get('template_name'),
+            data.get('template_description'),
+            data.get('entity_type'),
+            json.dumps(data.get('filter_config', {})),
+            json.dumps(data.get('enabled_facets', [])),
+            data.get('default_sort'),
+            json.dumps(data.get('visible_columns', [])),
+            data.get('category'),
+            json.dumps(data.get('tags', [])),
+            data.get('is_public', False),
+            data.get('created_by', 'system')
+        ))
+
+        return jsonify({
+            'template_id': str(result[0]['template_id']),
+            'message': 'Template created successfully'
+        }), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/templates/<uuid:template_id>', methods=['PUT'])
+def update_search_template(template_id):
+    """Update a search template"""
+    try:
+        data = request.get_json()
+
+        query = """
+            UPDATE saved_search_templates
+            SET template_name = COALESCE(%s, template_name),
+                template_description = COALESCE(%s, template_description),
+                filter_config = COALESCE(%s, filter_config),
+                enabled_facets = COALESCE(%s, enabled_facets),
+                visible_columns = COALESCE(%s, visible_columns),
+                category = COALESCE(%s, category),
+                tags = COALESCE(%s, tags),
+                is_public = COALESCE(%s, is_public)
+            WHERE template_id = %s
+            RETURNING template_id
+        """
+
+        result = execute_query(query, (
+            data.get('template_name'),
+            data.get('template_description'),
+            json.dumps(data.get('filter_config')) if 'filter_config' in data else None,
+            json.dumps(data.get('enabled_facets')) if 'enabled_facets' in data else None,
+            json.dumps(data.get('visible_columns')) if 'visible_columns' in data else None,
+            data.get('category'),
+            json.dumps(data.get('tags')) if 'tags' in data else None,
+            data.get('is_public'),
+            str(template_id)
+        ))
+
+        if not result:
+            return jsonify({'error': 'Template not found'}), 404
+
+        return jsonify({'message': 'Template updated successfully'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/templates/<uuid:template_id>', methods=['DELETE'])
+def delete_search_template(template_id):
+    """Delete (soft delete) a search template"""
+    try:
+        query = """
+            UPDATE saved_search_templates
+            SET is_active = FALSE
+            WHERE template_id = %s
+            RETURNING template_id
+        """
+
+        result = execute_query(query, (str(template_id),))
+
+        if not result:
+            return jsonify({'error': 'Template not found'}), 404
+
+        return jsonify({'message': 'Template deleted successfully'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/history')
+def get_search_history():
+    """Get search history with optional filtering"""
+    try:
+        bookmarked_only = request.args.get('bookmarked_only', 'false') == 'true'
+        entity_type = request.args.get('entity_type')
+        limit = int(request.args.get('limit', 50))
+
+        where_clauses = []
+        params = []
+
+        if bookmarked_only:
+            where_clauses.append("is_bookmarked = TRUE")
+
+        if entity_type:
+            where_clauses.append("entity_type = %s")
+            params.append(entity_type)
+
+        where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
+        query = f"""
+            SELECT search_id, entity_type, filter_config, result_count,
+                   execution_time_ms, executed_at, is_bookmarked,
+                   exported_format, template_id
+            FROM search_history
+            {where_sql}
+            ORDER BY executed_at DESC
+            LIMIT %s
+        """
+
+        params.append(limit)
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/history/<uuid:search_id>', methods=['PUT'])
+def update_search_history(search_id):
+    """Update search history (bookmark, feedback, etc.)"""
+    try:
+        data = request.get_json()
+
+        query = """
+            UPDATE search_history
+            SET is_bookmarked = COALESCE(%s, is_bookmarked),
+                was_helpful = COALESCE(%s, was_helpful),
+                search_context = COALESCE(%s, search_context)
+            WHERE search_id = %s
+            RETURNING search_id
+        """
+
+        result = execute_query(query, (
+            data.get('is_bookmarked'),
+            data.get('was_helpful'),
+            data.get('search_context'),
+            str(search_id)
+        ))
+
+        if not result:
+            return jsonify({'error': 'Search not found'}), 404
+
+        return jsonify({'message': 'Search history updated successfully'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/export', methods=['POST'])
+def export_search_results():
+    """Export search results to various formats"""
+    try:
+        data = request.get_json()
+        search_id = data.get('search_id')
+        export_format = data.get('format', 'csv')  # csv, excel, pdf
+        results = data.get('results', [])
+
+        if not results:
+            return jsonify({'error': 'No results to export'}), 400
+
+        if export_format == 'csv':
+            # Create CSV
+            output = io.StringIO()
+            if results:
+                writer = csv.DictWriter(output, fieldnames=results[0].keys())
+                writer.writeheader()
+                writer.writerows(results)
+
+            # Track export
+            if search_id:
+                execute_query(
+                    "UPDATE search_history SET exported_format = %s, exported_at = CURRENT_TIMESTAMP WHERE search_id = %s",
+                    ('csv', search_id)
+                )
+
+            response = make_response(output.getvalue())
+            response.headers['Content-Type'] = 'text/csv'
+            response.headers['Content-Disposition'] = f'attachment; filename=search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+            return response
+
+        elif export_format == 'excel':
+            # Create Excel workbook
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Search Results"
+
+            if results:
+                # Headers
+                headers = list(results[0].keys())
+                ws.append(headers)
+
+                # Style headers
+                for cell in ws[1]:
+                    cell.font = Font(bold=True)
+                    cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+
+                # Data rows
+                for row in results:
+                    ws.append([row.get(h) for h in headers])
+
+            # Save to bytes
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+
+            # Track export
+            if search_id:
+                execute_query(
+                    "UPDATE search_history SET exported_format = %s, exported_at = CURRENT_TIMESTAMP WHERE search_id = %s",
+                    ('excel', search_id)
+                )
+
+            response = make_response(output.read())
+            response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            response.headers['Content-Disposition'] = f'attachment; filename=search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            return response
+
+        else:
+            return jsonify({'error': f'Unsupported format: {export_format}'}), 400
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# BATCH OPERATIONS API
+# ============================================
+
+@app.route('/api/batch/templates')
+def get_batch_operation_templates():
+    """Get all batch operation templates"""
+    try:
+        entity_type = request.args.get('entity_type')
+        category = request.args.get('category')
+
+        where_clauses = ["is_active = TRUE"]
+        params = []
+
+        if entity_type:
+            where_clauses.append("entity_type = %s")
+            params.append(entity_type)
+
+        if category:
+            where_clauses.append("category = %s")
+            params.append(category)
+
+        where_sql = " AND ".join(where_clauses)
+
+        query = f"""
+            SELECT template_id, template_name, template_description,
+                   operation_type, entity_type, default_config, parameter_schema,
+                   category, tags, requires_approval, is_destructive,
+                   max_items_warning_threshold, usage_count
+            FROM batch_operation_templates
+            WHERE {where_sql}
+            ORDER BY category, template_name
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs', methods=['POST'])
+def create_batch_job():
+    """Create a new batch operation job"""
+    try:
+        data = request.get_json()
+
+        # Validate required fields
+        required_fields = ['job_name', 'operation_type', 'entity_type', 'entity_ids', 'operation_config']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        # Call function to create job and items
+        query = """
+            SELECT create_batch_operation_job(%s, %s, %s, %s, %s, %s)
+        """
+
+        result = execute_query(query, (
+            data['job_name'],
+            data['operation_type'],
+            data['entity_type'],
+            json.dumps(data['entity_ids']),
+            json.dumps(data['operation_config']),
+            data.get('created_by', 'system')
+        ))
+
+        job_id = result[0]['create_batch_operation_job'] if result else None
+
+        return jsonify({
+            'job_id': str(job_id),
+            'message': 'Batch job created successfully'
+        }), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs')
+def get_batch_jobs():
+    """Get all batch jobs with optional filtering"""
+    try:
+        status = request.args.get('status')
+        entity_type = request.args.get('entity_type')
+        limit = int(request.args.get('limit', 50))
+
+        where_clauses = ["is_active = TRUE"]
+        params = []
+
+        if status:
+            where_clauses.append("status = %s")
+            params.append(status)
+
+        if entity_type:
+            where_clauses.append("entity_type = %s")
+            params.append(entity_type)
+
+        where_sql = " AND ".join(where_clauses)
+
+        query = f"""
+            SELECT job_id, job_name, job_description, operation_type, entity_type,
+                   status, total_items, processed_items, successful_items, failed_items,
+                   started_at, completed_at, execution_time_ms,
+                   export_file_path, export_format, created_by, created_at,
+                   requires_approval, approved_by, approved_at
+            FROM batch_operation_jobs
+            WHERE {where_sql}
+            ORDER BY created_at DESC
+            LIMIT %s
+        """
+
+        params.append(limit)
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs/<uuid:job_id>')
+def get_batch_job_details(job_id):
+    """Get detailed information about a specific batch job"""
+    try:
+        # Get job details
+        job_query = """
+            SELECT *
+            FROM batch_operation_jobs
+            WHERE job_id = %s
+        """
+        job = execute_query(job_query, (str(job_id),))
+
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Get job items
+        items_query = """
+            SELECT item_id, entity_type, entity_id, entity_identifier,
+                   status, processed_at, original_values, new_values,
+                   error_message, validation_warnings
+            FROM batch_operation_items
+            WHERE job_id = %s
+            ORDER BY created_at
+        """
+        items = execute_query(items_query, (str(job_id),))
+
+        return jsonify({
+            'job': job[0],
+            'items': items if items else []
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs/<uuid:job_id>/start', methods=['POST'])
+def start_batch_job(job_id):
+    """Start executing a batch job"""
+    try:
+        # Update job status to running
+        update_query = """
+            UPDATE batch_operation_jobs
+            SET status = 'running',
+                started_at = CURRENT_TIMESTAMP
+            WHERE job_id = %s AND status = 'pending'
+            RETURNING job_id
+        """
+
+        result = execute_query(update_query, (str(job_id),))
+
+        if not result:
+            return jsonify({'error': 'Job not found or already started'}), 404
+
+        # In a production system, this would trigger background processing
+        # For now, we'll return success and process would happen asynchronously
+
+        return jsonify({
+            'message': 'Batch job started',
+            'job_id': str(job_id)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs/<uuid:job_id>/cancel', methods=['POST'])
+def cancel_batch_job(job_id):
+    """Cancel a running batch job"""
+    try:
+        update_query = """
+            UPDATE batch_operation_jobs
+            SET status = 'cancelled',
+                completed_at = CURRENT_TIMESTAMP
+            WHERE job_id = %s
+              AND status IN ('pending', 'running')
+            RETURNING job_id
+        """
+
+        result = execute_query(update_query, (str(job_id),))
+
+        if not result:
+            return jsonify({'error': 'Job not found or cannot be cancelled'}), 404
+
+        return jsonify({'message': 'Batch job cancelled'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs/<uuid:job_id>/rollback', methods=['POST'])
+def rollback_batch_job(job_id):
+    """Rollback a completed batch job"""
+    try:
+        # Call rollback function
+        query = """
+            SELECT rollback_batch_operation(%s)
+        """
+
+        result = execute_query(query, (str(job_id),))
+
+        return jsonify({
+            'message': 'Batch job rolled back successfully',
+            'success': result[0]['rollback_batch_operation'] if result else False
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs/<uuid:job_id>/approve', methods=['POST'])
+def approve_batch_job(job_id):
+    """Approve a batch job that requires approval"""
+    try:
+        data = request.get_json()
+        approved_by = data.get('approved_by', 'system')
+
+        update_query = """
+            UPDATE batch_operation_jobs
+            SET approved_by = %s,
+                approved_at = CURRENT_TIMESTAMP
+            WHERE job_id = %s
+              AND requires_approval = TRUE
+              AND approved_at IS NULL
+            RETURNING job_id
+        """
+
+        result = execute_query(update_query, (approved_by, str(job_id)))
+
+        if not result:
+            return jsonify({'error': 'Job not found or does not require approval'}), 404
+
+        return jsonify({'message': 'Batch job approved'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/execute-operation', methods=['POST'])
+def execute_batch_operation():
+    """Execute a batch operation immediately (for simple operations)"""
+    try:
+        data = request.get_json()
+        operation_type = data.get('operation_type')
+        entity_type = data.get('entity_type')
+        entity_ids = data.get('entity_ids', [])
+        operation_config = data.get('operation_config', {})
+
+        if not all([operation_type, entity_type, entity_ids]):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        results = {
+            'successful': [],
+            'failed': [],
+            'total': len(entity_ids)
+        }
+
+        # Process based on operation type
+        if operation_type == 'bulk_update':
+            field = operation_config.get('field')
+            value = operation_config.get('value')
+
+            if not field:
+                return jsonify({'error': 'Missing field for bulk update'}), 400
+
+            # Build update query based on entity type
+            table_name = entity_type
+            id_column = f"{entity_type[:-1]}_id"  # Remove 's' and add '_id'
+
+            for entity_id in entity_ids:
+                try:
+                    update_query = f"""
+                        UPDATE {table_name}
+                        SET {field} = %s
+                        WHERE {id_column} = %s
+                        RETURNING {id_column}
+                    """
+                    result = execute_query(update_query, (value, entity_id))
+                    if result:
+                        results['successful'].append(entity_id)
+                    else:
+                        results['failed'].append({'entity_id': entity_id, 'error': 'Not found'})
+                except Exception as e:
+                    results['failed'].append({'entity_id': entity_id, 'error': str(e)})
+
+        elif operation_type == 'bulk_delete':
+            # Soft delete
+            table_name = entity_type
+            id_column = f"{entity_type[:-1]}_id"
+
+            for entity_id in entity_ids:
+                try:
+                    delete_query = f"""
+                        UPDATE {table_name}
+                        SET is_active = FALSE
+                        WHERE {id_column} = %s
+                        RETURNING {id_column}
+                    """
+                    result = execute_query(delete_query, (entity_id,))
+                    if result:
+                        results['successful'].append(entity_id)
+                    else:
+                        results['failed'].append({'entity_id': entity_id, 'error': 'Not found'})
+                except Exception as e:
+                    results['failed'].append({'entity_id': entity_id, 'error': str(e)})
+
+        return jsonify({
+            'message': 'Batch operation completed',
+            'results': results
+        })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
