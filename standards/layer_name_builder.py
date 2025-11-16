@@ -343,7 +343,172 @@ class LayerNameBuilder:
         
         query += " ORDER BY d.sort_order, c.sort_order, t.sort_order"
         
-        return execute_query(query, tuple(params) if params else None)
+        result = execute_query(query, tuple(params) if params else None)
+        return result if result else []
+    
+    def refresh(self):
+        """
+        Refresh vocabulary from database.
+        Call this after adding new codes to keep the builder up-to-date.
+        """
+        self._load_vocabulary()
+    
+    def get_layers_for_tool(self, tool_code: Optional[str] = None) -> List[Dict]:
+        """
+        Get all valid layers that work with a specific specialized tool.
+        
+        Args:
+            tool_code: Specialized tool code (e.g., 'GRAVITY', 'PRESSURE', 'BMP')
+                      If None, returns all layers
+        
+        Returns:
+            List of layer definitions with tool information
+        """
+        if not tool_code:
+            return self.list_valid_layers()
+        
+        query = """
+            SELECT DISTINCT
+                d.code as discipline,
+                c.code as category,
+                lo.object_code as object_type,
+                lo.object_name as type_name,
+                t.database_table,
+                d.full_name as discipline_name,
+                c.full_name as category_name,
+                lot.tool_name,
+                lot.tool_url
+            FROM layer_objects lo
+            JOIN layer_object_tools lot ON lo.object_code = lot.object_code
+            JOIN layer_categories lc ON lo.valid_for_categories LIKE '%' || lc.category_code || '%'
+            LEFT JOIN object_type_codes t ON lo.object_code = t.code
+            LEFT JOIN category_codes c ON lc.category_code = c.code
+            LEFT JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+            WHERE lo.is_active = TRUE
+            AND lot.is_active = TRUE
+            AND lot.tool_name = %s
+            ORDER BY lo.display_order
+        """
+        
+        result = execute_query(query, (tool_code,))
+        return result if result else []
+    
+    def get_tools_for_layer(self, layer_name: str) -> List[Dict]:
+        """
+        Get all specialized tools that can work with a given layer.
+        
+        Args:
+            layer_name: Full layer name (e.g., 'CIV-UTIL-STORM-12IN-NEW-LN')
+        
+        Returns:
+            List of specialized tools that can manage this layer type
+        """
+        components = self.parse(layer_name)
+        if not components:
+            return []
+        
+        query = """
+            SELECT 
+                lot.tool_name,
+                lot.tool_icon,
+                lot.tool_url,
+                lot.description
+            FROM layer_object_tools lot
+            WHERE lot.object_code = %s
+            AND lot.is_active = TRUE
+            ORDER BY lot.display_order
+        """
+        
+        result = execute_query(query, (components.object_type,))
+        return result if result else []
+    
+    def get_entity_info(self, layer_name: str) -> Optional[Dict]:
+        """
+        Get entity registry information for a layer.
+        This tells you which database table and entity type stores objects on this layer.
+        
+        Args:
+            layer_name: Full layer name
+        
+        Returns:
+            Dictionary with entity_type, table_name, and primary_key information
+        """
+        table = self.get_database_table(layer_name)
+        if not table:
+            return None
+        
+        from services.entity_registry import EntityRegistry
+        
+        for entity_type in EntityRegistry.get_all_entity_types():
+            info = EntityRegistry.get_table_info(entity_type)
+            if info and info[0] == table:
+                return {
+                    'entity_type': entity_type,
+                    'table_name': info[0],
+                    'primary_key': info[1],
+                    'layer_name': layer_name
+                }
+        
+        return {
+            'entity_type': None,
+            'table_name': table,
+            'primary_key': None,
+            'layer_name': layer_name
+        }
+    
+    def get_vocabulary_stats(self) -> Dict:
+        """
+        Get statistics about the current vocabulary.
+        Useful for understanding the scope of your CAD standards.
+        
+        Returns:
+            Dictionary with counts of disciplines, categories, types, etc.
+        """
+        return {
+            'disciplines': len(self.disciplines),
+            'categories': len(self.categories),
+            'object_types': len(self.object_types),
+            'phases': len(self.phases),
+            'geometries': len(self.geometries),
+            'attributes': len(self.attributes),
+            'total_combinations': len(self.object_types) * len(self.phases) * len(self.geometries)
+        }
+    
+    def search_layers(self, search_term: str) -> List[Dict]:
+        """
+        Search for layers by name or description.
+        
+        Args:
+            search_term: Search text (matches against object type names)
+        
+        Returns:
+            List of matching layer definitions
+        """
+        query = """
+            SELECT 
+                d.code as discipline,
+                c.code as category,
+                t.code as object_type,
+                t.full_name as type_name,
+                t.database_table,
+                d.full_name as discipline_name,
+                c.full_name as category_name
+            FROM object_type_codes t
+            JOIN category_codes c ON t.category_id = c.category_id
+            JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+            WHERE t.is_active = TRUE
+            AND (
+                LOWER(t.full_name) LIKE %s
+                OR LOWER(t.code) LIKE %s
+                OR LOWER(c.full_name) LIKE %s
+                OR LOWER(d.full_name) LIKE %s
+            )
+            ORDER BY d.sort_order, c.sort_order, t.sort_order
+        """
+        
+        search_pattern = f"%{search_term.lower()}%"
+        result = execute_query(query, (search_pattern, search_pattern, search_pattern, search_pattern))
+        return result if result else []
 
 
 def demo():

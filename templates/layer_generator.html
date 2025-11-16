@@ -6,14 +6,241 @@
 <div class="mc-page-header">
     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
-            <h1><i class="fas fa-layer-group"></i> CAD Layer Generator</h1>
-            <p>Generate standards-compliant CAD layer names using database vocabularies</p>
+            <h1><i class="fas fa-layer-group"></i> Enhanced CAD Layer Generator</h1>
+            <p>Generate standards-compliant CAD layer names with intelligent database and tool integration</p>
         </div>
         <button id="exportAllBtn" class="btn btn-accent" onclick="exportAllCombinations()">
             <i class="fas fa-file-download"></i> Export All Combinations
         </button>
     </div>
 </div>
+
+<div class="mc-card" style="margin-bottom: 2rem; border-left: 4px solid var(--accent-green);">
+    <div class="mc-card-header" style="cursor: pointer;" onclick="toggleSystemOverview()">
+        <h2>
+            <i class="fas fa-info-circle" style="color: var(--accent-green);"></i> 
+            How This System Works
+            <span id="systemOverviewToggle" style="float: right; font-size: 0.8em; color: var(--text-dim);">
+                <i class="fas fa-chevron-down"></i>
+            </span>
+        </h2>
+    </div>
+    <div id="systemOverviewContent" class="mc-card-content" style="display: none;">
+        <div id="architectureExplanation">
+            <div style="background: linear-gradient(135deg, rgba(0, 255, 100, 0.05), rgba(0, 200, 255, 0.05)); 
+                        border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <p style="font-size: 1.1em; line-height: 1.7; margin: 0;">
+                    <strong>This isn't just a layer name generator</strong> — it's a fully integrated system that connects 
+                    your <span style="color: var(--accent-cyan); font-weight: 600;">CAD Layer Vocabulary</span>, 
+                    <span style="color: var(--accent-green); font-weight: 600;">Entity Registry</span>, and 
+                    <span style="color: var(--accent-yellow); font-weight: 600;">Specialized Tools</span> together. 
+                    Here's how it works:
+                </p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="architecture-component-card">
+                    <div class="component-icon" style="background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(0, 200, 255, 0.1));">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <h3>CAD Layer Vocabulary</h3>
+                    <p>Controlled vocabulary stored in database tables (disciplines, categories, object types, phases, geometries).</p>
+                    <div class="component-benefit">
+                        <i class="fas fa-check-circle"></i> Ensures consistent, machine-readable layer names
+                    </div>
+                </div>
+                
+                <div class="architecture-component-card">
+                    <div class="component-icon" style="background: linear-gradient(135deg, rgba(0, 255, 100, 0.2), rgba(0, 200, 50, 0.1));">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <h3>Entity Registry</h3>
+                    <p>Maps each object type to its database table and primary key (e.g., STORM → utility_lines table).</p>
+                    <div class="component-benefit">
+                        <i class="fas fa-check-circle"></i> System knows where to store each layer's intelligent objects
+                    </div>
+                </div>
+                
+                <div class="architecture-component-card">
+                    <div class="component-icon" style="background: linear-gradient(135deg, rgba(255, 200, 0, 0.2), rgba(255, 150, 0, 0.1));">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                    <h3>Specialized Tools</h3>
+                    <p>Interactive management tools linked to specific object types (Gravity Manager, BMP Manager, etc.).</p>
+                    <div class="component-benefit">
+                        <i class="fas fa-check-circle"></i> Provides advanced analysis and network management
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: rgba(0, 0, 0, 0.3); border-left: 4px solid var(--accent-cyan); padding: 1.5rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                <h4 style="margin-top: 0; color: var(--accent-cyan);">
+                    <i class="fas fa-route"></i> The Complete Workflow
+                </h4>
+                <ol style="line-height: 2; padding-left: 1.5rem;">
+                    <li><strong>Layer Name Generation:</strong> Combine vocabulary codes → <code style="background: rgba(0,255,255,0.1); padding: 0.2rem 0.5rem; border-radius: 3px;">CIV-UTIL-STORM-12IN-NEW-LN</code></li>
+                    <li><strong>Entity Resolution:</strong> Layer name maps to database table → <code style="background: rgba(0,255,100,0.1); padding: 0.2rem 0.5rem; border-radius: 3px;">utility_lines</code></li>
+                    <li><strong>Tool Discovery:</strong> System identifies available tools → <code style="background: rgba(255,200,0,0.1); padding: 0.2rem 0.5rem; border-radius: 3px;">Gravity Network Manager</code></li>
+                    <li><strong>DXF Import Validation:</strong> When importing, system validates layers, identifies targets, suggests tools</li>
+                </ol>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, rgba(255, 100, 0, 0.1), rgba(200, 0, 100, 0.05)); 
+                        border-radius: 8px; padding: 1.5rem; border: 1px solid rgba(255, 100, 0, 0.3);">
+                <h4 style="margin-top: 0; color: var(--accent-yellow);">
+                    <i class="fas fa-lightbulb"></i> Why This Matters for DXF Imports
+                </h4>
+                <p style="line-height: 1.7; margin-bottom: 1rem;">
+                    When you import a DXF file, the system can now:
+                </p>
+                <ul style="line-height: 1.8; margin: 0;">
+                    <li><i class="fas fa-check" style="color: var(--accent-green);"></i> Validate layer names against your vocabulary</li>
+                    <li><i class="fas fa-check" style="color: var(--accent-green);"></i> Automatically route objects to the correct database tables</li>
+                    <li><i class="fas fa-check" style="color: var(--accent-green);"></i> Suggest which specialized tools you should use to manage the imported data</li>
+                    <li><i class="fas fa-check" style="color: var(--accent-green);"></i> Flag non-standard layers that need attention</li>
+                </ul>
+            </div>
+            
+            <div id="systemStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
+                                         gap: 1rem; margin-top: 1.5rem; padding: 1.5rem; 
+                                         background: rgba(0, 0, 0, 0.2); border-radius: 8px;">
+                <div class="stat-item">
+                    <div class="stat-value" id="statDisciplines">-</div>
+                    <div class="stat-label">Disciplines</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statCategories">-</div>
+                    <div class="stat-label">Categories</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statObjectTypes">-</div>
+                    <div class="stat-label">Object Types</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statEntities">-</div>
+                    <div class="stat-label">Entity Types</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statTables">-</div>
+                    <div class="stat-label">DB Tables</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statTools">-</div>
+                    <div class="stat-label">Specialized Tools</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.architecture-component-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1.5rem;
+    transition: all 0.3s;
+}
+
+.architecture-component-card:hover {
+    border-color: var(--accent-cyan);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 255, 255, 0.2);
+}
+
+.component-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-bottom: 1rem;
+}
+
+.architecture-component-card h3 {
+    font-size: 1.2em;
+    margin: 0 0 0.75rem 0;
+    color: var(--accent-cyan);
+}
+
+.architecture-component-card p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.component-benefit {
+    background: rgba(0, 255, 100, 0.1);
+    border-left: 3px solid var(--accent-green);
+    padding: 0.75rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: var(--accent-green);
+}
+
+.component-benefit i {
+    margin-right: 0.5rem;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 2em;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.85em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 0.5rem;
+}
+</style>
+
+<script>
+function toggleSystemOverview() {
+    const content = document.getElementById('systemOverviewContent');
+    const toggle = document.getElementById('systemOverviewToggle');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        toggle.innerHTML = '<i class="fas fa-chevron-up"></i>';
+        loadSystemStats();
+    } else {
+        content.style.display = 'none';
+        toggle.innerHTML = '<i class="fas fa-chevron-down"></i>';
+    }
+}
+
+async function loadSystemStats() {
+    try {
+        const response = await fetch('/api/layer-generator/system-overview');
+        const data = await response.json();
+        
+        if (data.vocabulary_stats) {
+            document.getElementById('statDisciplines').textContent = data.vocabulary_stats.disciplines || '-';
+            document.getElementById('statCategories').textContent = data.vocabulary_stats.categories || '-';
+            document.getElementById('statObjectTypes').textContent = data.vocabulary_stats.object_types || '-';
+        }
+        
+        if (data.registry_stats) {
+            document.getElementById('statEntities').textContent = data.registry_stats.total_entities || '-';
+            document.getElementById('statTables').textContent = data.registry_stats.total_tables || '-';
+        }
+        
+        document.getElementById('statTools').textContent = data.tool_count || '-';
+    } catch (error) {
+        console.error('Error loading system stats:', error);
+    }
+}
+</script>
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
     <div class="mc-card">

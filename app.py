@@ -15882,6 +15882,301 @@ def get_block_schemas():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== ENHANCED LAYER GENERATOR API =====
+
+@app.route('/api/layer-generator/system-overview')
+def layer_generator_system_overview():
+    """
+    Get comprehensive system overview for the Enhanced Layer Generator.
+    Explains how CAD Layer Vocabulary, Entity Registry, and Specialized Tools connect.
+    """
+    try:
+        from standards.layer_name_builder import LayerNameBuilder
+        from services.entity_registry import EntityRegistry
+        
+        builder = LayerNameBuilder()
+        vocab_stats = builder.get_vocabulary_stats()
+        registry_stats = EntityRegistry.get_registry_stats()
+        
+        tools_query = """
+            SELECT COUNT(DISTINCT tool_name) as tool_count
+            FROM layer_object_tools
+            WHERE is_active = TRUE
+        """
+        tools_result = execute_query(tools_query)
+        tool_count = tools_result[0]['tool_count'] if tools_result else 0
+        
+        overview = {
+            'system_architecture': {
+                'title': 'ACAD-GIS Layer Generation System',
+                'description': 'A unified system that connects CAD layer naming standards with database tables and specialized management tools.',
+                'components': [
+                    {
+                        'name': 'CAD Layer Vocabulary',
+                        'description': 'Controlled vocabulary stored in database tables that defines the building blocks of layer names.',
+                        'purpose': 'Ensures consistent, machine-readable layer naming across all projects',
+                        'stats': vocab_stats
+                    },
+                    {
+                        'name': 'Entity Registry',
+                        'description': 'Maps layer types to their corresponding database tables and primary keys.',
+                        'purpose': 'Tells the system where to store intelligent objects for each layer type',
+                        'stats': registry_stats
+                    },
+                    {
+                        'name': 'Specialized Tools',
+                        'description': 'Interactive management tools linked to specific layer types.',
+                        'purpose': 'Provides advanced capabilities like network analysis and hydraulic calculations',
+                        'stats': {'active_tools': tool_count}
+                    }
+                ],
+                'workflow': [
+                    {
+                        'step': 1,
+                        'title': 'Layer Name Generation',
+                        'description': 'Combine vocabulary codes to create standardized layer names like CIV-UTIL-STORM-12IN-NEW-LN'
+                    },
+                    {
+                        'step': 2,
+                        'title': 'Entity Resolution',
+                        'description': 'Layer name maps to database table via Entity Registry (e.g., STORM → utility_lines table)'
+                    },
+                    {
+                        'step': 3,
+                        'title': 'Tool Discovery',
+                        'description': 'System identifies which Specialized Tools can manage this layer type (e.g., Gravity Network Manager for STORM layers)'
+                    },
+                    {
+                        'step': 4,
+                        'title': 'DXF Import Validation',
+                        'description': 'When importing DXF, system validates layer names, identifies target tables, and suggests appropriate tools'
+                    }
+                ]
+            },
+            'vocabulary_stats': vocab_stats,
+            'registry_stats': registry_stats,
+            'tool_count': tool_count
+        }
+        
+        return jsonify(overview)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/layer-generator/layers-by-tool')
+def get_layers_by_tool():
+    """Get all valid layers filtered by specialized tool"""
+    try:
+        from standards.layer_name_builder import LayerNameBuilder
+        
+        tool_code = request.args.get('tool_code')
+        builder = LayerNameBuilder()
+        
+        if tool_code:
+            layers = builder.get_layers_for_tool(tool_code)
+            return jsonify({
+                'tool_code': tool_code,
+                'layers': layers,
+                'count': len(layers)
+            })
+        else:
+            all_layers = builder.list_valid_layers()
+            return jsonify({
+                'layers': all_layers,
+                'count': len(all_layers)
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/layer-generator/layer-info/<path:layer_name>')
+def get_layer_complete_info(layer_name):
+    """
+    Get complete information about a layer including:
+    - Parsed components
+    - Entity Registry information (database table)
+    - Available Specialized Tools
+    - Validation status
+    """
+    try:
+        from standards.layer_name_builder import LayerNameBuilder
+        
+        builder = LayerNameBuilder()
+        
+        is_valid, error_msg = builder.validate(layer_name)
+        if not is_valid:
+            return jsonify({
+                'layer_name': layer_name,
+                'is_valid': False,
+                'error': error_msg
+            }), 400
+        
+        components = builder.parse(layer_name)
+        properties = builder.extract_properties(layer_name)
+        entity_info = builder.get_entity_info(layer_name)
+        tools = builder.get_tools_for_layer(layer_name)
+        
+        return jsonify({
+            'layer_name': layer_name,
+            'is_valid': True,
+            'components': {
+                'discipline': components.discipline,
+                'category': components.category,
+                'object_type': components.object_type,
+                'attributes': components.attributes,
+                'phase': components.phase,
+                'geometry': components.geometry
+            },
+            'properties': properties,
+            'entity_info': entity_info,
+            'specialized_tools': tools,
+            'explanation': {
+                'layer_name': f"This layer represents {properties.get('object_type', 'objects')} in the {properties.get('category', '')} category",
+                'database_storage': f"Objects on this layer are stored in the '{entity_info['table_name']}' table" if entity_info and entity_info['table_name'] else "No database table configured",
+                'available_tools': f"{len(tools)} specialized tool(s) available" if tools else "No specialized tools available for this layer type"
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/layer-generator/search')
+def search_layers():
+    """Search for layers by name or description"""
+    try:
+        from standards.layer_name_builder import LayerNameBuilder
+        
+        search_term = request.args.get('q', '')
+        if not search_term:
+            return jsonify({'error': 'Search term required (use ?q=term)'}), 400
+        
+        builder = LayerNameBuilder()
+        results = builder.search_layers(search_term)
+        
+        return jsonify({
+            'search_term': search_term,
+            'results': results,
+            'count': len(results)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/layer-generator/entity-registry')
+def layer_generator_entity_registry():
+    """Get complete entity registry information"""
+    try:
+        from services.entity_registry import EntityRegistry
+        
+        EntityRegistry.refresh()
+        
+        entity_types = EntityRegistry.get_all_entity_types()
+        tables = EntityRegistry.get_all_tables()
+        stats = EntityRegistry.get_registry_stats()
+        
+        registry_details = []
+        for entity_type in entity_types:
+            info = EntityRegistry.get_table_info(entity_type)
+            if info:
+                registry_details.append({
+                    'entity_type': entity_type,
+                    'table_name': info[0],
+                    'primary_key': info[1]
+                })
+        
+        return jsonify({
+            'stats': stats,
+            'entity_types': entity_types,
+            'tables': tables,
+            'registry': registry_details,
+            'explanation': {
+                'purpose': 'The Entity Registry maps entity types to their database storage locations',
+                'usage': 'When you create a layer like CIV-UTIL-STORM-12IN-NEW-LN, the system looks up which table stores STORM objects',
+                'dynamic': f"Currently tracking {stats['total_entities']} entity types across {stats['total_tables']} database tables"
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/layer-generator/validate-dxf-layer', methods=['POST'])
+def validate_dxf_layer():
+    """
+    Validate a DXF layer name for import.
+    Returns validation status, database table, and recommended tools.
+    """
+    try:
+        from standards.layer_name_builder import LayerNameBuilder
+        
+        data = request.get_json()
+        layer_name = data.get('layer_name', '').strip()
+        
+        if not layer_name:
+            return jsonify({'error': 'layer_name required'}), 400
+        
+        builder = LayerNameBuilder()
+        is_valid, error_msg = builder.validate(layer_name)
+        
+        result = {
+            'layer_name': layer_name,
+            'is_valid': is_valid
+        }
+        
+        if is_valid:
+            entity_info = builder.get_entity_info(layer_name)
+            tools = builder.get_tools_for_layer(layer_name)
+            components = builder.parse(layer_name)
+            
+            result.update({
+                'import_ready': True,
+                'target_table': entity_info['table_name'] if entity_info else None,
+                'entity_type': entity_info['entity_type'] if entity_info else None,
+                'specialized_tools': tools,
+                'components': {
+                    'discipline': components.discipline,
+                    'category': components.category,
+                    'object_type': components.object_type,
+                    'phase': components.phase,
+                    'geometry': components.geometry
+                },
+                'recommendations': {
+                    'database': f"Import to table: {entity_info['table_name']}" if entity_info and entity_info['table_name'] else "No target table configured",
+                    'tools': f"Use {tools[0]['tool_name']} for management" if tools else "Standard layer management only",
+                    'workflow': f"This is a {components.phase} {components.object_type} layer"
+                }
+            })
+        else:
+            result.update({
+                'import_ready': False,
+                'error': error_msg,
+                'suggestions': 'Check layer naming convention: DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY'
+            })
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/layer-generator/refresh', methods=['POST'])
+def refresh_layer_generator():
+    """
+    Refresh vocabulary and entity registry from database.
+    Call this after adding new codes or entity types.
+    """
+    try:
+        from standards.layer_name_builder import LayerNameBuilder
+        from services.entity_registry import EntityRegistry
+        
+        builder = LayerNameBuilder()
+        builder.refresh()
+        EntityRegistry.refresh()
+        
+        vocab_stats = builder.get_vocabulary_stats()
+        registry_stats = EntityRegistry.get_registry_stats()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Vocabulary and Entity Registry refreshed successfully',
+            'vocabulary_stats': vocab_stats,
+            'registry_stats': registry_stats
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ===== CLIENTS API =====
 
 @app.route('/api/clients')
