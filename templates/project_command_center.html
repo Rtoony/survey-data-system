@@ -349,6 +349,54 @@
         font-family: 'Courier New', monospace;
         font-size: 0.75rem;
     }
+
+    /* Full Screen Mode */
+    body.fullscreen-mode {
+        overflow: hidden;
+    }
+
+    body.fullscreen-mode .sticky-header-container {
+        display: none !important;
+    }
+
+    body.fullscreen-mode .command-center-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 100vh !important;
+        z-index: 100;
+    }
+
+    .fullscreen-toggle-cc {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        z-index: 1000;
+        background: var(--mc-bg-dark);
+        border: 2px solid var(--mc-accent);
+        color: var(--mc-accent);
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+        font-weight: bold;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .fullscreen-toggle-cc:hover {
+        background: var(--mc-accent);
+        color: var(--mc-bg-dark);
+        box-shadow: 0 0 25px rgba(0, 255, 136, 0.6);
+        transform: scale(1.05);
+    }
+
+    .fullscreen-toggle-cc i {
+        margin-right: 5px;
+    }
 </style>
 
 <script>
@@ -629,6 +677,10 @@
         
         <!-- Map Panel - Read Only Context View -->
         <div class="map-panel">
+            <button class="fullscreen-toggle-cc" onclick="toggleFullScreenCC()" title="Toggle Full Screen Mode">
+                <i class="fas fa-expand"></i>
+                <span id="fullscreenBtnTextCC">Full Screen</span>
+            </button>
             <div class="map-title">Project Overview Map</div>
             <div class="map-controls-display" id="mapControlsDisplay">
                 <div class="map-controls-title">Map Entities</div>
@@ -754,6 +806,38 @@ function changeBasemap(basemapType) {
     currentBasemap = basemaps[basemapType];
     currentBasemap.addTo(map);
 }
+
+// Toggle full screen mode
+function toggleFullScreenCC() {
+    const body = document.body;
+    const isFullScreen = body.classList.contains('fullscreen-mode');
+    const btnText = document.getElementById('fullscreenBtnTextCC');
+    const btnIcon = document.querySelector('.fullscreen-toggle-cc i');
+    
+    if (isFullScreen) {
+        // Exit full screen
+        body.classList.remove('fullscreen-mode');
+        btnText.textContent = 'Full Screen';
+        btnIcon.className = 'fas fa-expand';
+    } else {
+        // Enter full screen
+        body.classList.add('fullscreen-mode');
+        btnText.textContent = 'Exit Full Screen';
+        btnIcon.className = 'fas fa-compress';
+    }
+    
+    // Invalidate map size after layout change
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
+}
+
+// ESC key to exit full screen
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.body.classList.contains('fullscreen-mode')) {
+        toggleFullScreenCC();
+    }
+});
 
 // Fetch active project
 async function fetchActiveProject() {
