@@ -56,10 +56,34 @@
 
 {% block main_content %}
 <div class="tool-top-area">
-    <div class="tool-empty-state">
+    <!-- Loading State -->
+    <div id="loadingState" class="tool-empty-state" style="display:none;">
+        <div class="empty-state-icon"><i class="fas fa-spinner fa-spin"></i></div>
+        <h3>Loading flow analysis...</h3>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="tool-empty-state" style="display:none;">
+        <div class="empty-state-icon"><i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i></div>
+        <h3>Error Loading Data</h3>
+        <p id="errorMessage"></p>
+        <button class="tool-action-btn" onclick="loadPipes()">Retry</button>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="tool-empty-state">
         <div class="empty-state-icon"><i class="fas fa-water"></i></div>
-        <h3>Flow Analysis - Coming Soon</h3>
-        <p>Network flow diagram and hydraulic grade line visualization will appear here</p>
+        <h3>No Flow Analysis Data Found</h3>
+        <p>Generate test data or import a DXF file with storm/gravity pipe entities.</p>
+        <a href="/tools/dxf-test-generator" class="tool-action-btn">Generate Test DXF</a>
+    </div>
+
+    <!-- Success State with Map -->
+    <div id="successState" style="display:none; padding: 2rem;">
+        <h3 style="margin-bottom: 1rem;"><i class="fas fa-map"></i> Flow Network Map</h3>
+        <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 1rem; border-radius: 4px;">
+            <p style="margin: 0;">Interactive network flow visualization coming soon...</p>
+        </div>
     </div>
 </div>
 
@@ -67,25 +91,168 @@
 
 <div class="tool-bottom-area">
     <div class="tool-data-tabs">
-        <button class="tool-data-tab active">Pipes</button>
-        <button class="tool-data-tab">Structures</button>
-        <button class="tool-data-tab">Results</button>
-        <button class="tool-data-tab">Report</button>
+        <button class="tool-data-tab active" onclick="showTab('pipes')">Pipes</button>
+        <button class="tool-data-tab" onclick="showTab('stats')">Statistics</button>
     </div>
     <div class="tool-data-content">
-        <div style="padding: 2rem; text-align: left;">
-            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
-            <ul style="line-height: 2;">
-                <li>Storm sewer hydraulic calculations</li>
-                <li>Rational Method and Unit Hydrograph analysis</li>
-                <li>Flow capacity verification</li>
-                <li>Hydraulic grade line calculations</li>
-                <li>Energy grade line analysis</li>
-                <li>Comprehensive calculation reports</li>
-            </ul>
+        <!-- Pipes Tab -->
+        <div id="pipesTab" class="tab-content">
+            <table id="pipesTable" class="mc-table" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Line #</th>
+                        <th>Type</th>
+                        <th>Diameter (in)</th>
+                        <th>Material</th>
+                        <th>Length (ft)</th>
+                        <th>Slope</th>
+                        <th>Capacity (CFS)</th>
+                        <th>Velocity (FPS)</th>
+                    </tr>
+                </thead>
+                <tbody id="pipesTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="statsTab" class="tab-content" style="display:none;">
+            <div id="statsContent" style="padding: 2rem;">
+                <h4 style="margin-bottom: 1rem;">Summary Statistics</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Pipes</div>
+                        <div class="stat-value" id="statTotalPipes">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Length (ft)</div>
+                        <div class="stat-value" id="statTotalLength">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Capacity (CFS)</div>
+                        <div class="stat-value" id="statTotalCapacity">0</div>
+                    </div>
+                </div>
+                <h4 style="margin: 2rem 0 1rem 0;">By Pipe Type</h4>
+                <div id="byType"></div>
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+.tab-content { padding: 1rem; }
+.stat-card {
+    background: rgba(0,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    padding: 1.5rem;
+    border-radius: 4px;
+    text-align: center;
+}
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+}
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--accent-color);
+}
+</style>
+
+<script>
+let currentData = [];
+let currentTab = 'pipes';
+
+// Show specific tab
+function showTab(tabName) {
+    currentTab = tabName;
+    document.getElementById('pipesTab').style.display = tabName === 'pipes' ? 'block' : 'none';
+    document.getElementById('statsTab').style.display = tabName === 'stats' ? 'block' : 'none';
+
+    // Update active tab button
+    const tabs = document.querySelectorAll('.tool-data-tab');
+    tabs.forEach((tab, i) => {
+        tab.classList.toggle('active', (i === 0 && tabName === 'pipes') || (i === 1 && tabName === 'stats'));
+    });
+}
+
+// Load pipes data
+async function loadPipes() {
+    showState('loading');
+
+    try {
+        const response = await fetch('/api/specialized-tools/flow-analysis');
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+        const data = await response.json();
+        currentData = data;
+
+        if (!data.pipes || data.pipes.length === 0) {
+            showState('empty');
+            return;
+        }
+
+        renderPipesTable(data.pipes);
+        renderStats(data.stats);
+        showState('success');
+
+    } catch (error) {
+        console.error('Error loading pipes:', error);
+        showState('error', error.message);
+    }
+}
+
+// Render pipes table
+function renderPipesTable(pipes) {
+    const tbody = document.getElementById('pipesTableBody');
+    tbody.innerHTML = pipes.map(pipe => `
+        <tr>
+            <td>${pipe.line_number || 'N/A'}</td>
+            <td>${pipe.line_type || 'UNKNOWN'}</td>
+            <td>${pipe.diameter_in?.toFixed(1) || 'N/A'}</td>
+            <td>${pipe.material || 'N/A'}</td>
+            <td>${pipe.length_ft?.toFixed(1) || 'N/A'}</td>
+            <td>${pipe.slope?.toFixed(3) || 'N/A'}</td>
+            <td>${pipe.capacity_cfs?.toFixed(2) || 'N/A'}</td>
+            <td>${pipe.velocity_fps?.toFixed(2) || 'N/A'}</td>
+        </tr>
+    `).join('');
+    document.getElementById('pipesTable').style.display = 'table';
+}
+
+// Render statistics
+function renderStats(stats) {
+    document.getElementById('statTotalPipes').textContent = stats.total_pipes || 0;
+    document.getElementById('statTotalLength').textContent = `${stats.total_length_ft?.toFixed(1) || 0}`;
+    document.getElementById('statTotalCapacity').textContent = `${stats.total_capacity_cfs?.toFixed(2) || 0}`;
+
+    // Render by type
+    const byType = stats.by_type || {};
+    const typeHtml = Object.entries(byType).map(([type, count]) => `
+        <div style="padding: 0.75rem; background: rgba(0,255,255,0.03); margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between;">
+            <span>${type}</span>
+            <span style="color: var(--accent-color); font-weight: bold;">${count}</span>
+        </div>
+    `).join('');
+    document.getElementById('byType').innerHTML = typeHtml || '<p>No data</p>';
+}
+
+// Show state
+function showState(state, message = '') {
+    document.getElementById('loadingState').style.display = state === 'loading' ? 'flex' : 'none';
+    document.getElementById('errorState').style.display = state === 'error' ? 'flex' : 'none';
+    document.getElementById('emptyState').style.display = state === 'empty' ? 'flex' : 'none';
+    document.getElementById('successState').style.display = state === 'success' ? 'block' : 'none';
+
+    if (state === 'error') {
+        document.getElementById('errorMessage').textContent = message;
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', loadPipes);
+</script>
 {% endblock %}
 
 {% block about_tool_description %}
