@@ -34,7 +34,7 @@
         overflow-y: auto;
         padding: 20px;
         box-shadow: 4px 0 20px rgba(0, 255, 255, 0.3);
-        z-index: 1000;
+        z-index: 100;
     }
     
     /* Map container */
@@ -93,6 +93,14 @@
         background: linear-gradient(135deg, #00a8b8, #00ffff);
         color: #001428;
         font-weight: bold;
+    }
+    
+    .btn-map:disabled {
+        background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+        border-color: #555;
+        color: #666;
+        cursor: not-allowed;
+        opacity: 0.5;
     }
     
     /* Search input */
@@ -391,12 +399,8 @@
             <button class="btn-map" id="measureAreaBtn" onclick="startMeasureArea()">📐 Measure Area</button>
             <button class="btn-map" onclick="clearMeasurements()">🗑️ Clear Measurements</button>
             <div id="measurementResult"></div>
-        </div>
-        
-        <!-- Export Tool -->
-        <div class="sidebar-section">
-            <h3>Export</h3>
-            <button class="btn-map" onclick="openExportModal()">💾 Export Map Data</button>
+            <button class="btn-map" id="drawRectBtn" onclick="startDrawingRectangle()">📦 Draw Export Rectangle</button>
+            <button class="btn-map" id="exportBtn" onclick="openExportModal()">💾 Create Export</button>
         </div>
         
         <!-- Coordinate Display -->
@@ -421,22 +425,76 @@
     <h3>Export Map Data</h3>
     <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Select format to export visible map data:</p>
     
-    <div class="export-option" onclick="exportData('geojson')">
-        <h4>GeoJSON</h4>
-        <p>Standard geographic JSON format for web mapping</p>
+    <div class="format-section">
+        <h4 style="color: var(--accent-color); margin-bottom: 15px; font-size: 14px;">Select Export Formats</h4>
+        
+        <div class="checkbox-group" style="margin-bottom: 15px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="format-png" checked>
+                <span><i class="fas fa-image"></i> PNG Image</span>
+            </label>
+            <div class="format-description" style="color: rgba(255,255,255,0.5); font-size: 11px; margin-left: 24px; margin-top: 4px;">
+                Map image with optional north arrow and scale bar
+            </div>
+        </div>
+        
+        <div class="checkbox-group" style="margin-bottom: 15px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="format-shp" checked>
+                <span><i class="fas fa-file-archive"></i> Shapefile (.shp)</span>
+            </label>
+            <div class="format-description" style="color: rgba(255,255,255,0.5); font-size: 11px; margin-left: 24px; margin-top: 4px;">
+                Standard GIS format compatible with ArcGIS, QGIS
+            </div>
+        </div>
+        
+        <div class="checkbox-group" style="margin-bottom: 15px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="format-dxf">
+                <span><i class="fas fa-file-code"></i> DXF (.dxf)</span>
+            </label>
+            <div class="format-description" style="color: rgba(255,255,255,0.5); font-size: 11px; margin-left: 24px; margin-top: 4px;">
+                AutoCAD Drawing Exchange Format
+            </div>
+        </div>
+        
+        <div class="checkbox-group" style="margin-bottom: 15px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="format-kml">
+                <span><i class="fas fa-globe"></i> KML (.kml)</span>
+            </label>
+            <div class="format-description" style="color: rgba(255,255,255,0.5); font-size: 11px; margin-left: 24px; margin-top: 4px;">
+                Google Earth / Google Maps format
+            </div>
+        </div>
     </div>
     
-    <div class="export-option" onclick="exportData('kml')">
-        <h4>KML</h4>
-        <p>Keyhole Markup Language for Google Earth</p>
+    <div class="format-section" id="png-options-section" style="margin-top: 20px;">
+        <h4 style="color: var(--accent-color); margin-bottom: 15px; font-size: 14px;">PNG Options</h4>
+        
+        <div class="checkbox-group" style="margin-bottom: 10px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="png-north-arrow" checked>
+                <span><i class="fas fa-compass"></i> North Arrow</span>
+            </label>
+        </div>
+        
+        <div class="checkbox-group">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="png-scale-bar" checked>
+                <span><i class="fas fa-ruler-horizontal"></i> Scale Bar</span>
+            </label>
+        </div>
     </div>
     
-    <div class="export-option" onclick="exportData('shapefile')">
-        <h4>Shapefile</h4>
-        <p>ESRI Shapefile format (ZIP archive)</p>
+    <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <button class="modal-close" onclick="closeExportModal()" style="flex: 1;">
+            <i class="fas fa-times"></i> Cancel
+        </button>
+        <button onclick="startExport()" style="flex: 1; background: linear-gradient(135deg, #00a85a, #00cc66); border: 1px solid #00ff88; color: white; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
+            <i class="fas fa-download"></i> Create Export
+        </button>
     </div>
-    
-    <button class="modal-close" onclick="closeExportModal()">Close</button>
 </div>
 
 <!-- Leaflet JS -->
@@ -459,7 +517,12 @@ let drawnItems;
 
 // Initialize map
 function initMap() {
-    map = L.map('map').setView([37.7749, -122.4194], 13);
+    map = L.map('map', {
+        zoomDelta: 0.25,
+        zoomSnap: 0.25,
+        wheelPxPerZoomLevel: 120,
+        maxZoom: 22
+    }).setView([37.7749, -122.4194], 13);
     
     // Initialize basemap layers
     basemapLayers.streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -490,6 +553,16 @@ function initMap() {
     // Initialize measurement layer
     drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
+    
+    // Set up draw event listener for export rectangles
+    map.on('draw:created', function(e) {
+        drawnItems.clearLayers();
+        drawnItems.addLayer(e.layer);
+        const exportBtn = document.getElementById('exportBtn');
+        if (exportBtn) {
+            exportBtn.disabled = false;
+        }
+    });
 }
 
 // Fetch active project
@@ -828,10 +901,49 @@ function clearMeasurements() {
     document.getElementById('measurementResult').innerHTML = '';
     document.getElementById('measureDistanceBtn').classList.remove('active');
     document.getElementById('measureAreaBtn').classList.remove('active');
+    
+    const exportBtn = document.getElementById('exportBtn');
+    if (exportBtn) {
+        exportBtn.disabled = true;
+    }
 }
 
 // Export functions
+function startDrawingRectangle() {
+    console.log('Starting rectangle drawing...');
+    if (!map) {
+        alert('Map not ready');
+        return;
+    }
+    
+    new L.Draw.Rectangle(map, {
+        shapeOptions: {
+            color: '#00ffff',
+            weight: 2,
+            fillOpacity: 0.1
+        }
+    }).enable();
+    console.log('Rectangle drawing enabled');
+}
+
 function openExportModal() {
+    const layers = drawnItems.getLayers();
+    if (layers.length === 0) {
+        alert('Please draw a rectangle on the map first using "Draw Export Rectangle" button');
+        return;
+    }
+    
+    if (!activeProjectId) {
+        alert('No active project selected');
+        return;
+    }
+    
+    const loadedLayers = Object.keys(layerGroups);
+    if (loadedLayers.length === 0) {
+        alert('No project layers are currently loaded to export');
+        return;
+    }
+    
     document.getElementById('exportModalOverlay').classList.add('active');
     document.getElementById('exportModal').classList.add('active');
 }
@@ -841,31 +953,89 @@ function closeExportModal() {
     document.getElementById('exportModal').classList.remove('active');
 }
 
-function exportData(format) {
-    if (!activeProjectId) {
-        alert('No active project selected');
+async function startExport() {
+    const formats = [];
+    if (document.getElementById('format-png').checked) formats.push('png');
+    if (document.getElementById('format-shp').checked) formats.push('shp');
+    if (document.getElementById('format-dxf').checked) formats.push('dxf');
+    if (document.getElementById('format-kml').checked) formats.push('kml');
+    
+    if (formats.length === 0) {
+        alert('Please select at least one export format');
         return;
     }
     
-    const bounds = map.getBounds();
-    const bbox = {
-        minLat: bounds.getSouth(),
-        minLng: bounds.getWest(),
-        maxLat: bounds.getNorth(),
-        maxLng: bounds.getEast()
+    const pngOptions = {
+        north_arrow: document.getElementById('png-north-arrow').checked,
+        scale_bar: document.getElementById('png-scale-bar').checked
     };
     
-    const url = `/api/projects/${activeProjectId}/export-map?format=${format}&bbox=${JSON.stringify(bbox)}`;
+    const layers = drawnItems.getLayers();
+    if (layers.length === 0) {
+        alert('No export rectangle found. Please draw a rectangle first.');
+        return;
+    }
     
-    showStatus('info', `Exporting as ${format.toUpperCase()}...`);
+    const bbox = layers[0].getBounds();
     
-    window.location.href = url;
+    const entityLayers = Object.keys(layerGroups).flatMap(key => layerGroups[key].data.layer_names);
+    
+    const params = {
+        project_id: activeProjectId,
+        bbox: {
+            minx: bbox.getWest(),
+            miny: bbox.getSouth(),
+            maxx: bbox.getEast(),
+            maxy: bbox.getNorth(),
+            crs: 'EPSG:4326'
+        },
+        entity_layers: entityLayers,
+        formats: formats,
+        png_options: pngOptions
+    };
+    
+    console.log('Creating multi-format export...');
+    console.log('Export params:', params);
     
     closeExportModal();
     
-    setTimeout(() => {
-        showStatus('success', 'Export complete!');
-    }, 2000);
+    try {
+        showStatus('info', 'Creating export...');
+        
+        const res = await fetch('/api/map-export/create', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(params)
+        });
+        const data = await res.json();
+        
+        if (data.status === 'complete') {
+            let msg = `Export successful!\n\n`;
+            msg += `Formats created: ${formats.join(', ').toUpperCase()}\n`;
+            
+            if (data.feature_counts) {
+                msg += `\nFeatures exported:\n`;
+                for (const [layer, count] of Object.entries(data.feature_counts)) {
+                    msg += `  ${layer}: ${count}\n`;
+                }
+                msg += `\nTotal: ${Object.values(data.feature_counts).reduce((a,b)=>a+b, 0)} features\n`;
+            }
+            
+            msg += `\nCoordinate System: EPSG:2226 (CA State Plane Zone 2)\n`;
+            msg += `\nClick OK to download the ZIP file.`;
+            
+            showStatus('success', 'Export complete!');
+            alert(msg);
+            window.location.href = data.download_url;
+        } else {
+            showStatus('error', 'Export failed: ' + (data.error || 'Unknown error'));
+            alert('Export failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (e) {
+        console.error('Export error:', e);
+        showStatus('error', 'Export error: ' + e.message);
+        alert('Export error: ' + e.message);
+    }
 }
 
 // Status message helpers
@@ -897,6 +1067,11 @@ function showSearchStatus(type, message) {
 document.addEventListener('DOMContentLoaded', function() {
     initMap();
     fetchActiveProject();
+    
+    const exportBtn = document.getElementById('exportBtn');
+    if (exportBtn) {
+        exportBtn.disabled = true;
+    }
 });
 </script>
 
