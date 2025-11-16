@@ -1,0 +1,110 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Line & Curve Analyzer{% endblock %}
+{% block tool_icon %}fas fa-drafting-compass{% endblock %}
+{% block tool_description %}Analyzes bearing and distance data for lines and curves with precision reporting.{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-drafting-compass"></i> Line & Curve Analyzer</h3>
+    <p>Analyze bearing, distance, and curve geometry with precision.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Element Type</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="lines" checked>
+        <label for="lines">Lines</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="curves" checked>
+        <label for="curves">Curves</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="spirals">
+        <label for="spirals">Spirals</label>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Display Units</h4>
+    <div class="tool-filter-item">
+        <label>Distance:</label>
+        <select style="width: 100%; padding: 0.5rem;">
+            <option>Feet</option>
+            <option>Meters</option>
+        </select>
+    </div>
+    <div class="tool-filter-item">
+        <label>Bearing:</label>
+        <select style="width: 100%; padding: 0.5rem;">
+            <option>DMS</option>
+            <option>Decimal</option>
+        </select>
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Analysis Stats</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Elements:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div class="tool-empty-state">
+        <div class="empty-state-icon"><i class="fas fa-drafting-compass"></i></div>
+        <h3>Line & Curve Analyzer - Coming Soon</h3>
+        <p>Geometric element visualization will appear here</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active">Elements</button>
+        <button class="tool-data-tab">Calculations</button>
+        <button class="tool-data-tab">Export</button>
+    </div>
+    <div class="tool-data-content">
+        <div style="padding: 2rem; text-align: left;">
+            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+            <ul style="line-height: 2;">
+                <li>Calculate bearing and distance for lines</li>
+                <li>Analyze curve radius, delta, and length</li>
+                <li>Support spirals and compound curves</li>
+                <li>Precision reporting with decimal places</li>
+                <li>Generate bearing/distance tables</li>
+                <li>Export to PDF and CSV</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Precision geometry analysis tool for surveying and engineering. Calculates bearings and distances for lines, 
+analyzes curve geometry including radius and delta, supports spirals, and generates detailed calculation reports.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">CNTR</span>
+<span class="about-tool-tag">LINE</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SITE-CNTR-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Centerlines - Civil/Site</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SITE-LINE-EXST-LN</div>
+    <div class="about-tool-example-desc">→ Existing Property Lines - Civil/Site</div>
+</div>
+{% endblock %}

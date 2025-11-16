@@ -1,0 +1,77 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}PostgreSQL Topo Linking{% endblock %}
+{% block tool_icon %}fas fa-project-diagram{% endblock %}
+{% block tool_description %}Database topology linking tool for managing topological relationships and network connectivity.{% endblock %}
+
+{% block content_layout_class %}tool-simple-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-project-diagram"></i> Topo Linking</h3>
+    <p>Manage database topology and network connectivity relationships.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Topology Type</h4>
+    <div class="tool-checkbox-item">
+        <input type="radio" name="topoType" id="network" checked>
+        <label for="network">Network Topology</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="radio" name="topoType" id="polygon">
+        <label for="polygon">Polygon Topology</label>
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Topology Stats</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Nodes:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Edges:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+</div>
+
+<button class="tool-action-btn" disabled>
+    <i class="fas fa-link"></i> Build Topology
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-empty-state">
+    <div class="empty-state-icon"><i class="fas fa-project-diagram"></i></div>
+    <h3>PostgreSQL Topo Linking - Coming Soon</h3>
+    <p>Database topology management interface will appear here</p>
+    <div style="margin-top: 2rem; text-align: left; max-width: 600px;">
+        <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+        <ul style="line-height: 2;">
+            <li>Build and maintain PostGIS topology</li>
+            <li>Define topological relationships</li>
+            <li>Validate network connectivity</li>
+            <li>Detect topology errors</li>
+            <li>Auto-repair simple issues</li>
+            <li>Visual topology validation</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Advanced database tool for building and maintaining PostGIS topological relationships. Manages network connectivity, 
+validates topology, detects errors, and provides automated repair capabilities for maintaining data integrity.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">LABL</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">--</div>
+    <div class="about-tool-example-desc">→ Database-level topology tool</div>
+</div>
+{% endblock %}

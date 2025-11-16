@@ -1,0 +1,99 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Alignment Tangent Check{% endblock %}
+{% block tool_icon %}fas fa-ruler-combined{% endblock %}
+{% block tool_description %}Validates alignment tangent geometry and checks for proper horizontal/vertical curve transitions.{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-ruler-combined"></i> Tangent Check</h3>
+    <p>Validate alignment geometry and curve transitions.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Check Type</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="horizontal" checked>
+        <label for="horizontal">Horizontal</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="vertical" checked>
+        <label for="vertical">Vertical</label>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Tolerances</h4>
+    <div class="tool-filter-item">
+        <label>Tangent Angle:</label>
+        <input type="number" value="0.01" step="0.001" style="width: 100%; padding: 0.5rem;">
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Validation Stats</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Checked:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Errors:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+</div>
+
+<button class="tool-action-btn" disabled>
+    <i class="fas fa-check"></i> Validate
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div class="tool-empty-state">
+        <div class="empty-state-icon"><i class="fas fa-ruler-combined"></i></div>
+        <h3>Alignment Tangent Check - Coming Soon</h3>
+        <p>Alignment visualization with tangent validation will appear here</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active">Errors</button>
+        <button class="tool-data-tab">Alignments</button>
+        <button class="tool-data-tab">Report</button>
+    </div>
+    <div class="tool-data-content">
+        <div style="padding: 2rem; text-align: left;">
+            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+            <ul style="line-height: 2;">
+                <li>Validate horizontal/vertical curve geometry</li>
+                <li>Check proper tangent transitions</li>
+                <li>Identify geometric errors</li>
+                <li>Configurable tolerance settings</li>
+                <li>Generate validation reports</li>
+                <li>Highlight errors on map</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Alignment geometry validation tool that checks tangent transitions for horizontal and vertical curves. 
+Identifies geometric errors, validates proper curve connections, and generates detailed validation reports with configurable tolerances.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">CNTR</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SITE-CNTR-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Centerlines - Civil/Site</div>
+</div>
+{% endblock %}

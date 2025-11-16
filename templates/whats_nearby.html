@@ -1,0 +1,94 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}What's Nearby{% endblock %}
+{% block tool_icon %}fas fa-map-marker-alt{% endblock %}
+{% block tool_description %}Query spatial data about adjacent landmarks, schools, hospitals, airports, and other points of interest.{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-map-marker-alt"></i> What's Nearby</h3>
+    <p>Discover landmarks and points of interest near your project.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Feature Types</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="schools" checked>
+        <label for="schools">Schools</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="hospitals" checked>
+        <label for="hospitals">Hospitals</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="airports" checked>
+        <label for="airports">Airports</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="parks">
+        <label for="parks">Parks</label>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Search Distance</h4>
+    <div class="tool-filter-item">
+        <label>Max Distance (miles):</label>
+        <input type="number" value="2" min="0.5" max="10" step="0.5" style="width: 100%; padding: 0.5rem;">
+    </div>
+</div>
+
+<button class="tool-action-btn" disabled>
+    <i class="fas fa-search"></i> Search Nearby
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div class="tool-empty-state">
+        <div class="empty-state-icon"><i class="fas fa-map-marker-alt"></i></div>
+        <h3>What's Nearby - Coming Soon</h3>
+        <p>Map showing nearby points of interest will appear here</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active">Features</button>
+        <button class="tool-data-tab">Distances</button>
+    </div>
+    <div class="tool-data-content">
+        <div style="padding: 2rem; text-align: left;">
+            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+            <ul style="line-height: 2;">
+                <li>Query spatial databases for nearby features</li>
+                <li>Filter by feature type (schools, hospitals, etc.)</li>
+                <li>Calculate distances from project site</li>
+                <li>Visual map display with markers</li>
+                <li>Generate proximity reports</li>
+                <li>Export to PDF and Excel</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Spatial query tool that discovers and analyzes nearby landmarks and points of interest including schools, hospitals, airports, 
+parks, and other features. Calculates distances, displays results on map, and generates proximity reports.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">TILE</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">--</div>
+    <div class="about-tool-example-desc">→ Uses external GIS data sources</div>
+</div>
+{% endblock %}

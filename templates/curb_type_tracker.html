@@ -1,0 +1,91 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Curb Type Tracker{% endblock %}
+{% block tool_icon %}fas fa-road{% endblock %}
+{% block tool_description %}Track different curb types per CAD Layer Attributes. Creates tables and reports.{% endblock %}
+
+{% block content_layout_class %}tool-simple-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-road"></i> Curb Type Tracker</h3>
+    <p>Track and analyze curb types throughout your project. Generate inventory reports and analyze curb attributes.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Curb Type Filters</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="typeA" checked>
+        <label for="typeA">Type A (Barrier)</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="typeB" checked>
+        <label for="typeB">Type B (Rolled)</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="typeC" checked>
+        <label for="typeC">Type C (Mountable)</label>
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Curb Stats</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Length:</span>
+        <span class="tool-stat-value">0 LF</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Unique Types:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4><i class="fas fa-download"></i> Export</h4>
+    <button class="tool-action-btn secondary" disabled>
+        <i class="far fa-file-pdf"></i> Export PDF Report
+    </button>
+    <button class="tool-action-btn secondary" disabled>
+        <i class="far fa-file-excel"></i> Export Excel
+    </button>
+</div>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-empty-state">
+    <div class="empty-state-icon"><i class="fas fa-road"></i></div>
+    <h3>Curb Type Tracker - Coming Soon</h3>
+    <p>This specialized tool is under development. It will provide comprehensive curb type tracking, inventory management, and reporting capabilities.</p>
+    <div style="margin-top: 2rem; text-align: left; max-width: 600px;">
+        <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+        <ul style="line-height: 2;">
+            <li>Track curb types by CAD layer attributes</li>
+            <li>Calculate total lengths per curb type</li>
+            <li>Generate curb inventory reports</li>
+            <li>Visual map display with type color-coding</li>
+            <li>Export to PDF and Excel formats</li>
+            <li>Link to standard specifications</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Interactive tool for tracking and analyzing different curb types throughout the project based on CAD layer attributes. 
+Generates comprehensive inventory tables and reports showing curb type distribution, lengths, and specifications.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">CURB</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SITE-CURB-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Curb - Civil/Site</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SITE-CURB-EXST-LN</div>
+    <div class="about-tool-example-desc">→ Existing Curb - Civil/Site</div>
+</div>
+{% endblock %}

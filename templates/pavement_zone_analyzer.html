@@ -1,0 +1,92 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Pavement Zone Analyzer{% endblock %}
+{% block tool_icon %}fas fa-layer-group{% endblock %}
+{% block tool_description %}Display overlay of distinct pavement zones with colorful hatches. Reports square footage and area numbers.{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-layer-group"></i> Pavement Zone Analyzer</h3>
+    <p>Analyze pavement zones with area calculations and specification links.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Pavement Types</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="pavAC" checked>
+        <label for="pavAC">Asphalt Concrete</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="pavPCC" checked>
+        <label for="pavPCC">Portland Concrete</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="pavGravel" checked>
+        <label for="pavGravel">Gravel/Aggregate</label>
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Area Summary</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total SF:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Acres:</span>
+        <span class="tool-stat-value">0.00</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div class="tool-empty-state">
+        <div class="empty-state-icon"><i class="fas fa-layer-group"></i></div>
+        <h3>Pavement Zone Analyzer - Coming Soon</h3>
+        <p>Pavement zone overlay visualization will appear here</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active">Zones</button>
+        <button class="tool-data-tab">Area Calculations</button>
+        <button class="tool-data-tab">Specifications</button>
+    </div>
+    <div class="tool-data-content">
+        <div style="padding: 2rem; text-align: left;">
+            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+            <ul style="line-height: 2;">
+                <li>Visual overlay with colorful zone hatches</li>
+                <li>Calculate areas in square feet and acres</li>
+                <li>Link to pavement specifications</li>
+                <li>Generate quantity takeoff reports</li>
+                <li>Export to PDF and Excel</li>
+                <li>Track pavement types by attributes</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Interactive pavement zone analysis tool that displays visual overlays with colorful hatches for distinct pavement zones. 
+Calculates areas in square footage and acres, links to specifications, and generates quantity reports.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">PERV</span>
+<span class="about-tool-tag">AREA</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SITE-PERV-PROP-AR</div>
+    <div class="about-tool-example-desc">→ Proposed Pervious Areas - Civil/Site</div>
+</div>
+{% endblock %}

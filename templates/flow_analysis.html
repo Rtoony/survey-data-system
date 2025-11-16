@@ -1,0 +1,106 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Flow Analysis{% endblock %}
+{% block tool_icon %}fas fa-water{% endblock %}
+{% block tool_description %}Analyzes storm sewer systems for detailed flow calculations similar to industry standard software.{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-water"></i> Flow Analysis</h3>
+    <p>Detailed storm sewer flow calculations and hydraulic analysis.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Analysis Method</h4>
+    <div class="tool-checkbox-item">
+        <input type="radio" name="method" id="rational" checked>
+        <label for="rational">Rational Method</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="radio" name="method" id="hydrograph">
+        <label for="hydrograph">Unit Hydrograph</label>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Design Storm</h4>
+    <div class="tool-filter-item">
+        <label>Return Period:</label>
+        <select style="width: 100%; padding: 0.5rem;">
+            <option value="10">10-Year</option>
+            <option value="25" selected>25-Year</option>
+            <option value="50">50-Year</option>
+            <option value="100">100-Year</option>
+        </select>
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>System Summary</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Peak Flow:</span>
+        <span class="tool-stat-value">0 CFS</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Capacity:</span>
+        <span class="tool-stat-value">--</span>
+    </div>
+</div>
+
+<button class="tool-action-btn" disabled>
+    <i class="fas fa-calculator"></i> Run Analysis
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div class="tool-empty-state">
+        <div class="empty-state-icon"><i class="fas fa-water"></i></div>
+        <h3>Flow Analysis - Coming Soon</h3>
+        <p>Network flow diagram and hydraulic grade line visualization will appear here</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active">Pipes</button>
+        <button class="tool-data-tab">Structures</button>
+        <button class="tool-data-tab">Results</button>
+        <button class="tool-data-tab">Report</button>
+    </div>
+    <div class="tool-data-content">
+        <div style="padding: 2rem; text-align: left;">
+            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+            <ul style="line-height: 2;">
+                <li>Storm sewer hydraulic calculations</li>
+                <li>Rational Method and Unit Hydrograph analysis</li>
+                <li>Flow capacity verification</li>
+                <li>Hydraulic grade line calculations</li>
+                <li>Energy grade line analysis</li>
+                <li>Comprehensive calculation reports</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Professional hydraulic analysis tool for storm sewer systems. Performs detailed flow calculations using Rational Method 
+or Unit Hydrograph approaches, calculates hydraulic and energy grade lines, and verifies pipe capacity for various design storms.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">STORM</span>
+<span class="about-tool-tag">GRAV</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-STM-STORM-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Storm Drain - Civil/Storm</div>
+</div>
+{% endblock %}

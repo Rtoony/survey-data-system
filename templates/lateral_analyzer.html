@@ -1,0 +1,96 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Sewer & Water Lateral Analyzer{% endblock %}
+{% block tool_icon %}fas fa-hands-helping{% endblock %}
+{% block tool_description %}Lists all properties with lateral connections, zoom-to-feature capability, and clearance analysis tools.{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-hands-helping"></i> Lateral Analyzer</h3>
+    <p>Analyze sewer and water lateral connections to properties.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Lateral Type</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="sewer" checked>
+        <label for="sewer">Sewer Laterals</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="water" checked>
+        <label for="water">Water Laterals</label>
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Connection Stats</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Properties:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Conflicts:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+</div>
+
+<button class="tool-action-btn" disabled>
+    <i class="fas fa-sync"></i> Analyze Clearances
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div class="tool-empty-state">
+        <div class="empty-state-icon"><i class="fas fa-hands-helping"></i></div>
+        <h3>Lateral Analyzer - Coming Soon</h3>
+        <p>Interactive map with lateral connections will appear here</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active">Properties</button>
+        <button class="tool-data-tab">Clearances</button>
+        <button class="tool-data-tab">Conflicts</button>
+    </div>
+    <div class="tool-data-content">
+        <div style="padding: 2rem; text-align: left;">
+            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+            <ul style="line-height: 2;">
+                <li>List all properties with lateral connections</li>
+                <li>Zoom to specific property/lateral feature</li>
+                <li>Analyze clearances for proposed pipes</li>
+                <li>Identify conflicts with existing features</li>
+                <li>Calculate connection angles and depths</li>
+                <li>Generate lateral inventory report</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Comprehensive lateral connection analyzer for sewer and water service lines. Lists all properties with connections, 
+provides zoom-to-feature capability, analyzes clearances between proposed and existing infrastructure, and identifies conflicts.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">SANIT</span>
+<span class="about-tool-tag">WATER</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SAN-SANIT-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Sewer Laterals - Civil/Sanitary</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-WAT-WATER-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Water Laterals - Civil/Water</div>
+</div>
+{% endblock %}

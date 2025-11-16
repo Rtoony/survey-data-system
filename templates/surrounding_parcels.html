@@ -1,0 +1,95 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Surrounding Parcels{% endblock %}
+{% block tool_icon %}fas fa-map-marked-alt{% endblock %}
+{% block tool_description %}Generate list of APN and addresses of surrounding parcels from GIS data with adjustable radius display.{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-map-marked-alt"></i> Surrounding Parcels</h3>
+    <p>Identify and analyze parcels surrounding your project site.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Search Radius</h4>
+    <div class="tool-filter-item">
+        <label>Radius (feet):</label>
+        <input type="range" min="100" max="2000" value="500" step="50" style="width: 100%;">
+        <div style="text-align: center; margin-top: 0.5rem; color: var(--mc-accent);">500 ft</div>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Data Sources</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="county" checked>
+        <label for="county">County Assessor</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="city" checked>
+        <label for="city">City Parcels</label>
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Parcel Stats</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Found:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+</div>
+
+<button class="tool-action-btn" disabled>
+    <i class="fas fa-search"></i> Find Parcels
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div class="tool-empty-state">
+        <div class="empty-state-icon"><i class="fas fa-map-marked-alt"></i></div>
+        <h3>Surrounding Parcels - Coming Soon</h3>
+        <p>Interactive map showing project and surrounding parcels will appear here</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active">Parcel List</button>
+        <button class="tool-data-tab">Export</button>
+    </div>
+    <div class="tool-data-content">
+        <div style="padding: 2rem; text-align: left;">
+            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+            <ul style="line-height: 2;">
+                <li>Adjustable search radius with live preview</li>
+                <li>List APN numbers and addresses</li>
+                <li>Pull data from local GIS sources</li>
+                <li>Visual representation on map</li>
+                <li>Export to Excel and PDF</li>
+                <li>Generate mailing labels</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+GIS integration tool that identifies surrounding parcels within a configurable radius of the project site. 
+Retrieves APN numbers and addresses from local GIS data, displays parcels visually on a map, and generates export lists.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">LINE</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SITE-LINE-EXST-LN</div>
+    <div class="about-tool-example-desc">→ Existing Property Lines - Civil/Site</div>
+</div>
+{% endblock %}

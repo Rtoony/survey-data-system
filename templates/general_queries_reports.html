@@ -1,0 +1,73 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}General Queries & Reports{% endblock %}
+{% block tool_icon %}fas fa-file-alt{% endblock %}
+{% block tool_description %}Report wizard generator for creating custom queries and analytical reports from project data.{% endblock %}
+
+{% block content_layout_class %}tool-simple-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-file-alt"></i> Query & Report Wizard</h3>
+    <p>Build custom queries and generate analytical reports from any project data.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Data Source</h4>
+    <div class="tool-filter-item">
+        <label>Select Table:</label>
+        <select style="width: 100%; padding: 0.5rem;">
+            <option value="">Select...</option>
+            <option>Utility Lines</option>
+            <option>Utility Structures</option>
+            <option>Survey Points</option>
+        </select>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Saved Queries</h4>
+    <button class="tool-action-btn secondary" disabled>
+        <i class="fas fa-folder-open"></i> Load Query
+    </button>
+</div>
+
+<button class="tool-action-btn" disabled>
+    <i class="fas fa-play"></i> Run Query
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-empty-state">
+    <div class="empty-state-icon"><i class="fas fa-file-alt"></i></div>
+    <h3>General Queries & Reports - Coming Soon</h3>
+    <p>Visual query builder and report generator interface will appear here</p>
+    <div style="margin-top: 2rem; text-align: left; max-width: 600px;">
+        <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+        <ul style="line-height: 2;">
+            <li>Visual query builder with drag-and-drop</li>
+            <li>Save and reuse custom queries</li>
+            <li>Generate formatted reports</li>
+            <li>Export to PDF, Excel, and CSV</li>
+            <li>Schedule recurring reports</li>
+            <li>Share queries across projects</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Flexible query builder and report generation wizard that allows users to create custom analytical queries across any project data. 
+Save queries for reuse, generate formatted reports, and export results in multiple formats.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">NOTE</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">--</div>
+    <div class="about-tool-example-desc">→ General-purpose tool for all data types</div>
+</div>
+{% endblock %}

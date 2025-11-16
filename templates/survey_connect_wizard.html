@@ -1,0 +1,107 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Survey Point Connect-the-Dot{% endblock %}
+{% block tool_icon %}fas fa-bezier-curve{% endblock %}
+{% block tool_description %}Interactive wizard for programming survey point connection rules with dynamic preview and sliders.{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-bezier-curve"></i> Connect-the-Dot Wizard</h3>
+    <p>Program intelligent connection rules for survey points.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Feature Type</h4>
+    <div class="tool-filter-item">
+        <label>Select Type:</label>
+        <select style="width: 100%; padding: 0.5rem;">
+            <option>Curb</option>
+            <option>Building</option>
+            <option>Fence</option>
+            <option>Tree Line</option>
+        </select>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Connection Rules</h4>
+    <div class="tool-filter-item">
+        <label>Max Distance (ft):</label>
+        <input type="range" min="1" max="100" value="10" style="width: 100%;">
+        <div style="text-align: center; margin-top: 0.5rem; color: var(--mc-accent);">10 ft</div>
+    </div>
+    <div class="tool-filter-item" style="margin-top: 1rem;">
+        <label>Max Angle (deg):</label>
+        <input type="range" min="0" max="180" value="45" style="width: 100%;">
+        <div style="text-align: center; margin-top: 0.5rem; color: var(--mc-accent);">45°</div>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Code Matching</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="matchCode" checked>
+        <label for="matchCode">Match Survey Codes</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="elevation">
+        <label for="elevation">Consider Elevation</label>
+    </div>
+</div>
+
+<button class="tool-action-btn" disabled>
+    <i class="fas fa-play"></i> Preview Connections
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div class="tool-empty-state">
+        <div class="empty-state-icon"><i class="fas fa-bezier-curve"></i></div>
+        <h3>Survey Point Connect-the-Dot - Coming Soon</h3>
+        <p>Live preview of point connections based on your rules will appear here</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active">Preview</button>
+        <button class="tool-data-tab">Rule Sets</button>
+        <button class="tool-data-tab">Export</button>
+    </div>
+    <div class="tool-data-content">
+        <div style="padding: 2rem; text-align: left;">
+            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+            <ul style="line-height: 2;">
+                <li>Interactive rule programming with sliders</li>
+                <li>Live preview of connection logic</li>
+                <li>Different rules for different surveyed objects</li>
+                <li>Proximity-based connections</li>
+                <li>Description code matching</li>
+                <li>Save and reuse rule sets</li>
+                <li>Export connected linework to DXF</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Interactive wizard for intelligently connecting survey points into linework. Program connection rules using sliders for proximity, 
+angle, and description matching. Different rule sets for different surveyed objects (curbs vs buildings). Live preview shows connections before generating.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">SPOT</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SURV-SPOT-EXST-PT</div>
+    <div class="about-tool-example-desc">→ Existing Survey Points - Civil/Survey</div>
+</div>
+{% endblock %}

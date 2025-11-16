@@ -1,0 +1,91 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Street Light Analyzer{% endblock %}
+{% block tool_icon %}fas fa-lightbulb{% endblock %}
+{% block tool_description %}Analyze distance between lights, generate light radius maps, depicts electrical system underground.{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-card">
+    <h3><i class="fas fa-lightbulb"></i> Street Light Analyzer</h3>
+    <p>Analyze street light spacing, coverage, and electrical infrastructure.</p>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Analysis Options</h4>
+    <div class="tool-filter-item">
+        <label>Light Radius (ft):</label>
+        <input type="number" value="50" min="10" max="200" style="width: 100%; padding: 0.5rem;">
+    </div>
+    <div class="tool-filter-item">
+        <label>Min Spacing (ft):</label>
+        <input type="number" value="100" min="50" max="500" style="width: 100%; padding: 0.5rem;">
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Light Stats</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Lights:</span>
+        <span class="tool-stat-value">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Avg Spacing:</span>
+        <span class="tool-stat-value">0 ft</span>
+    </div>
+</div>
+
+<button class="tool-action-btn" disabled>
+    <i class="fas fa-sync"></i> Analyze Coverage
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div class="tool-empty-state">
+        <div class="empty-state-icon"><i class="fas fa-lightbulb"></i></div>
+        <h3>Street Light Analyzer - Coming Soon</h3>
+        <p>Coverage map visualization will appear here</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active">Lights</button>
+        <button class="tool-data-tab">Spacing Analysis</button>
+        <button class="tool-data-tab">Electrical</button>
+    </div>
+    <div class="tool-data-content">
+        <div style="padding: 2rem; text-align: left;">
+            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
+            <ul style="line-height: 2;">
+                <li>Calculate distance between adjacent lights</li>
+                <li>Generate light coverage radius maps</li>
+                <li>Identify gaps in coverage</li>
+                <li>Depict underground electrical conduits</li>
+                <li>Calculate electrical load by circuit</li>
+                <li>Export coverage analysis to PDF</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block about_tool_description %}
+Comprehensive street light analysis tool that calculates spacing between lights, generates visual radius coverage maps, 
+identifies coverage gaps, and depicts underground electrical infrastructure including conduits and circuits.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">POLE</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SITE-POLE-PROP-PT</div>
+    <div class="about-tool-example-desc">→ Proposed Light Poles - Civil/Site</div>
+</div>
+{% endblock %}
