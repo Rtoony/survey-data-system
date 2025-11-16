@@ -138,6 +138,50 @@ class LayerClassifierV2:
                 'extract_diameter': 2,
                 'confidence': 0.80
             },
+            # Street Lights - SITE-LITE-LED-25FT-NEW-PT
+            {
+                'pattern': r'SITE[-_]LITE[-_](LED|HPS|MH|SOX)[-_]?(\d+)FT?[-_]?(NEW|EXIST|PROP)?[-_]?(PT)?',
+                'discipline': 'SITE',
+                'category': 'LITE',
+                'object_type': 'LITE',
+                'extract_lamp_type': 1,
+                'extract_height': 2,
+                'extract_phase': 3,
+                'confidence': 0.90
+            },
+            # Pavement Zones - SITE-PVMT-ASPH-6IN-NEW-PG
+            {
+                'pattern': r'SITE[-_]PVMT[-_](ASPH|CONC|PCC|GRAV)[-_]?(\d+)IN?[-_]?(NEW|EXIST|PROP)?[-_]?(PG|AR)?',
+                'discipline': 'SITE',
+                'category': 'PVMT',
+                'object_type': 'PVMT',
+                'extract_pavement_type': 1,
+                'extract_thickness': 2,
+                'extract_phase': 3,
+                'confidence': 0.90
+            },
+            # Service Laterals - UTIL-SEW-LATERAL-4IN-NEW-LN
+            {
+                'pattern': r'UTIL[-_](SEW|WAT|WATER)[-_]LATERAL[-_]?(\d+)IN?[-_]?(NEW|EXIST|PROP)?[-_]?(LN)?',
+                'discipline': 'UTIL',
+                'category': 'LATERAL',
+                'object_type': 'LATERAL',
+                'extract_service_type': 1,
+                'extract_diameter': 2,
+                'extract_phase': 3,
+                'confidence': 0.90
+            },
+            # BMPs - BMP-BIOR-BASIN-300SF-NEW-PG
+            {
+                'pattern': r'BMP[-_](BIOR|SWAL|POND|RAIN)[-_]?(BASIN)?[-_]?(\d+)?SF?[-_]?(NEW|EXIST|PROP)?[-_]?(PG)?',
+                'discipline': 'BMP',
+                'category': 'BMP',
+                'object_type': 'BMP',
+                'extract_bmp_type': 1,
+                'extract_area': 3,
+                'extract_phase': 4,
+                'confidence': 0.88
+            },
         ]
     
     def classify(self, layer_name: str) -> Optional[LayerClassification]:
@@ -240,13 +284,20 @@ class LayerClassifierV2:
             'BASIN': 'bmp',
             'POND': 'bmp',
             'INFIL': 'bmp',
+            'BMP': 'bmp',
             # ADA
             'RAMP': 'ada_feature',
             'PATH': 'ada_feature',
             # Trees
             'TREE': 'site_tree',
+            # Street Lights
+            'LITE': 'street_light',
+            # Pavement Zones
+            'PVMT': 'pavement_zone',
+            # Service Laterals
+            'LATERAL': 'service_connection',
         }
-        
+
         object_type = obj_type_map.get(components.object_type, 'generic')
         
         # Add utility type for utility objects
@@ -423,7 +474,70 @@ class LayerClassifierV2:
                             properties['utility_type'] = utility_map.get(utility_raw.upper(), 'storm')
                     except IndexError:
                         pass
-                
+
+                # Extract lamp type (for street lights)
+                if 'extract_lamp_type' in pattern_def:
+                    try:
+                        lamp_type = match.group(pattern_def['extract_lamp_type'])
+                        if lamp_type:
+                            properties['lamp_type'] = lamp_type.upper()
+                    except IndexError:
+                        pass
+
+                # Extract height (for street lights)
+                if 'extract_height' in pattern_def:
+                    try:
+                        height = match.group(pattern_def['extract_height'])
+                        if height:
+                            properties['height'] = int(height)
+                    except (ValueError, IndexError):
+                        pass
+
+                # Extract pavement type
+                if 'extract_pavement_type' in pattern_def:
+                    try:
+                        pavement_type = match.group(pattern_def['extract_pavement_type'])
+                        if pavement_type:
+                            properties['pavement_type'] = pavement_type.upper()
+                    except IndexError:
+                        pass
+
+                # Extract thickness (for pavement)
+                if 'extract_thickness' in pattern_def:
+                    try:
+                        thickness = match.group(pattern_def['extract_thickness'])
+                        if thickness:
+                            properties['thickness'] = int(thickness)
+                    except (ValueError, IndexError):
+                        pass
+
+                # Extract service type (for laterals)
+                if 'extract_service_type' in pattern_def:
+                    try:
+                        service_type = match.group(pattern_def['extract_service_type'])
+                        if service_type:
+                            properties['service_type'] = service_type.upper()
+                    except IndexError:
+                        pass
+
+                # Extract BMP type
+                if 'extract_bmp_type' in pattern_def:
+                    try:
+                        bmp_type = match.group(pattern_def['extract_bmp_type'])
+                        if bmp_type:
+                            properties['bmp_type'] = bmp_type.upper()
+                    except IndexError:
+                        pass
+
+                # Extract area (for BMPs and pavement zones)
+                if 'extract_area' in pattern_def:
+                    try:
+                        area = match.group(pattern_def['extract_area'])
+                        if area:
+                            properties['area_sqft'] = int(area)
+                    except (ValueError, IndexError):
+                        pass
+
                 # Add discipline and category
                 properties['discipline'] = pattern_def['discipline']
                 properties['category'] = pattern_def['category']
@@ -442,6 +556,18 @@ class LayerClassifierV2:
                 elif pattern_def['object_type'] == 'SHOT':
                     database_table = 'survey_points'
                     object_type = 'survey_point'
+                elif pattern_def['object_type'] == 'LITE':
+                    database_table = 'street_lights'
+                    object_type = 'street_light'
+                elif pattern_def['object_type'] == 'PVMT':
+                    database_table = 'pavement_zones'
+                    object_type = 'pavement_zone'
+                elif pattern_def['object_type'] == 'LATERAL':
+                    database_table = 'utility_service_connections'
+                    object_type = 'service_connection'
+                elif pattern_def['object_type'] == 'BMP':
+                    database_table = 'bmps'
+                    object_type = 'bmp'
                 else:
                     database_table = 'drawing_entities'
                     object_type = 'generic'

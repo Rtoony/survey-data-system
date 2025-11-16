@@ -43,10 +43,34 @@
 
 {% block main_content %}
 <div class="tool-top-area">
-    <div class="tool-empty-state">
+    <!-- Loading State -->
+    <div id="loadingState" class="tool-empty-state" style="display:none;">
+        <div class="empty-state-icon"><i class="fas fa-spinner fa-spin"></i></div>
+        <h3>Loading laterals...</h3>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="tool-empty-state" style="display:none;">
+        <div class="empty-state-icon"><i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i></div>
+        <h3>Error Loading Data</h3>
+        <p id="errorMessage"></p>
+        <button class="tool-action-btn" onclick="loadLaterals()">Retry</button>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="tool-empty-state">
         <div class="empty-state-icon"><i class="fas fa-hands-helping"></i></div>
-        <h3>Lateral Analyzer - Coming Soon</h3>
-        <p>Interactive map with lateral connections will appear here</p>
+        <h3>No Laterals Found</h3>
+        <p>Generate test data or import a DXF file with lateral connection entities.</p>
+        <a href="/tools/dxf-test-generator" class="tool-action-btn">Generate Test DXF</a>
+    </div>
+
+    <!-- Success State with Map -->
+    <div id="successState" style="display:none; padding: 2rem;">
+        <h3 style="margin-bottom: 1rem;"><i class="fas fa-map"></i> Lateral Connection Map</h3>
+        <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 1rem; border-radius: 4px;">
+            <p style="margin: 0;">Interactive lateral connection map coming soon...</p>
+        </div>
     </div>
 </div>
 
@@ -54,24 +78,166 @@
 
 <div class="tool-bottom-area">
     <div class="tool-data-tabs">
-        <button class="tool-data-tab active">Properties</button>
-        <button class="tool-data-tab">Clearances</button>
-        <button class="tool-data-tab">Conflicts</button>
+        <button class="tool-data-tab active" onclick="showTab('laterals')">Laterals</button>
+        <button class="tool-data-tab" onclick="showTab('stats')">Statistics</button>
     </div>
     <div class="tool-data-content">
-        <div style="padding: 2rem; text-align: left;">
-            <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
-            <ul style="line-height: 2;">
-                <li>List all properties with lateral connections</li>
-                <li>Zoom to specific property/lateral feature</li>
-                <li>Analyze clearances for proposed pipes</li>
-                <li>Identify conflicts with existing features</li>
-                <li>Calculate connection angles and depths</li>
-                <li>Generate lateral inventory report</li>
-            </ul>
+        <!-- Laterals Tab -->
+        <div id="lateralsTab" class="tab-content">
+            <table id="lateralsTable" class="mc-table" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Lateral ID</th>
+                        <th>Type</th>
+                        <th>Diameter (in)</th>
+                        <th>Length (ft)</th>
+                        <th>Material</th>
+                        <th>Address</th>
+                        <th>Connected To</th>
+                    </tr>
+                </thead>
+                <tbody id="lateralsTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="statsTab" class="tab-content" style="display:none;">
+            <div id="statsContent" style="padding: 2rem;">
+                <h4 style="margin-bottom: 1rem;">Summary Statistics</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Laterals</div>
+                        <div class="stat-value" id="statTotalLaterals">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Length (ft)</div>
+                        <div class="stat-value" id="statTotalLength">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Properties Served</div>
+                        <div class="stat-value" id="statProperties">0</div>
+                    </div>
+                </div>
+                <h4 style="margin: 2rem 0 1rem 0;">By Diameter</h4>
+                <div id="byDiameter"></div>
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+.tab-content { padding: 1rem; }
+.stat-card {
+    background: rgba(0,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    padding: 1.5rem;
+    border-radius: 4px;
+    text-align: center;
+}
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+}
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--accent-color);
+}
+</style>
+
+<script>
+let currentData = [];
+let currentTab = 'laterals';
+
+// Show specific tab
+function showTab(tabName) {
+    currentTab = tabName;
+    document.getElementById('lateralsTab').style.display = tabName === 'laterals' ? 'block' : 'none';
+    document.getElementById('statsTab').style.display = tabName === 'stats' ? 'block' : 'none';
+
+    // Update active tab button
+    const tabs = document.querySelectorAll('.tool-data-tab');
+    tabs.forEach((tab, i) => {
+        tab.classList.toggle('active', (i === 0 && tabName === 'laterals') || (i === 1 && tabName === 'stats'));
+    });
+}
+
+// Load laterals data
+async function loadLaterals() {
+    showState('loading');
+
+    try {
+        const response = await fetch('/api/specialized-tools/laterals');
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+        const data = await response.json();
+        currentData = data;
+
+        if (!data.laterals || data.laterals.length === 0) {
+            showState('empty');
+            return;
+        }
+
+        renderLateralsTable(data.laterals);
+        renderStats(data.stats);
+        showState('success');
+
+    } catch (error) {
+        console.error('Error loading laterals:', error);
+        showState('error', error.message);
+    }
+}
+
+// Render laterals table
+function renderLateralsTable(laterals) {
+    const tbody = document.getElementById('lateralsTableBody');
+    tbody.innerHTML = laterals.map(lateral => `
+        <tr>
+            <td>${lateral.lateral_id?.substring(0, 8) || 'N/A'}</td>
+            <td>${lateral.lateral_type || 'UNKNOWN'}</td>
+            <td>${lateral.diameter_in || 'N/A'}</td>
+            <td>${lateral.length_ft?.toFixed(1) || 'N/A'}</td>
+            <td>${lateral.material || 'N/A'}</td>
+            <td>${lateral.address || 'N/A'}</td>
+            <td>${lateral.connected_to?.substring(0, 8) || 'N/A'}</td>
+        </tr>
+    `).join('');
+    document.getElementById('lateralsTable').style.display = 'table';
+}
+
+// Render statistics
+function renderStats(stats) {
+    document.getElementById('statTotalLaterals').textContent = stats.total_count || 0;
+    document.getElementById('statTotalLength').textContent = `${stats.total_length_ft?.toFixed(1) || 0}`;
+    document.getElementById('statProperties').textContent = stats.properties_served || 0;
+
+    // Render by diameter
+    const byDiam = stats.by_diameter || {};
+    const diamHtml = Object.entries(byDiam).map(([diam, count]) => `
+        <div style="padding: 0.75rem; background: rgba(0,255,255,0.03); margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between;">
+            <span>${diam}"</span>
+            <span style="color: var(--accent-color); font-weight: bold;">${count}</span>
+        </div>
+    `).join('');
+    document.getElementById('byDiameter').innerHTML = diamHtml || '<p>No data</p>';
+}
+
+// Show state
+function showState(state, message = '') {
+    document.getElementById('loadingState').style.display = state === 'loading' ? 'flex' : 'none';
+    document.getElementById('errorState').style.display = state === 'error' ? 'flex' : 'none';
+    document.getElementById('emptyState').style.display = state === 'empty' ? 'flex' : 'none';
+    document.getElementById('successState').style.display = state === 'success' ? 'block' : 'none';
+
+    if (state === 'error') {
+        document.getElementById('errorMessage').textContent = message;
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', loadLaterals);
+</script>
 {% endblock %}
 
 {% block about_tool_description %}

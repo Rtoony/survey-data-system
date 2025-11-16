@@ -124,7 +124,16 @@ class IntelligentObjectCreator:
             
             elif classification.object_type == 'spot_elevation':
                 result = self._create_spot_elevation(entity_data, classification, project_id)
-            
+
+            elif classification.object_type == 'street_light':
+                result = self._create_street_light(entity_data, classification, project_id)
+
+            elif classification.object_type == 'pavement_zone':
+                result = self._create_pavement_zone(entity_data, classification, project_id)
+
+            elif classification.object_type == 'service_connection':
+                result = self._create_service_connection(entity_data, classification, project_id)
+
             if result:
                 object_type, object_id, table_name = result
                 dxf_handle = entity_data.get('dxf_handle', '')
@@ -971,7 +980,162 @@ class IntelligentObjectCreator:
         
         result = cur.fetchone()
         return str(result[0]) if result else None
-    
+
+    def _create_street_light(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
+        """Create street_lights record."""
+        if entity_data.get('geometry_type') not in ['POINT', 'POINT Z']:
+            return None
+
+        if not self.conn:
+            return None
+
+        cur = self.conn.cursor()
+        props = classification.properties
+
+        # Extract lamp type and height from properties
+        lamp_type = props.get('lamp_type', 'LED')
+        pole_height_ft = props.get('height', 25)
+
+        # Generate pole number
+        cur.execute("SELECT COUNT(*) FROM street_lights WHERE project_id = %s", (project_id,))
+        count = cur.fetchone()[0] if cur.rowcount > 0 else 0
+        pole_number = f"L-{count + 1}"
+
+        cur.execute("""
+            INSERT INTO street_lights (
+                project_id, pole_number, lamp_type, pole_height_ft,
+                geometry, attributes
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING light_id
+        """, (
+            project_id,
+            pole_number,
+            lamp_type,
+            pole_height_ft,
+            entity_data.get('geometry_wkt'),
+            json.dumps({'source': 'dxf_import', 'layer_name': entity_data.get('layer_name')})
+        ))
+
+        result = cur.fetchone()
+        cur.close()
+
+        if result:
+            return ('street_light', str(result[0]), 'street_lights')
+        return None
+
+    def _create_pavement_zone(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
+        """Create pavement_zones record."""
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        if geometry_type not in ['POLYGON', 'POLYGON Z', 'POLYLINE', 'LWPOLYLINE']:
+            return None
+
+        if not self.conn:
+            return None
+
+        cur = self.conn.cursor()
+        props = classification.properties
+
+        # Extract pavement properties
+        pavement_type = props.get('pavement_type', 'ASPH')
+        thickness_inches = props.get('thickness', 6)
+
+        geometry_wkt = entity_data.get('geometry_wkt')
+        layer_name = entity_data.get('layer_name', '')
+
+        # Generate zone name
+        cur.execute("SELECT COUNT(*) FROM pavement_zones WHERE project_id = %s", (project_id,))
+        count = cur.fetchone()[0] if cur.rowcount > 0 else 0
+        zone_name = f"ZONE-{count + 1}"
+
+        # Calculate area from geometry
+        cur.execute("""
+            SELECT ST_Area(ST_GeomFromText(%s, 2226))
+        """, (geometry_wkt,))
+        area_result = cur.fetchone()
+        area_sqft = area_result[0] if area_result else None
+
+        cur.execute("""
+            INSERT INTO pavement_zones (
+                project_id, zone_name, pavement_type, thickness_inches, area_sqft,
+                geometry, attributes
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING zone_id
+        """, (
+            project_id,
+            zone_name,
+            pavement_type,
+            thickness_inches,
+            area_sqft,
+            geometry_wkt,
+            json.dumps({'source': 'dxf_import', 'layer_name': layer_name})
+        ))
+
+        result = cur.fetchone()
+        cur.close()
+
+        if result:
+            return ('pavement_zone', str(result[0]), 'pavement_zones')
+        return None
+
+    def _create_service_connection(self, entity_data: Dict, classification: LayerClassification, project_id: str) -> Optional[Tuple]:
+        """Create utility_service_connections record (laterals)."""
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        if geometry_type not in ['LINESTRING', 'LINESTRING Z', 'POLYLINE', 'LWPOLYLINE']:
+            return None
+
+        if not self.conn:
+            return None
+
+        cur = self.conn.cursor()
+        props = classification.properties
+
+        # Extract lateral properties
+        service_type_map = {
+            'SEW': 'SEWER_LATERAL',
+            'WAT': 'WATER_LATERAL',
+            'WATER': 'WATER_LATERAL'
+        }
+        service_type_code = props.get('service_type', 'SEW')
+        service_type = service_type_map.get(service_type_code, 'SEWER_LATERAL')
+
+        diameter_in = props.get('diameter', 4)
+        size_mm = int(diameter_in * 25.4) if diameter_in else 100
+
+        geometry_wkt = entity_data.get('geometry_wkt')
+        layer_name = entity_data.get('layer_name', '')
+
+        # Calculate length
+        cur.execute("""
+            SELECT ST_Length(ST_GeomFromText(%s, 2226))
+        """, (geometry_wkt,))
+        length_result = cur.fetchone()
+        length_ft = length_result[0] if length_result else None
+
+        cur.execute("""
+            INSERT INTO utility_service_connections (
+                project_id, service_type, size_mm, length_ft,
+                geometry, attributes
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING connection_id
+        """, (
+            project_id,
+            service_type,
+            size_mm,
+            length_ft,
+            geometry_wkt,
+            json.dumps({'source': 'dxf_import', 'layer_name': layer_name, 'diameter_in': diameter_in})
+        ))
+
+        result = cur.fetchone()
+        cur.close()
+
+        if result:
+            return ('service_connection', str(result[0]), 'utility_service_connections')
+        return None
+
     def _add_to_network(self, network_id: str, line_id: Optional[str] = None, structure_id: Optional[str] = None, cur=None):
         """Add a pipe or structure to a network."""
         if not cur:
