@@ -1,75 +1,101 @@
 {% extends "base_specialized_tool.html" %}
 
 {% block tool_title %}Sewer & Water Lateral Analyzer{% endblock %}
-{% block tool_icon %}fas fa-hands-helping{% endblock %}
-{% block tool_description %}Lists all properties with lateral connections, zoom-to-feature capability, and clearance analysis tools.{% endblock %}
+{% block tool_icon %}fas fa-project-diagram{% endblock %}
+{% block tool_description %}Lists all properties with lateral connections, zoom-to-feature capability, and clearance analysis tools{% endblock %}
 
 {% block content_layout_class %}tool-complex-layout{% endblock %}
 
 {% block sidebar_content %}
-<div class="tool-info-card">
-    <h3><i class="fas fa-hands-helping"></i> Lateral Analyzer</h3>
-    <p>Analyze sewer and water lateral connections to properties.</p>
+<div class="tool-info-box">
+    <div class="tool-name">
+        <i class="fas fa-project-diagram"></i>
+        <span>Lateral Analyzer</span>
+    </div>
+    <div class="tool-description">
+        Analyze sewer and water lateral connections to properties
+    </div>
 </div>
 
 <div class="tool-filter-section">
     <h4>Lateral Type</h4>
     <div class="tool-checkbox-item">
-        <input type="checkbox" id="sewer" checked>
-        <label for="sewer">Sewer Laterals</label>
+        <input type="checkbox" id="filterSewer" checked onchange="applyFilters()">
+        <label for="filterSewer">Sewer Laterals</label>
     </div>
     <div class="tool-checkbox-item">
-        <input type="checkbox" id="water" checked>
-        <label for="water">Water Laterals</label>
+        <input type="checkbox" id="filterWater" checked onchange="applyFilters()">
+        <label for="filterWater">Water Laterals</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterStorm" checked onchange="applyFilters()">
+        <label for="filterStorm">Storm Connections</label>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Connection Status</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="statusActive" checked onchange="applyFilters()">
+        <label for="statusActive">Active</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="statusProposed" checked onchange="applyFilters()">
+        <label for="statusProposed">Proposed</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="statusAbandoned" onchange="applyFilters()">
+        <label for="statusAbandoned">Abandoned</label>
     </div>
 </div>
 
 <div class="tool-stats-section">
     <h4>Connection Stats</h4>
     <div class="tool-stat-item">
-        <span class="tool-stat-label">Properties:</span>
-        <span class="tool-stat-value">0</span>
+        <span class="tool-stat-label">Total Laterals:</span>
+        <span class="tool-stat-value" id="sidebarTotalLaterals">0</span>
     </div>
     <div class="tool-stat-item">
-        <span class="tool-stat-label">Conflicts:</span>
-        <span class="tool-stat-value">0</span>
+        <span class="tool-stat-label">Properties Served:</span>
+        <span class="tool-stat-value" id="sidebarPropertiesServed">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Conflicts Found:</span>
+        <span class="tool-stat-value" style="color: var(--danger);" id="sidebarConflicts">0</span>
     </div>
 </div>
 
-<button class="tool-action-btn" disabled>
+<button class="tool-action-btn" onclick="analyzeClearances()">
     <i class="fas fa-sync"></i> Analyze Clearances
+</button>
+<button class="tool-action-btn secondary" onclick="exportReport()">
+    <i class="fas fa-file-export"></i> Export Report
 </button>
 {% endblock %}
 
 {% block main_content %}
 <div class="tool-top-area">
-    <!-- Loading State -->
-    <div id="loadingState" class="tool-empty-state" style="display:none;">
-        <div class="empty-state-icon"><i class="fas fa-spinner fa-spin"></i></div>
-        <h3>Loading laterals...</h3>
-    </div>
+    <div id="lateralVisualContainer" style="height: 100%; width: 100%; background: #0a1929; position: relative;">
+        <!-- Loading State -->
+        <div id="loadingState" style="display:none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--mc-primary); margin-bottom: 1rem;"></i>
+            <h3 style="color: var(--mc-text);">Analyzing lateral connections...</h3>
+        </div>
 
-    <!-- Error State -->
-    <div id="errorState" class="tool-empty-state" style="display:none;">
-        <div class="empty-state-icon"><i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i></div>
-        <h3>Error Loading Data</h3>
-        <p id="errorMessage"></p>
-        <button class="tool-action-btn" onclick="loadLaterals()">Retry</button>
-    </div>
+        <!-- Empty State -->
+        <div id="emptyState" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <i class="fas fa-project-diagram" style="font-size: 64px; color: var(--mc-primary); opacity: 0.3; margin-bottom: 1rem;"></i>
+            <h3 style="color: var(--mc-text);">Lateral Connection Map</h3>
+            <p style="color: var(--mc-muted); max-width: 400px; margin: 1rem auto;">
+                Load project data to visualize lateral connections and property service lines
+            </p>
+        </div>
 
-    <!-- Empty State -->
-    <div id="emptyState" class="tool-empty-state">
-        <div class="empty-state-icon"><i class="fas fa-hands-helping"></i></div>
-        <h3>No Laterals Found</h3>
-        <p>Generate test data or import a DXF file with lateral connection entities.</p>
-        <a href="/tools/dxf-test-generator" class="tool-action-btn">Generate Test DXF</a>
-    </div>
-
-    <!-- Success State with Map -->
-    <div id="successState" style="display:none; padding: 2rem;">
-        <h3 style="margin-bottom: 1rem;"><i class="fas fa-map"></i> Lateral Connection Map</h3>
-        <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 1rem; border-radius: 4px;">
-            <p style="margin: 0;">Interactive lateral connection map coming soon...</p>
+        <!-- Success State -->
+        <div id="successState" style="display:none; height: 100%; width: 100%;">
+            <div style="padding: 1rem; color: var(--mc-text); text-align: center; background: rgba(0,40,80,0.5);">
+                <i class="fas fa-map-marked-alt"></i> Lateral Connection Network
+            </div>
         </div>
     </div>
 </div>
@@ -78,13 +104,21 @@
 
 <div class="tool-bottom-area">
     <div class="tool-data-tabs">
-        <button class="tool-data-tab active" onclick="showTab('laterals')">Laterals</button>
-        <button class="tool-data-tab" onclick="showTab('stats')">Statistics</button>
+        <button class="tool-data-tab active" onclick="showTab('laterals')">
+            <i class="fas fa-list"></i> Laterals (<span id="lateralsTabCount">0</span>)
+        </button>
+        <button class="tool-data-tab" onclick="showTab('conflicts')">
+            <i class="fas fa-exclamation-triangle"></i> Conflicts
+        </button>
+        <button class="tool-data-tab" onclick="showTab('properties')">
+            <i class="fas fa-home"></i> Properties
+        </button>
     </div>
+
     <div class="tool-data-content">
         <!-- Laterals Tab -->
         <div id="lateralsTab" class="tab-content">
-            <table id="lateralsTable" class="mc-table" style="display:none;">
+            <table class="tool-data-table" id="lateralsTable" style="display:none;">
                 <thead>
                     <tr>
                         <th>Lateral ID</th>
@@ -92,34 +126,86 @@
                         <th>Diameter (in)</th>
                         <th>Length (ft)</th>
                         <th>Material</th>
-                        <th>Address</th>
+                        <th>Property Address</th>
                         <th>Connected To</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="lateralsTableBody"></tbody>
             </table>
+            <div id="lateralsEmpty" style="text-align: center; padding: 3rem; color: var(--mc-text);">
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No lateral connection data available</p>
+                <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                    Load project data to begin analysis
+                </p>
+            </div>
         </div>
 
-        <!-- Stats Tab -->
-        <div id="statsTab" class="tab-content" style="display:none;">
-            <div id="statsContent" style="padding: 2rem;">
-                <h4 style="margin-bottom: 1rem;">Summary Statistics</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Laterals</div>
-                        <div class="stat-value" id="statTotalLaterals">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Length (ft)</div>
-                        <div class="stat-value" id="statTotalLength">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Properties Served</div>
-                        <div class="stat-value" id="statProperties">0</div>
+        <!-- Conflicts Tab -->
+        <div id="conflictsTab" class="tab-content" style="display:none;">
+            <div id="conflictsContainer">
+                <div style="background: rgba(255,68,68,0.1); border: 2px solid var(--danger); border-radius: 12px; padding: 2rem; margin-bottom: 1rem;">
+                    <h4 style="color: var(--danger); margin: 0 0 1rem 0;">
+                        <i class="fas fa-exclamation-circle"></i> Clearance Violations
+                    </h4>
+                    <div id="violationsList">
+                        <p style="color: var(--mc-text);">No clearance violations detected</p>
                     </div>
                 </div>
-                <h4 style="margin: 2rem 0 1rem 0;">By Diameter</h4>
-                <div id="byDiameter"></div>
+
+                <div style="background: rgba(255,193,7,0.1); border: 2px solid rgba(255,193,7,0.5); border-radius: 12px; padding: 2rem;">
+                    <h4 style="color: rgba(255,193,7,1); margin: 0 0 1rem 0;">
+                        <i class="fas fa-exclamation-triangle"></i> Warnings
+                    </h4>
+                    <div id="warningsList">
+                        <p style="color: var(--mc-text);">No warnings</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Properties Tab -->
+        <div id="propertiesTab" class="tab-content" style="display:none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-home"></i> Total Properties
+                    </div>
+                    <div class="stat-value" id="statTotalProperties">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-check-circle"></i> Connected
+                    </div>
+                    <div class="stat-value" style="color: var(--success);" id="statConnected">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-times-circle"></i> Unconnected
+                    </div>
+                    <div class="stat-value" style="color: var(--danger);" id="statUnconnected">0</div>
+                </div>
+            </div>
+
+            <h4 style="color: var(--mc-accent); margin: 2rem 0 1rem 0;">
+                <i class="fas fa-map-marker-alt"></i> Property List
+            </h4>
+            <table class="tool-data-table" id="propertiesTable" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>Parcel ID</th>
+                        <th>Sewer Connection</th>
+                        <th>Water Connection</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="propertiesTableBody"></tbody>
+            </table>
+            <div id="propertiesEmpty" style="text-align: center; padding: 2rem; color: var(--mc-muted);">
+                No property data available
             </div>
         </div>
     </div>
@@ -131,85 +217,119 @@
     background: rgba(0,255,255,0.05);
     border: 1px solid rgba(0,255,255,0.2);
     padding: 1.5rem;
-    border-radius: 4px;
+    border-radius: 8px;
     text-align: center;
 }
 .stat-label {
+    color: var(--mc-muted);
     font-size: 0.9rem;
-    color: var(--text-dim);
     margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
 .stat-value {
-    font-size: 2rem;
+    color: var(--mc-primary);
+    font-size: 1.8rem;
     font-weight: bold;
-    color: var(--accent-color);
 }
 </style>
+{% endblock %}
 
+{% block about_tool_description %}
+<p>
+    The <strong>Sewer & Water Lateral Analyzer</strong> provides comprehensive analysis of service line connections to individual
+    properties. This tool lists all lateral connections, provides zoom-to-feature capability for easy navigation, and performs
+    automated clearance analysis to identify conflicts between proposed and existing infrastructure.
+</p>
+<p style="margin-top: 1rem;">
+    Analyzes sewer laterals, water service lines, and storm drain connections. Identifies properties without service, detects
+    clearance violations, and generates connection inventory reports for utility coordination and construction planning.
+</p>
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">SANIT</span>
+<span class="about-tool-tag">WATER</span>
+<span class="about-tool-tag">STORM</span>
+<span class="about-tool-tag">LATERAL</span>
+<span class="about-tool-tag">SERVICE</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-UTIL-SANIT-LAT-NEW-LN</div>
+    <div class="about-tool-example-desc">→ Sewer lateral service connection</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-UTIL-WATER-LAT-NEW-LN</div>
+    <div class="about-tool-example-desc">→ Water lateral service connection</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-UTIL-STORM-LAT-NEW-LN</div>
+    <div class="about-tool-example-desc">→ Storm drain lateral connection</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
-let currentData = [];
-let currentTab = 'laterals';
+let lateralsData = [];
+let propertiesData = [];
 
-// Show specific tab
-function showTab(tabName) {
-    currentTab = tabName;
-    document.getElementById('lateralsTab').style.display = tabName === 'laterals' ? 'block' : 'none';
-    document.getElementById('statsTab').style.display = tabName === 'stats' ? 'block' : 'none';
-
-    // Update active tab button
-    const tabs = document.querySelectorAll('.tool-data-tab');
-    tabs.forEach((tab, i) => {
-        tab.classList.toggle('active', (i === 0 && tabName === 'laterals') || (i === 1 && tabName === 'stats'));
-    });
+function applyFilters() {
+    console.log('Filters applied');
+    renderLateralsTable(lateralsData);
 }
 
-// Load laterals data
-async function loadLaterals() {
+async function analyzeClearances() {
     showState('loading');
 
     try {
-        // Get active project from global context
         const activeProject = window.projectContext ?
             await window.projectContext.getActiveProject() : null;
 
         if (!activeProject) {
-            showError('No active project selected. Please select a project from the dashboard.');
-            showState('error', 'No active project selected');
+            showState('empty');
+            alert('No active project selected');
             return;
         }
 
         const response = await fetch(`/api/specialized-tools/laterals?project_id=${activeProject.project_id}`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
 
         if (!data.success) {
-            showError(data.error || 'Failed to load lateral analysis data');
-            showState('error', data.error || 'Failed to load data');
-            return;
-        }
-
-        currentData = data;
-
-        if (!data.laterals || data.laterals.length === 0) {
             showState('empty');
             return;
         }
 
-        renderLateralsTable(data.laterals);
-        renderStats(data.stats);
+        lateralsData = data.laterals || [];
+        propertiesData = data.properties || [];
+
+        renderLateralsTable(lateralsData);
+        renderPropertiesTable(propertiesData);
+        renderConflicts(data.conflicts);
         showState('success');
 
     } catch (error) {
-        console.error('Error loading laterals:', error);
-        showError('Failed to load lateral analysis data: ' + error.message);
-        showState('error', error.message);
+        console.error('Error:', error);
+        showState('empty');
     }
 }
 
-// Render laterals table
 function renderLateralsTable(laterals) {
     const tbody = document.getElementById('lateralsTableBody');
+    const table = document.getElementById('lateralsTable');
+    const emptyDiv = document.getElementById('lateralsEmpty');
+
+    if (!laterals || laterals.length === 0) {
+        table.style.display = 'none';
+        emptyDiv.style.display = 'block';
+        return;
+    }
+
     tbody.innerHTML = laterals.map(lateral => `
         <tr>
             <td>${lateral.lateral_id?.substring(0, 8) || 'N/A'}</td>
@@ -219,88 +339,77 @@ function renderLateralsTable(laterals) {
             <td>${lateral.material || 'N/A'}</td>
             <td>${lateral.address || 'N/A'}</td>
             <td>${lateral.connected_to?.substring(0, 8) || 'N/A'}</td>
+            <td>${lateral.status || 'ACTIVE'}</td>
+            <td><button class="tool-action-btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">Zoom</button></td>
         </tr>
     `).join('');
-    document.getElementById('lateralsTable').style.display = 'table';
+
+    table.style.display = 'table';
+    emptyDiv.style.display = 'none';
+
+    document.getElementById('lateralsTabCount').textContent = laterals.length;
+    document.getElementById('sidebarTotalLaterals').textContent = laterals.length;
 }
 
-// Render statistics
-function renderStats(stats) {
-    document.getElementById('statTotalLaterals').textContent = stats.total_count || 0;
-    document.getElementById('statTotalLength').textContent = `${stats.total_length_ft?.toFixed(1) || 0}`;
-    document.getElementById('statProperties').textContent = stats.properties_served || 0;
+function renderPropertiesTable(properties) {
+    const tbody = document.getElementById('propertiesTableBody');
+    const table = document.getElementById('propertiesTable');
+    const emptyDiv = document.getElementById('propertiesEmpty');
 
-    // Render by diameter
-    const byDiam = stats.by_diameter || {};
-    const diamHtml = Object.entries(byDiam).map(([diam, count]) => `
-        <div style="padding: 0.75rem; background: rgba(0,255,255,0.03); margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between;">
-            <span>${diam}"</span>
-            <span style="color: var(--accent-color); font-weight: bold;">${count}</span>
-        </div>
-    `).join('');
-    document.getElementById('byDiameter').innerHTML = diamHtml || '<p>No data</p>';
-}
-
-// Show state
-function showState(state, message = '') {
-    document.getElementById('loadingState').style.display = state === 'loading' ? 'flex' : 'none';
-    document.getElementById('errorState').style.display = state === 'error' ? 'flex' : 'none';
-    document.getElementById('emptyState').style.display = state === 'empty' ? 'flex' : 'none';
-    document.getElementById('successState').style.display = state === 'success' ? 'block' : 'none';
-
-    if (state === 'error') {
-        document.getElementById('errorMessage').textContent = message;
+    if (!properties || properties.length === 0) {
+        table.style.display = 'none';
+        emptyDiv.style.display = 'block';
+        return;
     }
+
+    tbody.innerHTML = properties.map(prop => `
+        <tr>
+            <td>${prop.address || 'N/A'}</td>
+            <td>${prop.parcel_id || 'N/A'}</td>
+            <td>${prop.has_sewer ? '✓' : '—'}</td>
+            <td>${prop.has_water ? '✓' : '—'}</td>
+            <td><button class="tool-action-btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">View</button></td>
+        </tr>
+    `).join('');
+
+    table.style.display = 'table';
+    emptyDiv.style.display = 'none';
+
+    document.getElementById('sidebarPropertiesServed').textContent = properties.length;
 }
 
-// Error display function
-function showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: rgba(255,0,0,0.9); color: white; padding: 20px; border-radius: 8px; z-index: 10000; max-width: 400px;';
-    errorDiv.innerHTML = `
-        <strong>Error:</strong><br>
-        ${message}<br><br>
-        <button onclick="this.parentElement.remove()" style="background: white; color: black; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Dismiss</button>
-    `;
-    document.body.appendChild(errorDiv);
+function renderConflicts(conflicts) {
+    if (!conflicts || conflicts.length === 0) return;
+
+    document.getElementById('sidebarConflicts').textContent = conflicts.length;
 }
 
-// Initialize
+function showState(state) {
+    document.getElementById('loadingState').style.display = state === 'loading' ? 'block' : 'none';
+    document.getElementById('emptyState').style.display = state === 'empty' ? 'block' : 'none';
+    document.getElementById('successState').style.display = state === 'success' ? 'block' : 'none';
+}
+
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+    document.querySelectorAll('.tool-data-tab').forEach(btn => btn.classList.remove('active'));
+
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) selectedTab.style.display = 'block';
+
+    event.target.closest('.tool-data-tab').classList.add('active');
+}
+
+function exportReport() {
+    console.log('Exporting lateral analysis report...');
+    alert('Lateral analysis report export functionality will be implemented here');
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
-    // Wait for ProjectContext to initialize
     if (window.projectContext) {
         await window.projectContext.init();
-
-        // Subscribe to project changes
-        window.projectContext.subscribe(() => {
-            console.log('Active project changed, reloading data...');
-            loadLaterals();
-        });
+        window.projectContext.subscribe(() => analyzeClearances());
     }
-
-    // Initial load
-    loadLaterals();
 });
 </script>
-{% endblock %}
-
-{% block about_tool_description %}
-Comprehensive lateral connection analyzer for sewer and water service lines. Lists all properties with connections, 
-provides zoom-to-feature capability, analyzes clearances between proposed and existing infrastructure, and identifies conflicts.
-{% endblock %}
-
-{% block about_tool_tags %}
-<span class="about-tool-tag">SANIT</span>
-<span class="about-tool-tag">WATER</span>
-{% endblock %}
-
-{% block about_tool_examples %}
-<div class="about-tool-example">
-    <div class="about-tool-example-layer">CIV-SAN-SANIT-PROP-LN</div>
-    <div class="about-tool-example-desc">→ Proposed Sewer Laterals - Civil/Sanitary</div>
-</div>
-<div class="about-tool-example">
-    <div class="about-tool-example-layer">CIV-WAT-WATER-PROP-LN</div>
-    <div class="about-tool-example-desc">→ Proposed Water Laterals - Civil/Water</div>
-</div>
 {% endblock %}

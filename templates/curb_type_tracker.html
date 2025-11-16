@@ -2,29 +2,51 @@
 
 {% block tool_title %}Curb Type Tracker{% endblock %}
 {% block tool_icon %}fas fa-road{% endblock %}
-{% block tool_description %}Track different curb types per CAD Layer Attributes. Creates tables and reports.{% endblock %}
+{% block tool_description %}Track different curb types per CAD Layer Attributes. Creates tables and reports{% endblock %}
 
-{% block content_layout_class %}tool-simple-layout{% endblock %}
+{% block content_layout_class %}tool-complex-layout{% endblock %}
 
 {% block sidebar_content %}
-<div class="tool-info-card">
-    <h3><i class="fas fa-road"></i> Curb Type Tracker</h3>
-    <p>Track and analyze curb types throughout your project. Generate inventory reports and analyze curb attributes.</p>
+<div class="tool-info-box">
+    <div class="tool-name">
+        <i class="fas fa-road"></i>
+        <span>Curb Type Tracker</span>
+    </div>
+    <div class="tool-description">
+        Track and analyze curb types throughout your project
+    </div>
 </div>
 
 <div class="tool-filter-section">
     <h4>Curb Type Filters</h4>
     <div class="tool-checkbox-item">
-        <input type="checkbox" id="typeA" checked>
-        <label for="typeA">Type A (Barrier)</label>
+        <input type="checkbox" id="typeBarrier" checked onchange="applyFilters()">
+        <label for="typeBarrier">Type A (Barrier)</label>
     </div>
     <div class="tool-checkbox-item">
-        <input type="checkbox" id="typeB" checked>
-        <label for="typeB">Type B (Rolled)</label>
+        <input type="checkbox" id="typeRolled" checked onchange="applyFilters()">
+        <label for="typeRolled">Type B (Rolled)</label>
     </div>
     <div class="tool-checkbox-item">
-        <input type="checkbox" id="typeC" checked>
-        <label for="typeC">Type C (Mountable)</label>
+        <input type="checkbox" id="typeMountable" checked onchange="applyFilters()">
+        <label for="typeMountable">Type C (Mountable)</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="typeIntegral" checked onchange="applyFilters()">
+        <label for="typeIntegral">Integral Curb & Gutter</label>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Phase</h4>
+    <div class="tool-filter-item">
+        <label>Filter by Phase:</label>
+        <select id="phaseFilter" onchange="applyFilters()">
+            <option value="all">All Phases</option>
+            <option value="existing">Existing</option>
+            <option value="proposed">Proposed</option>
+            <option value="demolition">Demolition</option>
+        </select>
     </div>
 </div>
 
@@ -32,60 +54,392 @@
     <h4>Curb Stats</h4>
     <div class="tool-stat-item">
         <span class="tool-stat-label">Total Length:</span>
-        <span class="tool-stat-value">0 LF</span>
+        <span class="tool-stat-value" id="sidebarTotalLength">0 LF</span>
     </div>
     <div class="tool-stat-item">
         <span class="tool-stat-label">Unique Types:</span>
-        <span class="tool-stat-value">0</span>
+        <span class="tool-stat-value" id="sidebarUniqueTypes">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Segments:</span>
+        <span class="tool-stat-value" id="sidebarSegments">0</span>
     </div>
 </div>
 
-<div class="tool-filter-section">
-    <h4><i class="fas fa-download"></i> Export</h4>
-    <button class="tool-action-btn secondary" disabled>
-        <i class="far fa-file-pdf"></i> Export PDF Report
-    </button>
-    <button class="tool-action-btn secondary" disabled>
-        <i class="far fa-file-excel"></i> Export Excel
-    </button>
-</div>
+<button class="tool-action-btn" onclick="loadCurbData()">
+    <i class="fas fa-sync"></i> Refresh Data
+</button>
+<button class="tool-action-btn secondary" onclick="exportReport()">
+    <i class="fas fa-file-export"></i> Export Report
+</button>
 {% endblock %}
 
 {% block main_content %}
-<div class="tool-empty-state">
-    <div class="empty-state-icon"><i class="fas fa-road"></i></div>
-    <h3>Curb Type Tracker - Coming Soon</h3>
-    <p>This specialized tool is under development. It will provide comprehensive curb type tracking, inventory management, and reporting capabilities.</p>
-    <div style="margin-top: 2rem; text-align: left; max-width: 600px;">
-        <h4 style="color: var(--mc-accent); margin-bottom: 1rem;">Planned Features:</h4>
-        <ul style="line-height: 2;">
-            <li>Track curb types by CAD layer attributes</li>
-            <li>Calculate total lengths per curb type</li>
-            <li>Generate curb inventory reports</li>
-            <li>Visual map display with type color-coding</li>
-            <li>Export to PDF and Excel formats</li>
-            <li>Link to standard specifications</li>
-        </ul>
+<div class="tool-top-area">
+    <div id="curbVisualContainer" style="height: 100%; width: 100%; background: #0a1929; position: relative;">
+        <!-- Empty State -->
+        <div id="emptyState" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <i class="fas fa-road" style="font-size: 64px; color: var(--mc-primary); opacity: 0.3; margin-bottom: 1rem;"></i>
+            <h3 style="color: var(--mc-text);">Curb Type Visualization</h3>
+            <p style="color: var(--mc-muted); max-width: 400px; margin: 1rem auto;">
+                Load project data to view curb type distribution and inventory
+            </p>
+        </div>
+
+        <!-- Success State -->
+        <div id="successState" style="display:none; height: 100%; width: 100%;">
+            <div style="padding: 1rem; color: var(--mc-text); text-align: center; background: rgba(0,40,80,0.5);">
+                <i class="fas fa-map"></i> Curb Network Map
+            </div>
+        </div>
     </div>
 </div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active" onclick="showTab('inventory')">
+            <i class="fas fa-th-list"></i> Inventory (<span id="inventoryTabCount">0</span>)
+        </button>
+        <button class="tool-data-tab" onclick="showTab('bytype')">
+            <i class="fas fa-chart-bar"></i> By Type
+        </button>
+        <button class="tool-data-tab" onclick="showTab('specs')">
+            <i class="fas fa-file-alt"></i> Specifications
+        </button>
+    </div>
+
+    <div class="tool-data-content">
+        <!-- Inventory Tab -->
+        <div id="inventoryTab" class="tab-content">
+            <table class="tool-data-table" id="inventoryTable" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Segment ID</th>
+                        <th>Curb Type</th>
+                        <th>Length (LF)</th>
+                        <th>Height (in)</th>
+                        <th>Material</th>
+                        <th>Phase</th>
+                        <th>Condition</th>
+                        <th>Location</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+            </table>
+            <div id="inventoryEmpty" style="text-align: center; padding: 3rem; color: var(--mc-text);">
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No curb inventory data available</p>
+                <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                    Load project data to begin tracking
+                </p>
+            </div>
+        </div>
+
+        <!-- By Type Tab -->
+        <div id="bytypeTab" class="tab-content" style="display:none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-shield-alt"></i> Barrier Curb
+                    </div>
+                    <div class="stat-value" id="statBarrier">0 LF</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-wave-square"></i> Rolled Curb
+                    </div>
+                    <div class="stat-value" id="statRolled">0 LF</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-angle-up"></i> Mountable Curb
+                    </div>
+                    <div class="stat-value" id="statMountable">0 LF</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-grip-lines"></i> Integral C&G
+                    </div>
+                    <div class="stat-value" id="statIntegral">0 LF</div>
+                </div>
+            </div>
+
+            <h4 style="color: var(--mc-accent); margin: 2rem 0 1rem 0;">
+                <i class="fas fa-chart-pie"></i> Distribution by Curb Type
+            </h4>
+            <div id="typeBreakdown" style="background: rgba(0,40,80,0.4); border-radius: 8px; padding: 1.5rem;">
+                <p style="color: var(--mc-muted); text-align: center;">No data available</p>
+            </div>
+
+            <h4 style="color: var(--mc-accent); margin: 2rem 0 1rem 0;">
+                <i class="fas fa-layer-group"></i> By Phase
+            </h4>
+            <div id="phaseBreakdown" style="background: rgba(0,40,80,0.4); border-radius: 8px; padding: 1.5rem;">
+                <p style="color: var(--mc-muted); text-align: center;">No data available</p>
+            </div>
+        </div>
+
+        <!-- Specifications Tab -->
+        <div id="specsTab" class="tab-content" style="display:none;">
+            <div style="background: rgba(0,255,255,0.1); border: 2px solid rgba(0,255,255,0.3); border-radius: 12px; padding: 2rem; margin-bottom: 1.5rem;">
+                <h4 style="color: var(--mc-primary); margin: 0 0 1rem 0;">
+                    <i class="fas fa-info-circle"></i> Standard Curb Specifications
+                </h4>
+                <div id="specsList">
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="color: var(--mc-accent); margin: 0 0 0.5rem 0;">Type A - Barrier Curb</h5>
+                        <p style="color: var(--mc-text); margin: 0; line-height: 1.6;">
+                            Vertical face curb, 6" height. Used for traffic separation and where high vehicle containment is required.
+                        </p>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="color: var(--mc-accent); margin: 0 0 0.5rem 0;">Type B - Rolled Curb</h5>
+                        <p style="color: var(--mc-text); margin: 0; line-height: 1.6;">
+                            Rounded face with 4-6" height. Provides gentle transition, commonly used in residential areas.
+                        </p>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="color: var(--mc-accent); margin: 0 0 0.5rem 0;">Type C - Mountable Curb</h5>
+                        <p style="color: var(--mc-text); margin: 0; line-height: 1.6;">
+                            Low profile with sloped face, 2-4" height. Designed to be driven over when necessary.
+                        </p>
+                    </div>
+                    <div>
+                        <h5 style="color: var(--mc-accent); margin: 0 0 0.5rem 0;">Integral Curb & Gutter</h5>
+                        <p style="color: var(--mc-text); margin: 0; line-height: 1.6;">
+                            Monolithic curb and gutter section. Typical 6" curb with 18-24" gutter width.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: rgba(0,40,80,0.4); border-radius: 8px; padding: 1.5rem;">
+                <h4 style="color: var(--mc-primary); margin: 0 0 1rem 0;">
+                    <i class="fas fa-ruler-combined"></i> Standard Dimensions
+                </h4>
+                <table style="width: 100%; color: var(--mc-text);">
+                    <tr style="border-bottom: 1px solid rgba(0,255,255,0.2);">
+                        <td style="padding: 0.75rem;"><strong>Type</strong></td>
+                        <td style="padding: 0.75rem;"><strong>Height</strong></td>
+                        <td style="padding: 0.75rem;"><strong>Width (Base)</strong></td>
+                        <td style="padding: 0.75rem;"><strong>Typical Use</strong></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(0,255,255,0.1);">
+                        <td style="padding: 0.75rem;">Type A</td>
+                        <td style="padding: 0.75rem;">6"</td>
+                        <td style="padding: 0.75rem;">6"</td>
+                        <td style="padding: 0.75rem;">Arterials, Collectors</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(0,255,255,0.1);">
+                        <td style="padding: 0.75rem;">Type B</td>
+                        <td style="padding: 0.75rem;">4-6"</td>
+                        <td style="padding: 0.75rem;">6"</td>
+                        <td style="padding: 0.75rem;">Residential Streets</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(0,255,255,0.1);">
+                        <td style="padding: 0.75rem;">Type C</td>
+                        <td style="padding: 0.75rem;">2-4"</td>
+                        <td style="padding: 0.75rem;">6-8"</td>
+                        <td style="padding: 0.75rem;">Driveways, Parking</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.75rem;">Integral C&G</td>
+                        <td style="padding: 0.75rem;">6"</td>
+                        <td style="padding: 0.75rem;">24-30"</td>
+                        <td style="padding: 0.75rem;">All Street Types</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.tab-content { padding: 1rem; }
+.stat-card {
+    background: rgba(0,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+}
+.stat-label {
+    color: var(--mc-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+.stat-value {
+    color: var(--mc-primary);
+    font-size: 1.8rem;
+    font-weight: bold;
+}
+</style>
 {% endblock %}
 
 {% block about_tool_description %}
-Interactive tool for tracking and analyzing different curb types throughout the project based on CAD layer attributes. 
-Generates comprehensive inventory tables and reports showing curb type distribution, lengths, and specifications.
+<p>
+    The <strong>Curb Type Tracker</strong> provides comprehensive inventory management and tracking of different curb types
+    throughout your project based on CAD layer attributes. This tool generates detailed tables and reports showing curb type
+    distribution, lengths, and specifications for accurate quantity takeoffs and construction coordination.
+</p>
+<p style="margin-top: 1rem;">
+    Tracks barrier curbs, rolled curbs, mountable curbs, and integral curb & gutter sections. Links to standard specifications
+    and generates reports for cost estimation, material ordering, and construction planning.
+</p>
 {% endblock %}
 
 {% block about_tool_tags %}
 <span class="about-tool-tag">CURB</span>
+<span class="about-tool-tag">SITE</span>
+<span class="about-tool-tag">PAVING</span>
+<span class="about-tool-tag">GUTTER</span>
 {% endblock %}
 
 {% block about_tool_examples %}
 <div class="about-tool-example">
-    <div class="about-tool-example-layer">CIV-SITE-CURB-PROP-LN</div>
-    <div class="about-tool-example-desc">→ Proposed Curb - Civil/Site</div>
+    <div class="about-tool-example-layer">CIV-SITE-CURB-BARRIER-NEW-LN</div>
+    <div class="about-tool-example-desc">→ Barrier curb (Type A) - new construction</div>
 </div>
 <div class="about-tool-example">
-    <div class="about-tool-example-layer">CIV-SITE-CURB-EXST-LN</div>
-    <div class="about-tool-example-desc">→ Existing Curb - Civil/Site</div>
+    <div class="about-tool-example-layer">CIV-SITE-CURB-ROLLED-NEW-LN</div>
+    <div class="about-tool-example-desc">→ Rolled curb (Type B) - new construction</div>
 </div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SITE-CURBGUTTER-INTEGRAL-NEW-LN</div>
+    <div class="about-tool-example-desc">→ Integral curb & gutter - new construction</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SITE-CURB-EXIST-LN</div>
+    <div class="about-tool-example-desc">→ Existing curb to remain</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let curbData = [];
+
+function applyFilters() {
+    console.log('Filters applied');
+    renderInventoryTable(curbData);
+}
+
+async function loadCurbData() {
+    try {
+        const activeProject = window.projectContext ?
+            await window.projectContext.getActiveProject() : null;
+
+        if (!activeProject) {
+            alert('No active project selected');
+            return;
+        }
+
+        const response = await fetch(`/api/specialized-tools/curb-tracker?project_id=${activeProject.project_id}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+
+        if (!data.success) {
+            return;
+        }
+
+        curbData = data.curbs || [];
+
+        renderInventoryTable(curbData);
+        renderByTypeStats(data.by_type);
+        showState('success');
+
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+function renderInventoryTable(curbs) {
+    const tbody = document.getElementById('inventoryTableBody');
+    const table = document.getElementById('inventoryTable');
+    const emptyDiv = document.getElementById('inventoryEmpty');
+
+    if (!curbs || curbs.length === 0) {
+        table.style.display = 'none';
+        emptyDiv.style.display = 'block';
+        return;
+    }
+
+    tbody.innerHTML = curbs.map(curb => `
+        <tr>
+            <td>${curb.segment_id?.substring(0, 8) || 'N/A'}</td>
+            <td>${curb.curb_type || 'UNKNOWN'}</td>
+            <td>${curb.length_lf?.toFixed(1) || 'N/A'}</td>
+            <td>${curb.height_in || 'N/A'}</td>
+            <td>${curb.material || 'Concrete'}</td>
+            <td>${curb.phase || 'PROPOSED'}</td>
+            <td>${curb.condition || 'NEW'}</td>
+            <td>${curb.location || 'N/A'}</td>
+            <td><button class="tool-action-btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">View</button></td>
+        </tr>
+    `).join('');
+
+    table.style.display = 'table';
+    emptyDiv.style.display = 'none';
+
+    document.getElementById('inventoryTabCount').textContent = curbs.length;
+    document.getElementById('sidebarSegments').textContent = curbs.length;
+
+    const totalLength = curbs.reduce((sum, c) => sum + (c.length_lf || 0), 0);
+    document.getElementById('sidebarTotalLength').textContent = `${totalLength.toFixed(0)} LF`;
+
+    const uniqueTypes = new Set(curbs.map(c => c.curb_type)).size;
+    document.getElementById('sidebarUniqueTypes').textContent = uniqueTypes;
+}
+
+function renderByTypeStats(byType) {
+    if (!byType) return;
+
+    document.getElementById('statBarrier').textContent = `${byType.BARRIER || 0} LF`;
+    document.getElementById('statRolled').textContent = `${byType.ROLLED || 0} LF`;
+    document.getElementById('statMountable').textContent = `${byType.MOUNTABLE || 0} LF`;
+    document.getElementById('statIntegral').textContent = `${byType.INTEGRAL || 0} LF`;
+
+    const typeHtml = Object.entries(byType).map(([type, length]) => `
+        <div style="padding: 0.75rem; background: rgba(0,255,255,0.05); margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between; border-left: 3px solid var(--mc-accent);">
+            <span style="color: var(--mc-text);">${type}</span>
+            <span style="color: var(--mc-accent); font-weight: bold;">${length.toFixed(0)} LF</span>
+        </div>
+    `).join('');
+    document.getElementById('typeBreakdown').innerHTML = typeHtml || '<p style="color: var(--mc-muted); text-align: center;">No data</p>';
+}
+
+function showState(state) {
+    document.getElementById('emptyState').style.display = state === 'empty' ? 'block' : 'none';
+    document.getElementById('successState').style.display = state === 'success' ? 'block' : 'none';
+}
+
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+    document.querySelectorAll('.tool-data-tab').forEach(btn => btn.classList.remove('active'));
+
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) selectedTab.style.display = 'block';
+
+    event.target.closest('.tool-data-tab').classList.add('active');
+}
+
+function exportReport() {
+    console.log('Exporting curb inventory report...');
+    alert('Curb inventory report export functionality will be implemented here');
+}
+
+document.addEventListener('DOMContentLoaded', async function() {
+    if (window.projectContext) {
+        await window.projectContext.init();
+        window.projectContext.subscribe(() => loadCurbData());
+    }
+});
+</script>
 {% endblock %}
