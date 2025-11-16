@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Validation Engine{% endblock %}
+
+{% block extra_head %}
+<style>
+.validation-container {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: var(--mc-spacing-lg);
+    height: calc(100vh - 200px);
+    margin-top: var(--mc-spacing-lg);
+}
+
+.validation-sidebar {
+    background: var(--mc-surface);
+    border-radius: var(--mc-radius-lg);
+    padding: var(--mc-spacing-lg);
+    overflow-y: auto;
+}
+
+.validation-main {
+    background: var(--mc-surface);
+    border-radius: var(--mc-radius-lg);
+    padding: var(--mc-spacing-lg);
+    overflow-y: auto;
+}
+
+.rule-item {
+    padding: var(--mc-spacing-md);
+    margin: var(--mc-spacing-sm) 0;
+    background: var(--mc-background);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: var(--mc-radius-sm);
+}
+
+.rule-item input[type="checkbox"] {
+    margin-right: var(--mc-spacing-sm);
+}
+
+.severity-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    margin-left: 5px;
+}
+
+.severity-error {
+    background: var(--mc-danger);
+    color: #fff;
+}
+
+.severity-warning {
+    background: #ffaa00;
+    color: #000;
+}
+
+.severity-info {
+    background: var(--mc-primary);
+    color: #000;
+}
+
+.btn-run-validation {
+    background: linear-gradient(135deg, var(--mc-primary), var(--mc-accent));
+    color: #000;
+    padding: var(--mc-spacing-md) var(--mc-spacing-xl);
+    border: none;
+    border-radius: var(--mc-radius-sm);
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    margin-top: var(--mc-spacing-md);
+}
+
+.btn-run-validation:hover {
+    transform: scale(1.02);
+    box-shadow: var(--mc-shadow-lg);
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--mc-spacing-md);
+    margin: var(--mc-spacing-lg) 0;
+}
+
+.summary-card {
+    background: var(--mc-background);
+    border: 2px solid var(--mc-primary);
+    border-radius: var(--mc-radius-sm);
+    padding: var(--mc-spacing-md);
+    text-align: center;
+}
+
+.summary-value {
+    font-size: 2em;
+    font-weight: bold;
+    color: var(--mc-primary);
+}
+
+.summary-label {
+    color: var(--mc-muted);
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--mc-spacing-lg);
+}
+
+.results-table th {
+    background: var(--mc-primary);
+    color: #000;
+    padding: var(--mc-spacing-sm);
+    text-align: left;
+}
+
+.results-table td {
+    padding: var(--mc-spacing-sm);
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+    color: var(--mc-text);
+}
+
+.tabs {
+    display: flex;
+    gap: var(--mc-spacing-sm);
+    border-bottom: 2px solid var(--mc-primary);
+    margin-bottom: var(--mc-spacing-lg);
+}
+
+.tab {
+    padding: var(--mc-spacing-sm) var(--mc-spacing-lg);
+    background: transparent;
+    border: none;
+    color: var(--mc-muted);
+    cursor: pointer;
+    transition: var(--mc-transition);
+}
+
+.tab.active {
+    color: var(--mc-primary);
+    border-bottom: 3px solid var(--mc-primary);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mc-page-header">
+    <div class="mc-header-content">
+        <div>
+            <h1><i class="fas fa-shield-check"></i> Validation Engine</h1>
+            <p class="mc-text-muted">Data quality validation and auto-correction system</p>
+        </div>
+    </div>
+</div>
+
+<div class="validation-container">
+    <!-- Left Sidebar: Rules Selection -->
+    <div class="validation-sidebar">
+        <h3 style="color: var(--mc-primary); margin-bottom: var(--mc-spacing-md);">
+            <i class="fas fa-list-check"></i> Validation Rules
+        </h3>
+
+        <div style="margin-bottom: var(--mc-spacing-md);">
+            <select id="ruleTypeFilter" style="width: 100%; padding: 8px; background: var(--mc-background); color: var(--mc-text); border: 1px solid var(--mc-primary); border-radius: 4px;">
+                <option value="">All Rule Types</option>
+                <option value="geometry">Geometry</option>
+                <option value="connectivity">Connectivity</option>
+                <option value="completeness">Completeness</option>
+                <option value="survey">Survey</option>
+                <option value="cad_standards">CAD Standards</option>
+            </select>
+        </div>
+
+        <div style="margin-bottom: var(--mc-spacing-md);">
+            <label style="color: var(--mc-text); cursor: pointer;">
+                <input type="checkbox" id="selectAllRules"> Select All
+            </label>
+        </div>
+
+        <div id="rulesList">
+            <!-- Rules loaded via JavaScript -->
+        </div>
+
+        <button class="btn-run-validation" onclick="runValidation()">
+            <i class="fas fa-play"></i> Run Validation
+        </button>
+    </div>
+
+    <!-- Main Content: Results & Management -->
+    <div class="validation-main">
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('results')">
+                <i class="fas fa-clipboard-list"></i> Results
+            </button>
+            <button class="tab" onclick="switchTab('rules')">
+                <i class="fas fa-cog"></i> Manage Rules
+            </button>
+        </div>
+
+        <!-- Results Tab -->
+        <div id="results-tab" class="tab-content active">
+            <div id="validationSummary" style="display: none;">
+                <h3 style="color: var(--mc-text); margin-bottom: var(--mc-spacing-md);">
+                    Validation Summary
+                </h3>
+
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-value" id="totalChecks">0</div>
+                        <div class="summary-label">Total Checks</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value" id="passedChecks">0</div>
+                        <div class="summary-label">Passed</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value" id="failedChecks">0</div>
+                        <div class="summary-label">Failed</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value" id="errorCount">0</div>
+                        <div class="summary-label">Errors</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value" id="warningCount">0</div>
+                        <div class="summary-label">Warnings</div>
+                    </div>
+                </div>
+
+                <h3 style="color: var(--mc-text); margin: var(--mc-spacing-xl) 0 var(--mc-spacing-md);">
+                    Detailed Results
+                </h3>
+
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Rule Name</th>
+                            <th>Severity</th>
+                            <th>Failures</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailedResults">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="noResults" style="text-align: center; padding: var(--mc-spacing-xl); color: var(--mc-muted);">
+                <i class="fas fa-info-circle" style="font-size: 3em; margin-bottom: var(--mc-spacing-md);"></i>
+                <p>No validation results yet. Select rules and run validation to see results.</p>
+            </div>
+        </div>
+
+        <!-- Manage Rules Tab -->
+        <div id="rules-tab" class="tab-content">
+            <h3 style="color: var(--mc-text); margin-bottom: var(--mc-spacing-md);">
+                Validation Rules Management
+            </h3>
+            <p style="color: var(--mc-muted); margin-bottom: var(--mc-spacing-lg);">
+                Manage and configure validation rules for your data quality checks.
+            </p>
+
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Rule Name</th>
+                        <th>Type</th>
+                        <th>Entity Type</th>
+                        <th>Severity</th>
+                        <th>Usage Count</th>
+                    </tr>
+                </thead>
+                <tbody id="rulesManagement">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let allRules = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadRules();
+});
+
+document.getElementById('ruleTypeFilter').addEventListener('change', loadRules);
+document.getElementById('selectAllRules').addEventListener('change', function(e) {
+    document.querySelectorAll('.rule-checkbox').forEach(cb => cb.checked = e.target.checked);
+});
+
+function loadRules() {
+    const ruleType = document.getElementById('ruleTypeFilter').value;
+    let url = '/api/validation/rules';
+    if (ruleType) url += `?rule_type=${ruleType}`;
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            allRules = data.rules;
+            const list = document.getElementById('rulesList');
+            list.innerHTML = data.rules.map(rule => `
+                <div class="rule-item">
+                    <label style="color: var(--mc-text); cursor: pointer;">
+                        <input type="checkbox" class="rule-checkbox" value="${rule.id}">
+                        ${rule.rule_name}
+                        <span class="severity-badge severity-${rule.severity}">${rule.severity}</span>
+                    </label>
+                    <div style="font-size: 0.85em; color: var(--mc-muted); margin-top: 3px;">
+                        ${rule.rule_description}
+                    </div>
+                </div>
+            `).join('');
+
+            // Load rules management tab
+            const mgmt = document.getElementById('rulesManagement');
+            mgmt.innerHTML = data.rules.map(rule => `
+                <tr>
+                    <td>${rule.rule_name}</td>
+                    <td>${rule.rule_type}</td>
+                    <td>${rule.entity_type}</td>
+                    <td><span class="severity-badge severity-${rule.severity}">${rule.severity}</span></td>
+                    <td>${rule.usage_count || 0}</td>
+                </tr>
+            `).join('');
+        })
+        .catch(err => console.error('Error loading rules:', err));
+}
+
+function runValidation() {
+    const selectedRules = Array.from(document.querySelectorAll('.rule-checkbox:checked')).map(cb => cb.value);
+
+    if (selectedRules.length === 0) {
+        alert('Please select at least one validation rule');
+        return;
+    }
+
+    document.getElementById('noResults').innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 3em; color: var(--mc-primary);"></i><p>Running validation...</p>';
+
+    fetch('/api/validation/run', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({rule_ids: selectedRules})
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('noResults').style.display = 'none';
+        document.getElementById('validationSummary').style.display = 'block';
+
+        // Update summary cards
+        document.getElementById('totalChecks').textContent = data.summary.total_checks;
+        document.getElementById('passedChecks').textContent = data.summary.passed;
+        document.getElementById('failedChecks').textContent = data.summary.failed;
+        document.getElementById('errorCount').textContent = data.summary.errors;
+        document.getElementById('warningCount').textContent = data.summary.warnings;
+
+        // Update detailed results
+        const tbody = document.getElementById('detailedResults');
+        tbody.innerHTML = data.results.map(r => `
+            <tr>
+                <td>${r.rule_name}</td>
+                <td><span class="severity-badge severity-${r.severity}">${r.severity}</span></td>
+                <td>${r.failures}</td>
+                <td style="color: ${r.failures > 0 ? 'var(--mc-danger)' : 'var(--mc-accent)'};">
+                    ${r.failures > 0 ? 'Failed' : 'Passed'}
+                </td>
+            </tr>
+        `).join('');
+    })
+    .catch(err => {
+        document.getElementById('noResults').innerHTML = '<i class="fas fa-exclamation-triangle" style="font-size: 3em; color: var(--mc-danger);"></i><p>Error running validation</p>';
+    });
+}
+
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+}
+</script>
+{% endblock %}

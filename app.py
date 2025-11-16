@@ -20295,5 +20295,614 @@ def execute_batch_operation():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============================================
+# POWERHOUSE PACKAGE - API ENDPOINTS
+# ============================================
+
+from services.report_generator import ReportGenerator
+from services.validation_helper import ValidationHelper
+import matplotlib
+matplotlib.use('Agg')
+
+# Initialize services
+report_generator = ReportGenerator()
+validation_helper = ValidationHelper()
+
+# ============================================
+# FEATURE 1: REPORT BUILDER ROUTES
+# ============================================
+
+@app.route('/tools/report-builder')
+def report_builder():
+    """Report Builder page"""
+    return render_template('report_builder.html')
+
+@app.route('/api/reports/templates', methods=['GET'])
+def get_report_templates():
+    """Get all report templates with optional category filter"""
+    try:
+        category = request.args.get('category')
+
+        query = "SELECT * FROM report_templates WHERE is_active = TRUE"
+        params = []
+
+        if category:
+            query += " AND category = %s"
+            params.append(category)
+
+        query += " ORDER BY category, name"
+
+        templates = execute_query(query, params if params else None)
+        return jsonify({'templates': templates})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reports/generate', methods=['POST'])
+def generate_report():
+    """Generate a report from a template"""
+    try:
+        data = request.get_json()
+        template_id = data.get('template_id')
+        parameters = data.get('parameters', {})
+        output_format = data.get('format', 'pdf')
+
+        if not template_id:
+            return jsonify({'error': 'template_id is required'}), 400
+
+        # Get template details
+        template_query = "SELECT * FROM report_templates WHERE id = %s"
+        templates = execute_query(template_query, (template_id,))
+
+        if not templates:
+            return jsonify({'error': 'Template not found'}), 404
+
+        template = templates[0]
+
+        # Execute the SQL query to get report data
+        report_data = execute_query(template['sql_query'], parameters)
+
+        # Generate unique filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{template['name'].replace(' ', '_')}_{timestamp}.{output_format}"
+        output_path = os.path.join('reports', filename)
+
+        start_time = datetime.now()
+
+        # Generate report based on format
+        if output_format == 'pdf':
+            result = report_generator.generate_pdf_report(
+                template['jinja_template_path'],
+                {'data': report_data, 'template': template, 'parameters': parameters},
+                output_path
+            )
+        elif output_format == 'excel':
+            # Build Excel config from template
+            excel_config = {
+                'sheets': [{
+                    'name': template['name'][:30],
+                    'data_key': 'data',
+                    'columns': [{'field': key, 'label': key.replace('_', ' ').title()}
+                               for key in report_data[0].keys()] if report_data else []
+                }]
+            }
+            result = report_generator.generate_excel_report(
+                excel_config,
+                {'data': report_data},
+                output_path
+            )
+        else:
+            return jsonify({'error': 'Invalid format'}), 400
+
+        execution_time = int((datetime.now() - start_time).total_seconds() * 1000)
+
+        # Save to report history
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO report_history
+                    (template_id, parameters_used, file_path, file_format, status, execution_time_ms)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    template_id,
+                    json.dumps(parameters),
+                    filename,
+                    output_format,
+                    'completed' if result else 'failed',
+                    execution_time
+                ))
+                report_id = cur.fetchone()[0]
+
+                # Update template usage count
+                cur.execute("""
+                    UPDATE report_templates
+                    SET usage_count = usage_count + 1
+                    WHERE id = %s
+                """, (template_id,))
+
+                conn.commit()
+
+        return jsonify({
+            'report_id': report_id,
+            'file_path': filename,
+            'status': 'completed' if result else 'failed',
+            'execution_time_ms': execution_time
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reports/history', methods=['GET'])
+def get_report_history():
+    """Get report generation history"""
+    try:
+        limit = int(request.args.get('limit', 50))
+
+        query = """
+            SELECT rh.*, rt.name as template_name, rt.category
+            FROM report_history rh
+            JOIN report_templates rt ON rh.template_id = rt.id
+            ORDER BY rh.created_at DESC
+            LIMIT %s
+        """
+
+        history = execute_query(query, (limit,))
+        return jsonify({'history': history})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reports/download/<report_id>')
+def download_report(report_id):
+    """Download a generated report"""
+    try:
+        query = "SELECT file_path, file_format FROM report_history WHERE id = %s"
+        results = execute_query(query, (report_id,))
+
+        if not results:
+            return jsonify({'error': 'Report not found'}), 404
+
+        file_path = os.path.join('reports', results[0]['file_path'])
+
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'Report file not found'}), 404
+
+        return send_file(file_path, as_attachment=True)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# FEATURE 2: EXECUTIVE DASHBOARD ROUTES
+# ============================================
+
+@app.route('/tools/executive-dashboard')
+def executive_dashboard():
+    """Executive Dashboard page"""
+    return render_template('executive_dashboard.html')
+
+@app.route('/api/dashboard/metrics', methods=['GET'])
+def get_dashboard_metrics():
+    """Get executive dashboard metrics"""
+    try:
+        date_range = request.args.get('date_range', '30')  # days
+
+        # Total Projects
+        total_projects_query = "SELECT COUNT(*) as count FROM projects WHERE is_active = TRUE"
+        total_projects = execute_query(total_projects_query)[0]['count']
+
+        # Total Entities
+        total_entities_query = "SELECT COUNT(*) as count FROM generic_entities WHERE is_active = TRUE"
+        total_entities = execute_query(total_entities_query)[0]['count']
+
+        # Data Quality Score
+        quality_score = validation_helper.calculate_data_quality_score()
+
+        # Survey Points
+        survey_points_query = "SELECT COUNT(*) as count FROM survey_points WHERE is_active = TRUE"
+        survey_points = execute_query(survey_points_query)[0]['count']
+
+        # Project Health (top 10 projects with entity counts)
+        project_health_query = """
+            SELECT p.name, p.id, COUNT(ge.id) as entity_count,
+                   p.created_at, p.status
+            FROM projects p
+            LEFT JOIN generic_entities ge ON p.id = ge.project_id AND ge.is_active = TRUE
+            WHERE p.is_active = TRUE
+            GROUP BY p.id, p.name, p.created_at, p.status
+            ORDER BY entity_count DESC
+            LIMIT 10
+        """
+        project_health = execute_query(project_health_query)
+
+        # Survey Productivity (last 30 days)
+        productivity_query = f"""
+            SELECT DATE(created_at) as date, COUNT(*) as points_collected
+            FROM survey_points
+            WHERE created_at >= NOW() - INTERVAL '{date_range} days'
+            AND is_active = TRUE
+            GROUP BY DATE(created_at)
+            ORDER BY date
+        """
+        survey_productivity = execute_query(productivity_query)
+
+        # Material Distribution
+        material_query = """
+            SELECT material, COUNT(*) as count, SUM(ST_Length(geometry)) as total_length
+            FROM utility_lines
+            WHERE material IS NOT NULL AND is_active = TRUE
+            GROUP BY material
+            ORDER BY total_length DESC
+        """
+        material_distribution = execute_query(material_query)
+
+        # Validation Summary
+        validation_summary = validation_helper.get_validation_summary()
+
+        return jsonify({
+            'total_projects': total_projects,
+            'total_entities': total_entities,
+            'data_quality_score': quality_score,
+            'survey_points': survey_points,
+            'project_health': project_health,
+            'survey_productivity': survey_productivity,
+            'material_distribution': material_distribution,
+            'validation_summary': validation_summary
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# FEATURE 3: VALIDATION ENGINE ROUTES
+# ============================================
+
+@app.route('/tools/validation-engine')
+def validation_engine():
+    """Validation Engine page"""
+    return render_template('validation_engine.html')
+
+@app.route('/api/validation/rules', methods=['GET'])
+def get_validation_rules():
+    """Get all validation rules with optional filters"""
+    try:
+        rule_type = request.args.get('rule_type')
+        entity_type = request.args.get('entity_type')
+        severity = request.args.get('severity')
+
+        query = "SELECT * FROM validation_rules WHERE is_active = TRUE"
+        params = []
+
+        if rule_type:
+            query += " AND rule_type = %s"
+            params.append(rule_type)
+        if entity_type:
+            query += " AND entity_type = %s"
+            params.append(entity_type)
+        if severity:
+            query += " AND severity = %s"
+            params.append(severity)
+
+        query += " ORDER BY rule_type, severity, rule_name"
+
+        rules = execute_query(query, params if params else None)
+        return jsonify({'rules': rules})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/validation/rules', methods=['POST'])
+def create_validation_rule():
+    """Create a custom validation rule"""
+    try:
+        data = request.get_json()
+
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO validation_rules
+                    (rule_name, rule_description, entity_type, rule_type, severity,
+                     sql_check_query, auto_fix_query, parameters)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    data.get('rule_name'),
+                    data.get('rule_description'),
+                    data.get('entity_type'),
+                    data.get('rule_type'),
+                    data.get('severity', 'warning'),
+                    data.get('sql_check_query'),
+                    data.get('auto_fix_query'),
+                    json.dumps(data.get('parameters', {}))
+                ))
+                rule_id = cur.fetchone()[0]
+                conn.commit()
+
+        return jsonify({'rule_id': rule_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/validation/run', methods=['POST'])
+def run_validation():
+    """Run validation rules"""
+    try:
+        data = request.get_json()
+        rule_ids = data.get('rule_ids', [])
+        entity_type = data.get('entity_type')
+        project_id = data.get('project_id')
+        entity_ids = data.get('entity_ids')
+
+        # Get rules to run
+        if rule_ids:
+            placeholders = ','.join(['%s'] * len(rule_ids))
+            rules_query = f"SELECT * FROM validation_rules WHERE id IN ({placeholders}) AND is_active = TRUE"
+            rules = execute_query(rules_query, rule_ids)
+        elif entity_type:
+            rules_query = "SELECT * FROM validation_rules WHERE entity_type = %s AND is_active = TRUE"
+            rules = execute_query(rules_query, (entity_type,))
+        else:
+            rules_query = "SELECT * FROM validation_rules WHERE is_active = TRUE"
+            rules = execute_query(rules_query)
+
+        # Run each rule
+        results = []
+        for rule in rules:
+            result = validation_helper.run_validation_rule(rule, entity_ids, project_id)
+            results.append(result)
+
+            # Update usage count
+            with get_db() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE validation_rules SET usage_count = usage_count + 1 WHERE id = %s", (rule['id'],))
+                    conn.commit()
+
+        # Calculate summary
+        total_checks = len(results)
+        total_failures = sum(r.get('failures', 0) for r in results)
+        errors = sum(1 for r in results if r.get('severity') == 'error' and r.get('failures', 0) > 0)
+        warnings = sum(1 for r in results if r.get('severity') == 'warning' and r.get('failures', 0) > 0)
+
+        return jsonify({
+            'summary': {
+                'total_checks': total_checks,
+                'passed': total_checks - len([r for r in results if r.get('failures', 0) > 0]),
+                'failed': len([r for r in results if r.get('failures', 0) > 0]),
+                'total_failures': total_failures,
+                'errors': errors,
+                'warnings': warnings
+            },
+            'results': results
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/validation/results', methods=['GET'])
+def get_validation_results():
+    """Get validation results with filters"""
+    try:
+        status = request.args.get('status')
+        entity_type = request.args.get('entity_type')
+        severity = request.args.get('severity')
+        limit = int(request.args.get('limit', 100))
+
+        query = """
+            SELECT vr.*, r.rule_name, r.severity, r.rule_type
+            FROM validation_results vr
+            JOIN validation_rules r ON vr.rule_id = r.id
+            WHERE 1=1
+        """
+        params = []
+
+        if status:
+            query += " AND vr.status = %s"
+            params.append(status)
+        if entity_type:
+            query += " AND vr.entity_type = %s"
+            params.append(entity_type)
+        if severity:
+            query += " AND r.severity = %s"
+            params.append(severity)
+
+        query += " ORDER BY vr.detected_at DESC LIMIT %s"
+        params.append(limit)
+
+        results = execute_query(query, params)
+        return jsonify({'results': results})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/validation/auto-fix', methods=['POST'])
+def validation_auto_fix():
+    """Apply auto-fix to validation results"""
+    try:
+        data = request.get_json()
+        validation_result_ids = data.get('validation_result_ids', [])
+        user_id = data.get('user_id')
+
+        if not validation_result_ids:
+            return jsonify({'error': 'No validation results specified'}), 400
+
+        fixed_count = 0
+        failed_count = 0
+
+        for result_id in validation_result_ids:
+            result = validation_helper.apply_auto_fix(result_id, user_id)
+            if result['status'] == 'success':
+                fixed_count += 1
+            else:
+                failed_count += 1
+
+        return jsonify({
+            'fixed_count': fixed_count,
+            'failed_count': failed_count,
+            'total': len(validation_result_ids)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/validation/templates', methods=['GET'])
+def get_validation_templates():
+    """Get validation templates"""
+    try:
+        query = "SELECT * FROM validation_templates WHERE is_active = TRUE ORDER BY category, template_name"
+        templates = execute_query(query)
+        return jsonify({'templates': templates})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# FEATURE 4: ENHANCED MAP VIEWER ROUTES
+# ============================================
+
+@app.route('/api/map/data', methods=['POST'])
+def get_map_data():
+    """Get spatial data for map with filters and styling"""
+    try:
+        data = request.get_json()
+        entity_types = data.get('entity_types', [])
+        filters = data.get('filters', {})
+        bbox = data.get('bbox')  # [minx, miny, maxx, maxy]
+        color_by = data.get('color_by', 'type')
+
+        features = []
+
+        # Color schemes
+        type_colors = {
+            'utility_structures': '#ff00ff',
+            'survey_points': '#00ffff',
+            'utility_lines': '#00ff88'
+        }
+
+        material_colors = {
+            'PVC': '#00ffff',
+            'HDPE': '#ff00ff',
+            'DI': '#00ff88',
+            'CONC': '#ffff00'
+        }
+
+        for entity_type in entity_types:
+            # Build query based on entity type
+            if entity_type == 'survey_points':
+                query = """
+                    SELECT id, point_number, northing, easting, elevation, description,
+                           ST_AsGeoJSON(ST_Transform(geometry, 4326)) as geojson
+                    FROM survey_points
+                    WHERE is_active = TRUE
+                """
+            elif entity_type == 'utility_structures':
+                query = """
+                    SELECT id, structure_number, structure_type, rim_elevation, invert_elevation,
+                           ST_AsGeoJSON(ST_Transform(geometry, 4326)) as geojson
+                    FROM utility_structures
+                    WHERE is_active = TRUE
+                """
+            elif entity_type == 'utility_lines':
+                query = """
+                    SELECT id, material, diameter, ST_Length(geometry) as length,
+                           ST_AsGeoJSON(ST_Transform(geometry, 4326)) as geojson
+                    FROM utility_lines
+                    WHERE is_active = TRUE
+                """
+            else:
+                continue
+
+            # Add bbox filter if provided
+            if bbox:
+                query += f" AND ST_Intersects(geometry, ST_MakeEnvelope({bbox[0]}, {bbox[1]}, {bbox[2]}, {bbox[3]}, 4326))"
+
+            # Add other filters
+            for key, value in filters.items():
+                if value:
+                    query += f" AND {key} = '{value}'"
+
+            query += " LIMIT 1000"
+
+            results = execute_query(query)
+
+            # Convert to GeoJSON features
+            for row in results:
+                geom = json.loads(row['geojson']) if row.get('geojson') else None
+
+                # Determine color
+                if color_by == 'type':
+                    color = type_colors.get(entity_type, '#ffffff')
+                elif color_by == 'material' and 'material' in row:
+                    color = material_colors.get(row['material'], '#ffffff')
+                else:
+                    color = '#00ffff'
+
+                feature = {
+                    'type': 'Feature',
+                    'geometry': geom,
+                    'properties': {
+                        **{k: v for k, v in row.items() if k != 'geojson'},
+                        'entity_type': entity_type,
+                        'color': color
+                    }
+                }
+                features.append(feature)
+
+        return jsonify({
+            'type': 'FeatureCollection',
+            'features': features
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/map/measure', methods=['POST'])
+def map_measure():
+    """Perform measurement on map"""
+    try:
+        data = request.get_json()
+        measurement_type = data.get('measurement_type')
+        coordinates = data.get('coordinates', [])
+
+        if measurement_type == 'distance':
+            # Calculate distance between points
+            if len(coordinates) < 2:
+                return jsonify({'error': 'Need at least 2 points'}), 400
+
+            # Use PostGIS to calculate distance
+            coords_str = ','.join([f"ST_SetSRID(ST_MakePoint({c[0]}, {c[1]}), 4326)" for c in coordinates])
+            query = f"SELECT ST_Length(ST_MakeLine(ARRAY[{coords_str}]::geometry[])) as distance"
+            result = execute_query(query)
+
+            return jsonify({'distance': result[0]['distance'], 'unit': 'meters'})
+
+        elif measurement_type == 'area':
+            # Calculate area of polygon
+            if len(coordinates) < 3:
+                return jsonify({'error': 'Need at least 3 points'}), 400
+
+            coords_str = ','.join([f"{c[0]} {c[1]}" for c in coordinates])
+            query = f"SELECT ST_Area(ST_GeomFromText('POLYGON(({coords_str}))', 4326)) as area"
+            result = execute_query(query)
+
+            return jsonify({'area': result[0]['area'], 'unit': 'square meters'})
+
+        elif measurement_type == 'elevation_profile':
+            # Get elevation profile along a line
+            elevations = []
+            for coord in coordinates:
+                # Query elevation at each point (simplified)
+                query = f"""
+                    SELECT elevation
+                    FROM survey_points
+                    WHERE ST_DWithin(geometry, ST_SetSRID(ST_MakePoint({coord[0]}, {coord[1]}), 4326), 10)
+                    ORDER BY ST_Distance(geometry, ST_SetSRID(ST_MakePoint({coord[0]}, {coord[1]}), 4326))
+                    LIMIT 1
+                """
+                result = execute_query(query)
+                if result:
+                    elevations.append(result[0]['elevation'])
+
+            return jsonify({'elevations': elevations, 'count': len(elevations)})
+
+        else:
+            return jsonify({'error': 'Invalid measurement type'}), 400
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
