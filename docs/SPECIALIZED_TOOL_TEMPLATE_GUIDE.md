@@ -144,6 +144,286 @@ If you want to hide the About section entirely for a specific tool:
 
 ---
 
+## Export Capabilities
+
+### Philosophy
+
+All specialized tools should provide convenient export functionality, making them useful even for users who aren't fully participating in the ACAD-GIS workflow. Users should be able to generate outputs they can share with colleagues, consultants, or import into other software.
+
+### Standard Export Formats
+
+Each tool should offer exports appropriate to its data type:
+
+| Export Format | Use Case | Typical Tools |
+|--------------|----------|---------------|
+| **PDF** | Reports, tables, exhibits, documentation | All tools with analytical results |
+| **DXF** | CAD geometry for AutoCAD/Civil 3D | Tools managing geometric entities |
+| **SHP** | GIS data for ArcGIS/QGIS | Tools with spatial data |
+| **KML** | Google Earth visualization | Tools with geographic features |
+| **Excel** | Tabular data analysis | Tools with schedules, quantities |
+| **PNG/SVG** | Images for presentations | Tools with visualizations |
+
+### Implementation Patterns
+
+#### Pattern 1: Export Button in Sidebar
+
+Add export actions to the sidebar for quick access:
+
+```html
+{% block sidebar_content %}
+<!-- Your filters and controls -->
+
+<div class="tool-filter-section">
+    <h4><i class="fas fa-download"></i> Export</h4>
+    <button class="tool-action-btn secondary" onclick="exportPDF()">
+        <i class="far fa-file-pdf"></i> Export PDF Report
+    </button>
+    <button class="tool-action-btn secondary" onclick="exportDXF()">
+        <i class="fas fa-drafting-compass"></i> Export DXF
+    </button>
+    <button class="tool-action-btn secondary" onclick="exportShape()">
+        <i class="fas fa-map"></i> Export Shapefile
+    </button>
+</div>
+{% endblock %}
+```
+
+#### Pattern 2: Export Tab in Data Area
+
+For tools with multiple export options, use a dedicated tab:
+
+```html
+<div class="tool-data-tabs">
+    <button class="tool-data-tab" data-tab="data">Data</button>
+    <button class="tool-data-tab" data-tab="analysis">Analysis</button>
+    <button class="tool-data-tab" data-tab="export">
+        <i class="fas fa-download"></i> Export
+    </button>
+</div>
+
+<div class="tool-tab-content" data-tab="export">
+    <div style="padding: 2rem;">
+        <h3>Export Options</h3>
+        
+        <div class="export-option">
+            <h4><i class="far fa-file-pdf"></i> PDF Report</h4>
+            <p>Generate a comprehensive report with maps, tables, and analysis results.</p>
+            <button class="tool-action-btn" onclick="exportPDF()">
+                Generate PDF
+            </button>
+        </div>
+        
+        <div class="export-option" style="margin-top: 2rem;">
+            <h4><i class="fas fa-drafting-compass"></i> DXF Export</h4>
+            <p>Export geometric features for use in AutoCAD or Civil 3D.</p>
+            <label>
+                <input type="checkbox" id="includeAttributes" checked>
+                Include extended entity data
+            </label>
+            <button class="tool-action-btn" onclick="exportDXF()">
+                Export DXF
+            </button>
+        </div>
+    </div>
+</div>
+```
+
+#### Pattern 3: Context Menu Exports
+
+For exporting specific items or selections:
+
+```javascript
+function showExportMenu(entityId) {
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.innerHTML = `
+        <div class="menu-item" onclick="exportEntityPDF(${entityId})">
+            <i class="far fa-file-pdf"></i> Export as PDF
+        </div>
+        <div class="menu-item" onclick="exportEntityDXF(${entityId})">
+            <i class="fas fa-drafting-compass"></i> Export as DXF
+        </div>
+    `;
+    // Show menu at cursor position
+}
+```
+
+### Export Function Examples
+
+#### PDF Export
+
+```javascript
+async function exportPDF() {
+    const projectId = await getActiveProjectId();
+    
+    try {
+        const response = await fetch(`/api/tools/my-tool/export-pdf`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_id: projectId,
+                include_maps: true,
+                include_tables: true,
+                options: getExportOptions()
+            })
+        });
+        
+        const blob = await response.blob();
+        downloadFile(blob, 'report.pdf');
+        showMessage('PDF exported successfully', 'success');
+    } catch (error) {
+        showMessage('Export failed: ' + error.message, 'error');
+    }
+}
+```
+
+#### DXF Export
+
+```javascript
+async function exportDXF() {
+    const projectId = await getActiveProjectId();
+    const filters = getCurrentFilters();
+    
+    try {
+        const response = await fetch(`/api/tools/my-tool/export-dxf`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_id: projectId,
+                filters: filters,
+                include_attributes: document.getElementById('includeAttributes').checked
+            })
+        });
+        
+        const blob = await response.blob();
+        downloadFile(blob, 'export.dxf');
+        showMessage('DXF exported successfully', 'success');
+    } catch (error) {
+        showMessage('Export failed: ' + error.message, 'error');
+    }
+}
+```
+
+#### Shapefile Export
+
+```javascript
+async function exportShape() {
+    const projectId = await getActiveProjectId();
+    
+    try {
+        const response = await fetch(`/api/tools/my-tool/export-shapefile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_id: projectId,
+                coordinate_system: 'EPSG:2226' // California State Plane
+            })
+        });
+        
+        const blob = await response.blob();
+        downloadFile(blob, 'export.zip'); // Shapefiles are zipped
+        showMessage('Shapefile exported successfully', 'success');
+    } catch (error) {
+        showMessage('Export failed: ' + error.message, 'error');
+    }
+}
+```
+
+#### Helper Function
+
+```javascript
+function downloadFile(blob, filename) {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+function showMessage(message, type) {
+    // Show user feedback (use existing notification system)
+    console.log(message);
+}
+```
+
+### Backend API Examples
+
+#### Flask Route for PDF Export
+
+```python
+@app.route('/api/tools/my-tool/export-pdf', methods=['POST'])
+def export_tool_pdf():
+    """Generate PDF report for tool data"""
+    data = request.json
+    project_id = data.get('project_id')
+    
+    # Generate PDF using WeasyPrint or ReportLab
+    pdf_bytes = generate_pdf_report(project_id, data.get('options'))
+    
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'tool_report_{project_id}.pdf'
+    )
+```
+
+#### Flask Route for DXF Export
+
+```python
+@app.route('/api/tools/my-tool/export-dxf', methods=['POST'])
+def export_tool_dxf():
+    """Export tool geometry as DXF"""
+    data = request.json
+    project_id = data.get('project_id')
+    
+    # Use ezdxf to create DXF
+    dxf_doc = create_dxf_from_data(project_id, data.get('filters'))
+    
+    # Save to BytesIO
+    dxf_bytes = io.BytesIO()
+    dxf_doc.write(dxf_bytes)
+    dxf_bytes.seek(0)
+    
+    return send_file(
+        dxf_bytes,
+        mimetype='application/dxf',
+        as_attachment=True,
+        download_name=f'tool_export_{project_id}.dxf'
+    )
+```
+
+### Best Practices
+
+**DO:**
+- ✅ Provide multiple export formats when appropriate
+- ✅ Show progress indicators for large exports
+- ✅ Include metadata in exported files (date, project name, user)
+- ✅ Allow users to configure export options
+- ✅ Generate filenames with meaningful timestamps
+- ✅ Support coordinate system selection for spatial exports
+
+**DON'T:**
+- ❌ Force users to export just to view results
+- ❌ Export without user confirmation for large operations
+- ❌ Forget to handle errors gracefully
+- ❌ Export sensitive data without checking permissions
+
+### Tool-Specific Export Guidance
+
+| Tool Type | Recommended Exports |
+|-----------|-------------------|
+| **Network Managers** | PDF (network report), DXF (pipes/structures), SHP (for GIS) |
+| **Analysis Tools** | PDF (analysis report), Excel (tabular results), PNG (visualizations) |
+| **Survey Tools** | DXF (point/linework), PDF (report), TXT (PNEZD format) |
+| **Calculation Tools** | PDF (calc sheets), Excel (quantities), DXF (geometry) |
+| **Query Tools** | Excel (results table), PDF (formatted report), CSV (raw data) |
+
+---
+
 ## How to Create a New Specialized Tool
 
 ### Step 1: Create Your Template File
