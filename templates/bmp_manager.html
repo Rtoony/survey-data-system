@@ -464,3 +464,34 @@ function setupResizer() {
     });
 }
 {% endblock %}
+
+{% block about_tool_description %}
+Manage stormwater Best Management Practices including bioretention systems, bioswales, detention basins, and infiltration facilities. Calculate storage volumes, treatment capacity, drainage areas, and track maintenance schedules.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">BIOR</span>
+<span class="about-tool-tag">BASIN</span>
+<span class="about-tool-tag">SWALE</span>
+<span class="about-tool-tag">INFIL</span>
+<span class="about-tool-tag">BMP</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">SITE-BMP-BIOR-PROP-PG</div>
+    <div class="about-tool-example-desc">→ Proposed Bioretention Areas - Site/BMP</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-STM-BASIN-PROP-PG</div>
+    <div class="about-tool-example-desc">→ Proposed Detention Basins - Civil/Storm Drainage</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">SITE-BMP-SWALE-EXST-PG</div>
+    <div class="about-tool-example-desc">→ Existing Bioswales - Site/BMP</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">SITE-BMP-INFIL-PROP-PT</div>
+    <div class="about-tool-example-desc">→ Proposed Infiltration Systems - Site/BMP</div>
+</div>
+{% endblock %}

@@ -533,3 +533,34 @@ function setupResizer() {
     });
 }
 {% endblock %}
+
+{% block about_tool_description %}
+Interactive tool for analyzing, editing, and managing pressure pipe networks including water distribution, fire protection, and reclaimed water systems. Features pressure zone management, valve isolation analysis, and hydraulic calculations.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">WATER</span>
+<span class="about-tool-tag">FIRE</span>
+<span class="about-tool-tag">RECLAIM</span>
+<span class="about-tool-tag">VALVE</span>
+<span class="about-tool-tag">PRES</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-WAT-WATER-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Water Distribution Pipes - Civil/Water</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">FP-FIRE-FIRE-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Fire Protection Pipes - Fire Protection</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-WAT-RECLAIM-EXST-LN</div>
+    <div class="about-tool-example-desc">→ Existing Reclaimed Water Pipes - Civil/Water</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-WAT-VALVE-PROP-PT</div>
+    <div class="about-tool-example-desc">→ Proposed Water Valves - Civil/Water</div>
+</div>
+{% endblock %}

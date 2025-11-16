@@ -552,3 +552,34 @@ function setupResizer() {
     });
 }
 {% endblock %}
+
+{% block about_tool_description %}
+Interactive tool for analyzing, editing, and managing gravity pipe networks with hydraulic calculations. Supports storm drain and sanitary sewer systems with automatic slope validation, invert elevation management, and network connectivity analysis.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">STORM</span>
+<span class="about-tool-tag">SANIT</span>
+<span class="about-tool-tag">MH</span>
+<span class="about-tool-tag">INLET</span>
+<span class="about-tool-tag">GRAV</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-STM-STORM-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Storm Drain Pipes - Civil/Storm Drainage</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SAN-SANIT-EXST-LN</div>
+    <div class="about-tool-example-desc">→ Existing Sanitary Sewer Pipes - Civil/Sanitary</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-STM-MH-PROP-PT</div>
+    <div class="about-tool-example-desc">→ Proposed Manholes - Civil/Storm Drainage</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-STM-INLET-PROP-PT</div>
+    <div class="about-tool-example-desc">→ Proposed Storm Inlets - Civil/Storm Drainage</div>
+</div>
+{% endblock %}
