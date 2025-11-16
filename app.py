@@ -15092,7 +15092,11 @@ def get_layer_object_tools():
 @app.route('/api/cad-standards/specialized-tools-directory')
 @cache.cached(timeout=300, query_string=True)
 def get_specialized_tools_directory():
-    """Get all specialized tools with curated layer examples for discovery/directory views"""
+    """
+    Get all specialized tools with dynamically generated layer examples.
+    Uses tool_object_mappings to determine which object types each tool manages,
+    then queries vocabulary to build real layer examples.
+    """
     try:
         tools_query = """
             SELECT 
@@ -15102,120 +15106,88 @@ def get_specialized_tools_directory():
                 lot.tool_url,
                 lot.tool_icon,
                 lot.description,
-                lot.display_order,
-                lo.object_name,
-                lo.valid_for_categories
+                lot.display_order
             FROM layer_object_tools lot
-            LEFT JOIN layer_objects lo ON lot.object_code = lo.object_code
             WHERE lot.is_active = TRUE
             ORDER BY lot.display_order, lot.tool_name
         """
         tools = execute_query(tools_query)
         
-        phases_query = """
-            SELECT phase_code, phase_name 
-            FROM layer_phases 
-            WHERE is_active = TRUE 
-            ORDER BY display_order 
-            LIMIT 5
-        """
-        phases = execute_query(phases_query)
-        
-        geometries_query = """
-            SELECT geom_code as geometry_code, geom_name as geometry_name 
-            FROM layer_geometries 
-            WHERE is_active = TRUE 
-            ORDER BY display_order 
-            LIMIT 5
-        """
-        geometries = execute_query(geometries_query)
-        
-        categories_query = """
-            SELECT category_code, category_name, valid_for_disciplines
-            FROM layer_categories
-            WHERE is_active = TRUE
-            ORDER BY display_order
-        """
-        categories = execute_query(categories_query)
-        
-        disciplines_query = """
-            SELECT discipline_code, discipline_name
-            FROM layer_disciplines
-            WHERE is_active = TRUE
-            ORDER BY discipline_name
-        """
-        disciplines = execute_query(disciplines_query)
-        
-        default_phases = [p['phase_code'] for p in phases[:3]] if phases else ['EXST', 'PROP', 'DEMO']
-        default_geometries = [g['geometry_code'] for g in geometries[:3]] if geometries else ['LN', 'PT', 'PG']
-        
-        category_lookup = {c['category_code']: c for c in categories}
-        discipline_lookup = {d['discipline_code']: d for d in disciplines}
-        
         result_tools = []
+        
         for tool in tools:
-            object_code = tool['object_code']
-            valid_categories = tool.get('valid_for_categories', []) or []
+            tool_code = tool['object_code']
+            
+            mappings_query = """
+                SELECT 
+                    tom.object_type_code,
+                    tom.purpose,
+                    otc.object_type_name,
+                    otc.discipline_code,
+                    otc.discipline_name,
+                    otc.category_code,
+                    otc.category_name
+                FROM tool_object_mappings tom
+                JOIN object_type_codes otc ON tom.object_type_code = otc.object_type_code
+                WHERE tom.tool_code = %s 
+                AND tom.is_active = TRUE
+                AND otc.is_active = TRUE
+                ORDER BY tom.sort_order, otc.object_type_code
+                LIMIT 5
+            """
+            mappings = execute_query(mappings_query, (tool_code,))
             
             layer_examples = []
-            examples_count = 0
-            max_examples = 3
-            
-            for category_code in valid_categories[:2]:
-                if examples_count >= max_examples:
-                    break
-                    
-                category = category_lookup.get(category_code)
-                if not category:
-                    continue
-                    
-                valid_disciplines = category.get('valid_for_disciplines', []) or []
+            if mappings:
+                phases_query = """
+                    SELECT phase_code, phase_name 
+                    FROM layer_phases 
+                    WHERE is_active = TRUE 
+                    ORDER BY display_order 
+                    LIMIT 3
+                """
+                phases = execute_query(phases_query)
                 
-                for discipline_code in valid_disciplines[:2]:
-                    if examples_count >= max_examples:
+                geometries_query = """
+                    SELECT geom_code as geometry_code, geom_name as geometry_name 
+                    FROM layer_geometries 
+                    WHERE is_active = TRUE 
+                    ORDER BY display_order 
+                    LIMIT 3
+                """
+                geometries = execute_query(geometries_query)
+                
+                default_phases = [p['phase_code'] for p in phases] if phases else ['EXST', 'PROP']
+                default_geometries = [g['geometry_code'] for g in geometries] if geometries else ['LN', 'PT']
+                
+                example_count = 0
+                for mapping in mappings[:2]:
+                    if example_count >= 3:
                         break
-                    
-                    phase_code = default_phases[examples_count % len(default_phases)]
-                    geometry_code = default_geometries[examples_count % len(default_geometries)]
-                    
-                    layer_name = f"{discipline_code}-{category_code}-{object_code}-{phase_code}-{geometry_code}"
-                    
-                    discipline_name = discipline_lookup.get(discipline_code, {}).get('discipline_name', discipline_code)
-                    category_name = category.get('category_name', category_code)
-                    phase_obj = next((p for p in phases if p['phase_code'] == phase_code), None)
-                    geom_obj = next((g for g in geometries if g['geometry_code'] == geometry_code), None)
-                    
-                    phase_name = phase_obj['phase_name'] if phase_obj else phase_code
-                    geometry_name = geom_obj['geometry_name'] if geom_obj else geometry_code
-                    
-                    layer_examples.append({
-                        'layer': layer_name,
-                        'description': f"{phase_name} {tool['object_name']} - {discipline_name}/{category_name}",
-                        'discipline_code': discipline_code,
-                        'category_code': category_code,
-                        'object_code': object_code,
-                        'phase_code': phase_code,
-                        'geometry_code': geometry_code
-                    })
-                    
-                    examples_count += 1
+                        
+                    for phase in default_phases[:2]:
+                        if example_count >= 3:
+                            break
+                            
+                        geom = default_geometries[example_count % len(default_geometries)]
+                        
+                        layer_name = f"{mapping['discipline_code']}-{mapping['category_code']}-{mapping['object_type_code']}-{phase}-{geom}"
+                        
+                        phase_obj = next((p for p in phases if p['phase_code'] == phase), {'phase_name': phase})
+                        geom_obj = next((g for g in geometries if g['geometry_code'] == geom), {'geometry_name': geom})
+                        
+                        layer_examples.append({
+                            'layer': layer_name,
+                            'description': f"{phase_obj['phase_name']} {mapping['object_type_name']} - {mapping['discipline_name']}/{mapping['category_name']}",
+                            'discipline_code': mapping['discipline_code'],
+                            'category_code': mapping['category_code'],
+                            'object_code': mapping['object_type_code'],
+                            'phase_code': phase,
+                            'geometry_code': geom
+                        })
+                        example_count += 1
             
-            if not layer_examples:
-                discipline_code = 'CIV'
-                category_code = valid_categories[0] if valid_categories else 'MISC'
-                phase_code = default_phases[0]
-                geometry_code = default_geometries[0]
-                layer_name = f"{discipline_code}-{category_code}-{object_code}-{phase_code}-{geometry_code}"
-                
-                layer_examples.append({
-                    'layer': layer_name,
-                    'description': f"{tool['object_name']} layer example",
-                    'discipline_code': discipline_code,
-                    'category_code': category_code,
-                    'object_code': object_code,
-                    'phase_code': phase_code,
-                    'geometry_code': geometry_code
-                })
+            mapped_object_names = ', '.join([m['object_type_name'] for m in mappings[:3]]) if mappings else 'No mappings configured'
             
             result_tools.append({
                 'id': tool['id'],
@@ -15224,14 +15196,13 @@ def get_specialized_tools_directory():
                 'tool_icon': tool['tool_icon'],
                 'description': tool['description'],
                 'object_code': tool['object_code'],
-                'object_name': tool['object_name'],
-                'layer_examples': layer_examples
+                'object_name': mapped_object_names,
+                'layer_examples': layer_examples,
+                'mapped_count': len(mappings)
             })
         
         return jsonify({
-            'tools': result_tools,
-            'phases': {p['phase_code']: p['phase_name'] for p in phases},
-            'geometries': {g['geometry_code']: g['geometry_name'] for g in geometries}
+            'tools': result_tools
         })
         
     except Exception as e:
