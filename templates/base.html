@@ -239,13 +239,18 @@
                 </div>
             </div>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/evolution', '/digital-twin', '/why-this-matters', '/architecture'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/about', '/evolution', '/digital-twin', '/why-this-matters', '/architecture'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-info-circle"></i>
                     <span>About</span>
                     <i class="fas fa-chevron-down mc-dropdown-icon"></i>
                 </button>
                 <div class="mc-dropdown">
+                    <a href="/about" class="mc-dropdown-item {% if request.path == '/about' %}active{% endif %}">
+                        <i class="fas fa-book-open"></i>
+                        About ACAD-GIS
+                    </a>
+                    <div class="mc-dropdown-divider"></div>
                     <a href="/evolution" class="mc-dropdown-item {% if request.path == '/evolution' %}active{% endif %}">
                         <i class="fas fa-history"></i>
                         Evolution

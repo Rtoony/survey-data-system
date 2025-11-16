@@ -8612,6 +8612,11 @@ def evolution():
     """Render the Evolution timeline page"""
     return render_template('evolution.html')
 
+@app.route('/about')
+def about():
+    """Render the comprehensive About page with system overview and tools directory"""
+    return render_template('about.html')
+
 @app.route('/standards/layer-generator')
 def layer_generator():
     """Render the CAD Layer Generator page"""

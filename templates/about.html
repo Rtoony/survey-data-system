@@ -1,0 +1,1319 @@
+{% extends "base.html" %}
+
+{% block title %}About ACAD-GIS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="orbitron"><i class="fas fa-info-circle neon-cyan"></i> About ACAD-GIS</h2>
+    <p class="subtitle">AI-First, Database-Centric CAD/GIS Project Management System</p>
+</div>
+
+<!-- Quick Navigation -->
+<div class="panel" style="margin-bottom: 30px;">
+    <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
+        <a href="#philosophy" class="btn btn-secondary btn-sm">
+            <i class="fas fa-lightbulb"></i> Philosophy
+        </a>
+        <a href="#architecture" class="btn btn-secondary btn-sm">
+            <i class="fas fa-sitemap"></i> Architecture
+        </a>
+        <a href="#workflow" class="btn btn-secondary btn-sm">
+            <i class="fas fa-route"></i> Workflow
+        </a>
+        <a href="#tools" class="btn btn-secondary btn-sm">
+            <i class="fas fa-tools"></i> Tools Directory
+        </a>
+        <a href="#differentiators" class="btn btn-secondary btn-sm">
+            <i class="fas fa-star"></i> Key Differentiators
+        </a>
+    </div>
+</div>
+
+<!-- System Philosophy & Vision -->
+<div id="philosophy" class="panel" style="margin-bottom: 30px;">
+    <h3 class="orbitron" style="color: var(--neon-cyan); margin-bottom: 20px;">
+        <i class="fas fa-lightbulb"></i> System Philosophy & Vision
+    </h3>
+    
+    <div style="line-height: 1.8; margin-bottom: 25px;">
+        <h4 style="color: var(--neon-yellow); margin-bottom: 15px;">The Companion Tool Concept</h4>
+        <p style="margin-bottom: 15px;">
+            ACAD-GIS is <strong>not a replacement for traditional CAD software</strong> like AutoCAD or Civil3D. 
+            Instead, it serves as an <strong>intelligent companion</strong> that works alongside your existing CAD tools.
+        </p>
+        <p style="margin-bottom: 15px;">
+            While CAD software excels at nuanced drafting and precise geometric creation, ACAD-GIS shines in areas where traditional CAD struggles:
+        </p>
+        <ul style="margin-left: 20px; margin-bottom: 15px; list-style: none;">
+            <li style="margin-bottom: 10px;"><i class="fas fa-check neon-green"></i> <strong>Project Status Tracking:</strong> Real-time visibility into project health, completeness, and compliance</li>
+            <li style="margin-bottom: 10px;"><i class="fas fa-check neon-green"></i> <strong>Performance Analysis:</strong> Metrics, statistics, and quality scoring across your entire project portfolio</li>
+            <li style="margin-bottom: 10px;"><i class="fas fa-check neon-green"></i> <strong>Semantic Understanding:</strong> AI-driven interpretation of CAD data for intelligent search and analysis</li>
+            <li style="margin-bottom: 10px;"><i class="fas fa-check neon-green"></i> <strong>Specialized Management Tools:</strong> Domain-specific interfaces for gravity pipes, pressure networks, BMPs, survey data, and more</li>
+            <li style="margin-bottom: 10px;"><i class="fas fa-check neon-green"></i> <strong>Automated Compliance:</strong> Continuous validation against standards, detecting inconsistencies automatically</li>
+            <li style="margin-bottom: 10px;"><i class="fas fa-check neon-green"></i> <strong>Multi-Project Intelligence:</strong> Cross-project analysis, pattern detection, and reusable standards libraries</li>
+        </ul>
+    </div>
+
+    <div style="line-height: 1.8; margin-bottom: 25px;">
+        <h4 style="color: var(--neon-yellow); margin-bottom: 15px;">Why Database-Centric vs. File-Based CAD?</h4>
+        <p style="margin-bottom: 15px;">
+            Traditional CAD workflows rely on individual DWG/DXF files as the source of truth. This creates fundamental limitations:
+        </p>
+        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div class="stat-card" style="background: rgba(255, 0, 0, 0.1); border-color: rgba(255, 100, 100, 0.5);">
+                <div class="stat-label" style="color: #ff6666; margin-bottom: 10px;">❌ File-Based Limitations</div>
+                <ul style="font-size: 0.9em; line-height: 1.6; list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 8px;">• Data locked in binary files</li>
+                    <li style="margin-bottom: 8px;">• No semantic relationships</li>
+                    <li style="margin-bottom: 8px;">• Manual cross-file searches</li>
+                    <li style="margin-bottom: 8px;">• Version conflicts</li>
+                    <li style="margin-bottom: 8px;">• Limited AI understanding</li>
+                    <li style="margin-bottom: 8px;">• No automated compliance</li>
+                </ul>
+            </div>
+            <div class="stat-card" style="background: rgba(0, 255, 136, 0.1); border-color: rgba(0, 255, 136, 0.5);">
+                <div class="stat-label" style="color: var(--neon-green); margin-bottom: 10px;">✓ Database-Centric Benefits</div>
+                <ul style="font-size: 0.9em; line-height: 1.6; list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 8px;">• Single source of truth</li>
+                    <li style="margin-bottom: 8px;">• Explicit relationships (GraphRAG)</li>
+                    <li style="margin-bottom: 8px;">• Instant semantic search</li>
+                    <li style="margin-bottom: 8px;">• Built-in version control</li>
+                    <li style="margin-bottom: 8px;">• AI-optimized structure</li>
+                    <li style="margin-bottom: 8px;">• Real-time compliance tracking</li>
+                </ul>
+            </div>
+        </div>
+        <p style="margin-bottom: 15px;">
+            <strong>The workflow:</strong> Import DXF files into the database, manage and analyze your data using ACAD-GIS specialized tools, 
+            then export back to DXF when you need to make geometric edits in CAD software. This creates a bidirectional sync that combines 
+            the best of both worlds.
+        </p>
+    </div>
+
+    <div style="line-height: 1.8;">
+        <h4 style="color: var(--neon-yellow); margin-bottom: 15px;">AI-First Architecture</h4>
+        <p style="margin-bottom: 15px;">
+            Every design decision in ACAD-GIS is optimized for machine understanding and AI capabilities:
+        </p>
+        <ul style="margin-left: 20px; list-style: none;">
+            <li style="margin-bottom: 10px;"><i class="fas fa-brain neon-cyan"></i> <strong>Vector Embeddings:</strong> 1536-dimension semantic representations of all CAD entities</li>
+            <li style="margin-bottom: 10px;"><i class="fas fa-project-diagram neon-cyan"></i> <strong>GraphRAG:</strong> Explicit graph edges for spatial, engineering, and semantic relationships enabling multi-hop queries</li>
+            <li style="margin-bottom: 10px;"><i class="fas fa-search neon-cyan"></i> <strong>Hybrid Search:</strong> Combines vector similarity, full-text search, and spatial queries</li>
+            <li style="margin-bottom: 10px;"><i class="fas fa-star neon-cyan"></i> <strong>Quality Scoring:</strong> Automated quality assessment based on completeness, relationships, and embeddings</li>
+            <li style="margin-bottom: 10px;"><i class="fas fa-database neon-cyan"></i> <strong>Truth-Driven:</strong> All vocabulary, standards, and configurations stored in database, never hardcoded</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Core Architecture -->
+<div id="architecture" class="panel" style="margin-bottom: 30px;">
+    <h3 class="orbitron" style="color: var(--neon-cyan); margin-bottom: 20px;">
+        <i class="fas fa-sitemap"></i> Core Architecture
+    </h3>
+    
+    <p style="margin-bottom: 25px; line-height: 1.8;">
+        ACAD-GIS is built on five interconnected architectural components that work together to create an intelligent, 
+        self-updating system. Each component serves a specific purpose while contributing to the overall truth-driven architecture.
+    </p>
+
+    <!-- Component Cards -->
+    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px;">
+        
+        <!-- CAD Layer Vocabulary -->
+        <div class="stat-card">
+            <div class="stat-value" style="color: var(--neon-cyan); font-size: 2em;">
+                <i class="fas fa-layer-group"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">1. CAD Layer Vocabulary</div>
+            <div class="subtitle" style="margin-bottom: 15px; line-height: 1.6;">
+                <strong>Purpose:</strong> Defines the language of CAD layer naming
+            </div>
+            <div style="font-size: 0.9em; line-height: 1.6; text-align: left;">
+                <p style="margin-bottom: 10px;"><strong>Format:</strong></p>
+                <code style="display: block; background: rgba(0,255,255,0.1); padding: 8px; border-radius: 4px; margin-bottom: 10px;">
+                    DISCIPLINE-CATEGORY-TYPE-ATTRIBUTES-PHASE-GEOMETRY
+                </code>
+                <p style="margin-bottom: 8px;"><strong>Example:</strong></p>
+                <code style="display: block; background: rgba(0,255,136,0.1); padding: 8px; border-radius: 4px; margin-bottom: 10px;">
+                    CIV-UTIL-STORM-12IN-NEW-LN
+                </code>
+                <p style="margin-bottom: 8px;"><strong>Components:</strong></p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li>• <strong>CIV</strong> = Civil discipline</li>
+                    <li>• <strong>UTIL</strong> = Utilities category</li>
+                    <li>• <strong>STORM</strong> = Storm drain type</li>
+                    <li>• <strong>12IN</strong> = 12-inch diameter</li>
+                    <li>• <strong>NEW</strong> = New construction</li>
+                    <li>• <strong>LN</strong> = Line geometry</li>
+                </ul>
+            </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,255,0.3);">
+                <strong style="color: var(--neon-cyan);">Database Tables:</strong><br>
+                <span style="font-size: 0.85em;">discipline_codes, category_codes, object_type_codes, phase_codes, geometry_codes, attribute_codes</span>
+            </div>
+        </div>
+
+        <!-- Entity Registry -->
+        <div class="stat-card">
+            <div class="stat-value" style="color: var(--neon-yellow); font-size: 2em;">
+                <i class="fas fa-exchange-alt"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">2. Entity Registry</div>
+            <div class="subtitle" style="margin-bottom: 15px; line-height: 1.6;">
+                <strong>Purpose:</strong> The "switchboard" connecting layer names to database tables
+            </div>
+            <div style="font-size: 0.9em; line-height: 1.6; text-align: left;">
+                <p style="margin-bottom: 10px;"><strong>Mappings:</strong></p>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 15px;">
+                    <li>• <strong>STORM</strong> → utility_lines table</li>
+                    <li>• <strong>MH</strong> → utility_structures table</li>
+                    <li>• <strong>SURVEY</strong> → survey_points table</li>
+                    <li>• <strong>BLDG</strong> → buildings table</li>
+                    <li>• <strong>ROAD</strong> → roadways table</li>
+                </ul>
+                <p style="margin-bottom: 8px;"><strong>What it enables:</strong></p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li>✓ Automatic DXF import routing</li>
+                    <li>✓ Correct database table selection</li>
+                    <li>✓ Entity type identification</li>
+                    <li>✓ Specialized tool discovery</li>
+                </ul>
+            </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,0,0.3);">
+                <strong style="color: var(--neon-yellow);">Database Tables:</strong><br>
+                <span style="font-size: 0.85em;">standards_entities (dynamic), built-in registry (static fallback)</span>
+            </div>
+        </div>
+
+        <!-- Specialized Tools Registry -->
+        <div class="stat-card">
+            <div class="stat-value" style="color: var(--neon-green); font-size: 2em;">
+                <i class="fas fa-tools"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">3. Specialized Tools Registry</div>
+            <div class="subtitle" style="margin-bottom: 15px; line-height: 1.6;">
+                <strong>Purpose:</strong> Links object types to management tools
+            </div>
+            <div style="font-size: 0.9em; line-height: 1.6; text-align: left;">
+                <p style="margin-bottom: 10px;"><strong>Three-Dimensional Filtering:</strong></p>
+                <code style="display: block; background: rgba(0,255,136,0.1); padding: 8px; border-radius: 4px; margin-bottom: 10px; font-size: 0.85em;">
+                    Object Type → Attribute → Database Table
+                </code>
+                <p style="margin-bottom: 8px;"><strong>Examples:</strong></p>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 15px;">
+                    <li>• <strong>STORM</strong> → Gravity Pipe Manager</li>
+                    <li>• <strong>WATER</strong> → Pressure Pipe Manager</li>
+                    <li>• <strong>BIOR</strong> → BMP Manager</li>
+                    <li>• <strong>SURVEY</strong> → Survey Point Manager</li>
+                </ul>
+                <p style="margin-bottom: 8px;"><strong>Surgical Precision:</strong></p>
+                <ul style="list-style: none; padding-left: 0; font-size: 0.85em;">
+                    <li>BASIN+STORAGE → volume calcs</li>
+                    <li>BASIN+TREATMENT → water quality</li>
+                </ul>
+            </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,136,0.3);">
+                <strong style="color: var(--neon-green);">Database Tables:</strong><br>
+                <span style="font-size: 0.85em;">specialized_tools, layer_objects, layer_object_tools</span>
+            </div>
+        </div>
+
+        <!-- Reference Data Hub -->
+        <div class="stat-card">
+            <div class="stat-value" style="color: var(--neon-magenta); font-size: 2em;">
+                <i class="fas fa-database"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">4. Reference Data Hub</div>
+            <div class="subtitle" style="margin-bottom: 15px; line-height: 1.6;">
+                <strong>Purpose:</strong> Project-agnostic reference data management
+            </div>
+            <div style="font-size: 0.9em; line-height: 1.6; text-align: left;">
+                <p style="margin-bottom: 10px;"><strong>9 Reference Data Types:</strong></p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li>1. Attribute Codes</li>
+                    <li>2. CAD Standards</li>
+                    <li>3. Clients</li>
+                    <li>4. Municipalities</li>
+                    <li>5. Coordinate Systems</li>
+                    <li>6. Survey Point Descriptions</li>
+                    <li>7. Naming Templates</li>
+                    <li>8. Tool-Object Mappings</li>
+                    <li>9. Specialized Tools Registry</li>
+                </ul>
+            </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,0,255,0.3);">
+                <strong style="color: var(--neon-magenta);">Key Feature:</strong><br>
+                <span style="font-size: 0.85em;">Global library reusable across all projects</span>
+            </div>
+        </div>
+
+        <!-- Standards Mapping Framework -->
+        <div class="stat-card">
+            <div class="stat-value" style="color: var(--neon-cyan); font-size: 2em;">
+                <i class="fas fa-map-signs"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">5. Standards Mapping Framework</div>
+            <div class="subtitle" style="margin-bottom: 15px; line-height: 1.6;">
+                <strong>Purpose:</strong> Bidirectional DXF ↔ Database translation
+            </div>
+            <div style="font-size: 0.9em; line-height: 1.6; text-align: left;">
+                <p style="margin-bottom: 10px;"><strong>11-Table Schema:</strong></p>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 15px; font-size: 0.85em;">
+                    <li>• keynote_blocks</li>
+                    <li>• keynote_details</li>
+                    <li>• hatch_materials</li>
+                    <li>• detail_materials</li>
+                    <li>• block_specifications</li>
+                    <li>• cross_references</li>
+                    <li>• project_keynote_blocks</li>
+                    <li>• project_keynote_details</li>
+                    <li>• project_hatch_materials</li>
+                    <li>• project_detail_materials</li>
+                    <li>• project_block_specs</li>
+                </ul>
+                <p style="margin-bottom: 8px;"><strong>5 Name Mappers:</strong></p>
+                <ul style="list-style: none; padding-left: 0; font-size: 0.85em;">
+                    <li>✓ Block-to-Keynote Mapper</li>
+                    <li>✓ Detail-to-Keynote Mapper</li>
+                    <li>✓ Hatch-to-Material Mapper</li>
+                    <li>✓ Detail-to-Material Mapper</li>
+                    <li>✓ Block-to-Spec Mapper</li>
+                </ul>
+            </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,255,0.3);">
+                <strong style="color: var(--neon-cyan);">Purpose:</strong><br>
+                <span style="font-size: 0.85em;">Translate CAD element names to semantic database attributes</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Architecture Diagram -->
+    <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.3); border-radius: 8px; padding: 25px; margin-top: 30px;">
+        <h4 style="color: var(--neon-yellow); margin-bottom: 20px; text-align: center;">How Components Connect</h4>
+        <div style="text-align: center; font-family: monospace; line-height: 2; font-size: 0.9em;">
+            <div style="margin-bottom: 15px;">
+                <i class="fas fa-file-code neon-cyan"></i> <strong>DXF File</strong> (CIV-UTIL-STORM-12IN-NEW-LN)
+            </div>
+            <div style="margin-bottom: 10px; color: var(--neon-cyan);">↓</div>
+            <div style="margin-bottom: 15px;">
+                <i class="fas fa-layer-group neon-yellow"></i> <strong>CAD Layer Vocabulary</strong> parses layer name
+            </div>
+            <div style="margin-bottom: 10px; color: var(--neon-yellow);">↓</div>
+            <div style="margin-bottom: 15px;">
+                <i class="fas fa-exchange-alt neon-green"></i> <strong>Entity Registry</strong> routes STORM → utility_lines table
+            </div>
+            <div style="margin-bottom: 10px; color: var(--neon-green);">↓</div>
+            <div style="margin-bottom: 15px;">
+                <i class="fas fa-database neon-magenta"></i> <strong>Database Storage</strong> in utility_lines with entity_type='utility_line'
+            </div>
+            <div style="margin-bottom: 10px; color: var(--neon-magenta);">↓</div>
+            <div style="margin-bottom: 15px;">
+                <i class="fas fa-tools neon-cyan"></i> <strong>Specialized Tools Registry</strong> links to Gravity Pipe Manager
+            </div>
+            <div style="margin-bottom: 10px; color: var(--neon-cyan);">↓</div>
+            <div>
+                <i class="fas fa-wrench neon-yellow"></i> <strong>Management Interface</strong> for analyzing and editing
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Complete Workflow -->
+<div id="workflow" class="panel" style="margin-bottom: 30px;">
+    <h3 class="orbitron" style="color: var(--neon-cyan); margin-bottom: 20px;">
+        <i class="fas fa-route"></i> Complete Workflow: From CAD to Database and Back
+    </h3>
+    
+    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+        
+        <!-- Step 1 -->
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(0,255,255,0.1), rgba(0,255,255,0.05));">
+            <div class="stat-value" style="color: var(--neon-cyan);">1</div>
+            <div class="stat-label">Import DXF</div>
+            <div class="subtitle" style="margin-top: 15px; line-height: 1.6;">
+                <p><strong>DXF Tools</strong> imports your CAD file and classifies every entity using the CAD Layer Vocabulary</p>
+                <div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 0.85em;">
+                    <i class="fas fa-check-circle neon-green"></i> Layer name parsing<br>
+                    <i class="fas fa-check-circle neon-green"></i> Entity classification<br>
+                    <i class="fas fa-check-circle neon-green"></i> 3D elevation preservation
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(255,255,0,0.1), rgba(255,255,0,0.05));">
+            <div class="stat-value" style="color: var(--neon-yellow);">2</div>
+            <div class="stat-label">Database Routing</div>
+            <div class="subtitle" style="margin-top: 15px; line-height: 1.6;">
+                <p><strong>Entity Registry</strong> automatically routes entities to the correct database tables</p>
+                <div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 0.85em;">
+                    <i class="fas fa-check-circle neon-green"></i> Table selection<br>
+                    <i class="fas fa-check-circle neon-green"></i> Entity type assignment<br>
+                    <i class="fas fa-check-circle neon-green"></i> Relationship creation
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,255,136,0.05));">
+            <div class="stat-value" style="color: var(--neon-green);">3</div>
+            <div class="stat-label">AI Enrichment</div>
+            <div class="subtitle" style="margin-top: 15px; line-height: 1.6;">
+                <p><strong>AI Toolkit</strong> generates embeddings, builds graph edges, and scores quality</p>
+                <div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 0.85em;">
+                    <i class="fas fa-check-circle neon-green"></i> Vector embeddings<br>
+                    <i class="fas fa-check-circle neon-green"></i> Graph relationships<br>
+                    <i class="fas fa-check-circle neon-green"></i> Quality scoring
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(255,0,255,0.1), rgba(255,0,255,0.05));">
+            <div class="stat-value" style="color: var(--neon-magenta);">4</div>
+            <div class="stat-label">Analysis & Management</div>
+            <div class="subtitle" style="margin-top: 15px; line-height: 1.6;">
+                <p><strong>Specialized Tools</strong> provide domain-specific interfaces for your data</p>
+                <div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 0.85em;">
+                    <i class="fas fa-check-circle neon-green"></i> Network analysis<br>
+                    <i class="fas fa-check-circle neon-green"></i> Compliance checking<br>
+                    <i class="fas fa-check-circle neon-green"></i> Quality dashboards
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(0,255,255,0.1), rgba(0,255,255,0.05));">
+            <div class="stat-value" style="color: var(--neon-cyan);">5</div>
+            <div class="stat-label">Export to CAD</div>
+            <div class="subtitle" style="margin-top: 15px; line-height: 1.6;">
+                <p><strong>DXF Export</strong> creates CAD-ready files with all changes synchronized</p>
+                <div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 0.85em;">
+                    <i class="fas fa-check-circle neon-green"></i> Layer reconstruction<br>
+                    <i class="fas fa-check-circle neon-green"></i> Geometry preservation<br>
+                    <i class="fas fa-check-circle neon-green"></i> Change detection
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 6 -->
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(255,255,0,0.1), rgba(255,255,0,0.05));">
+            <div class="stat-value" style="color: var(--neon-yellow);">6</div>
+            <div class="stat-label">CAD Editing</div>
+            <div class="subtitle" style="margin-top: 15px; line-height: 1.6;">
+                <p><strong>AutoCAD/Civil3D</strong> handles precise geometric edits and drafting</p>
+                <div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 0.85em;">
+                    <i class="fas fa-check-circle neon-green"></i> Detailed drafting<br>
+                    <i class="fas fa-check-circle neon-green"></i> Annotations<br>
+                    <i class="fas fa-check-circle neon-green"></i> Plot preparation
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div style="margin-top: 30px; padding: 20px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); border-radius: 8px;">
+        <h4 style="color: var(--neon-green); margin-bottom: 15px;">
+            <i class="fas fa-sync-alt"></i> Bidirectional Sync Workflow
+        </h4>
+        <p style="line-height: 1.8;">
+            The power of ACAD-GIS lies in this bidirectional workflow. You can move freely between database-driven analysis 
+            and traditional CAD drafting, with changes synchronized in both directions. The <strong>change detection system</strong> 
+            identifies modified entities, ensuring no data loss during round-trip operations.
+        </p>
+    </div>
+</div>
+
+<!-- Tools Directory -->
+<div id="tools" class="panel" style="margin-bottom: 30px;">
+    <h3 class="orbitron" style="color: var(--neon-cyan); margin-bottom: 20px;">
+        <i class="fas fa-tools"></i> Complete Tools Directory
+    </h3>
+    
+    <p style="margin-bottom: 25px; line-height: 1.8;">
+        ACAD-GIS provides over 30 specialized tools organized into functional categories. Each tool is designed to solve specific 
+        problems in CAD/GIS project management, from standards definition to network analysis to AI-powered quality assessment.
+    </p>
+
+    <!-- Standards Management Tools -->
+    <div class="collapsible-section" style="margin-bottom: 20px;">
+        <button class="collapsible-header" onclick="toggleSection(this)">
+            <i class="fas fa-ruler-combined neon-cyan"></i>
+            <span style="flex: 1;">Standards Management Tools (6 tools)</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="collapsible-content">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; padding: 20px;">
+                
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-th-large neon-cyan"></i>
+                        <strong>CAD Standards Portal</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Visual, read-only display of AI-optimized CAD standards. Browse layers, blocks, hatches, linetypes, 
+                        text styles, and dimension standards in a mission control interface.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /standards-library
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-layer-group neon-cyan"></i>
+                        <strong>Layer Vocabulary Manager</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        CRUD operations for disciplines, categories, object types, phases, geometry codes, and attributes. 
+                        Defines the complete CAD layer naming language.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /standards/layer-vocabulary
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-magic neon-cyan"></i>
+                        <strong>Enhanced Layer Generator</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Dynamic layer name generation with integrated architecture explanations. System overview dashboard, 
+                        DXF validation, tool-to-layer mapping, and automatic vocabulary refresh.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /standards/layer-generator
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-database neon-cyan"></i>
+                        <strong>Reference Data Hub</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Manage 9 types of project-agnostic reference data: Attribute Codes, CAD Standards, Clients, Municipalities, 
+                        Coordinate Systems, Survey Descriptions, Naming Templates, Tool-Object Mappings, and Specialized Tools.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /standards/reference-data
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-map-signs neon-cyan"></i>
+                        <strong>Standards Mapping Dashboard</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        5 name mapping managers for bidirectional DXF↔Database translation: Block-to-Keynote, Detail-to-Keynote, 
+                        Hatch-to-Material, Detail-to-Material, Block-to-Spec.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /standards-mapping-dashboard
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-list-check neon-cyan"></i>
+                        <strong>Survey Code Library</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        AI-first survey point code system with structured, machine-parsable codes driving automatic CAD generation. 
+                        Includes testing interface for validation.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /tools/survey-codes
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- DXF Import/Export Tools -->
+    <div class="collapsible-section" style="margin-bottom: 20px;">
+        <button class="collapsible-header" onclick="toggleSection(this)">
+            <i class="fas fa-file-export neon-yellow"></i>
+            <span style="flex: 1;">DXF Import/Export Tools (5 tools)</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="collapsible-content">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; padding: 20px;">
+                
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-file-import neon-yellow"></i>
+                        <strong>DXF Tools</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Full DXF import/export with intelligent object creation, change detection, and bidirectional sync. 
+                        Survey-grade 3D elevation preservation and Z-value stress testing.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-yellow);">
+                        <i class="fas fa-link"></i> /dxf-tools
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-cubes neon-yellow"></i>
+                        <strong>Batch CAD Import</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Productivity tool for batch importing Blocks, Details, Hatches, and Linetypes from DXF files. 
+                        Process multiple files at once with automatic classification.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-yellow);">
+                        <i class="fas fa-link"></i> /tools/batch-cad-import
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-map-pin neon-yellow"></i>
+                        <strong>Batch Point Import</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Survey point import tool for PNEZD text files with coordinate system selection, automatic transformation, 
+                        and conflict detection. Supports multiple coordinate systems.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-yellow);">
+                        <i class="fas fa-link"></i> /tools/batch-point-import
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-file-code neon-yellow"></i>
+                        <strong>DXF Test Generator</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Generate test DXF files for validating import workflows. Creates sample entities with known properties 
+                        to verify classification and routing.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-yellow);">
+                        <i class="fas fa-link"></i> /tools/dxf-test-generator
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-vial neon-yellow"></i>
+                        <strong>Z-Value Stress Test</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Validates survey-grade 3D elevation preservation through DXF import/export cycles. Tests coordinate 
+                        precision and transformation accuracy.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-yellow);">
+                        <i class="fas fa-link"></i> /tools/z-stress-test
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Management Tools -->
+    <div class="collapsible-section" style="margin-bottom: 20px;">
+        <button class="collapsible-header" onclick="toggleSection(this)">
+            <i class="fas fa-folder neon-green"></i>
+            <span style="flex: 1;">Project Management Tools (5 tools)</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="collapsible-content">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; padding: 20px;">
+                
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-briefcase neon-green"></i>
+                        <strong>Project Command Center</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Streamlined project dashboard with 250px sidebar, 10 specialized tools, 24 CAD standards, health metrics, 
+                        context map, and full-screen mode. Central hub for all project operations.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-green);">
+                        <i class="fas fa-link"></i> /projects/[project_id]
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-list neon-green"></i>
+                        <strong>Civil Project Manager</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Comprehensive project overview dashboard with metadata-driven CRUD for project-specific attachments. 
+                        Create, edit, and organize civil engineering projects.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-green);">
+                        <i class="fas fa-link"></i> /projects
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-project-diagram neon-green"></i>
+                        <strong>Project Relationship Sets</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Comprehensive dependency tracking and automated compliance auditing. Group interconnected elements, 
+                        build rules, detect violations, and track sync status. Template system included.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-green);">
+                        <i class="fas fa-link"></i> Project Command Center sidebar
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-random neon-green"></i>
+                        <strong>Object Reclassifier</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Interactive UI for reviewing and reclassifying unclassified or low-confidence DXF entities. 
+                        Improves import quality through human-in-the-loop validation.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-green);">
+                        <i class="fas fa-link"></i> /tools/object-reclassifier
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-sticky-note neon-green"></i>
+                        <strong>Sheet Note Manager</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Project-centric note management system with standard and custom notes, deviation tracking, 
+                        and project-level organization. CRUD interface for sheet notes.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-green);">
+                        <i class="fas fa-link"></i> /sheet-notes
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Visualization & Mapping Tools -->
+    <div class="collapsible-section" style="margin-bottom: 20px;">
+        <button class="collapsible-header" onclick="toggleSection(this)">
+            <i class="fas fa-map-marked-alt neon-magenta"></i>
+            <span style="flex: 1;">Visualization & Mapping Tools (3 tools)</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="collapsible-content">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; padding: 20px;">
+                
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-map neon-magenta"></i>
+                        <strong>Enhanced Map Viewer</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Full-featured spatial workbench with Leaflet-based interactive mapping, layer toggles, basemap selection, 
+                        multi-format export (DXF/KML/SHP/PNG), measurement tools, address search, and full-screen mode.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-magenta);">
+                        <i class="fas fa-link"></i> /map-viewer-v2
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-eye neon-magenta"></i>
+                        <strong>Entity Viewer</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Lightweight 2D viewer for project entities with SVG rendering, multi-select filters, and dynamic legend. 
+                        Quick visualization without loading full GIS stack.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-magenta);">
+                        <i class="fas fa-link"></i> /entity-viewer
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-brain neon-magenta"></i>
+                        <strong>Schema Knowledge Graph</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Optimized database schema visualization using Cytoscape.js. Interactive graph showing tables, 
+                        columns, and relationships with advanced layout algorithms.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-magenta);">
+                        <i class="fas fa-link"></i> /schema/graph
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Network Analysis Tools -->
+    <div class="collapsible-section" style="margin-bottom: 20px;">
+        <button class="collapsible-header" onclick="toggleSection(this)">
+            <i class="fas fa-network-wired neon-cyan"></i>
+            <span style="flex: 1;">Network Analysis Tools (3 tools)</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="collapsible-content">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; padding: 20px;">
+                
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-water neon-cyan"></i>
+                        <strong>Gravity Pipe Network Manager</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Specialized tool for gravity-based utility networks (storm drains, sanitary sewers). 
+                        Network topology analysis, flow calculations, and hydraulic modeling integration.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /gravity-network-manager
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-tint neon-cyan"></i>
+                        <strong>Pressure Pipe Network Manager</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Specialized tool for pressurized utility networks (water distribution, force mains). 
+                        Pressure zone analysis, hydraulic grade calculations, and valve management.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /pressure-network-manager
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-leaf neon-cyan"></i>
+                        <strong>BMP Manager</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Best Management Practices analysis tool for stormwater management. Volume calculations, 
+                        treatment capacity, and water quality analysis. Surgical filtering by basin type.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /bmp-manager
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Survey Tools -->
+    <div class="collapsible-section" style="margin-bottom: 20px;">
+        <button class="collapsible-header" onclick="toggleSection(this)">
+            <i class="fas fa-crosshairs neon-yellow"></i>
+            <span style="flex: 1;">Survey Tools (2 tools)</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="collapsible-content">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; padding: 20px;">
+                
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-map-marked neon-yellow"></i>
+                        <strong>Survey Point Manager</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Comprehensive point management interface for imported survey data. Filter, search, edit, and export 
+                        survey points with coordinate transformation support.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-yellow);">
+                        <i class="fas fa-link"></i> Project Command Center sidebar
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-check-square neon-yellow"></i>
+                        <strong>Survey Code Testing Interface</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Comprehensive testing and validation system for survey codes. Test parsing, CAD generation, 
+                        and validation rules before deploying to production.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-yellow);">
+                        <i class="fas fa-link"></i> /tools/survey-codes (Testing tab)
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics & Quality Tools -->
+    <div class="collapsible-section" style="margin-bottom: 20px;">
+        <button class="collapsible-header" onclick="toggleSection(this)">
+            <i class="fas fa-chart-line neon-green"></i>
+            <span style="flex: 1;">Analytics & Quality Tools (2 tools)</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="collapsible-content">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; padding: 20px;">
+                
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-chart-area neon-green"></i>
+                        <strong>Usage Dashboard</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Analytics on project/layer/block/note usage patterns. Track which standards are most used, 
+                        identify orphaned data, and optimize your standards library.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-green);">
+                        <i class="fas fa-link"></i> /usage-dashboard
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-star neon-green"></i>
+                        <strong>Quality Dashboard</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        AI-powered quality assessment dashboard. View entity quality scores, completeness metrics, 
+                        embedding coverage, and relationship health across all projects.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-green);">
+                        <i class="fas fa-link"></i> /quality-dashboard
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- AI/ML Tools -->
+    <div class="collapsible-section" style="margin-bottom: 20px;">
+        <button class="collapsible-header" onclick="toggleSection(this)">
+            <i class="fas fa-robot neon-magenta"></i>
+            <span style="flex: 1;">AI/ML Tools (3 tools)</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="collapsible-content">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; padding: 20px;">
+                
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-tools neon-magenta"></i>
+                        <strong>AI Toolkit</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Python modules and web interface for data ingestion, embedding generation, relationship building, 
+                        validation, and maintenance. Core AI infrastructure.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-magenta);">
+                        <i class="fas fa-link"></i> /toolkit
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-network-wired neon-magenta"></i>
+                        <strong>Knowledge Graph Visualization</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Interactive visualization of AI-generated knowledge graph. Explore spatial, engineering, and semantic 
+                        relationships using GraphRAG. Multi-hop query support.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-magenta);">
+                        <i class="fas fa-link"></i> /graph
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-search neon-magenta"></i>
+                        <strong>Hybrid Search</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Combines vector similarity search (embeddings), full-text search (PostgreSQL), and spatial queries 
+                        (PostGIS) for intelligent CAD/GIS data retrieval.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-magenta);">
+                        <i class="fas fa-link"></i> API-based (integrated into tools)
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Tools -->
+    <div class="collapsible-section" style="margin-bottom: 20px;">
+        <button class="collapsible-header" onclick="toggleSection(this)">
+            <i class="fas fa-database neon-cyan"></i>
+            <span style="flex: 1;">Database Tools (3 tools)</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="collapsible-content">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; padding: 20px;">
+                
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-table neon-cyan"></i>
+                        <strong>Schema Explorer</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Classic database table browser with column information, data types, constraints, and indexes. 
+                        CRUD operations for CAD standards and vocabulary.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /schema
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-project-diagram neon-cyan"></i>
+                        <strong>Schema Relationships</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Interactive diagram showing database table relationships, foreign keys, and cardinality. 
+                        Visual understanding of schema structure.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /schema/relationships
+                    </div>
+                </div>
+
+                <div class="stat-card" style="padding: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-file-export neon-cyan"></i>
+                        <strong>Standards Export</strong>
+                    </div>
+                    <div class="subtitle" style="font-size: 0.9em; line-height: 1.6;">
+                        Export CAD standards and mapping configurations to various formats for documentation, 
+                        backup, or migration to other systems.
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: var(--neon-cyan);">
+                        <i class="fas fa-link"></i> /standards-export
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Key Differentiators -->
+<div id="differentiators" class="panel" style="margin-bottom: 30px;">
+    <h3 class="orbitron" style="color: var(--neon-cyan); margin-bottom: 20px;">
+        <i class="fas fa-star"></i> Key Differentiators
+    </h3>
+    
+    <p style="margin-bottom: 25px; line-height: 1.8;">
+        ACAD-GIS introduces capabilities that are impossible in traditional file-based CAD workflows. 
+        These features represent fundamental architectural advantages of the database-centric approach.
+    </p>
+
+    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+        
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(0,255,255,0.1), rgba(0,255,255,0.05));">
+            <div class="stat-value" style="color: var(--neon-cyan); font-size: 2em;">
+                <i class="fas fa-brain"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">GraphRAG & Semantic Search</div>
+            <div style="font-size: 0.9em; line-height: 1.7;">
+                <p style="margin-bottom: 10px;"><strong>What it is:</strong></p>
+                <p style="margin-bottom: 15px;">
+                    Graph Retrieval-Augmented Generation combines explicit relationship edges with vector embeddings 
+                    to enable multi-hop reasoning across your CAD data.
+                </p>
+                <p style="margin-bottom: 10px;"><strong>Example query:</strong></p>
+                <p style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 4px; font-style: italic; margin-bottom: 15px;">
+                    "Find all storm drains that connect to structures within 500 feet of buildings on Main Street"
+                </p>
+                <p>
+                    This type of semantic, relationship-aware query is impossible in traditional CAD systems.
+                </p>
+            </div>
+        </div>
+
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(255,255,0,0.1), rgba(255,255,0,0.05));">
+            <div class="stat-value" style="color: var(--neon-yellow); font-size: 2em;">
+                <i class="fas fa-check-double"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">Automated Compliance Tracking</div>
+            <div style="font-size: 0.9em; line-height: 1.7;">
+                <p style="margin-bottom: 10px;"><strong>What it is:</strong></p>
+                <p style="margin-bottom: 15px;">
+                    Project Relationship Sets continuously monitor dependencies between CAD elements, specifications, 
+                    details, notes, and materials. Violations are detected automatically.
+                </p>
+                <p style="margin-bottom: 10px;"><strong>Example detection:</strong></p>
+                <ul style="list-style: none; padding-left: 0; font-size: 0.85em;">
+                    <li style="margin-bottom: 8px;">✗ Block "INLET-TYPE-B" used but Detail "D-INLET-B" not in project</li>
+                    <li style="margin-bottom: 8px;">✗ Hatch pattern changed but Material spec outdated</li>
+                    <li style="margin-bottom: 8px;">✗ Required note missing from sheet set</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,255,136,0.05));">
+            <div class="stat-value" style="color: var(--neon-green); font-size: 2em;">
+                <i class="fas fa-layer-group"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">Multi-Project Intelligence</div>
+            <div style="font-size: 0.9em; line-height: 1.7;">
+                <p style="margin-bottom: 10px;"><strong>What it is:</strong></p>
+                <p style="margin-bottom: 15px;">
+                    Query and analyze data across your entire project portfolio simultaneously. Identify patterns, 
+                    reuse successful solutions, and learn from historical projects.
+                </p>
+                <p style="margin-bottom: 10px;"><strong>Examples:</strong></p>
+                <ul style="list-style: none; padding-left: 0; font-size: 0.85em;">
+                    <li style="margin-bottom: 8px;">• "Which inlet type is most used across all projects?"</li>
+                    <li style="margin-bottom: 8px;">• "Show me all bioretention designs from the last 3 years"</li>
+                    <li style="margin-bottom: 8px;">• "What pipe materials work best in coastal areas?"</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(255,0,255,0.1), rgba(255,0,255,0.05));">
+            <div class="stat-value" style="color: var(--neon-magenta); font-size: 2em;">
+                <i class="fas fa-history"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">Built-in Version Control</div>
+            <div style="font-size: 0.9em; line-height: 1.7;">
+                <p style="margin-bottom: 10px;"><strong>What it is:</strong></p>
+                <p style="margin-bottom: 15px;">
+                    Every change to CAD data is tracked with timestamps, user attribution, and full audit trails. 
+                    No more manual file versioning or "FINAL_v3_REVISED_FINAL.dwg".
+                </p>
+                <p style="margin-bottom: 10px;"><strong>Features:</strong></p>
+                <ul style="list-style: none; padding-left: 0; font-size: 0.85em;">
+                    <li style="margin-bottom: 8px;">✓ Change detection on DXF import</li>
+                    <li style="margin-bottom: 8px;">✓ Entity modification history</li>
+                    <li style="margin-bottom: 8px;">✓ Rollback capabilities</li>
+                    <li style="margin-bottom: 8px;">✓ Diff visualization</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(0,255,255,0.1), rgba(0,255,255,0.05));">
+            <div class="stat-value" style="color: var(--neon-cyan); font-size: 2em;">
+                <i class="fas fa-sync-alt"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">Truth-Driven Architecture</div>
+            <div style="font-size: 0.9em; line-height: 1.7;">
+                <p style="margin-bottom: 10px;"><strong>What it is:</strong></p>
+                <p style="margin-bottom: 15px;">
+                    All vocabulary, standards, and tool configurations live in the database. Changes propagate 
+                    automatically across the entire system without code modifications.
+                </p>
+                <p style="margin-bottom: 10px;"><strong>Benefits:</strong></p>
+                <ul style="list-style: none; padding-left: 0; font-size: 0.85em;">
+                    <li style="margin-bottom: 8px;">✓ Add new object types without coding</li>
+                    <li style="margin-bottom: 8px;">✓ Client-specific standards customization</li>
+                    <li style="margin-bottom: 8px;">✓ Dynamic UI updates</li>
+                    <li style="margin-bottom: 8px;">✓ Instant vocabulary refresh</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="stat-card" style="background: linear-gradient(135deg, rgba(255,255,0,0.1), rgba(255,255,0,0.05));">
+            <div class="stat-value" style="color: var(--neon-yellow); font-size: 2em;">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="stat-label" style="font-size: 1.1em; margin-bottom: 15px;">Quality-Driven Workflows</div>
+            <div style="font-size: 0.9em; line-height: 1.7;">
+                <p style="margin-bottom: 10px;"><strong>What it is:</strong></p>
+                <p style="margin-bottom: 15px;">
+                    Every entity has a quality score based on completeness, embedding coverage, relationship health, 
+                    and metadata richness. Surface data quality issues automatically.
+                </p>
+                <p style="margin-bottom: 10px;"><strong>Scoring factors:</strong></p>
+                <ul style="list-style: none; padding-left: 0; font-size: 0.85em;">
+                    <li style="margin-bottom: 8px;">• Required attributes present (30%)</li>
+                    <li style="margin-bottom: 8px;">• Vector embedding exists (25%)</li>
+                    <li style="margin-bottom: 8px;">• Graph relationships defined (25%)</li>
+                    <li style="margin-bottom: 8px;">• Metadata completeness (20%)</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Technology Stack -->
+<div class="panel" style="margin-bottom: 30px;">
+    <h3 class="orbitron" style="color: var(--neon-cyan); margin-bottom: 20px;">
+        <i class="fas fa-code"></i> Technology Stack
+    </h3>
+    
+    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+        
+        <div style="padding: 15px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.3); border-radius: 8px;">
+            <div style="font-weight: bold; color: var(--neon-cyan); margin-bottom: 10px;">Database</div>
+            <div style="font-size: 0.9em; line-height: 1.6;">
+                • PostgreSQL 12+<br>
+                • PostGIS 3.3+<br>
+                • pgvector 0.8+
+            </div>
+        </div>
+
+        <div style="padding: 15px; background: rgba(255,255,0,0.05); border: 1px solid rgba(255,255,0,0.3); border-radius: 8px;">
+            <div style="font-weight: bold; color: var(--neon-yellow); margin-bottom: 10px;">Backend</div>
+            <div style="font-size: 0.9em; line-height: 1.6;">
+                • Python 3.11+<br>
+                • Flask (web framework)<br>
+                • psycopg2 (database)
+            </div>
+        </div>
+
+        <div style="padding: 15px; background: rgba(0,255,136,0.05); border: 1px solid rgba(0,255,136,0.3); border-radius: 8px;">
+            <div style="font-weight: bold; color: var(--neon-green); margin-bottom: 10px;">AI/ML</div>
+            <div style="font-size: 0.9em; line-height: 1.6;">
+                • OpenAI API<br>
+                • 1536-dim embeddings<br>
+                • GraphRAG
+            </div>
+        </div>
+
+        <div style="padding: 15px; background: rgba(255,0,255,0.05); border: 1px solid rgba(255,0,255,0.3); border-radius: 8px;">
+            <div style="font-weight: bold; color: var(--neon-magenta); margin-bottom: 10px;">CAD/GIS</div>
+            <div style="font-size: 0.9em; line-height: 1.6;">
+                • ezdxf<br>
+                • pyproj<br>
+                • shapely, fiona
+            </div>
+        </div>
+
+        <div style="padding: 15px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.3); border-radius: 8px;">
+            <div style="font-weight: bold; color: var(--neon-cyan); margin-bottom: 10px;">Frontend</div>
+            <div style="font-size: 0.9em; line-height: 1.6;">
+                • Jinja2 templates<br>
+                • Vanilla JavaScript<br>
+                • Mission Control CSS
+            </div>
+        </div>
+
+        <div style="padding: 15px; background: rgba(255,255,0,0.05); border: 1px solid rgba(255,255,0,0.3); border-radius: 8px;">
+            <div style="font-weight: bold; color: var(--neon-yellow); margin-bottom: 10px;">Visualization</div>
+            <div style="font-size: 0.9em; line-height: 1.6;">
+                • Leaflet.js 1.9.4<br>
+                • Cytoscape.js 3.28.1<br>
+                • Vis.js
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Footer CTA -->
+<div style="text-align: center; padding: 40px 20px; background: linear-gradient(135deg, rgba(0,255,255,0.1), rgba(0,255,136,0.1)); border-radius: 12px;">
+    <h3 class="orbitron" style="color: var(--neon-cyan); margin-bottom: 20px;">
+        Ready to Explore?
+    </h3>
+    <p style="margin-bottom: 25px; line-height: 1.8; max-width: 700px; margin-left: auto; margin-right: auto;">
+        ACAD-GIS represents a fundamental shift in how CAD/GIS data is managed, analyzed, and understood. 
+        Start with the Standards Library, import your first DXF file, or explore the AI-powered Knowledge Graph.
+    </p>
+    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+        <a href="/standards-library" class="btn btn-primary">
+            <i class="fas fa-book"></i> Explore Standards
+        </a>
+        <a href="/dxf-tools" class="btn btn-secondary">
+            <i class="fas fa-file-import"></i> Import DXF
+        </a>
+        <a href="/graph" class="btn btn-secondary">
+            <i class="fas fa-network-wired"></i> View Knowledge Graph
+        </a>
+        <a href="/projects" class="btn btn-secondary">
+            <i class="fas fa-folder"></i> Manage Projects
+        </a>
+    </div>
+</div>
+
+<script>
+function toggleSection(button) {
+    const content = button.nextElementSibling;
+    const icon = button.querySelector('.fa-chevron-down, .fa-chevron-up');
+    
+    if (content.style.display === 'block') {
+        content.style.display = 'none';
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+    } else {
+        content.style.display = 'block';
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+    }
+}
+
+// Smooth scroll to anchors
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+</script>
+
+<style>
+.collapsible-section {
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.collapsible-header {
+    width: 100%;
+    padding: 15px 20px;
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.1), rgba(0, 255, 136, 0.1));
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s ease;
+}
+
+.collapsible-header:hover {
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.2), rgba(0, 255, 136, 0.2));
+}
+
+.collapsible-header i.fa-chevron-down,
+.collapsible-header i.fa-chevron-up {
+    margin-left: auto;
+    transition: transform 0.3s ease;
+}
+
+.collapsible-content {
+    display: none;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.btn-sm {
+    padding: 8px 16px;
+    font-size: 0.9em;
+}
+</style>
+
+{% endblock %}
