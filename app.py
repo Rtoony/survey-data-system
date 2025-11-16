@@ -3218,32 +3218,34 @@ def get_disciplines():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/vocabulary/categories', methods=['GET'])
-def get_categories_by_discipline():
-    """Get categories filtered by discipline"""
-    try:
-        discipline_id = request.args.get('discipline_id', type=int)
-        
-        if discipline_id:
-            query = """
-                SELECT category_id, discipline_id, code, full_name, description, sort_order
-                FROM category_codes
-                WHERE is_active = TRUE AND discipline_id = %s
-                ORDER BY sort_order, code
-            """
-            categories = execute_query(query, (discipline_id,))
-        else:
-            query = """
-                SELECT category_id, discipline_id, code, full_name, description, sort_order
-                FROM category_codes
-                WHERE is_active = TRUE
-                ORDER BY sort_order, code
-            """
-            categories = execute_query(query)
-        
-        return jsonify({'categories': categories})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+# DUPLICATE ROUTE REMOVED - This was causing "undefined --- undefined" in vocabulary page
+# The correct route with JOIN to disciplines is at line ~13354 (get_vocabulary_categories)
+# @app.route('/api/vocabulary/categories', methods=['GET'])
+# def get_categories_by_discipline():
+#     """Get categories filtered by discipline"""
+#     try:
+#         discipline_id = request.args.get('discipline_id', type=int)
+#
+#         if discipline_id:
+#             query = """
+#                 SELECT category_id, discipline_id, code, full_name, description, sort_order
+#                 FROM category_codes
+#                 WHERE is_active = TRUE AND discipline_id = %s
+#                 ORDER BY sort_order, code
+#             """
+#             categories = execute_query(query, (discipline_id,))
+#         else:
+#             query = """
+#                 SELECT category_id, discipline_id, code, full_name, description, sort_order
+#                 FROM category_codes
+#                 WHERE is_active = TRUE
+#                 ORDER BY sort_order, code
+#             """
+#             categories = execute_query(query)
+#
+#         return jsonify({'categories': categories})
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/vocabulary/types', methods=['GET'])
 def get_types_by_category():
