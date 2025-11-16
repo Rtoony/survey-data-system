@@ -141,13 +141,17 @@
                 </div>
             </div>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/tools/batch-point-import', '/tools/z-stress-test', '/tools/specialized-tools-directory', '/map-viewer', '/map-viewer-v2', '/sheet-notes', '/entity-viewer'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-tools', '/tools/batch-point-import', '/tools/z-stress-test', '/tools/specialized-tools-directory', '/map-viewer', '/map-viewer-v2', '/sheet-notes', '/entity-viewer', '/tools/nl-query'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-drafting-compass"></i>
                     <span>Tools</span>
                     <i class="fas fa-chevron-down mc-dropdown-icon"></i>
                 </button>
                 <div class="mc-dropdown">
+                    <a href="/tools/nl-query" class="mc-dropdown-item {% if request.path == '/tools/nl-query' %}active{% endif %}">
+                        <i class="fas fa-brain"></i>
+                        <span style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 600;">Natural Language Query</span>
+                    </a>
                     <a href="/tools/specialized-tools-directory" class="mc-dropdown-item {% if request.path == '/tools/specialized-tools-directory' %}active{% endif %}">
                         <i class="fas fa-tools"></i>
                         Specialized Tools Directory

@@ -188,6 +188,11 @@ def survey_codes_manager():
     """Survey Code Library Manager - CRUD interface for field survey codes"""
     return render_template('tools/survey_codes.html')
 
+@app.route('/tools/nl-query')
+def nl_query_page():
+    """Natural Language Query Interface page"""
+    return render_template('nl_query.html')
+
 @app.route('/tools/survey-code-tester')
 def survey_code_tester():
     """Survey Code Testing Interface - Test parsing, preview CAD output, simulate field shots"""

@@ -1,0 +1,1060 @@
+{% extends "base.html" %}
+
+{% block title %}Natural Language Query{% endblock %}
+
+{% block extra_head %}
+<style>
+.nl-query-container {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: var(--spacing-lg);
+    height: calc(100vh - 200px);
+    margin-top: var(--spacing-lg);
+}
+
+/* Sidebar */
+.nl-sidebar {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebar-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-sm);
+    color: var(--accent-cyan);
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.history-list {
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.history-item {
+    background: var(--bg-tertiary);
+    padding: var(--spacing-sm);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+}
+
+.history-item:hover {
+    background: var(--bg-primary);
+    border-left-color: var(--accent-cyan);
+}
+
+.history-item.active {
+    border-left-color: var(--accent-green);
+    background: rgba(0, 255, 157, 0.1);
+}
+
+.history-item-query {
+    font-size: 13px;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.history-item-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.history-item-status {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.status-success {
+    background: rgba(76, 175, 80, 0.2);
+    color: var(--accent-green);
+}
+
+.status-error {
+    background: rgba(244, 67, 54, 0.2);
+    color: #ff5252;
+}
+
+.status-pending {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+.template-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.template-item {
+    background: var(--bg-tertiary);
+    padding: var(--spacing-sm);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+}
+
+.template-item:hover {
+    background: var(--bg-primary);
+    border-left-color: var(--accent-purple);
+}
+
+.template-item-name {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.template-item-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.template-category {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    background: rgba(156, 39, 176, 0.2);
+    color: var(--accent-purple);
+    margin-top: 4px;
+}
+
+/* Main Chat Area */
+.nl-main {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chat-header {
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chat-header-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.chat-header-title i {
+    color: var(--accent-cyan);
+    font-size: 24px;
+}
+
+.chat-header-title h2 {
+    margin: 0;
+    font-size: 20px;
+    color: var(--text-primary);
+}
+
+.chat-header-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.chat-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.message {
+    display: flex;
+    gap: var(--spacing-sm);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message-user {
+    flex-direction: row-reverse;
+}
+
+.message-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.message-user .message-avatar {
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+    color: var(--bg-primary);
+}
+
+.message-assistant .message-avatar {
+    background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+    color: var(--bg-primary);
+}
+
+.message-content {
+    max-width: 70%;
+}
+
+.message-user .message-content {
+    align-items: flex-end;
+}
+
+.message-bubble {
+    padding: var(--spacing-md);
+    border-radius: 12px;
+    word-wrap: break-word;
+}
+
+.message-user .message-bubble {
+    background: rgba(0, 188, 212, 0.15);
+    border: 1px solid rgba(0, 188, 212, 0.3);
+}
+
+.message-assistant .message-bubble {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+}
+
+.message-text {
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin-bottom: var(--spacing-sm);
+}
+
+.message-sql {
+    background: var(--bg-primary);
+    border-radius: 8px;
+    padding: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    border-left: 3px solid var(--accent-green);
+}
+
+.message-sql-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-xs);
+}
+
+.message-sql-label {
+    font-size: 11px;
+    color: var(--accent-green);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.message-sql-code {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.message-results {
+    margin-top: var(--spacing-md);
+    background: var(--bg-primary);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.results-header {
+    padding: var(--spacing-sm);
+    background: rgba(0, 255, 157, 0.1);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 12px;
+    color: var(--accent-green);
+    font-weight: 600;
+}
+
+.results-table-container {
+    overflow-x: auto;
+    max-height: 400px;
+}
+
+.results-table {
+    width: 100%;
+    font-size: 12px;
+}
+
+.results-table th {
+    background: var(--bg-tertiary);
+    padding: var(--spacing-sm);
+    text-align: left;
+    color: var(--text-secondary);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.results-table td {
+    padding: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.results-table tr:hover td {
+    background: var(--bg-secondary);
+}
+
+.message-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.message-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+}
+
+.message-action-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.message-action-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+}
+
+.message-action-btn.favorited {
+    color: var(--accent-yellow);
+    border-color: var(--accent-yellow);
+}
+
+/* Chat Input */
+.chat-input-container {
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-color);
+}
+
+.chat-input-wrapper {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: flex-end;
+}
+
+.chat-input {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.chat-textarea {
+    width: 100%;
+    min-height: 60px;
+    max-height: 150px;
+    padding: var(--spacing-sm);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    transition: all 0.2s;
+}
+
+.chat-textarea:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 2px rgba(0, 188, 212, 0.1);
+}
+
+.chat-textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.chat-input-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.chat-send-btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+    color: var(--bg-primary);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    align-self: flex-end;
+}
+
+.chat-send-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 188, 212, 0.4);
+}
+
+.chat-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    text-align: center;
+    padding: var(--spacing-xl);
+}
+
+.empty-state-icon {
+    font-size: 64px;
+    color: var(--accent-cyan);
+    opacity: 0.3;
+    margin-bottom: var(--spacing-md);
+}
+
+.empty-state-title {
+    font-size: 20px;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.empty-state-text {
+    font-size: 14px;
+    max-width: 400px;
+}
+
+.example-queries {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
+    max-width: 800px;
+}
+
+.example-query {
+    background: var(--bg-tertiary);
+    padding: var(--spacing-sm);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    text-align: left;
+}
+
+.example-query:hover {
+    border-color: var(--accent-cyan);
+    background: var(--bg-secondary);
+}
+
+.example-query-text {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 188, 212, 0.3);
+    border-top-color: var(--accent-cyan);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+    .nl-query-container {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+
+    .nl-sidebar {
+        max-height: 300px;
+    }
+
+    .message-content {
+        max-width: 85%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1><i class="fas fa-brain"></i> Natural Language Query</h1>
+        <p class="subtitle">Ask questions in plain English, get instant SQL results</p>
+    </div>
+
+    <div class="nl-query-container">
+        <!-- Sidebar -->
+        <div class="nl-sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-header">
+                    <span><i class="fas fa-history"></i> Query History</span>
+                    <button class="btn btn-sm btn-secondary" onclick="loadHistory()" title="Refresh">
+                        <i class="fas fa-sync"></i>
+                    </button>
+                </div>
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <button class="btn btn-sm" onclick="filterHistory('all')" id="filterAll">All</button>
+                    <button class="btn btn-sm btn-secondary" onclick="filterHistory('favorites')" id="filterFavorites">
+                        <i class="fas fa-star"></i> Favorites
+                    </button>
+                </div>
+                <div class="history-list" id="historyList">
+                    <div class="empty-state" style="padding: 20px; font-size: 12px;">
+                        No queries yet. Ask your first question below!
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-header">
+                    <span><i class="fas fa-templates"></i> Templates</span>
+                    <span class="badge" id="templateCount">0</span>
+                </div>
+                <div class="template-list" id="templateList">
+                    <div class="empty-state" style="padding: 20px; font-size: 12px;">
+                        Loading templates...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="nl-main">
+            <div class="chat-header">
+                <div class="chat-header-title">
+                    <i class="fas fa-robot"></i>
+                    <div>
+                        <h2>AI Query Assistant</h2>
+                        <div class="chat-header-subtitle">Powered by GPT-4 • Ask anything about your CAD/GIS data</div>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <button class="btn btn-secondary" onclick="clearChat()" title="Clear conversation">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportChat()" title="Export conversation">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <!-- Empty state -->
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <div class="empty-state-title">Start a Conversation</div>
+                    <div class="empty-state-text">
+                        Ask questions in plain English and get instant SQL queries with results.
+                        Try one of these examples:
+                    </div>
+                    <div class="example-queries">
+                        <div class="example-query" onclick="useExampleQuery(this)">
+                            <div class="example-query-text">How many storm drains are in the system?</div>
+                        </div>
+                        <div class="example-query" onclick="useExampleQuery(this)">
+                            <div class="example-query-text">Show me all survey points collected in the last 30 days</div>
+                        </div>
+                        <div class="example-query" onclick="useExampleQuery(this)">
+                            <div class="example-query-text">Find manholes that don't have connected pipes</div>
+                        </div>
+                        <div class="example-query" onclick="useExampleQuery(this)">
+                            <div class="example-query-text">Give me a summary of the Main Street project</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <div class="chat-input">
+                        <textarea
+                            id="queryInput"
+                            class="chat-textarea"
+                            placeholder="Ask a question about your CAD/GIS data..."
+                            rows="2"
+                            onkeypress="handleKeyPress(event)"></textarea>
+                        <div class="chat-input-meta">
+                            <span id="charCount">0 / 500</span>
+                            <span><i class="fas fa-lightbulb"></i> Press Ctrl+Enter to send</span>
+                        </div>
+                    </div>
+                    <button class="chat-send-btn" id="sendBtn" onclick="sendQuery()">
+                        <i class="fas fa-paper-plane"></i>
+                        <span>Send</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentFilter = 'all';
+let queryHistory = [];
+let templates = [];
+let conversationMessages = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    loadHistory();
+    loadTemplates();
+    setupCharCounter();
+});
+
+function setupCharCounter() {
+    const input = document.getElementById('queryInput');
+    const counter = document.getElementById('charCount');
+
+    input.addEventListener('input', function() {
+        const length = this.value.length;
+        counter.textContent = `${length} / 500`;
+
+        if (length > 500) {
+            counter.style.color = 'var(--accent-red)';
+        } else {
+            counter.style.color = 'var(--text-muted)';
+        }
+    });
+}
+
+async function loadHistory() {
+    try {
+        const response = await fetch(`/api/nl-query/history?limit=50&favorites_only=${currentFilter === 'favorites'}`);
+        const data = await response.json();
+        queryHistory = data;
+        renderHistory();
+    } catch (error) {
+        console.error('Error loading history:', error);
+    }
+}
+
+async function loadTemplates() {
+    try {
+        const response = await fetch('/api/nl-query/templates');
+        const data = await response.json();
+        templates = data;
+        renderTemplates();
+    } catch (error) {
+        console.error('Error loading templates:', error);
+    }
+}
+
+function renderHistory() {
+    const container = document.getElementById('historyList');
+
+    if (queryHistory.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 20px; font-size: 12px;">
+                ${currentFilter === 'favorites' ? 'No favorite queries yet' : 'No queries yet'}
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = queryHistory.map(item => `
+        <div class="history-item" onclick="loadQuery('${item.query_id}')">
+            <div class="history-item-query">${escapeHtml(item.natural_language_query)}</div>
+            <div class="history-item-meta">
+                <span class="history-item-status status-${item.execution_status}">${item.execution_status}</span>
+                ${item.result_count ? `<span><i class="fas fa-database"></i> ${item.result_count} rows</span>` : ''}
+                ${item.is_favorite ? '<i class="fas fa-star" style="color: var(--accent-yellow);"></i>' : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderTemplates() {
+    const container = document.getElementById('templateList');
+    document.getElementById('templateCount').textContent = templates.length;
+
+    if (templates.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 20px; font-size: 12px;">
+                No templates available
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = templates.map(template => `
+        <div class="template-item" onclick="useTemplate('${template.template_id}')">
+            <div class="template-item-name">${escapeHtml(template.template_name)}</div>
+            <div class="template-item-desc">${escapeHtml(template.template_description || '')}</div>
+            <span class="template-category">${template.category}</span>
+        </div>
+    `).join('');
+}
+
+function filterHistory(filter) {
+    currentFilter = filter;
+    document.getElementById('filterAll').className = filter === 'all' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
+    document.getElementById('filterFavorites').className = filter === 'favorites' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
+    loadHistory();
+}
+
+async function sendQuery() {
+    const input = document.getElementById('queryInput');
+    const query = input.value.trim();
+
+    if (!query) return;
+
+    // Hide empty state
+    document.getElementById('emptyState').style.display = 'none';
+
+    // Add user message
+    addMessage('user', query);
+
+    // Clear input
+    input.value = '';
+    document.getElementById('charCount').textContent = '0 / 500';
+
+    // Disable send button
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<div class="loading-spinner"></div><span>Processing...</span>';
+
+    try {
+        // Call API to process query
+        const response = await fetch('/api/nl-query/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            // Add assistant message with SQL
+            addMessage('assistant', result.explanation, result.sql, result.query_id);
+
+            // Execute the query
+            await executeQuery(result.sql, result.query_id);
+        } else {
+            addMessage('assistant', `Error: ${result.error}`, null, null, true);
+        }
+    } catch (error) {
+        addMessage('assistant', `Error: ${error.message}`, null, null, true);
+    } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i><span>Send</span>';
+        loadHistory(); // Refresh history
+    }
+}
+
+async function executeQuery(sql, queryId) {
+    try {
+        const response = await fetch('/api/nl-query/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sql, query_id: queryId })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            // Update last message with results
+            updateLastMessageWithResults(result.results, result.count, result.execution_time_ms);
+        } else {
+            updateLastMessageWithError(result.error);
+        }
+    } catch (error) {
+        updateLastMessageWithError(error.message);
+    }
+}
+
+function addMessage(role, text, sql = null, queryId = null, isError = false) {
+    const messagesContainer = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message message-${role}`;
+
+    const avatarIcon = role === 'user' ? 'fa-user' : 'fa-robot';
+
+    let messageHTML = `
+        <div class="message-avatar">
+            <i class="fas ${avatarIcon}"></i>
+        </div>
+        <div class="message-content">
+            <div class="message-bubble ${isError ? 'error' : ''}">
+                <div class="message-text">${escapeHtml(text)}</div>
+                ${sql ? `
+                    <div class="message-sql">
+                        <div class="message-sql-header">
+                            <span class="message-sql-label">Generated SQL</span>
+                            <button class="message-action-btn" onclick="copySql(this)" data-sql="${escapeHtml(sql)}">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <div class="message-sql-code">${escapeHtml(sql)}</div>
+                    </div>
+                ` : ''}
+                <div class="message-results" style="display: none;"></div>
+            </div>
+            ${queryId && role === 'assistant' ? `
+                <div class="message-actions">
+                    <button class="message-action-btn" onclick="toggleFavorite('${queryId}', this)">
+                        <i class="far fa-star"></i> Favorite
+                    </button>
+                    <button class="message-action-btn" onclick="rateQuery('${queryId}', 5)">
+                        <i class="far fa-thumbs-up"></i> Helpful
+                    </button>
+                    <button class="message-action-btn" onclick="rateQuery('${queryId}', 1)">
+                        <i class="far fa-thumbs-down"></i> Not Helpful
+                    </button>
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+    messageDiv.innerHTML = messageHTML;
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function updateLastMessageWithResults(results, count, executionTime) {
+    const messages = document.querySelectorAll('.message-assistant');
+    const lastMessage = messages[messages.length - 1];
+    const resultsDiv = lastMessage.querySelector('.message-results');
+
+    if (results.length === 0) {
+        resultsDiv.innerHTML = `
+            <div class="results-header">
+                <i class="fas fa-info-circle"></i>
+                <span>No results found</span>
+            </div>
+        `;
+    } else {
+        const columns = Object.keys(results[0]);
+        resultsDiv.innerHTML = `
+            <div class="results-header">
+                <i class="fas fa-check-circle"></i>
+                <span>${count} row${count !== 1 ? 's' : ''} returned in ${executionTime}ms</span>
+            </div>
+            <div class="results-table-container">
+                <table class="results-table">
+                    <thead>
+                        <tr>${columns.map(col => `<th>${escapeHtml(col)}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        ${results.map(row => `
+                            <tr>${columns.map(col => `<td>${escapeHtml(String(row[col] ?? ''))}</td>`).join('')}</tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    resultsDiv.style.display = 'block';
+}
+
+function updateLastMessageWithError(error) {
+    const messages = document.querySelectorAll('.message-assistant');
+    const lastMessage = messages[messages.length - 1];
+    const resultsDiv = lastMessage.querySelector('.message-results');
+
+    resultsDiv.innerHTML = `
+        <div class="results-header" style="background: rgba(244, 67, 54, 0.1); color: #ff5252;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Execution Error</span>
+        </div>
+        <div style="padding: 12px; color: var(--text-secondary); font-size: 13px;">
+            ${escapeHtml(error)}
+        </div>
+    `;
+    resultsDiv.style.display = 'block';
+}
+
+async function toggleFavorite(queryId, button) {
+    try {
+        const isFavorited = button.classList.contains('favorited');
+
+        const response = await fetch(`/api/nl-query/history/${queryId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_favorite: !isFavorited })
+        });
+
+        if (response.ok) {
+            button.classList.toggle('favorited');
+            button.querySelector('i').className = isFavorited ? 'far fa-star' : 'fas fa-star';
+            loadHistory();
+        }
+    } catch (error) {
+        console.error('Error toggling favorite:', error);
+    }
+}
+
+async function rateQuery(queryId, rating) {
+    try {
+        await fetch(`/api/nl-query/history/${queryId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_rating: rating,
+                user_feedback: rating >= 4 ? 'helpful' : 'not_helpful'
+            })
+        });
+    } catch (error) {
+        console.error('Error rating query:', error);
+    }
+}
+
+function copySql(button) {
+    const sql = button.dataset.sql;
+    navigator.clipboard.writeText(sql);
+
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+    setTimeout(() => {
+        button.innerHTML = originalHTML;
+    }, 2000);
+}
+
+function useExampleQuery(element) {
+    const query = element.querySelector('.example-query-text').textContent;
+    document.getElementById('queryInput').value = query;
+    document.getElementById('queryInput').focus();
+}
+
+async function useTemplate(templateId) {
+    // For now, just use the template with default values
+    // In the future, could show a modal to input parameter values
+    const template = templates.find(t => t.template_id === templateId);
+    if (template) {
+        // Simple parameter replacement with defaults
+        let query = template.natural_language_template;
+        const exampleValues = template.example_values || {};
+
+        Object.keys(exampleValues).forEach(key => {
+            query = query.replace(`{${key}}`, exampleValues[key]);
+        });
+
+        document.getElementById('queryInput').value = query;
+        document.getElementById('queryInput').focus();
+    }
+}
+
+function loadQuery(queryId) {
+    const query = queryHistory.find(q => q.query_id === queryId);
+    if (query) {
+        document.getElementById('queryInput').value = query.natural_language_query;
+        document.getElementById('queryInput').focus();
+    }
+}
+
+function handleKeyPress(event) {
+    if (event.ctrlKey && event.key === 'Enter') {
+        event.preventDefault();
+        sendQuery();
+    }
+}
+
+function clearChat() {
+    if (confirm('Clear all messages in this conversation?')) {
+        document.getElementById('chatMessages').innerHTML = '';
+        document.getElementById('emptyState').style.display = 'flex';
+    }
+}
+
+function exportChat() {
+    alert('Export functionality coming soon!');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
