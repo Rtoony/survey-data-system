@@ -482,5 +482,26 @@
     </script>
 
     {% block scripts %}{% endblock %}
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 10000;"></div>
+    <script>
+    function showToast(message, type = 'info') {
+        // type: 'success', 'error', 'warning', 'info'
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `mc-toast mc-toast-${type}`;
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        `;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    }
+    </script>
 </body>
 </html>

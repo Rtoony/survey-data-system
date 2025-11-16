@@ -343,19 +343,41 @@ function runValidation() {
     const selectedRules = Array.from(document.querySelectorAll('.rule-checkbox:checked')).map(cb => cb.value);
 
     if (selectedRules.length === 0) {
-        alert('Please select at least one validation rule');
+        showToast('Please select at least one validation rule', 'warning');
         return;
     }
 
-    document.getElementById('noResults').innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 3em; color: var(--mc-primary);"></i><p>Running validation...</p>';
+    const noResults = document.getElementById('noResults');
+    noResults.style.display = 'block';
+    noResults.innerHTML = `
+        <i class="fas fa-spinner fa-spin" style="font-size: 3em; color: var(--mc-primary);"></i>
+        <p>Running ${selectedRules.length} validation rules...</p>
+        <div style="width: 300px; margin: 20px auto; background: var(--mc-background); border-radius: 8px; overflow: hidden;">
+            <div id="validationProgress" style="height: 8px; background: var(--mc-primary); width: 0%; transition: width 0.3s;"></div>
+        </div>
+    `;
+
+    // Simulate progress (real implementation would use server-sent events or polling)
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += 10;
+        document.getElementById('validationProgress').style.width = progress + '%';
+        if (progress >= 90) clearInterval(progressInterval);
+    }, 300);
 
     fetch('/api/validation/run', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({rule_ids: selectedRules})
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    })
     .then(data => {
+        clearInterval(progressInterval);
+        document.getElementById('validationProgress').style.width = '100%';
+
         document.getElementById('noResults').style.display = 'none';
         document.getElementById('validationSummary').style.display = 'block';
 
@@ -368,20 +390,100 @@ function runValidation() {
 
         // Update detailed results
         const tbody = document.getElementById('detailedResults');
-        tbody.innerHTML = data.results.map(r => `
+        tbody.innerHTML = data.results.map((r, idx) => `
             <tr>
-                <td>${r.rule_name}</td>
+                <td>
+                    ${r.failures > 0 ? `<i class="fas fa-chevron-right expand-icon" onclick="toggleEntityList(${idx})" style="cursor: pointer; margin-right: 8px;"></i>` : ''}
+                    ${r.rule_name}
+                </td>
                 <td><span class="severity-badge severity-${r.severity}">${r.severity}</span></td>
                 <td>${r.failures}</td>
                 <td style="color: ${r.failures > 0 ? 'var(--mc-danger)' : 'var(--mc-accent)'};">
                     ${r.failures > 0 ? 'Failed' : 'Passed'}
                 </td>
             </tr>
+            ${r.failures > 0 ? `
+                <tr id="entities-${idx}" style="display: none;">
+                    <td colspan="4" style="padding-left: 40px; background: var(--mc-background);">
+                        <div style="padding: 10px;">
+                            <strong>Failing Entities:</strong>
+                            <div id="entity-list-${idx}">Loading...</div>
+                        </div>
+                    </td>
+                </tr>
+            ` : ''}
         `).join('');
+
+        // Store results data for entity expansion
+        window.validationResults = data.results;
+
+        const failCount = data.summary.failed;
+        if (failCount > 0) {
+            showToast(`Validation complete: ${failCount} issues found`, 'warning');
+        } else {
+            showToast('All validations passed!', 'success');
+        }
+
+        // Add "Generate QA/QC Report" button
+        const qaReportBtn = document.createElement('div');
+        qaReportBtn.style.marginTop = '20px';
+        qaReportBtn.style.textAlign = 'center';
+        qaReportBtn.innerHTML = `
+            <button onclick="generateQAReport()" class="mc-btn mc-btn-primary">
+                <i class="fas fa-file-pdf"></i> Generate QA/QC Report
+            </button>
+        `;
+        document.getElementById('validationSummary').appendChild(qaReportBtn);
     })
     .catch(err => {
-        document.getElementById('noResults').innerHTML = '<i class="fas fa-exclamation-triangle" style="font-size: 3em; color: var(--mc-danger);"></i><p>Error running validation</p>';
+        clearInterval(progressInterval);
+        showToast(`Validation failed: ${err.message}`, 'error');
+        noResults.innerHTML = '<i class="fas fa-exclamation-triangle" style="font-size: 3em; color: var(--mc-danger);"></i><p>Error running validation. Check console for details.</p>';
+        console.error('Validation error:', err);
     });
+}
+
+function generateQAReport() {
+    // Navigate to Report Builder with QA/QC template pre-selected
+    const qaTemplate = 'qa_qc';  // Or find the actual UUID
+    window.location.href = `/tools/report-builder?template=${qaTemplate}&autoGenerate=false`;
+}
+
+function toggleEntityList(index) {
+    const row = document.getElementById(`entities-${index}`);
+    const icon = event.target;
+
+    if (row.style.display === 'none') {
+        row.style.display = 'table-row';
+        icon.classList.remove('fa-chevron-right');
+        icon.classList.add('fa-chevron-down');
+
+        // Load entity details
+        const result = window.validationResults[index];
+        fetch(`/api/validation/results?rule_id=${result.rule_id}`)
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById(`entity-list-${index}`);
+                if (data.results && data.results.length > 0) {
+                    list.innerHTML = data.results.slice(0, 10).map(e =>
+                        `<div style="padding: 5px; border-bottom: 1px solid rgba(0,255,255,0.1);">
+                            Entity ID: <code>${e.entity_id}</code> - ${e.error_message || 'Validation failed'}
+                        </div>`
+                    ).join('') + (data.results.length > 10 ? `<div style="padding: 5px; color: var(--mc-muted);">...and ${data.results.length - 10} more</div>` : '');
+                } else {
+                    list.innerHTML = '<div style="padding: 5px; color: var(--mc-muted);">No detailed results available</div>';
+                }
+            })
+            .catch(err => {
+                console.error('Failed to load entity details:', err);
+                const list = document.getElementById(`entity-list-${index}`);
+                list.innerHTML = '<div style="padding: 5px; color: var(--mc-danger);">Failed to load details</div>';
+            });
+    } else {
+        row.style.display = 'none';
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-right');
+    }
 }
 
 function switchTab(tabName) {

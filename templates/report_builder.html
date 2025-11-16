@@ -221,21 +221,64 @@ let currentTemplateId = null;
 document.addEventListener('DOMContentLoaded', function() {
     loadTemplates();
     loadHistory();
+
+    // Handle URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const templateParam = urlParams.get('template');
+
+    if (templateParam) {
+        // Find and select the template after templates are loaded
+        setTimeout(() => {
+            fetch('/api/reports/templates')
+                .then(r => r.json())
+                .then(data => {
+                    const template = data.templates.find(t =>
+                        t.name.toLowerCase().includes('qa') ||
+                        t.category.toLowerCase().includes('qa') ||
+                        t.id === templateParam
+                    );
+                    if (template) {
+                        selectTemplate(template.id);
+
+                        // Auto-generate if requested
+                        if (urlParams.get('autoGenerate') === 'true') {
+                            setTimeout(() => {
+                                document.getElementById('generateBtn').click();
+                            }, 1000);
+                        }
+                    }
+                })
+                .catch(err => console.error('Failed to auto-select template:', err));
+        }, 500);
+    }
 });
 
 function loadTemplates() {
+    const list = document.getElementById('templateList');
+    list.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--mc-muted);"><i class="fas fa-spinner fa-spin"></i><br>Loading templates...</div>';
+
     fetch('/api/reports/templates')
-        .then(r => r.json())
-        .then(data => {
-            const list = document.getElementById('templateList');
-            list.innerHTML = data.templates.map(t => `
-                <div class="template-item" onclick="selectTemplate('${t.id}')">
-                    <div style="font-weight: bold; color: var(--mc-primary);">${t.name}</div>
-                    <div style="font-size: 0.9em; color: var(--mc-muted); margin-top: 3px;">${t.category}</div>
-                </div>
-            `).join('');
+        .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
         })
-        .catch(err => console.error('Error loading templates:', err));
+        .then(data => {
+            if (data.templates && data.templates.length > 0) {
+                list.innerHTML = data.templates.map(t => `
+                    <div class="template-item" onclick="selectTemplate('${t.id}')">
+                        <div style="font-weight: bold; color: var(--mc-primary);">${t.name}</div>
+                        <div style="font-size: 0.9em; color: var(--mc-muted); margin-top: 3px;">${t.category}</div>
+                    </div>
+                `).join('');
+            } else {
+                list.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--mc-muted);">No templates available</div>';
+            }
+        })
+        .catch(err => {
+            console.error('Error loading templates:', err);
+            list.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--mc-danger);"><i class="fas fa-exclamation-triangle"></i><br>Failed to load templates</div>';
+            showToast('Failed to load report templates', 'error');
+        });
 }
 
 function selectTemplate(templateId) {
@@ -255,12 +298,30 @@ function selectTemplate(templateId) {
             // Build parameter fields
             const params = template.parameters || {};
             const paramFields = document.getElementById('paramFields');
-            paramFields.innerHTML = Object.entries(params).map(([key, config]) => `
-                <div class="form-group">
-                    <label class="form-label">${config.label || key}</label>
-                    <input type="text" class="form-input" id="param_${key}" ${config.required ? 'required' : ''} />
-                </div>
-            `).join('');
+            paramFields.innerHTML = Object.entries(params).map(([key, config]) => {
+                if (key === 'project_id') {
+                    return `
+                        <div class="form-group">
+                            <label class="form-label">${config.label || 'Project'} ${config.required ? '<span style="color: var(--mc-danger);">*</span>' : ''}</label>
+                            <select class="form-input" id="param_${key}" ${config.required ? 'required' : ''}>
+                                <option value="">Loading projects...</option>
+                            </select>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="form-group">
+                            <label class="form-label">${config.label || key} ${config.required ? '<span style="color: var(--mc-danger);">*</span>' : ''}</label>
+                            <input type="text" class="form-input" id="param_${key}" ${config.required ? 'required' : ''} />
+                        </div>
+                    `;
+                }
+            }).join('');
+
+            // Load projects for project_id dropdown
+            if (params.project_id) {
+                loadProjectsDropdown('param_project_id');
+            }
 
             // Highlight selected template
             document.querySelectorAll('.template-item').forEach(el => el.classList.remove('active'));
@@ -268,40 +329,92 @@ function selectTemplate(templateId) {
         });
 }
 
+function loadProjectsDropdown(selectId) {
+    fetch('/api/projects')
+        .then(r => r.json())
+        .then(data => {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '<option value="">Select a project...</option>' +
+                data.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        })
+        .catch(err => {
+            console.error('Failed to load projects:', err);
+            const select = document.getElementById(selectId);
+            select.innerHTML = '<option value="">Failed to load projects</option>';
+            showToast('Failed to load projects', 'error');
+        });
+}
+
 document.getElementById('generateBtn')?.addEventListener('click', function() {
-    if (!currentTemplateId) return;
+    if (!currentTemplateId) {
+        showToast('Please select a template first', 'warning');
+        return;
+    }
+
+    const btn = this;
+    const originalText = btn.innerHTML;
+
+    // Disable button and show loading
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Report...';
 
     const template_id = currentTemplateId;
     const format = document.getElementById('outputFormat').value;
-
-    // Collect parameters
     const parameters = {};
+
+    // Validate required parameters
+    let hasErrors = false;
     document.querySelectorAll('[id^="param_"]').forEach(input => {
         const key = input.id.replace('param_', '');
-        parameters[key] = input.value;
+        if (input.hasAttribute('required') && !input.value) {
+            input.style.borderColor = 'var(--mc-danger)';
+            hasErrors = true;
+        } else {
+            input.style.borderColor = '';
+            parameters[key] = input.value;
+        }
     });
 
-    const statusDiv = document.getElementById('generationStatus');
-    const statusMsg = document.getElementById('statusMessage');
-    statusDiv.style.display = 'block';
-    statusMsg.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating report...';
+    if (hasErrors) {
+        showToast('Please fill in all required fields', 'error');
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        return;
+    }
 
     fetch('/api/reports/generate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({template_id, parameters, format})
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    })
     .then(data => {
         if (data.status === 'completed') {
-            statusMsg.innerHTML = `<i class="fas fa-check"></i> Report generated successfully! <a href="/api/reports/download/${data.report_id}" style="color: var(--mc-accent);">Download</a>`;
+            showToast('Report generated successfully!', 'success');
+            document.getElementById('generationStatus').innerHTML = `
+                <div style="padding: var(--mc-spacing-md); background: rgba(0, 255, 136, 0.1); border-left: 4px solid var(--mc-accent); border-radius: var(--mc-radius-sm);">
+                    <i class="fas fa-check-circle"></i> Report ready!
+                    <a href="/api/reports/download/${data.report_id}" class="mc-btn mc-btn-sm mc-btn-primary" style="margin-left: 10px;">
+                        <i class="fas fa-download"></i> Download
+                    </a>
+                </div>
+            `;
+            document.getElementById('generationStatus').style.display = 'block';
             loadHistory();
         } else {
-            statusMsg.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Generation failed: ${data.error}`;
+            throw new Error(data.error || 'Generation failed');
         }
     })
     .catch(err => {
-        statusMsg.innerHTML = `<i class="fas fa-times"></i> Error: ${err.message}`;
+        showToast(`Failed to generate report: ${err.message}`, 'error');
+        console.error('Report generation error:', err);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     });
 });
 
