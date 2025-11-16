@@ -319,7 +319,7 @@ function applyFilters() {
     renderSurfaceData();
 }
 
-function analyzeHydrology() {
+async function analyzeHydrology() {
     console.log('Analyzing site hydrology...');
 
     const emptyDiv = document.getElementById('surfacesEmpty');
@@ -328,16 +328,50 @@ function analyzeHydrology() {
         <p>Analyzing pervious and impervious surfaces...</p>
     `;
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+        const activeProject = window.projectContext ?
+            await window.projectContext.getActiveProject() : null;
+
+        if (!activeProject) {
+            emptyDiv.innerHTML = `
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No active project selected</p>
+            `;
+            return;
+        }
+
+        const response = await fetch(`/api/specialized-tools/pervious-impervious?project_id=${activeProject.project_id}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+
+        if (!data.success || !data.surfaces || data.surfaces.length === 0) {
+            return;
+        }
+
+        surfaceData = data.surfaces;
+        renderSurfaceData();
+        updateHydroStats(data.stats);
+
+    } catch (error) {
+        console.error('Error:', error);
         emptyDiv.innerHTML = `
-            <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
-            <p>No surface data available</p>
-            <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
-                Connect to an active project to analyze surfaces
-            </p>
+            <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--danger); margin-bottom: 1rem;"></i>
+            <p>Error loading hydrology data</p>
         `;
-    }, 1500);
+    }
+}
+
+function updateHydroStats(stats) {
+    if (!stats) return;
+
+    document.getElementById('sidebarTotalArea').textContent = `${stats.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('sidebarPerviousArea').textContent = `${stats.pervious_sqft?.toFixed(0) || 0} SF (${stats.pervious_pct?.toFixed(1) || 0}%)`;
+    document.getElementById('sidebarImperviousArea').textContent = `${stats.impervious_sqft?.toFixed(0) || 0} SF (${stats.impervious_pct?.toFixed(1) || 0}%)`;
+
+    document.getElementById('perviousTotal').textContent = `${stats.pervious_sqft?.toFixed(0) || 0} SF (${stats.pervious_pct?.toFixed(1) || 0}%)`;
+    document.getElementById('imperviousTotal').textContent = `${stats.impervious_sqft?.toFixed(0) || 0} SF (${stats.impervious_pct?.toFixed(1) || 0}%)`;
+    document.getElementById('imperviousPercentage').textContent = `${stats.impervious_pct?.toFixed(1) || 0}%`;
 }
 
 function renderSurfaceData() {
@@ -345,16 +379,28 @@ function renderSurfaceData() {
     const table = document.getElementById('surfacesTable');
     const emptyDiv = document.getElementById('surfacesEmpty');
 
-    if (surfaceData.length === 0) {
+    if (!surfaceData || surfaceData.length === 0) {
         table.style.display = 'none';
         emptyDiv.style.display = 'block';
         return;
     }
 
+    tbody.innerHTML = surfaceData.map(surf => `
+        <tr>
+            <td>${surf.surface_name || 'N/A'}</td>
+            <td>${surf.surface_type || 'Unknown'}</td>
+            <td><span style="color: ${surf.classification === 'Pervious' ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">${surf.classification}</span></td>
+            <td>${surf.area_sqft?.toFixed(0) || 'N/A'}</td>
+            <td>${surf.area_acres?.toFixed(3) || 'N/A'}</td>
+            <td>${surf.runoff_coefficient?.toFixed(2) || 'N/A'}</td>
+            <td>${surf.infiltration_rate?.toFixed(1) || 'N/A'} in/hr</td>
+            <td><button class="tool-action-btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">View</button></td>
+        </tr>
+    `).join('');
+
     table.style.display = 'table';
     emptyDiv.style.display = 'none';
 
-    // Update counts
     document.getElementById('surfacesTabCount').textContent = surfaceData.length;
 }
 

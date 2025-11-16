@@ -330,7 +330,7 @@ function updateUnits() {
     renderAreaData();
 }
 
-function calculateAreas() {
+async function calculateAreas() {
     console.log('Calculating areas...');
 
     const emptyDiv = document.getElementById('areasEmpty');
@@ -339,16 +339,73 @@ function calculateAreas() {
         <p>Calculating polygon areas...</p>
     `;
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+        const activeProject = window.projectContext ?
+            await window.projectContext.getActiveProject() : null;
+
+        if (!activeProject) {
+            emptyDiv.innerHTML = `
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No active project selected</p>
+                <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                    Please select a project to calculate areas
+                </p>
+            `;
+            return;
+        }
+
+        const response = await fetch(`/api/specialized-tools/area-calculator?project_id=${activeProject.project_id}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+
+        if (!data.success || !data.areas || data.areas.length === 0) {
+            emptyDiv.innerHTML = `
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No area calculations available</p>
+                <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                    ${data.source === 'test_data' ? 'Showing test data - Import DXF to see real areas' : 'Import CAD data to begin'}
+                </p>
+            `;
+            return;
+        }
+
+        areaData = data.areas;
+        renderAreaData();
+        renderStats(data.stats);
+
+    } catch (error) {
+        console.error('Error:', error);
         emptyDiv.innerHTML = `
-            <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
-            <p>No area calculations available</p>
-            <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
-                Connect to an active project to calculate areas
-            </p>
+            <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--danger); margin-bottom: 1rem;"></i>
+            <p>Error loading area data</p>
+            <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">${error.message}</p>
         `;
-    }, 1500);
+    }
+}
+
+function renderStats(stats) {
+    if (!stats) return;
+
+    // Update sidebar stats
+    document.getElementById('sidebarTotalPolygons').textContent = stats.total_count || 0;
+    document.getElementById('sidebarTotalArea').textContent = `${stats.total_sqft?.toFixed(0) || 0} SF`;
+
+    // Update summary tab
+    document.getElementById('summaryTotalSF').textContent = `${stats.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('summaryTotalAcres').textContent = `${stats.total_acres?.toFixed(2) || 0} ac`;
+    document.getElementById('summaryFeatureCount').textContent = stats.total_count || 0;
+
+    // Update by-category stats
+    const byCategory = stats.by_category || {};
+    document.getElementById('statAccessible').textContent = `${byCategory['Accessible']?.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('statBMP').textContent = `${byCategory['BMP']?.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('statGrading').textContent = `${byCategory['Grading']?.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('statPaving').textContent = `${byCategory['Paving']?.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('statLandscape').textContent = `${byCategory['Landscape']?.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('statBuildings').textContent = `${byCategory['Building']?.total_sqft?.toFixed(0) || 0} SF`;
+
+    document.getElementById('summaryCategoryCount').textContent = Object.keys(byCategory).length;
 }
 
 function renderAreaData() {
@@ -356,18 +413,31 @@ function renderAreaData() {
     const table = document.getElementById('areasTable');
     const emptyDiv = document.getElementById('areasEmpty');
 
-    if (areaData.length === 0) {
+    if (!areaData || areaData.length === 0) {
         table.style.display = 'none';
         emptyDiv.style.display = 'block';
         return;
     }
+
+    // Populate table
+    tbody.innerHTML = areaData.map(area => `
+        <tr>
+            <td>${area.layer_name || 'N/A'}</td>
+            <td>${area.category || 'Other'}</td>
+            <td>${area.entity_type || 'Polygon'}</td>
+            <td>${area.area_sqft?.toFixed(0) || 'N/A'}</td>
+            <td>${area.area_acres?.toFixed(3) || 'N/A'}</td>
+            <td>${area.geometry_type || 'Polygon'}</td>
+            <td style="font-size: 0.85rem; color: var(--mc-muted);">${(area.layer_name || 'N/A').substring(0, 30)}</td>
+            <td><button class="tool-action-btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;" onclick="alert('Zoom to feature')">View</button></td>
+        </tr>
+    `).join('');
 
     table.style.display = 'table';
     emptyDiv.style.display = 'none';
 
     // Update counts
     document.getElementById('areasTabCount').textContent = areaData.length;
-    document.getElementById('sidebarTotalPolygons').textContent = areaData.length;
 }
 
 function showTab(tabName) {
