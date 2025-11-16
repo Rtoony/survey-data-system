@@ -9470,6 +9470,71 @@ def material_volume_calculator():
     """Material Volume Calculator - Calculate material volumes for earthwork and construction takeoffs"""
     return render_template('material_volume_calculator.html')
 
+@app.route('/curb-type-tracker')
+def curb_type_tracker():
+    """Curb Type Tracker - Track different curb types per CAD Layer Attributes"""
+    return render_template('curb_type_tracker.html')
+
+@app.route('/street-light-analyzer')
+def street_light_analyzer():
+    """Street Light Analyzer - Analyze distance between lights and generate light radius maps"""
+    return render_template('street_light_analyzer.html')
+
+@app.route('/pavement-zone-analyzer')
+def pavement_zone_analyzer():
+    """Pavement Zone Analyzer - Display overlay of distinct pavement zones with area calculations"""
+    return render_template('pavement_zone_analyzer.html')
+
+@app.route('/slope-analysis')
+def slope_analysis():
+    """Slope Analysis - Visual analysis of 3D faces for ADA compliance"""
+    return render_template('slope_analysis.html')
+
+@app.route('/flow-analysis')
+def flow_analysis():
+    """Flow Analysis - Analyze storm sewer systems for detailed flow calculations"""
+    return render_template('flow_analysis.html')
+
+@app.route('/general-queries-reports')
+def general_queries_reports():
+    """General Queries & Reports - Report wizard generator for custom queries"""
+    return render_template('general_queries_reports.html')
+
+@app.route('/surrounding-parcels')
+def surrounding_parcels():
+    """Surrounding Parcels - Generate list of APN and addresses with adjustable radius"""
+    return render_template('surrounding_parcels.html')
+
+@app.route('/whats-nearby')
+def whats_nearby():
+    """What's Nearby - Query spatial data about adjacent landmarks and points of interest"""
+    return render_template('whats_nearby.html')
+
+@app.route('/lateral-analyzer')
+def lateral_analyzer():
+    """Sewer & Water Lateral Analyzer - List properties with lateral connections"""
+    return render_template('lateral_analyzer.html')
+
+@app.route('/topo-linking')
+def topo_linking():
+    """PostgreSQL Topo Linking - Database topology linking tool"""
+    return render_template('topo_linking.html')
+
+@app.route('/alignment-tangent-check')
+def alignment_tangent_check():
+    """Alignment Tangent Check - Validate alignment tangent geometry"""
+    return render_template('alignment_tangent_check.html')
+
+@app.route('/line-curve-analyzer')
+def line_curve_analyzer():
+    """Line & Curve Analyzer - Analyze bearing and distance data"""
+    return render_template('line_curve_analyzer.html')
+
+@app.route('/survey-connect-wizard')
+def survey_connect_wizard():
+    """Survey Point Connect-the-Dot - Interactive wizard for survey point connections"""
+    return render_template('survey_connect_wizard.html')
+
 @app.route('/api/pressure-networks')
 def get_pressure_networks():
     """Get list of pressure pipe networks (potable, reclaimed, fire)"""
