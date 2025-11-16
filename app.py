@@ -15267,22 +15267,26 @@ def get_tool_layer_examples():
                 SELECT 
                     tom.object_type_code,
                     tom.purpose,
+                    tom.attribute_code,
                     t.full_name as object_type_name,
                     t.database_table,
                     d.code as discipline,
                     c.code as category,
                     d.full_name as discipline_name,
-                    c.full_name as category_name
+                    c.full_name as category_name,
+                    attr.full_name as attribute_name,
+                    attr.attribute_category
                 FROM tool_object_mappings tom
                 JOIN object_type_codes t ON tom.object_type_code = t.code
                 JOIN category_codes c ON t.category_id = c.category_id
                 JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+                LEFT JOIN attribute_codes attr ON tom.attribute_code = attr.code AND attr.is_active = TRUE
                 WHERE tom.tool_code = %s 
                 AND tom.is_active = TRUE
                 AND t.is_active = TRUE
                 AND c.is_active = TRUE
                 AND d.is_active = TRUE
-                ORDER BY tom.sort_order, tom.object_type_code
+                ORDER BY tom.sort_order, tom.object_type_code, tom.attribute_code
             """
             mappings = execute_query(mappings_query, (tool['object_code'],))
             
@@ -15322,13 +15326,25 @@ def get_tool_layer_examples():
                 object_code = mapping['object_type_code']
                 discipline = mapping['discipline']
                 category = mapping['category']
+                attribute_code = mapping.get('attribute_code')
                 
                 phase = phases[example_count % len(phases)]
                 geom = geometries[example_count % len(geometries)]
                 
-                layer_name = f"{discipline}-{category}-{object_code}-{phase['code']}-{geom['code']}"
+                # Build layer name with optional attribute
+                if attribute_code:
+                    layer_name = f"{discipline}-{category}-{object_code}-{attribute_code}-{phase['code']}-{geom['code']}"
+                else:
+                    layer_name = f"{discipline}-{category}-{object_code}-{phase['code']}-{geom['code']}"
                 
-                layer_examples.append({
+                # Build description with attribute if present
+                desc_parts = [phase['full_name'], mapping['object_type_name']]
+                if attribute_code and mapping.get('attribute_name'):
+                    desc_parts.append(f"({mapping['attribute_name']})")
+                desc_parts.append(f"- {mapping['discipline_name']}/{mapping['category_name']}")
+                description = ' '.join(desc_parts)
+                
+                example = {
                     'layer_name': layer_name,
                     'object_type': object_code,
                     'object_type_name': mapping['object_type_name'],
@@ -15340,11 +15356,18 @@ def get_tool_layer_examples():
                     'phase_name': phase['full_name'],
                     'geometry': geom['code'],
                     'geometry_name': geom['full_name'],
-                    'description': f"{phase['full_name']} {mapping['object_type_name']} - {mapping['discipline_name']}/{mapping['category_name']}",
+                    'description': description,
                     'database_table': mapping['database_table'],
                     'purpose': mapping['purpose']
-                })
+                }
                 
+                # Add attribute info if present
+                if attribute_code:
+                    example['attribute_code'] = attribute_code
+                    example['attribute_name'] = mapping.get('attribute_name')
+                    example['attribute_category'] = mapping.get('attribute_category')
+                
+                layer_examples.append(example)
                 example_count += 1
             
             mapped_object_types = [
@@ -15352,7 +15375,10 @@ def get_tool_layer_examples():
                     'code': m['object_type_code'],
                     'name': m['object_type_name'],
                     'purpose': m['purpose'],
-                    'database_table': m['database_table']
+                    'database_table': m['database_table'],
+                    'attribute_code': m.get('attribute_code'),
+                    'attribute_name': m.get('attribute_name'),
+                    'attribute_category': m.get('attribute_category')
                 }
                 for m in mappings
             ]
