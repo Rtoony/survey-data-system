@@ -17133,6 +17133,448 @@ def delete_naming_template(template_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== STRUCTURE TYPE STANDARDS API =====
+
+@app.route('/api/structure-type-standards')
+def get_structure_type_standards():
+    """Get all structure type standards with optional filtering"""
+    try:
+        category = request.args.get('category')
+        active_only = request.args.get('active_only', 'true') == 'true'
+
+        where_clauses = []
+        params = []
+
+        if active_only:
+            where_clauses.append('is_active = TRUE')
+
+        if category:
+            where_clauses.append('category = %s')
+            params.append(category)
+
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses) if where_clauses else ''
+
+        query = f"""
+            SELECT type_id, type_code, type_name, type_description, category, subcategory,
+                   icon_class, color_hex, symbol_name, specialized_tool_id, specialized_tool_name,
+                   typical_depth_range, typical_diameter_range, common_materials, required_attributes,
+                   requires_inspection, inspection_frequency, related_standards,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_type_id,
+                   created_at, updated_at
+            FROM structure_type_standards
+            {where_sql}
+            ORDER BY category, type_code
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structure-type-standards/<uuid:type_id>')
+def get_structure_type_standard(type_id):
+    """Get a single structure type standard"""
+    try:
+        query = """
+            SELECT type_id, type_code, type_name, type_description, category, subcategory,
+                   icon_class, color_hex, symbol_name, specialized_tool_id, specialized_tool_name,
+                   typical_depth_range, typical_diameter_range, common_materials, required_attributes,
+                   requires_inspection, inspection_frequency, related_standards,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_type_id,
+                   created_at, updated_at
+            FROM structure_type_standards
+            WHERE type_id = %s
+        """
+        result = execute_query(query, (str(type_id),))
+        if not result:
+            return jsonify({'error': 'Structure type not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structure-type-standards', methods=['POST'])
+def create_structure_type_standard():
+    """Create a new structure type standard"""
+    try:
+        data = request.get_json()
+
+        query = """
+            INSERT INTO structure_type_standards
+            (type_code, type_name, type_description, category, subcategory,
+             icon_class, color_hex, common_materials, typical_depth_range, typical_diameter_range,
+             requires_inspection, inspection_frequency, related_standards)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING type_id, type_code, type_name
+        """
+
+        result = execute_query(query, (
+            data['type_code'].strip().upper(),
+            data['type_name'].strip(),
+            data.get('type_description', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('icon_class', 'fa-circle'),
+            data.get('color_hex', '#00BCD4'),
+            data.get('common_materials', []),
+            data.get('typical_depth_range', '').strip() or None,
+            data.get('typical_diameter_range', '').strip() or None,
+            data.get('requires_inspection', False),
+            data.get('inspection_frequency', '').strip() or None,
+            data.get('related_standards', '').strip() or None
+        ))
+
+        if result:
+            return jsonify(result[0]), 201
+        return jsonify({'error': 'Failed to create structure type'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structure-type-standards/<uuid:type_id>', methods=['PUT'])
+def update_structure_type_standard(type_id):
+    """Update an existing structure type standard"""
+    try:
+        data = request.get_json()
+
+        query = """
+            UPDATE structure_type_standards
+            SET type_code = %s, type_name = %s, type_description = %s,
+                category = %s, subcategory = %s, icon_class = %s, color_hex = %s,
+                common_materials = %s, typical_depth_range = %s, typical_diameter_range = %s,
+                requires_inspection = %s, inspection_frequency = %s, related_standards = %s,
+                is_active = %s
+            WHERE type_id = %s
+            RETURNING type_id
+        """
+
+        result = execute_query(query, (
+            data['type_code'].strip().upper(),
+            data['type_name'].strip(),
+            data.get('type_description', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('icon_class', 'fa-circle'),
+            data.get('color_hex', '#00BCD4'),
+            data.get('common_materials', []),
+            data.get('typical_depth_range', '').strip() or None,
+            data.get('typical_diameter_range', '').strip() or None,
+            data.get('requires_inspection', False),
+            data.get('inspection_frequency', '').strip() or None,
+            data.get('related_standards', '').strip() or None,
+            data.get('is_active', True),
+            str(type_id)
+        ))
+
+        if not result:
+            return jsonify({'error': 'Structure type not found'}), 404
+        return jsonify({'message': 'Structure type updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structure-type-standards/<uuid:type_id>', methods=['DELETE'])
+def delete_structure_type_standard(type_id):
+    """Delete a structure type standard (soft delete)"""
+    try:
+        query = "UPDATE structure_type_standards SET is_active = FALSE WHERE type_id = %s RETURNING type_id"
+        result = execute_query(query, (str(type_id),))
+
+        if not result:
+            return jsonify({'error': 'Structure type not found'}), 404
+        return jsonify({'message': 'Structure type deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== SURVEY POINT DESCRIPTION STANDARDS API =====
+
+@app.route('/api/survey-point-descriptions')
+def get_survey_point_descriptions():
+    """Get all survey point description standards with optional filtering"""
+    try:
+        category = request.args.get('category')
+        active_only = request.args.get('active_only', 'true') == 'true'
+
+        where_clauses = []
+        params = []
+
+        if active_only:
+            where_clauses.append('is_active = TRUE')
+
+        if category:
+            where_clauses.append('category = %s')
+            params.append(category)
+
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses) if where_clauses else ''
+
+        query = f"""
+            SELECT description_id, description_code, description_text, description_full,
+                   category, subcategory, feature_type, point_code, cad_layer_name, cad_symbol,
+                   color_hex, is_control_point, typical_accuracy, requires_elevation,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_id,
+                   created_at, updated_at
+            FROM survey_point_description_standards
+            {where_sql}
+            ORDER BY category, description_code
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<uuid:description_id>')
+def get_survey_point_description(description_id):
+    """Get a single survey point description standard"""
+    try:
+        query = """
+            SELECT description_id, description_code, description_text, description_full,
+                   category, subcategory, feature_type, point_code, cad_layer_name, cad_symbol,
+                   color_hex, is_control_point, typical_accuracy, requires_elevation,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_id,
+                   created_at, updated_at
+            FROM survey_point_description_standards
+            WHERE description_id = %s
+        """
+        result = execute_query(query, (str(description_id),))
+        if not result:
+            return jsonify({'error': 'Description not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions', methods=['POST'])
+def create_survey_point_description():
+    """Create a new survey point description standard"""
+    try:
+        data = request.get_json()
+
+        query = """
+            INSERT INTO survey_point_description_standards
+            (description_code, description_text, description_full, category, subcategory,
+             feature_type, point_code, cad_symbol, color_hex, is_control_point, requires_elevation)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING description_id, description_code, description_text
+        """
+
+        result = execute_query(query, (
+            data['description_code'].strip().upper(),
+            data['description_text'].strip(),
+            data.get('description_full', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('feature_type', 'Point'),
+            data.get('point_code', '').strip() or None,
+            data.get('cad_symbol', 'POINT'),
+            data.get('color_hex', '#00FF00'),
+            data.get('is_control_point', False),
+            data.get('requires_elevation', True)
+        ))
+
+        if result:
+            return jsonify(result[0]), 201
+        return jsonify({'error': 'Failed to create survey description'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<uuid:description_id>', methods=['PUT'])
+def update_survey_point_description(description_id):
+    """Update an existing survey point description standard"""
+    try:
+        data = request.get_json()
+
+        query = """
+            UPDATE survey_point_description_standards
+            SET description_code = %s, description_text = %s, description_full = %s,
+                category = %s, subcategory = %s, feature_type = %s, point_code = %s,
+                cad_symbol = %s, color_hex = %s, is_control_point = %s, requires_elevation = %s,
+                is_active = %s
+            WHERE description_id = %s
+            RETURNING description_id
+        """
+
+        result = execute_query(query, (
+            data['description_code'].strip().upper(),
+            data['description_text'].strip(),
+            data.get('description_full', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('feature_type', 'Point'),
+            data.get('point_code', '').strip() or None,
+            data.get('cad_symbol', 'POINT'),
+            data.get('color_hex', '#00FF00'),
+            data.get('is_control_point', False),
+            data.get('requires_elevation', True),
+            data.get('is_active', True),
+            str(description_id)
+        ))
+
+        if not result:
+            return jsonify({'error': 'Description not found'}), 404
+        return jsonify({'message': 'Survey description updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-point-descriptions/<uuid:description_id>', methods=['DELETE'])
+def delete_survey_point_description(description_id):
+    """Delete a survey point description standard (soft delete)"""
+    try:
+        query = "UPDATE survey_point_description_standards SET is_active = FALSE WHERE description_id = %s RETURNING description_id"
+        result = execute_query(query, (str(description_id),))
+
+        if not result:
+            return jsonify({'error': 'Description not found'}), 404
+        return jsonify({'message': 'Survey description deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== SURVEY METHOD TYPES API =====
+
+@app.route('/api/survey-method-types')
+def get_survey_method_types():
+    """Get all survey method types with optional filtering"""
+    try:
+        category = request.args.get('category')
+        active_only = request.args.get('active_only', 'true') == 'true'
+
+        where_clauses = []
+        params = []
+
+        if active_only:
+            where_clauses.append('is_active = TRUE')
+
+        if category:
+            where_clauses.append('category = %s')
+            params.append(category)
+
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses) if where_clauses else ''
+
+        query = f"""
+            SELECT method_id, method_code, method_name, method_description,
+                   category, subcategory, equipment_type,
+                   typical_horizontal_accuracy, typical_vertical_accuracy, accuracy_units, accuracy_class,
+                   requires_base_station, requires_line_of_sight, effective_range_ft, typical_time_per_point,
+                   related_standards, certification_required,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_id,
+                   created_at, updated_at
+            FROM survey_method_types
+            {where_sql}
+            ORDER BY category, method_code
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-method-types/<uuid:method_id>')
+def get_survey_method_type(method_id):
+    """Get a single survey method type"""
+    try:
+        query = """
+            SELECT method_id, method_code, method_name, method_description,
+                   category, subcategory, equipment_type,
+                   typical_horizontal_accuracy, typical_vertical_accuracy, accuracy_units, accuracy_class,
+                   requires_base_station, requires_line_of_sight, effective_range_ft, typical_time_per_point,
+                   related_standards, certification_required,
+                   usage_count, last_used_at, is_active, is_deprecated, replaced_by_id,
+                   created_at, updated_at
+            FROM survey_method_types
+            WHERE method_id = %s
+        """
+        result = execute_query(query, (str(method_id),))
+        if not result:
+            return jsonify({'error': 'Method type not found'}), 404
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-method-types', methods=['POST'])
+def create_survey_method_type():
+    """Create a new survey method type"""
+    try:
+        data = request.get_json()
+
+        query = """
+            INSERT INTO survey_method_types
+            (method_code, method_name, method_description, category, subcategory, equipment_type,
+             typical_horizontal_accuracy, typical_vertical_accuracy, accuracy_class,
+             requires_base_station, requires_line_of_sight, related_standards)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING method_id, method_code, method_name
+        """
+
+        result = execute_query(query, (
+            data['method_code'].strip().upper(),
+            data['method_name'].strip(),
+            data.get('method_description', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('equipment_type', '').strip() or None,
+            data.get('typical_horizontal_accuracy'),
+            data.get('typical_vertical_accuracy'),
+            data.get('accuracy_class', 'Survey Grade'),
+            data.get('requires_base_station', False),
+            data.get('requires_line_of_sight', False),
+            data.get('related_standards', '').strip() or None
+        ))
+
+        if result:
+            return jsonify(result[0]), 201
+        return jsonify({'error': 'Failed to create survey method'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-method-types/<uuid:method_id>', methods=['PUT'])
+def update_survey_method_type(method_id):
+    """Update an existing survey method type"""
+    try:
+        data = request.get_json()
+
+        query = """
+            UPDATE survey_method_types
+            SET method_code = %s, method_name = %s, method_description = %s,
+                category = %s, subcategory = %s, equipment_type = %s,
+                typical_horizontal_accuracy = %s, typical_vertical_accuracy = %s, accuracy_class = %s,
+                requires_base_station = %s, requires_line_of_sight = %s, related_standards = %s,
+                is_active = %s
+            WHERE method_id = %s
+            RETURNING method_id
+        """
+
+        result = execute_query(query, (
+            data['method_code'].strip().upper(),
+            data['method_name'].strip(),
+            data.get('method_description', '').strip() or None,
+            data['category'].strip(),
+            data.get('subcategory', '').strip() or None,
+            data.get('equipment_type', '').strip() or None,
+            data.get('typical_horizontal_accuracy'),
+            data.get('typical_vertical_accuracy'),
+            data.get('accuracy_class', 'Survey Grade'),
+            data.get('requires_base_station', False),
+            data.get('requires_line_of_sight', False),
+            data.get('related_standards', '').strip() or None,
+            data.get('is_active', True),
+            str(method_id)
+        ))
+
+        if not result:
+            return jsonify({'error': 'Method type not found'}), 404
+        return jsonify({'message': 'Survey method updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey-method-types/<uuid:method_id>', methods=['DELETE'])
+def delete_survey_method_type(method_id):
+    """Delete a survey method type (soft delete)"""
+    try:
+        query = "UPDATE survey_method_types SET is_active = FALSE WHERE method_id = %s RETURNING method_id"
+        result = execute_query(query, (str(method_id),))
+
+        if not result:
+            return jsonify({'error': 'Method type not found'}), 404
+        return jsonify({'message': 'Survey method deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ===== SURVEY CODE LIBRARY API =====
 
 @app.route('/api/survey-codes')
