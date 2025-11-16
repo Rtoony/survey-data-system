@@ -15,6 +15,7 @@
         <div class="tab" data-tab="survey-points">Survey Point Descriptions</div>
         <div class="tab" data-tab="gis-layers">GIS Data Layers</div>
         <div class="tab" data-tab="naming-templates">Naming Templates</div>
+        <div class="tab" data-tab="tool-mappings">Tool Object Mappings</div>
         <div class="tab" data-tab="cad-standards">CAD Standards</div>
     </div>
     
@@ -120,6 +121,22 @@
                 Manage standard naming conventions for Project Relationship Sets. Templates enforce truth-driven architecture by preventing free-text naming and ensuring consistency across projects.
             </p>
             <div id="namingTemplatesContainer"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="tool-mappings">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-link"></i> Tool Object Mappings</h2>
+                <button class="btn btn-add" onclick="openAddToolMappingModal()">
+                    <i class="fas fa-plus"></i> Add New Mapping
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                <strong>Dynamic Tool Configuration:</strong> Map object type codes to specialized tools. This controls which entity classifications each tool manages. 
+                When you change these mappings, layer examples and tool behavior automatically update. Zero hard-coding - full flexibility.
+            </p>
+            <div id="toolMappingsContainer"></div>
         </div>
     </div>
     
@@ -736,6 +753,45 @@
     </div>
 </div>
 
+<div id="toolMappingModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="toolMappingModalTitle">Add New Tool Mapping</h3>
+            <button class="close-btn" onclick="closeToolMappingModal()">&times;</button>
+        </div>
+        <form id="toolMappingForm" onsubmit="handleToolMappingSubmit(event)">
+            <div class="form-group">
+                <label>Specialized Tool <span style="color: #ff4444;">*</span></label>
+                <select name="tool_code" id="toolCodeSelect" required>
+                    <option value="">Select a tool...</option>
+                </select>
+                <div class="help-text">The specialized tool that will manage these entities</div>
+            </div>
+            <div class="form-group">
+                <label>Object Type Code <span style="color: #ff4444;">*</span></label>
+                <select name="object_type_code" id="objectTypeCodeSelect" required>
+                    <option value="">Select an object type...</option>
+                </select>
+                <div class="help-text">The CAD object type classification from your vocabulary</div>
+            </div>
+            <div class="form-group">
+                <label>Purpose</label>
+                <input type="text" name="purpose" placeholder="e.g., Manage hydraulic calculations for gravity pipes">
+                <div class="help-text">Optional: describe why this object type is mapped to this tool</div>
+            </div>
+            <div class="form-group">
+                <label>Sort Order</label>
+                <input type="number" name="sort_order" value="0" min="0">
+                <div class="help-text">Display order (0 = first)</div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeToolMappingModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save Mapping</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="confirmModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -839,6 +895,7 @@
     let surveyPoints = [];
     let gisLayers = [];
     let namingTemplates = [];
+    let toolMappings = [];
     
     let currentEdit = {
         id: null,
@@ -883,6 +940,9 @@
                     break;
                 case 'gis-layers':
                     if (gisLayers.length === 0) loadGISLayers();
+                    break;
+                case 'tool-mappings':
+                    if (toolMappings.length === 0) loadToolMappings();
                     break;
             }
         });
@@ -2082,6 +2142,10 @@
                 endpoint = `/api/naming-templates/${id}`;
                 reloadFunction = loadNamingTemplates;
                 break;
+            case 'tool-mapping':
+                endpoint = `/api/tool-mappings/${id}`;
+                reloadFunction = loadToolMappings;
+                break;
             default:
                 showToast('Unknown item type', 'error');
                 return;
@@ -2154,5 +2218,174 @@
     document.getElementById('confirmModal').addEventListener('click', (e) => {
         if (e.target.id === 'confirmModal') closeConfirmModal();
     });
+    
+    async function loadToolMappings() {
+        try {
+            const response = await fetch('/api/tool-mappings');
+            const data = await response.json();
+            toolMappings = data.mappings || [];
+            renderToolMappings();
+        } catch (error) {
+            console.error('Error loading tool mappings:', error);
+            document.getElementById('toolMappingsContainer').innerHTML = '<p style="color: var(--danger);">Error loading tool mappings</p>';
+        }
+    }
+    
+    function renderToolMappings() {
+        const container = document.getElementById('toolMappingsContainer');
+        
+        if (toolMappings.length === 0) {
+            container.innerHTML = '<p style="color: var(--muted);">No tool mappings configured yet.</p>';
+            return;
+        }
+        
+        const groupedByTool = {};
+        toolMappings.forEach(mapping => {
+            if (!groupedByTool[mapping.tool_code]) {
+                groupedByTool[mapping.tool_code] = {
+                    tool_name: mapping.tool_name,
+                    tool_icon: mapping.tool_icon,
+                    mappings: []
+                };
+            }
+            groupedByTool[mapping.tool_code].mappings.push(mapping);
+        });
+        
+        let html = '';
+        Object.keys(groupedByTool).forEach(toolCode => {
+            const group = groupedByTool[toolCode];
+            html += `
+                <div style="margin-bottom: 24px; border: 1px solid rgba(0,255,255,0.2); border-radius: 8px; padding: 16px; background: rgba(0,20,40,0.3);">
+                    <h3 style="margin: 0 0 12px 0; color: var(--mc-primary); display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.5rem;">${group.tool_icon}</span>
+                        ${group.tool_name}
+                        <span style="font-size: 0.9rem; color: var(--muted); font-weight: normal;">(${toolCode})</span>
+                    </h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            `;
+            
+            group.mappings.forEach(mapping => {
+                html += `
+                    <div style="background: rgba(0,255,255,0.1); border: 1px solid rgba(0,255,255,0.3); border-radius: 6px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 8px;">
+                        <code style="color: var(--mc-accent); font-weight: bold;">${mapping.object_type_code}</code>
+                        <span style="color: var(--text-color); font-size: 0.9rem;">${mapping.object_type_name}</span>
+                        <span style="color: var(--muted); font-size: 0.85rem;">${mapping.discipline}-${mapping.category}</span>
+                        ${mapping.purpose ? `<span style="color: var(--muted); font-size: 0.85rem; font-style: italic;">• ${mapping.purpose}</span>` : ''}
+                        <button onclick="deleteMapping(${mapping.mapping_id}, '${mapping.tool_name}', '${mapping.object_type_code}')" 
+                                style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 2px 6px;">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function openAddToolMappingModal() {
+        document.getElementById('toolMappingModalTitle').textContent = 'Add New Tool Mapping';
+        document.getElementById('toolMappingForm').reset();
+        currentEdit.id = null;
+        loadToolsDropdown();
+        loadObjectTypesDropdown();
+        document.getElementById('toolMappingModal').style.display = 'flex';
+    }
+    
+    function closeToolMappingModal() {
+        document.getElementById('toolMappingModal').style.display = 'none';
+    }
+    
+    async function loadToolsDropdown() {
+        try {
+            const response = await fetch('/api/available-tools');
+            const data = await response.json();
+            const select = document.getElementById('toolCodeSelect');
+            select.innerHTML = '<option value="">Select a tool...</option>';
+            data.tools.forEach(tool => {
+                select.innerHTML += `<option value="${tool.tool_code}">${tool.tool_icon} ${tool.tool_name} (${tool.tool_code})</option>`;
+            });
+        } catch (error) {
+            console.error('Error loading tools:', error);
+        }
+    }
+    
+    async function loadObjectTypesDropdown() {
+        try {
+            const response = await fetch('/api/available-object-types');
+            const data = await response.json();
+            const select = document.getElementById('objectTypeCodeSelect');
+            select.innerHTML = '<option value="">Select an object type...</option>';
+            
+            const groupedByDiscipline = {};
+            data.object_types.forEach(obj => {
+                const key = `${obj.discipline} - ${obj.discipline_name}`;
+                if (!groupedByDiscipline[key]) {
+                    groupedByDiscipline[key] = [];
+                }
+                groupedByDiscipline[key].push(obj);
+            });
+            
+            Object.keys(groupedByDiscipline).forEach(discipline => {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = discipline;
+                groupedByDiscipline[discipline].forEach(obj => {
+                    const option = document.createElement('option');
+                    option.value = obj.object_type_code;
+                    option.textContent = `${obj.object_type_code} - ${obj.object_type_name} (${obj.category})`;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            });
+        } catch (error) {
+            console.error('Error loading object types:', error);
+        }
+    }
+    
+    async function handleToolMappingSubmit(event) {
+        event.preventDefault();
+        
+        const formData = new FormData(event.target);
+        const data = {
+            tool_code: formData.get('tool_code'),
+            object_type_code: formData.get('object_type_code'),
+            purpose: formData.get('purpose'),
+            sort_order: parseInt(formData.get('sort_order')) || 0
+        };
+        
+        try {
+            const response = await fetch('/api/tool-mappings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message || 'Tool mapping created successfully', 'success');
+                closeToolMappingModal();
+                await loadToolMappings();
+            } else {
+                showToast(result.error || 'Failed to create mapping', 'error');
+            }
+        } catch (error) {
+            showToast('Network error: Failed to create mapping', 'error');
+        }
+    }
+    
+    function deleteMapping(id, toolName, objectType) {
+        deleteTarget = {
+            id: id,
+            name: `${toolName} → ${objectType}`,
+            type: 'tool-mapping'
+        };
+        openConfirmModal();
+    }
 </script>
 {% endblock %}

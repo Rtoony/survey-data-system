@@ -15237,6 +15237,156 @@ def get_specialized_tools_directory():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/cad-standards/tool-layer-examples')
+@cache.cached(timeout=300, query_string=True)
+def get_tool_layer_examples():
+    """
+    Dynamically generate layer examples for each tool based on current vocabulary and mappings.
+    This endpoint uses tool_object_mappings to find which object types each tool manages,
+    then queries the vocabulary to generate real, valid layer examples.
+    """
+    try:
+        tool_code = request.args.get('tool_code')
+        
+        tools_query = """
+            SELECT 
+                lot.id,
+                lot.object_code,
+                lot.tool_name,
+                lot.tool_url,
+                lot.tool_icon,
+                lot.description,
+                lot.display_order
+            FROM layer_object_tools lot
+            WHERE lot.is_active = TRUE
+        """
+        
+        params = []
+        if tool_code:
+            tools_query += " AND lot.object_code = %s"
+            params.append(tool_code.upper())
+        
+        tools_query += " ORDER BY lot.display_order, lot.tool_name"
+        tools = execute_query(tools_query, tuple(params) if params else None)
+        
+        result_tools = []
+        
+        for tool in tools:
+            mappings_query = """
+                SELECT 
+                    tom.object_type_code,
+                    tom.purpose,
+                    t.full_name as object_type_name,
+                    t.database_table,
+                    d.code as discipline,
+                    c.code as category,
+                    d.full_name as discipline_name,
+                    c.full_name as category_name
+                FROM tool_object_mappings tom
+                JOIN object_type_codes t ON tom.object_type_code = t.code
+                JOIN category_codes c ON t.category_id = c.category_id
+                JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+                WHERE tom.tool_code = %s 
+                AND tom.is_active = TRUE
+                AND t.is_active = TRUE
+                AND c.is_active = TRUE
+                AND d.is_active = TRUE
+                ORDER BY tom.sort_order, tom.object_type_code
+            """
+            mappings = execute_query(mappings_query, (tool['object_code'],))
+            
+            phases_query = """
+                SELECT code, full_name 
+                FROM phase_codes
+                WHERE is_active = TRUE 
+                ORDER BY sort_order 
+                LIMIT 3
+            """
+            phases = execute_query(phases_query) or [
+                {'code': 'NEW', 'full_name': 'New/Proposed'},
+                {'code': 'EXIST', 'full_name': 'Existing'}
+            ]
+            
+            geometries_query = """
+                SELECT code, full_name 
+                FROM geometry_codes 
+                WHERE is_active = TRUE 
+                ORDER BY sort_order 
+                LIMIT 3
+            """
+            geometries = execute_query(geometries_query) or [
+                {'code': 'LN', 'full_name': 'Line'},
+                {'code': 'PT', 'full_name': 'Point'},
+                {'code': 'PG', 'full_name': 'Polygon'}
+            ]
+            
+            layer_examples = []
+            example_count = 0
+            max_examples_per_tool = 6
+            
+            for mapping in mappings:
+                if example_count >= max_examples_per_tool:
+                    break
+                
+                object_code = mapping['object_type_code']
+                discipline = mapping['discipline']
+                category = mapping['category']
+                
+                phase = phases[example_count % len(phases)]
+                geom = geometries[example_count % len(geometries)]
+                
+                layer_name = f"{discipline}-{category}-{object_code}-{phase['code']}-{geom['code']}"
+                
+                layer_examples.append({
+                    'layer_name': layer_name,
+                    'object_type': object_code,
+                    'object_type_name': mapping['object_type_name'],
+                    'discipline': discipline,
+                    'discipline_name': mapping['discipline_name'],
+                    'category': category,
+                    'category_name': mapping['category_name'],
+                    'phase': phase['code'],
+                    'phase_name': phase['full_name'],
+                    'geometry': geom['code'],
+                    'geometry_name': geom['full_name'],
+                    'description': f"{phase['full_name']} {mapping['object_type_name']} - {mapping['discipline_name']}/{mapping['category_name']}",
+                    'database_table': mapping['database_table'],
+                    'purpose': mapping['purpose']
+                })
+                
+                example_count += 1
+            
+            mapped_object_types = [
+                {
+                    'code': m['object_type_code'],
+                    'name': m['object_type_name'],
+                    'purpose': m['purpose'],
+                    'database_table': m['database_table']
+                }
+                for m in mappings
+            ]
+            
+            result_tools.append({
+                'id': tool['id'],
+                'tool_code': tool['object_code'],
+                'tool_name': tool['tool_name'],
+                'tool_url': tool['tool_url'],
+                'tool_icon': tool['tool_icon'],
+                'description': tool['description'],
+                'mapped_object_types': mapped_object_types,
+                'layer_examples': layer_examples,
+                'example_count': len(layer_examples)
+            })
+        
+        return jsonify({
+            'success': True,
+            'tools': result_tools,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/cad-standards/phases')
 def get_layer_phases():
     """Get all active layer phases"""
@@ -16110,6 +16260,179 @@ def delete_municipality(municipality_id):
             return jsonify({'error': 'Municipality not found'}), 404
         
         return jsonify({'message': 'Municipality deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== TOOL OBJECT MAPPINGS API =====
+
+@app.route('/api/tool-mappings')
+def get_tool_mappings():
+    """Get all tool-to-object-type mappings"""
+    try:
+        query = """
+            SELECT 
+                tom.mapping_id,
+                tom.tool_code,
+                tom.object_type_code,
+                tom.purpose,
+                tom.is_active,
+                tom.sort_order,
+                lot.tool_name,
+                lot.tool_icon,
+                t.full_name as object_type_name,
+                t.database_table,
+                d.code as discipline,
+                c.code as category
+            FROM tool_object_mappings tom
+            JOIN layer_object_tools lot ON tom.tool_code = lot.object_code
+            JOIN object_type_codes t ON tom.object_type_code = t.code
+            JOIN category_codes c ON t.category_id = c.category_id
+            JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+            WHERE tom.is_active = TRUE
+            ORDER BY lot.tool_name, tom.sort_order, tom.object_type_code
+        """
+        mappings = execute_query(query)
+        return jsonify({'mappings': mappings})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tool-mappings/<int:mapping_id>')
+def get_tool_mapping_detail(mapping_id):
+    """Get a specific tool-object mapping"""
+    try:
+        query = """
+            SELECT 
+                tom.mapping_id,
+                tom.tool_code,
+                tom.object_type_code,
+                tom.purpose,
+                tom.is_active,
+                tom.sort_order,
+                lot.tool_name,
+                t.full_name as object_type_name
+            FROM tool_object_mappings tom
+            JOIN layer_object_tools lot ON tom.tool_code = lot.object_code
+            JOIN object_type_codes t ON tom.object_type_code = t.code
+            WHERE tom.mapping_id = %s
+        """
+        result = execute_query(query, (mapping_id,))
+        
+        if not result:
+            return jsonify({'error': 'Mapping not found'}), 404
+        
+        return jsonify(result[0])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tool-mappings', methods=['POST'])
+def create_tool_mapping():
+    """Create a new tool-object mapping"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('tool_code') or not data.get('object_type_code'):
+            return jsonify({'error': 'tool_code and object_type_code are required'}), 400
+        
+        query = """
+            INSERT INTO tool_object_mappings (tool_code, object_type_code, purpose, sort_order)
+            VALUES (%s, %s, %s, %s)
+            RETURNING mapping_id
+        """
+        result = execute_query(query, (
+            data['tool_code'].strip().upper(),
+            data['object_type_code'].strip().upper(),
+            data.get('purpose', '').strip() or None,
+            data.get('sort_order', 0)
+        ))
+        
+        if result:
+            return jsonify({'message': 'Tool mapping created successfully', 'mapping_id': result[0]['mapping_id']}), 201
+        else:
+            return jsonify({'error': 'Failed to create tool mapping'}), 500
+    except Exception as e:
+        if 'duplicate key' in str(e).lower() or 'unique constraint' in str(e).lower():
+            return jsonify({'error': 'This mapping already exists'}), 409
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tool-mappings/<int:mapping_id>', methods=['PUT'])
+def update_tool_mapping(mapping_id):
+    """Update a tool-object mapping"""
+    try:
+        data = request.get_json()
+        
+        query = """
+            UPDATE tool_object_mappings
+            SET purpose = %s,
+                sort_order = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE mapping_id = %s
+            RETURNING mapping_id
+        """
+        result = execute_query(query, (
+            data.get('purpose', '').strip() or None,
+            data.get('sort_order', 0),
+            mapping_id
+        ))
+        
+        if not result:
+            return jsonify({'error': 'Mapping not found'}), 404
+        
+        return jsonify({'message': 'Tool mapping updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tool-mappings/<int:mapping_id>', methods=['DELETE'])
+def delete_tool_mapping(mapping_id):
+    """Delete a tool-object mapping (soft delete)"""
+    try:
+        query = "UPDATE tool_object_mappings SET is_active = FALSE WHERE mapping_id = %s RETURNING mapping_id"
+        result = execute_query(query, (mapping_id,))
+        
+        if not result:
+            return jsonify({'error': 'Mapping not found'}), 404
+        
+        return jsonify({'message': 'Tool mapping deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/available-tools')
+def get_available_tools():
+    """Get all available specialized tools for the mapping interface"""
+    try:
+        query = """
+            SELECT object_code as tool_code, tool_name, tool_icon, description
+            FROM layer_object_tools
+            WHERE is_active = TRUE
+            ORDER BY tool_name
+        """
+        tools = execute_query(query)
+        return jsonify({'tools': tools})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/available-object-types')
+def get_available_object_types():
+    """Get all available object type codes for the mapping interface"""
+    try:
+        query = """
+            SELECT 
+                t.code as object_type_code,
+                t.full_name as object_type_name,
+                t.database_table,
+                d.code as discipline,
+                d.full_name as discipline_name,
+                c.code as category,
+                c.full_name as category_name
+            FROM object_type_codes t
+            JOIN category_codes c ON t.category_id = c.category_id
+            JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+            WHERE t.is_active = TRUE
+            AND c.is_active = TRUE
+            AND d.is_active = TRUE
+            ORDER BY d.code, c.code, t.code
+        """
+        object_types = execute_query(query)
+        return jsonify({'object_types': object_types})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
