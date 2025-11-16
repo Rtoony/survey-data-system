@@ -31,6 +31,7 @@ from weasyprint import HTML, CSS
 from services.project_mapping_service import ProjectMappingService
 from project_mapping_registry import get_supported_entity_types
 from database import get_db, execute_query, DB_CONFIG
+from pyproj import Transformer
 
 # Load environment variables (works with both .env file and Replit secrets)
 load_dotenv()
@@ -64,6 +65,56 @@ print(f"DB_USER: {'SET' if DB_CONFIG['user'] else 'MISSING'}")
 print(f"DB_NAME: {'SET' if DB_CONFIG['database'] else 'MISSING'}")
 print(f"DB_PASSWORD: {'SET' if DB_CONFIG['password'] else 'MISSING'}")
 print("=" * 50)
+
+# ============================================
+# ACTIVE PROJECT & COORDINATE HELPERS
+# ============================================
+
+def get_active_project_id():
+    """
+    Get the current active project ID from session.
+    Returns None if no project is active.
+    """
+    # For now, get from session or query parameter
+    # This can be enhanced later with proper session management
+    project_id = request.args.get('project_id')
+    if not project_id:
+        # Try to get from session if implemented
+        project_id = session.get('active_project_id') if 'session' in globals() else None
+    return project_id
+
+def state_plane_to_wgs84(x_feet, y_feet):
+    """
+    Convert California State Plane Zone 2 (EPSG:2226) coordinates
+    to WGS84 lat/lng (EPSG:4326) for web map display.
+
+    Args:
+        x_feet: X coordinate in US Survey Feet
+        y_feet: Y coordinate in US Survey Feet
+
+    Returns:
+        dict: {'lat': latitude, 'lng': longitude}
+    """
+    transformer = Transformer.from_crs(
+        "EPSG:2226",  # CA State Plane Zone 2 (US Survey Feet)
+        "EPSG:4326",  # WGS84 (lat/lng)
+        always_xy=True
+    )
+    lng, lat = transformer.transform(x_feet, y_feet)
+    return {'lat': lat, 'lng': lng}
+
+def get_test_coordinates_config():
+    """
+    Returns standard test area configuration for all test data generation.
+    All specialized tools should use these same coordinates.
+    """
+    return {
+        'center_x': 6010000.0,  # State Plane feet
+        'center_y': 2110000.0,  # State Plane feet
+        'spacing': 150.0,       # feet between entities
+        'area_size': 5000.0,    # total area size
+        'srid': 2226            # EPSG:2226
+    }
 
 # ============================================
 # PAGES
@@ -21115,15 +21166,69 @@ def init_specialized_tables():
 
 @app.route('/api/specialized-tools/street-lights')
 def get_street_lights():
-    """Get street light data for current project with test data fallback"""
+    """
+    Get street light data for current project.
+    Queries database first, falls back to test data if empty.
+    """
     try:
-        project_id = request.args.get('project_id')
+        project_id = get_active_project_id()
 
-        # For now, return generated test data to make tool demonstrable
-        # In production, this would query actual project data
+        if not project_id:
+            return jsonify({
+                'success': False,
+                'error': 'No active project selected',
+                'requires_project': True
+            }), 400
 
+        # Try to query actual database first
+        # Check if street_lights table exists and has data for this project
+        try:
+            query = """
+                SELECT
+                    light_id,
+                    pole_number,
+                    pole_height_ft,
+                    lamp_type,
+                    wattage,
+                    circuit_id,
+                    condition,
+                    ST_X(geometry) as x,
+                    ST_Y(geometry) as y,
+                    attributes
+                FROM street_lights
+                WHERE project_id = %s
+                ORDER BY pole_number
+            """
+            lights = execute_query(query, (project_id,))
+
+            if lights and len(lights) > 0:
+                # Convert coordinates for map display
+                for light in lights:
+                    coords = state_plane_to_wgs84(light['x'], light['y'])
+                    light['map_lat'] = coords['lat']
+                    light['map_lng'] = coords['lng']
+
+                # Calculate statistics
+                stats = calculate_light_statistics(lights)
+
+                return jsonify({
+                    'success': True,
+                    'lights': lights,
+                    'stats': stats,
+                    'source': 'database'
+                })
+        except Exception as db_error:
+            # Database query failed or table doesn't exist - use test data
+            print(f"Database query failed, using test data: {db_error}")
+
+        # Generate test data as fallback
         import random
-        from datetime import datetime
+
+        # Use CORRECT coordinate system
+        test_config = get_test_coordinates_config()
+        base_x = test_config['center_x']
+        base_y = test_config['center_y']
+        spacing = test_config['spacing']
 
         # Generate 15-25 test street lights in a grid pattern
         num_lights = random.randint(15, 25)
@@ -21132,15 +21237,16 @@ def get_street_lights():
         lamp_types = ['LED-100W', 'LED-150W', 'HPS-250W', 'LED-75W', 'HPS-150W']
         conditions = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR']
 
-        base_x, base_y = 1000.0, 2000.0
-        spacing = 150.0  # feet
-
         for i in range(num_lights):
             row = i // 5
             col = i % 5
 
+            # Generate coordinates in State Plane system
             x = base_x + (col * spacing) + random.uniform(-10, 10)
             y = base_y + (row * spacing) + random.uniform(-10, 10)
+
+            # Convert to WGS84 for map display
+            coords = state_plane_to_wgs84(x, y)
 
             lamp_type = random.choice(lamp_types)
             wattage = int(lamp_type.split('-')[1].replace('W', ''))
@@ -21153,229 +21259,524 @@ def get_street_lights():
                 'pole_height_ft': random.choice([20, 25, 30, 35]),
                 'circuit_id': f'C-{(i//5)+1}',
                 'condition': random.choice(conditions),
-                'x': round(x, 2),
-                'y': round(y, 2),
+                'x': round(x, 2),              # State Plane coordinates
+                'y': round(y, 2),              # State Plane coordinates
+                'map_lat': coords['lat'],      # WGS84 for map
+                'map_lng': coords['lng'],      # WGS84 for map
                 'installation_date': '2018-03-15',
                 'last_maintenance': '2024-06-12'
             })
 
         # Calculate statistics
-        total_wattage = sum(l['wattage'] for l in lights)
-        by_lamp_type = {}
-        for light in lights:
-            lt = light['lamp_type']
-            by_lamp_type[lt] = by_lamp_type.get(lt, 0) + 1
-
-        stats = {
-            'total_count': len(lights),
-            'total_wattage': total_wattage,
-            'average_spacing_ft': round(spacing, 1),
-            'by_lamp_type': by_lamp_type,
-            'by_condition': {
-                'EXCELLENT': sum(1 for l in lights if l['condition'] == 'EXCELLENT'),
-                'GOOD': sum(1 for l in lights if l['condition'] == 'GOOD'),
-                'FAIR': sum(1 for l in lights if l['condition'] == 'FAIR'),
-                'POOR': sum(1 for l in lights if l['condition'] == 'POOR'),
-            }
-        }
+        stats = calculate_light_statistics(lights)
 
         return jsonify({
             'success': True,
             'lights': lights,
             'stats': stats,
-            'test_data': True
+            'source': 'test_data'
         })
 
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def calculate_light_statistics(lights):
+    """Calculate statistics for street lights"""
+    total_wattage = sum(l['wattage'] for l in lights)
+
+    by_lamp_type = {}
+    for light in lights:
+        lt = light['lamp_type']
+        by_lamp_type[lt] = by_lamp_type.get(lt, 0) + 1
+
+    by_condition = {
+        'EXCELLENT': sum(1 for l in lights if l['condition'] == 'EXCELLENT'),
+        'GOOD': sum(1 for l in lights if l['condition'] == 'GOOD'),
+        'FAIR': sum(1 for l in lights if l['condition'] == 'FAIR'),
+        'POOR': sum(1 for l in lights if l['condition'] == 'POOR'),
+    }
+
+    # Use configured spacing for average
+    test_config = get_test_coordinates_config()
+
+    return {
+        'total_count': len(lights),
+        'total_wattage': total_wattage,
+        'average_spacing_ft': round(test_config['spacing'], 1),
+        'by_lamp_type': by_lamp_type,
+        'by_condition': by_condition
+    }
 
 @app.route('/api/specialized-tools/pavement-zones')
 def get_pavement_zones():
-    """Get all pavement zones with area calculations"""
+    """
+    Get pavement zone data for current project.
+    Queries database first, falls back to test data if empty.
+    """
     try:
-        project_id = request.args.get('project_id')
+        project_id = get_active_project_id()
 
-        # Build query with optional project filter
-        where_clause = f"WHERE project_id = '{project_id}'" if project_id else ""
+        if not project_id:
+            return jsonify({
+                'success': False,
+                'error': 'No active project selected',
+                'requires_project': True
+            }), 400
 
-        query = f"""
-            SELECT
-                zone_id,
-                zone_name,
-                pavement_type,
-                area_sqft,
-                thickness_inches,
-                material_spec,
-                traffic_category,
-                ST_AsGeoJSON(geometry) as geometry_json,
-                attributes,
-                condition,
-                install_date
-            FROM pavement_zones
-            {where_clause}
-            ORDER BY zone_name
-        """
-        zones = execute_query(query)
+        # Try to query actual database first
+        try:
+            query = """
+                SELECT
+                    zone_id,
+                    zone_name,
+                    pavement_type,
+                    area_sqft,
+                    thickness_inches,
+                    material_spec,
+                    traffic_category,
+                    ST_AsGeoJSON(geometry) as geometry_json,
+                    attributes,
+                    condition,
+                    install_date
+                FROM pavement_zones
+                WHERE project_id = %s
+                ORDER BY zone_name
+            """
+            zones = execute_query(query, (project_id,))
 
-        # Calculate totals by type
+            if zones and len(zones) > 0:
+                # Calculate totals by type
+                type_totals = {}
+                for zone in zones:
+                    ptype = zone.get('pavement_type', 'UNKNOWN')
+                    area = zone.get('area_sqft', 0) or 0
+                    type_totals[ptype] = type_totals.get(ptype, 0) + area
+
+                total_area = sum(z.get('area_sqft', 0) or 0 for z in zones)
+                total_acres = total_area / 43560  # Convert sqft to acres
+
+                return jsonify({
+                    'success': True,
+                    'zones': zones,
+                    'stats': {
+                        'total_count': len(zones),
+                        'total_area_sqft': round(total_area, 2),
+                        'total_area_acres': round(total_acres, 2),
+                        'by_type': type_totals
+                    },
+                    'source': 'database'
+                })
+        except Exception as db_error:
+            print(f"Database query failed, using test data: {db_error}")
+
+        # Generate test data as fallback
+        import random
+
+        # Use CORRECT coordinate system
+        test_config = get_test_coordinates_config()
+        base_x = test_config['center_x']
+        base_y = test_config['center_y']
+        spacing = test_config['spacing']
+
+        # Generate 8-12 test pavement zones
+        num_zones = random.randint(8, 12)
+        zones = []
+
+        pavement_types = ['ASPHALT', 'CONCRETE', 'GRAVEL', 'PAVER']
+        conditions = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR']
+        traffic_categories = ['LOW', 'MEDIUM', 'HIGH']
+
+        for i in range(num_zones):
+            row = i // 3
+            col = i % 3
+
+            # Generate zone center in State Plane system
+            center_x = base_x + (col * spacing * 3)
+            center_y = base_y + (row * spacing * 3)
+
+            # Create a simple polygon around the center
+            zone_size = random.uniform(100, 200)  # feet
+            coords_wgs84 = []
+            for corner in [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]:
+                x = center_x + (corner[0] * zone_size) - (zone_size / 2)
+                y = center_y + (corner[1] * zone_size) - (zone_size / 2)
+                coords = state_plane_to_wgs84(x, y)
+                coords_wgs84.append([coords['lng'], coords['lat']])
+
+            ptype = random.choice(pavement_types)
+            area_sqft = zone_size * zone_size
+
+            zones.append({
+                'zone_id': f'PZ-{i+1:03d}',
+                'zone_name': f'Zone {chr(65+i)}',
+                'pavement_type': ptype,
+                'area_sqft': round(area_sqft, 2),
+                'thickness_inches': random.choice([4, 6, 8, 10]),
+                'material_spec': f'{ptype}-STD',
+                'traffic_category': random.choice(traffic_categories),
+                'condition': random.choice(conditions),
+                'install_date': '2020-05-15',
+                'geometry_json': json.dumps({
+                    'type': 'Polygon',
+                    'coordinates': [coords_wgs84]
+                })
+            })
+
+        # Calculate totals
         type_totals = {}
         for zone in zones:
-            ptype = zone.get('pavement_type', 'UNKNOWN')
-            area = zone.get('area_sqft', 0) or 0
-            type_totals[ptype] = type_totals.get(ptype, 0) + area
+            ptype = zone['pavement_type']
+            type_totals[ptype] = type_totals.get(ptype, 0) + zone['area_sqft']
 
-        total_area = sum(z.get('area_sqft', 0) or 0 for z in zones)
-        total_acres = total_area / 43560  # Convert sqft to acres
+        total_area = sum(z['area_sqft'] for z in zones)
+        total_acres = total_area / 43560
 
         return jsonify({
+            'success': True,
             'zones': zones,
             'stats': {
                 'total_count': len(zones),
                 'total_area_sqft': round(total_area, 2),
                 'total_area_acres': round(total_acres, 2),
                 'by_type': type_totals
-            }
+            },
+            'source': 'test_data'
         })
+
     except Exception as e:
         import traceback
-        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 @app.route('/api/specialized-tools/flow-analysis')
 def analyze_flow():
-    """Analyze gravity pipe network flow capacity using Manning's equation"""
+    """
+    Analyze gravity pipe network flow capacity using Manning's equation.
+    Queries database first, falls back to test data if empty.
+    """
     try:
-        project_id = request.args.get('project_id')
+        project_id = get_active_project_id()
 
-        # Build query with optional project filter
-        where_clause = f"AND project_id = '{project_id}'" if project_id else ""
+        if not project_id:
+            return jsonify({
+                'success': False,
+                'error': 'No active project selected',
+                'requires_project': True
+            }), 400
 
-        query = f"""
-            SELECT
-                line_id,
-                line_number,
-                utility_system as line_type,
-                diameter_mm,
-                material,
-                ST_Length(geometry) as length_ft,
-                slope,
-                attributes->>'mannings_n' as mannings_n,
-                from_structure_id,
-                to_structure_id,
-                ST_AsGeoJSON(geometry) as geometry_json
-            FROM utility_lines
-            WHERE utility_system IN ('STORM', 'SANITARY', 'GRAVITY')
-            {where_clause}
-            AND slope IS NOT NULL
-            AND slope > 0
-            ORDER BY line_number
-        """
-        pipes = execute_query(query)
+        # Try to query actual database first
+        try:
+            query = """
+                SELECT
+                    line_id,
+                    line_number,
+                    utility_system as line_type,
+                    diameter_mm,
+                    material,
+                    ST_Length(geometry) as length_ft,
+                    slope,
+                    attributes->>'mannings_n' as mannings_n,
+                    from_structure_id,
+                    to_structure_id,
+                    ST_AsGeoJSON(geometry) as geometry_json
+                FROM utility_lines
+                WHERE utility_system IN ('STORM', 'SANITARY', 'GRAVITY')
+                AND project_id = %s
+                AND slope IS NOT NULL
+                AND slope > 0
+                ORDER BY line_number
+            """
+            pipes = execute_query(query, (project_id,))
 
-        # Calculate flow capacity for each pipe (Manning's equation)
-        for pipe in pipes:
-            diameter_in = (pipe.get('diameter_mm', 0) or 0) / 25.4  # Convert mm to inches
-            slope = pipe.get('slope', 0) or 0.01
-            mannings_n = float(pipe.get('mannings_n') or 0.013)
-
-            # Manning's equation for full pipe flow
-            # Q = (1.486/n) * A * R^(2/3) * S^(1/2)
-            if diameter_in > 0:
+            if pipes and len(pipes) > 0:
+                # Calculate flow capacity for each pipe
                 import math
-                radius_ft = (diameter_in / 12) / 2
-                area = math.pi * radius_ft**2
-                wetted_perimeter = 2 * math.pi * radius_ft
-                hydraulic_radius = area / wetted_perimeter
-                velocity = (1.486 / mannings_n) * (hydraulic_radius ** (2/3)) * (slope ** 0.5)
-                capacity_cfs = area * velocity
-                pipe['capacity_cfs'] = round(capacity_cfs, 2)
-                pipe['velocity_fps'] = round(velocity, 2)
-                pipe['diameter_in'] = round(diameter_in, 1)
-            else:
-                pipe['capacity_cfs'] = 0
-                pipe['velocity_fps'] = 0
-                pipe['diameter_in'] = 0
+                for pipe in pipes:
+                    diameter_in = (pipe.get('diameter_mm', 0) or 0) / 25.4
+                    slope = pipe.get('slope', 0) or 0.01
+                    mannings_n = float(pipe.get('mannings_n') or 0.013)
 
-        total_length = sum(p.get('length_ft', 0) or 0 for p in pipes)
-        total_capacity = sum(p.get('capacity_cfs', 0) or 0 for p in pipes)
+                    if diameter_in > 0:
+                        radius_ft = (diameter_in / 12) / 2
+                        area = math.pi * radius_ft**2
+                        wetted_perimeter = 2 * math.pi * radius_ft
+                        hydraulic_radius = area / wetted_perimeter
+                        velocity = (1.486 / mannings_n) * (hydraulic_radius ** (2/3)) * (slope ** 0.5)
+                        capacity_cfs = area * velocity
+                        pipe['capacity_cfs'] = round(capacity_cfs, 2)
+                        pipe['velocity_fps'] = round(velocity, 2)
+                        pipe['diameter_in'] = round(diameter_in, 1)
+                    else:
+                        pipe['capacity_cfs'] = 0
+                        pipe['velocity_fps'] = 0
+                        pipe['diameter_in'] = 0
+
+                total_length = sum(p.get('length_ft', 0) or 0 for p in pipes)
+                total_capacity = sum(p.get('capacity_cfs', 0) or 0 for p in pipes)
+
+                return jsonify({
+                    'success': True,
+                    'pipes': pipes,
+                    'stats': {
+                        'total_pipes': len(pipes),
+                        'total_length_ft': round(total_length, 1),
+                        'total_capacity_cfs': round(total_capacity, 2)
+                    },
+                    'source': 'database'
+                })
+        except Exception as db_error:
+            print(f"Database query failed, using test data: {db_error}")
+
+        # Generate test data as fallback
+        import random
+        import math
+
+        # Use CORRECT coordinate system
+        test_config = get_test_coordinates_config()
+        base_x = test_config['center_x']
+        base_y = test_config['center_y']
+        spacing = test_config['spacing']
+
+        # Generate 10-15 test pipes
+        num_pipes = random.randint(10, 15)
+        pipes = []
+
+        pipe_materials = ['PVC', 'CONCRETE', 'HDPE', 'STEEL']
+        pipe_systems = ['STORM', 'SANITARY']
+        pipe_diameters_mm = [200, 300, 450, 600, 750, 900]
+
+        for i in range(num_pipes):
+            # Create line geometry with two points
+            start_x = base_x + (i % 3) * spacing * 2
+            start_y = base_y + (i // 3) * spacing * 2
+            end_x = start_x + spacing
+            end_y = start_y + random.uniform(-50, 50)
+
+            # Convert to WGS84 for geometry
+            start_coords = state_plane_to_wgs84(start_x, start_y)
+            end_coords = state_plane_to_wgs84(end_x, end_y)
+
+            diameter_mm = random.choice(pipe_diameters_mm)
+            diameter_in = diameter_mm / 25.4
+            slope = random.uniform(0.005, 0.02)  # 0.5% to 2%
+            mannings_n = 0.013
+            length_ft = spacing + random.uniform(-20, 20)
+
+            # Calculate flow capacity
+            radius_ft = (diameter_in / 12) / 2
+            area = math.pi * radius_ft**2
+            wetted_perimeter = 2 * math.pi * radius_ft
+            hydraulic_radius = area / wetted_perimeter
+            velocity = (1.486 / mannings_n) * (hydraulic_radius ** (2/3)) * (slope ** 0.5)
+            capacity_cfs = area * velocity
+
+            pipes.append({
+                'line_id': f'PIPE-{i+1:03d}',
+                'line_number': f'L-{i+1:03d}',
+                'line_type': random.choice(pipe_systems),
+                'diameter_mm': diameter_mm,
+                'diameter_in': round(diameter_in, 1),
+                'material': random.choice(pipe_materials),
+                'length_ft': round(length_ft, 1),
+                'slope': round(slope, 4),
+                'mannings_n': str(mannings_n),
+                'capacity_cfs': round(capacity_cfs, 2),
+                'velocity_fps': round(velocity, 2),
+                'from_structure_id': f'MH-{i+1:03d}',
+                'to_structure_id': f'MH-{i+2:03d}',
+                'geometry_json': json.dumps({
+                    'type': 'LineString',
+                    'coordinates': [
+                        [start_coords['lng'], start_coords['lat']],
+                        [end_coords['lng'], end_coords['lat']]
+                    ]
+                })
+            })
+
+        total_length = sum(p['length_ft'] for p in pipes)
+        total_capacity = sum(p['capacity_cfs'] for p in pipes)
 
         return jsonify({
+            'success': True,
             'pipes': pipes,
             'stats': {
                 'total_pipes': len(pipes),
                 'total_length_ft': round(total_length, 1),
                 'total_capacity_cfs': round(total_capacity, 2)
-            }
+            },
+            'source': 'test_data'
         })
+
     except Exception as e:
         import traceback
-        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 @app.route('/api/specialized-tools/laterals')
 def analyze_laterals():
-    """Analyze lateral connections from mains to properties"""
+    """
+    Analyze lateral connections from mains to properties.
+    Queries database first, falls back to test data if empty.
+    """
     try:
-        project_id = request.args.get('project_id')
+        project_id = get_active_project_id()
 
-        # Build query with optional project filter
-        where_clause = f"AND project_id = '{project_id}'" if project_id else ""
+        if not project_id:
+            return jsonify({
+                'success': False,
+                'error': 'No active project selected',
+                'requires_project': True
+            }), 400
 
-        # Query utility_service_connections table for laterals
-        query = f"""
-            SELECT
-                service_id as lateral_id,
-                service_type as lateral_type,
-                service_address as address,
-                size_mm,
-                material,
-                ST_Length(
-                    ST_MakeLine(
-                        service_point_geometry,
-                        (SELECT rim_geometry FROM utility_structures WHERE structure_id = usc.structure_id LIMIT 1)
-                    )
-                ) as length_ft,
-                line_id as connected_to,
-                ST_AsGeoJSON(service_point_geometry) as geometry_json,
-                attributes,
-                install_date
-            FROM utility_service_connections usc
-            WHERE service_type IN ('SEWER_LATERAL', 'WATER_LATERAL', 'LATERAL')
-            {where_clause}
-            ORDER BY service_address
-        """
-        laterals = execute_query(query)
+        # Try to query actual database first
+        try:
+            query = """
+                SELECT
+                    service_id as lateral_id,
+                    service_type as lateral_type,
+                    service_address as address,
+                    size_mm,
+                    material,
+                    ST_Length(
+                        ST_MakeLine(
+                            service_point_geometry,
+                            (SELECT rim_geometry FROM utility_structures WHERE structure_id = usc.structure_id LIMIT 1)
+                        )
+                    ) as length_ft,
+                    line_id as connected_to,
+                    ST_AsGeoJSON(service_point_geometry) as geometry_json,
+                    attributes,
+                    install_date
+                FROM utility_service_connections usc
+                WHERE service_type IN ('SEWER_LATERAL', 'WATER_LATERAL', 'LATERAL')
+                AND project_id = %s
+                ORDER BY service_address
+            """
+            laterals = execute_query(query, (project_id,))
 
-        # Convert diameter from mm to inches
-        for lateral in laterals:
-            diameter_mm = lateral.get('size_mm', 0) or 0
-            lateral['diameter_in'] = round(diameter_mm / 25.4, 1) if diameter_mm > 0 else 0
+            if laterals and len(laterals) > 0:
+                # Convert diameter from mm to inches
+                for lateral in laterals:
+                    diameter_mm = lateral.get('size_mm', 0) or 0
+                    lateral['diameter_in'] = round(diameter_mm / 25.4, 1) if diameter_mm > 0 else 0
+
+                # Group by diameter
+                by_diameter = {}
+                for lateral in laterals:
+                    diam = lateral.get('diameter_in', 0)
+                    diam_str = f"{diam}\"" if diam > 0 else "UNKNOWN"
+                    by_diameter[diam_str] = by_diameter.get(diam_str, 0) + 1
+
+                # Group by type
+                by_type = {}
+                for lateral in laterals:
+                    ltype = lateral.get('lateral_type', 'UNKNOWN')
+                    by_type[ltype] = by_type.get(ltype, 0) + 1
+
+                total_length = sum(l.get('length_ft', 0) or 0 for l in laterals)
+
+                return jsonify({
+                    'success': True,
+                    'laterals': laterals,
+                    'stats': {
+                        'total_count': len(laterals),
+                        'total_length_ft': round(total_length, 1),
+                        'by_diameter': by_diameter,
+                        'by_type': by_type
+                    },
+                    'source': 'database'
+                })
+        except Exception as db_error:
+            print(f"Database query failed, using test data: {db_error}")
+
+        # Generate test data as fallback
+        import random
+
+        # Use CORRECT coordinate system
+        test_config = get_test_coordinates_config()
+        base_x = test_config['center_x']
+        base_y = test_config['center_y']
+        spacing = test_config['spacing']
+
+        # Generate 20-30 test laterals
+        num_laterals = random.randint(20, 30)
+        laterals = []
+
+        lateral_types = ['SEWER_LATERAL', 'WATER_LATERAL']
+        materials = ['PVC', 'COPPER', 'PEX', 'CAST_IRON']
+        diameters_mm = [100, 150, 200]
+
+        for i in range(num_laterals):
+            # Generate point in State Plane system
+            x = base_x + (i % 5) * spacing + random.uniform(-50, 50)
+            y = base_y + (i // 5) * spacing + random.uniform(-50, 50)
+
+            # Convert to WGS84 for geometry
+            coords = state_plane_to_wgs84(x, y)
+
+            diameter_mm = random.choice(diameters_mm)
+            diameter_in = round(diameter_mm / 25.4, 1)
+            length_ft = random.uniform(30, 100)
+
+            laterals.append({
+                'lateral_id': f'LAT-{i+1:03d}',
+                'lateral_type': random.choice(lateral_types),
+                'address': f'{(i+1)*100} Main St',
+                'size_mm': diameter_mm,
+                'diameter_in': diameter_in,
+                'material': random.choice(materials),
+                'length_ft': round(length_ft, 1),
+                'connected_to': f'MAIN-{(i//5)+1:02d}',
+                'install_date': '2019-08-20',
+                'geometry_json': json.dumps({
+                    'type': 'Point',
+                    'coordinates': [coords['lng'], coords['lat']]
+                })
+            })
 
         # Group by diameter
         by_diameter = {}
         for lateral in laterals:
-            diam = lateral.get('diameter_in', 0)
-            diam_str = f"{diam}\"" if diam > 0 else "UNKNOWN"
+            diam = lateral['diameter_in']
+            diam_str = f"{diam}\""
             by_diameter[diam_str] = by_diameter.get(diam_str, 0) + 1
 
         # Group by type
         by_type = {}
         for lateral in laterals:
-            ltype = lateral.get('lateral_type', 'UNKNOWN')
+            ltype = lateral['lateral_type']
             by_type[ltype] = by_type.get(ltype, 0) + 1
 
-        total_length = sum(l.get('length_ft', 0) or 0 for l in laterals)
+        total_length = sum(l['length_ft'] for l in laterals)
 
         return jsonify({
+            'success': True,
             'laterals': laterals,
             'stats': {
                 'total_count': len(laterals),
                 'total_length_ft': round(total_length, 1),
                 'by_diameter': by_diameter,
                 'by_type': by_type
-            }
+            },
+            'source': 'test_data'
         })
+
     except Exception as e:
         import traceback
-        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

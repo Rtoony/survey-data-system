@@ -168,10 +168,27 @@ async function loadZones() {
     showState('loading');
 
     try {
-        const response = await fetch('/api/specialized-tools/pavement-zones');
+        // Get active project from global context
+        const activeProject = window.projectContext ?
+            await window.projectContext.getActiveProject() : null;
+
+        if (!activeProject) {
+            showError('No active project selected. Please select a project from the dashboard.');
+            showState('error', 'No active project selected');
+            return;
+        }
+
+        const response = await fetch(`/api/specialized-tools/pavement-zones?project_id=${activeProject.project_id}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 
         const data = await response.json();
+
+        if (!data.success) {
+            showError(data.error || 'Failed to load pavement zones');
+            showState('error', data.error || 'Failed to load data');
+            return;
+        }
+
         currentData = data;
 
         if (!data.zones || data.zones.length === 0) {
@@ -185,6 +202,7 @@ async function loadZones() {
 
     } catch (error) {
         console.error('Error loading zones:', error);
+        showError('Failed to load pavement zones: ' + error.message);
         showState('error', error.message);
     }
 }
@@ -235,8 +253,34 @@ function showState(state, message = '') {
     }
 }
 
+// Error display function
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: rgba(255,0,0,0.9); color: white; padding: 20px; border-radius: 8px; z-index: 10000; max-width: 400px;';
+    errorDiv.innerHTML = `
+        <strong>Error:</strong><br>
+        ${message}<br><br>
+        <button onclick="this.parentElement.remove()" style="background: white; color: black; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Dismiss</button>
+    `;
+    document.body.appendChild(errorDiv);
+}
+
 // Initialize
-document.addEventListener('DOMContentLoaded', loadZones);
+document.addEventListener('DOMContentLoaded', async function() {
+    // Wait for ProjectContext to initialize
+    if (window.projectContext) {
+        await window.projectContext.init();
+
+        // Subscribe to project changes
+        window.projectContext.subscribe(() => {
+            console.log('Active project changed, reloading data...');
+            loadZones();
+        });
+    }
+
+    // Initial load
+    loadZones();
+});
 </script>
 {% endblock %}
 
