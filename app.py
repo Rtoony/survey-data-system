@@ -15122,17 +15122,22 @@ def get_specialized_tools_directory():
                 SELECT 
                     tom.object_type_code,
                     tom.purpose,
-                    otc.object_type_name,
-                    otc.discipline_code,
-                    otc.discipline_name,
-                    otc.category_code,
-                    otc.category_name
+                    t.full_name as object_type_name,
+                    t.database_table,
+                    d.code as discipline_code,
+                    c.code as category_code,
+                    d.full_name as discipline_name,
+                    c.full_name as category_name
                 FROM tool_object_mappings tom
-                JOIN object_type_codes otc ON tom.object_type_code = otc.object_type_code
+                JOIN object_type_codes t ON tom.object_type_code = t.code
+                JOIN category_codes c ON t.category_id = c.category_id
+                JOIN discipline_codes d ON c.discipline_id = d.discipline_id
                 WHERE tom.tool_code = %s 
                 AND tom.is_active = TRUE
-                AND otc.is_active = TRUE
-                ORDER BY tom.sort_order, otc.object_type_code
+                AND t.is_active = TRUE
+                AND c.is_active = TRUE
+                AND d.is_active = TRUE
+                ORDER BY tom.sort_order, tom.object_type_code
                 LIMIT 5
             """
             mappings = execute_query(mappings_query, (tool_code,))
@@ -16253,13 +16258,18 @@ def get_tool_mappings():
                 t.full_name as object_type_name,
                 t.database_table,
                 d.code as discipline,
-                c.code as category
+                c.code as category,
+                d.full_name as discipline_name,
+                c.full_name as category_name
             FROM tool_object_mappings tom
             JOIN layer_object_tools lot ON tom.tool_code = lot.object_code
             JOIN object_type_codes t ON tom.object_type_code = t.code
             JOIN category_codes c ON t.category_id = c.category_id
             JOIN discipline_codes d ON c.discipline_id = d.discipline_id
             WHERE tom.is_active = TRUE
+            AND t.is_active = TRUE
+            AND c.is_active = TRUE
+            AND d.is_active = TRUE
             ORDER BY lot.tool_name, tom.sort_order, tom.object_type_code
         """
         mappings = execute_query(query)
