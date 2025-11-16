@@ -1,105 +1,389 @@
-{% extends "base.html" %}
+{% extends "base_specialized_tool.html" %}
 
-{% block title %}Pervious/Impervious Analysis{% endblock %}
+{% block tool_title %}Pervious/Impervious Analysis{% endblock %}
+{% block tool_icon %}fas fa-tint{% endblock %}
+{% block tool_description %}Analyze hardscape vs landscape for water absorption and runoff characteristics{% endblock %}
 
-{% block extra_head %}
-<script src="{{ url_for('static', filename='js/specialized-tool-info.js') }}"></script>
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-box">
+    <div class="tool-name">
+        <i class="fas fa-tint"></i>
+        <span>Pervious/Impervious Analysis</span>
+    </div>
+    <div class="tool-description">
+        Analyze site hydrology to determine water absorption rates and runoff characteristics
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Surface Classification</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterPervious" checked onchange="applyFilters()">
+        <label for="filterPervious" style="color: var(--success);">
+            <i class="fas fa-check-circle"></i> Pervious Surfaces
+        </label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterImpervious" checked onchange="applyFilters()">
+        <label for="filterImpervious" style="color: var(--danger);">
+            <i class="fas fa-times-circle"></i> Impervious Surfaces
+        </label>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Feature Type</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterBMP" checked onchange="applyFilters()">
+        <label for="filterBMP">BMPs & Bioretention</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterPaving" checked onchange="applyFilters()">
+        <label for="filterPaving">Paving & Hardscape</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterLandscape" checked onchange="applyFilters()">
+        <label for="filterLandscape">Landscape Areas</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterBuildings" checked onchange="applyFilters()">
+        <label for="filterBuildings">Buildings & Roofs</label>
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Site Hydrology</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Site Area:</span>
+        <span class="tool-stat-value" id="sidebarTotalArea">0 SF</span>
+    </div>
+    <div class="tool-stat-item" style="border-left: 3px solid var(--success);">
+        <span class="tool-stat-label">Pervious:</span>
+        <span class="tool-stat-value" style="color: var(--success);" id="sidebarPerviousArea">0 SF (0%)</span>
+    </div>
+    <div class="tool-stat-item" style="border-left: 3px solid var(--danger);">
+        <span class="tool-stat-label">Impervious:</span>
+        <span class="tool-stat-value" style="color: var(--danger);" id="sidebarImperviousArea">0 SF (0%)</span>
+    </div>
+</div>
+
+<button class="tool-action-btn" onclick="analyzeHydrology()">
+    <i class="fas fa-sync"></i> Analyze Site
+</button>
+<button class="tool-action-btn secondary" onclick="exportReport()">
+    <i class="fas fa-file-export"></i> Export Report
+</button>
 {% endblock %}
 
-{% block content %}
-<div class="content">
-    <div class="page-header">
-        <div class="page-header-content">
-            <i class="fas fa-tint neon-blue"></i>
-            <div>
-                <h2 class="orbitron">Pervious/Impervious Analysis</h2>
-                <p>Analyze hardscape vs landscape for water absorption and runoff characteristics</p>
-            </div>
-        </div>
+{% block main_content %}
+<div class="tool-top-area">
+    <div id="hydrologyVisualContainer" style="height: 100%; width: 100%; background: #0a1929; position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+        <i class="fas fa-tint" style="font-size: 64px; color: var(--mc-primary); opacity: 0.3; margin-bottom: 1rem;"></i>
+        <p style="color: var(--mc-text); font-size: 18px; opacity: 0.6;">Site Hydrology Visualization</p>
+        <p style="color: var(--mc-muted); font-size: 14px; opacity: 0.4; margin-top: 0.5rem;">Load project data to analyze pervious/impervious surfaces</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active" onclick="showTab('surfaces')">
+            <i class="fas fa-layer-group"></i> Surfaces (<span id="surfacesTabCount">0</span>)
+        </button>
+        <button class="tool-data-tab" onclick="showTab('breakdown')">
+            <i class="fas fa-chart-pie"></i> Coverage Breakdown
+        </button>
+        <button class="tool-data-tab" onclick="showTab('runoff')">
+            <i class="fas fa-water"></i> Runoff Analysis
+        </button>
     </div>
 
-    <div id="toolInfoCard" style="margin: 20px;"></div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            loadToolInfoCard('PERV', 'toolInfoCard');
-        });
-    </script>
-
-    <div class="mc-container" style="margin: 20px;">
-        <div class="mc-card">
-            <h3 style="color: var(--mc-primary); margin-bottom: 16px;">
-                <i class="fas fa-info-circle"></i> Site Hydrology Analysis Tool (Prototype)
-            </h3>
-            <p style="color: var(--mc-text); margin-bottom: 20px;">
-                This specialized tool will analyze hardscape vs landscape features to determine water absorption rates, 
-                infiltration capacity, and runoff characteristics for comprehensive site hydrology assessment and 
-                stormwater management planning.
-            </p>
-
-            <div style="background: rgba(0,255,255,0.1); border-left: 4px solid var(--mc-accent); padding: 16px; margin-bottom: 20px;">
-                <h4 style="color: var(--mc-accent); margin: 0 0 12px 0;">
-                    <i class="fas fa-th-list"></i> Planned Features
-                </h4>
-                <ul style="color: var(--mc-text); margin: 0; padding-left: 24px;">
-                    <li>Automatic classification of pervious vs impervious surfaces</li>
-                    <li>Infiltration rate assignment by surface type</li>
-                    <li>Runoff coefficient calculations</li>
-                    <li>Site coverage analysis (% impervious)</li>
-                    <li>Water balance modeling</li>
-                    <li>Visual heatmap of infiltration capacity</li>
-                    <li>Compliance checking for local stormwater regulations</li>
-                    <li>Integration with Area Calculator and BMP Manager</li>
-                </ul>
-            </div>
-
-            <div style="background: rgba(0,20,40,0.5); border-radius: 8px; padding: 24px; text-align: center;">
-                <i class="fas fa-hammer" style="font-size: 3rem; color: var(--mc-muted); margin-bottom: 16px;"></i>
-                <h4 style="color: var(--mc-muted); margin: 0 0 8px 0;">Under Construction</h4>
-                <p style="color: var(--mc-muted); margin: 0;">
-                    This tool is currently in development. Check back soon for the full implementation.
+    <div class="tool-data-content">
+        <!-- Surfaces Tab -->
+        <div id="surfacesTab" class="tab-content">
+            <table class="tool-data-table" id="surfacesTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Surface Name</th>
+                        <th>Type</th>
+                        <th>Classification</th>
+                        <th>Area (SF)</th>
+                        <th>Area (Acres)</th>
+                        <th>Runoff Coefficient</th>
+                        <th>Infiltration Rate</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="surfacesTableBody"></tbody>
+            </table>
+            <div id="surfacesEmpty" style="text-align: center; padding: 3rem; color: var(--mc-text);">
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No surface data available</p>
+                <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                    Load project data and click "Analyze Site" to begin
                 </p>
             </div>
         </div>
 
-        <div class="mc-card" style="margin-top: 20px;">
-            <h3 style="color: var(--mc-primary); margin-bottom: 16px;">
-                <i class="fas fa-layer-group"></i> Surface Classification
-            </h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div>
-                    <h4 style="color: var(--success); margin: 0 0 12px 0;">
-                        <i class="fas fa-check-circle"></i> Pervious Surfaces
-                    </h4>
-                    <div style="background: rgba(0,255,136,0.1); padding: 12px; border-radius: 6px; border-left: 3px solid var(--success);">
-                        <ul style="color: var(--mc-text); margin: 0; padding-left: 20px; font-size: 0.9rem;">
-                            <li>Bioretention facilities</li>
-                            <li>Rain gardens & bioswales</li>
-                            <li>Detention basins</li>
-                            <li>Infiltration basins</li>
-                            <li>Vegetated swales</li>
-                            <li>Landscape areas</li>
-                            <li>Permeable paving (optional)</li>
-                        </ul>
+        <!-- Coverage Breakdown Tab -->
+        <div id="breakdownTab" class="tab-content" style="display: none;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <div class="hydro-card pervious">
+                    <div class="hydro-card-header">
+                        <i class="fas fa-check-circle"></i>
+                        <h3>Pervious Surfaces</h3>
+                    </div>
+                    <div class="hydro-card-value" id="perviousTotal">0 SF (0%)</div>
+                    <div class="hydro-card-desc">Allows water infiltration</div>
+                    <div class="hydro-breakdown" id="perviousBreakdown">
+                        <!-- Populated by JS -->
                     </div>
                 </div>
-                <div>
-                    <h4 style="color: var(--danger); margin: 0 0 12px 0;">
-                        <i class="fas fa-times-circle"></i> Impervious Surfaces
-                    </h4>
-                    <div style="background: rgba(255,68,68,0.1); padding: 12px; border-radius: 6px; border-left: 3px solid var(--danger);">
-                        <ul style="color: var(--mc-text); margin: 0; padding-left: 20px; font-size: 0.9rem;">
-                            <li>Accessible parking areas</li>
-                            <li>Accessible paths & ramps</li>
-                            <li>Building pads</li>
-                            <li>Concrete surfaces</li>
-                            <li>Asphalt surfaces</li>
-                            <li>Plazas & hardscape</li>
-                            <li>Rooftops</li>
-                        </ul>
+                <div class="hydro-card impervious">
+                    <div class="hydro-card-header">
+                        <i class="fas fa-times-circle"></i>
+                        <h3>Impervious Surfaces</h3>
                     </div>
+                    <div class="hydro-card-value" id="imperviousTotal">0 SF (0%)</div>
+                    <div class="hydro-card-desc">Generates runoff</div>
+                    <div class="hydro-breakdown" id="imperviousBreakdown">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: rgba(0,255,255,0.1); border: 2px solid rgba(0,255,255,0.3); border-radius: 12px; padding: 2rem;">
+                <h4 style="color: var(--mc-primary); margin: 0 0 1rem 0;">
+                    <i class="fas fa-info-circle"></i> Regulation Compliance
+                </h4>
+                <p style="color: var(--mc-text); margin: 0 0 1rem 0;">
+                    Most municipalities require impervious coverage to be below certain thresholds (typically 65-75% for commercial sites).
+                </p>
+                <div style="background: rgba(0,40,80,0.5); border-radius: 8px; padding: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--mc-muted);">Current Impervious Coverage:</span>
+                        <span style="color: var(--mc-accent); font-size: 1.5rem; font-weight: bold;" id="imperviousPercentage">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Runoff Analysis Tab -->
+        <div id="runoffTab" class="tab-content" style="display: none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <div class="stat-label">Total Runoff Volume</div>
+                    <div class="stat-value" id="statRunoffVolume">0 CF</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Peak Runoff Rate</div>
+                    <div class="stat-value" id="statPeakRunoff">0 CFS</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Infiltration Capacity</div>
+                    <div class="stat-value" id="statInfiltration">0 CF</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Weighted Runoff Coeff.</div>
+                    <div class="stat-value" id="statRunoffCoeff">0.00</div>
+                </div>
+            </div>
+
+            <div style="background: rgba(0,40,80,0.4); border-radius: 8px; padding: 1.5rem;">
+                <h4 style="color: var(--mc-primary); margin: 0 0 1rem 0;">
+                    <i class="fas fa-calculator"></i> Calculation Methods
+                </h4>
+                <div style="color: var(--mc-text); line-height: 1.8;">
+                    <p><strong>Runoff Coefficient (C):</strong> Ratio of runoff to rainfall based on surface type</p>
+                    <p style="margin-top: 0.5rem;"><strong>Rational Method:</strong> Q = C × I × A</p>
+                    <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                        Where Q = peak runoff rate (CFS), C = runoff coefficient, I = rainfall intensity (in/hr), A = drainage area (acres)
+                    </p>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.tab-content { padding: 1rem; }
+.stat-card {
+    background: rgba(0,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+}
+.stat-label {
+    color: var(--mc-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+.stat-value {
+    color: var(--mc-primary);
+    font-size: 1.8rem;
+    font-weight: bold;
+}
+.hydro-card {
+    background: rgba(0,40,80,0.4);
+    border-radius: 12px;
+    padding: 2rem;
+    border: 2px solid;
+}
+.hydro-card.pervious {
+    border-color: var(--success);
+}
+.hydro-card.impervious {
+    border-color: var(--danger);
+}
+.hydro-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.hydro-card.pervious .hydro-card-header { color: var(--success); }
+.hydro-card.impervious .hydro-card-header { color: var(--danger); }
+.hydro-card-header i { font-size: 1.5rem; }
+.hydro-card-header h3 { margin: 0; font-size: 1.25rem; }
+.hydro-card-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+.hydro-card.pervious .hydro-card-value { color: var(--success); }
+.hydro-card.impervious .hydro-card-value { color: var(--danger); }
+.hydro-card-desc {
+    color: var(--mc-muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+.hydro-breakdown {
+    background: rgba(0,20,40,0.5);
+    border-radius: 8px;
+    padding: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block about_tool_description %}
+<p>
+    The <strong>Pervious/Impervious Analysis</strong> tool analyzes site surfaces to determine water absorption
+    characteristics, infiltration capacity, and runoff generation. This tool classifies hardscape vs landscape
+    features and calculates site hydrology metrics for stormwater management compliance.
+</p>
+<p style="margin-top: 1rem;">
+    This tool integrates with the BMP Manager and Area Calculator to provide comprehensive site hydrology assessment,
+    helping ensure compliance with local stormwater regulations and supporting sustainable site design.
+</p>
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">PERV</span>
+<span class="about-tool-tag">IMPERV</span>
+<span class="about-tool-tag">BMP</span>
+<span class="about-tool-tag">LANDSCAPE</span>
+<span class="about-tool-tag">PAVING</span>
+<span class="about-tool-tag">BUILDING</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-BMP-BIORET-PLNT-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Pervious: Bioretention basin (infiltration)</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-LAND-TURF-IRRIG-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Pervious: Irrigated landscape areas</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-PVMT-ASPH-PARK-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Impervious: Asphalt parking surface</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">ARCH-BLDG-PAD-CONCRETE-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Impervious: Building footprint</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize the tool
+let surfaceData = [];
+
+function applyFilters() {
+    console.log('Filters applied');
+    renderSurfaceData();
+}
+
+function analyzeHydrology() {
+    console.log('Analyzing site hydrology...');
+
+    const emptyDiv = document.getElementById('surfacesEmpty');
+    emptyDiv.innerHTML = `
+        <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--mc-primary); margin-bottom: 1rem;"></i>
+        <p>Analyzing pervious and impervious surfaces...</p>
+    `;
+
+    // Simulate API call
+    setTimeout(() => {
+        emptyDiv.innerHTML = `
+            <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+            <p>No surface data available</p>
+            <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                Connect to an active project to analyze surfaces
+            </p>
+        `;
+    }, 1500);
+}
+
+function renderSurfaceData() {
+    const tbody = document.getElementById('surfacesTableBody');
+    const table = document.getElementById('surfacesTable');
+    const emptyDiv = document.getElementById('surfacesEmpty');
+
+    if (surfaceData.length === 0) {
+        table.style.display = 'none';
+        emptyDiv.style.display = 'block';
+        return;
+    }
+
+    table.style.display = 'table';
+    emptyDiv.style.display = 'none';
+
+    // Update counts
+    document.getElementById('surfacesTabCount').textContent = surfaceData.length;
+}
+
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.style.display = 'none';
+    });
+
+    document.querySelectorAll('.tool-data-tab').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) {
+        selectedTab.style.display = 'block';
+    }
+
+    event.target.closest('.tool-data-tab').classList.add('active');
+}
+
+function exportReport() {
+    console.log('Exporting hydrology report...');
+    alert('Hydrology report export functionality will be implemented here');
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Pervious/Impervious Analysis loaded');
+    renderSurfaceData();
+});
+</script>
 {% endblock %}
