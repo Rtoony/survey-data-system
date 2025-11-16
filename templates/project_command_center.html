@@ -682,14 +682,6 @@
                 <span id="fullscreenBtnTextCC">Full Screen</span>
             </button>
             <div class="map-title">Project Overview Map</div>
-            <div class="map-controls-display" id="mapControlsDisplay">
-                <div class="map-controls-title">Map Entities</div>
-                <div id="entityCounts">
-                    <div style="color: rgba(255,255,255,0.5); text-align: center; font-size: 0.85rem;">
-                        Loading...
-                    </div>
-                </div>
-            </div>
             <div id="mapView"></div>
         </div>
     </div>
@@ -1019,30 +1011,6 @@ function displayMapControls(data) {
     });
     
     layerTogglesContainer.innerHTML = html;
-    
-    const entityCountsContainer = document.getElementById('entityCounts');
-    if (entityCountsContainer) {
-        const categoryCounts = {};
-        data.layer_groups.forEach(group => {
-            const category = group.category;
-            if (!categoryCounts[category]) {
-                categoryCounts[category] = 0;
-            }
-            categoryCounts[category] += group.feature_count;
-        });
-        
-        let countsHtml = '';
-        Object.entries(categoryCounts).forEach(([category, count]) => {
-            countsHtml += `
-                <div class="entity-count-item">
-                    <span class="entity-count-label">${category}</span>
-                    <span class="entity-count-value">${count}</span>
-                </div>
-            `;
-        });
-        
-        entityCountsContainer.innerHTML = countsHtml;
-    }
 }
 
 // Display health metrics
