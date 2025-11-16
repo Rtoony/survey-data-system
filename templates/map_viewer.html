@@ -339,6 +339,53 @@
         font-size: 12px;
         color: var(--primary-color);
     }
+
+    /* Full Screen Mode */
+    body.fullscreen-mode {
+        overflow: hidden;
+    }
+
+    body.fullscreen-mode .sticky-header-container {
+        display: none !important;
+    }
+
+    body.fullscreen-mode .map-viewer-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 100vh !important;
+        z-index: 100;
+    }
+
+    .fullscreen-toggle {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        z-index: 1000;
+        background: var(--bg-dark);
+        border: 2px solid var(--accent-color);
+        color: var(--accent-color);
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        font-weight: bold;
+    }
+
+    .fullscreen-toggle:hover {
+        background: var(--accent-color);
+        color: var(--bg-dark);
+        box-shadow: 0 0 25px rgba(0, 255, 255, 0.6);
+        transform: scale(1.05);
+    }
+
+    .fullscreen-toggle i {
+        margin-right: 5px;
+    }
 </style>
 {% endblock %}
 
@@ -415,6 +462,10 @@
     
     <!-- Map Area -->
     <div class="map-container">
+        <button class="fullscreen-toggle" onclick="toggleFullScreen()" title="Toggle Full Screen Mode">
+            <i class="fas fa-expand"></i>
+            <span id="fullscreenBtnText">Full Screen</span>
+        </button>
         <div id="map"></div>
     </div>
 </div>
@@ -764,6 +815,38 @@ function zoomToProject() {
 function refreshData() {
     loadMapData();
 }
+
+// Toggle full screen mode
+function toggleFullScreen() {
+    const body = document.body;
+    const isFullScreen = body.classList.contains('fullscreen-mode');
+    const btnText = document.getElementById('fullscreenBtnText');
+    const btnIcon = document.querySelector('.fullscreen-toggle i');
+    
+    if (isFullScreen) {
+        // Exit full screen
+        body.classList.remove('fullscreen-mode');
+        btnText.textContent = 'Full Screen';
+        btnIcon.className = 'fas fa-expand';
+    } else {
+        // Enter full screen
+        body.classList.add('fullscreen-mode');
+        btnText.textContent = 'Exit Full Screen';
+        btnIcon.className = 'fas fa-compress';
+    }
+    
+    // Invalidate map size after layout change
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
+}
+
+// ESC key to exit full screen
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.body.classList.contains('fullscreen-mode')) {
+        toggleFullScreen();
+    }
+});
 
 // Address search with Nominatim geocoding
 async function searchAddress() {
