@@ -21319,7 +21319,7 @@ def analyze_laterals():
                 ST_Length(
                     ST_MakeLine(
                         service_point_geometry,
-                        (SELECT geometry FROM utility_structures WHERE structure_id = usc.structure_id LIMIT 1)
+                        (SELECT rim_geometry FROM utility_structures WHERE structure_id = usc.structure_id LIMIT 1)
                     )
                 ) as length_ft,
                 line_id as connected_to,
