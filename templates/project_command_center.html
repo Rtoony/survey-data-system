@@ -31,7 +31,7 @@
     /* Main content area with sidebar + map */
     .command-center-main {
         display: grid;
-        grid-template-columns: 350px 1fr;
+        grid-template-columns: 250px 1fr;
         gap: 1rem;
         flex: 1 1 auto;
         min-height: 0;
@@ -60,52 +60,145 @@
     }
 
     .command-category {
-        margin-bottom: 1.5rem;
+        margin-bottom: 0.5rem;
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 4px;
+        background: rgba(0, 30, 60, 0.3);
     }
 
     .command-category-title {
         color: var(--mc-accent);
         font-family: 'Rajdhani', sans-serif;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         text-transform: uppercase;
-        margin-bottom: 0.75rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 1px solid rgba(0, 255, 136, 0.3);
+        margin: 0;
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+        user-select: none;
+    }
+
+    .command-category-title:hover {
+        background: rgba(0, 255, 136, 0.1);
+        border-radius: 4px 4px 0 0;
+    }
+
+    .dropdown-toggle {
+        font-size: 0.7rem;
+        color: var(--mc-primary);
+        transition: transform 0.2s;
+    }
+
+    .dropdown-toggle.expanded {
+        transform: rotate(90deg);
+    }
+
+    .command-category-content {
+        padding: 0.5rem;
+        display: none;
+    }
+
+    .command-category-content.expanded {
+        display: block;
     }
 
     .command-button {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem;
         background: rgba(0, 20, 40, 0.7);
         border: 1px solid rgba(0, 255, 255, 0.3);
         border-radius: 4px;
         color: var(--mc-text);
         text-decoration: none;
         transition: all 0.2s;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.4rem;
         font-family: 'Rajdhani', sans-serif;
         cursor: pointer;
+        font-size: 0.8rem;
     }
 
     .command-button:hover {
         border-color: var(--mc-accent);
         background: rgba(0, 255, 136, 0.15);
-        transform: translateX(5px);
-        box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+        transform: translateX(3px);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
     }
 
     .command-button i {
         color: var(--mc-primary);
-        font-size: 1.1rem;
-        width: 20px;
+        font-size: 0.9rem;
+        width: 16px;
         text-align: center;
     }
 
     .command-button-text {
         flex: 1;
-        font-size: 0.9rem;
+        font-size: 0.8rem;
+    }
+
+    .layer-checkbox-item, .basemap-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.75rem;
+        margin-bottom: 0.3rem;
+        border-radius: 3px;
+        transition: background 0.2s;
+        cursor: pointer;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.75rem;
+        color: var(--mc-text);
+    }
+
+    .layer-checkbox-item:hover, .basemap-option:hover {
+        background: rgba(0, 255, 136, 0.1);
+    }
+
+    .layer-checkbox-item input[type="checkbox"],
+    .basemap-option input[type="radio"] {
+        cursor: pointer;
+        accent-color: var(--mc-accent);
+    }
+
+    .layer-checkbox-label {
+        flex: 1;
+        font-size: 0.75rem;
+    }
+
+    .layer-count {
+        color: var(--mc-accent);
+        font-size: 0.7rem;
+        opacity: 0.8;
+    }
+
+    .basemap-selector {
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+    }
+
+    .toggle-all-btn {
+        width: 100%;
+        padding: 0.5rem;
+        background: rgba(0, 255, 136, 0.2);
+        border: 1px solid var(--mc-accent);
+        border-radius: 3px;
+        color: var(--mc-accent);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-top: 0.5rem;
+    }
+
+    .toggle-all-btn:hover {
+        background: rgba(0, 255, 136, 0.3);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
     }
 
     /* Map Container - Read Only */
@@ -262,77 +355,233 @@
                 <div class="project-id"></div>
             </div>
             
-            <!-- Quick Actions -->
+            <!-- 🎯 Quick Actions -->
             <div class="command-category">
-                <div class="command-category-title">Quick Actions</div>
-                <a href="/map-viewer-v2" class="command-button">
-                    <i>🗺️</i>
-                    <span class="command-button-text">Map Viewer</span>
-                </a>
-                <button class="command-button" onclick="refreshData()">
-                    <i>🔄</i>
-                    <span class="command-button-text">Refresh Data</span>
-                </button>
+                <div class="command-category-title" onclick="toggleDropdown('quickActions')">
+                    <span class="dropdown-toggle expanded" id="toggle-quickActions">▶</span>
+                    <span>🎯 Quick Actions</span>
+                </div>
+                <div class="command-category-content expanded" id="content-quickActions">
+                    <a href="/map-viewer-v2" class="command-button">
+                        <i>🗺️</i>
+                        <span class="command-button-text">Map Viewer</span>
+                    </a>
+                    <button class="command-button" onclick="refreshData()">
+                        <i>🔄</i>
+                        <span class="command-button-text">Refresh Data</span>
+                    </button>
+                </div>
             </div>
             
-            <!-- Project Settings -->
+            <!-- 🛠️ Project Tools -->
             <div class="command-category">
-                <div class="command-category-title">Project Settings</div>
-                <a href="/tools/reference-data-mappings" class="command-button">
-                    <i>📋</i>
-                    <span class="command-button-text">Reference Data Mappings</span>
-                </a>
-                <a href="/tools/assign-standards" class="command-button">
-                    <i>📐</i>
-                    <span class="command-button-text">Assign Standards</span>
-                </a>
+                <div class="command-category-title" onclick="toggleDropdown('projectTools')">
+                    <span class="dropdown-toggle" id="toggle-projectTools">▶</span>
+                    <span>🛠️ Project Tools</span>
+                </div>
+                <div class="command-category-content" id="content-projectTools">
+                    <a href="/tools/batch-cad-import" class="command-button">
+                        <i>📥</i>
+                        <span class="command-button-text">CAD Import</span>
+                    </a>
+                    <a href="/tools/batch-point-import" class="command-button">
+                        <i>📍</i>
+                        <span class="command-button-text">Point Import</span>
+                    </a>
+                    <a href="/tools/object-reclassifier" class="command-button">
+                        <i>🔧</i>
+                        <span class="command-button-text">Object Reclassifier</span>
+                    </a>
+                    <a href="/tools/survey-point-manager" class="command-button">
+                        <i>🎯</i>
+                        <span class="command-button-text">Survey Point Manager</span>
+                    </a>
+                    <a href="/tools/survey-codes" class="command-button">
+                        <i>📝</i>
+                        <span class="command-button-text">Survey Codes</span>
+                    </a>
+                    <a href="/tools/survey-code-tester" class="command-button">
+                        <i>🧪</i>
+                        <span class="command-button-text">Survey Code Tester</span>
+                    </a>
+                    <a href="/tools/batch-block-import" class="command-button">
+                        <i>📦</i>
+                        <span class="command-button-text">Batch Block Import</span>
+                    </a>
+                    <a href="/tools/z-stress-test" class="command-button">
+                        <i>⚡</i>
+                        <span class="command-button-text">Z-Stress Test</span>
+                    </a>
+                    <a href="/tools/dxf-test-generator" class="command-button">
+                        <i>🎲</i>
+                        <span class="command-button-text">DXF Test Generator</span>
+                    </a>
+                    <a href="/tools/specialized-tools-directory" class="command-button">
+                        <i>🔧</i>
+                        <span class="command-button-text">Specialized Tools</span>
+                    </a>
+                </div>
             </div>
             
-            <!-- Data Management -->
+            <!-- 📐 CAD Standards -->
             <div class="command-category">
-                <div class="command-category-title">Data Management</div>
-                <a href="/tools/batch-cad-import" class="command-button">
-                    <i>📥</i>
-                    <span class="command-button-text">CAD Import</span>
-                </a>
-                <a href="/tools/batch-point-import" class="command-button">
-                    <i>📍</i>
-                    <span class="command-button-text">Point Import</span>
-                </a>
-                <a href="/tools/survey-point-manager" class="command-button">
-                    <i>🎯</i>
-                    <span class="command-button-text">Survey Point Manager</span>
-                </a>
+                <div class="command-category-title" onclick="toggleDropdown('cadStandards')">
+                    <span class="dropdown-toggle" id="toggle-cadStandards">▶</span>
+                    <span>📐 CAD Standards</span>
+                </div>
+                <div class="command-category-content" id="content-cadStandards">
+                    <a href="/standards/layers" class="command-button">
+                        <i>📄</i>
+                        <span class="command-button-text">Layers</span>
+                    </a>
+                    <a href="/standards/blocks" class="command-button">
+                        <i>🔲</i>
+                        <span class="command-button-text">Blocks</span>
+                    </a>
+                    <a href="/standards/linetypes" class="command-button">
+                        <i>➖</i>
+                        <span class="command-button-text">Linetypes</span>
+                    </a>
+                    <a href="/standards/colors" class="command-button">
+                        <i>🎨</i>
+                        <span class="command-button-text">Colors</span>
+                    </a>
+                    <a href="/standards/text" class="command-button">
+                        <i>🔤</i>
+                        <span class="command-button-text">Text</span>
+                    </a>
+                    <a href="/standards/hatches" class="command-button">
+                        <i>▦</i>
+                        <span class="command-button-text">Hatches</span>
+                    </a>
+                    <a href="/standards/details" class="command-button">
+                        <i>🔍</i>
+                        <span class="command-button-text">Details</span>
+                    </a>
+                    <a href="/standards/abbreviations" class="command-button">
+                        <i>📝</i>
+                        <span class="command-button-text">Abbreviations</span>
+                    </a>
+                    <a href="/standards/materials" class="command-button">
+                        <i>🧱</i>
+                        <span class="command-button-text">Materials</span>
+                    </a>
+                    <a href="/standards/vocabulary" class="command-button">
+                        <i>📖</i>
+                        <span class="command-button-text">Vocabulary</span>
+                    </a>
+                    <a href="/standards/layer-vocabulary" class="command-button">
+                        <i>📚</i>
+                        <span class="command-button-text">Layer Vocabulary</span>
+                    </a>
+                    <a href="/standards/reference-data" class="command-button">
+                        <i>📊</i>
+                        <span class="command-button-text">Reference Data</span>
+                    </a>
+                    <a href="/standards/reference" class="command-button">
+                        <i>🔖</i>
+                        <span class="command-button-text">Reference</span>
+                    </a>
+                    <a href="/standards/sheets" class="command-button">
+                        <i>📋</i>
+                        <span class="command-button-text">Sheets</span>
+                    </a>
+                    <a href="/standards/plotstyles" class="command-button">
+                        <i>🖨️</i>
+                        <span class="command-button-text">Plotstyles</span>
+                    </a>
+                    <a href="/standards/viewports" class="command-button">
+                        <i>🖼️</i>
+                        <span class="command-button-text">Viewports</span>
+                    </a>
+                    <a href="/standards/annotations" class="command-button">
+                        <i>💬</i>
+                        <span class="command-button-text">Annotations</span>
+                    </a>
+                    <a href="/standards/categories" class="command-button">
+                        <i>📂</i>
+                        <span class="command-button-text">Categories</span>
+                    </a>
+                    <a href="/standards/codes" class="command-button">
+                        <i>🔢</i>
+                        <span class="command-button-text">Codes</span>
+                    </a>
+                    <a href="/standards/notes" class="command-button">
+                        <i>📌</i>
+                        <span class="command-button-text">Notes</span>
+                    </a>
+                    <a href="/standards/scales" class="command-button">
+                        <i>📏</i>
+                        <span class="command-button-text">Scales</span>
+                    </a>
+                    <a href="/layer-generator" class="command-button">
+                        <i>⚙️</i>
+                        <span class="command-button-text">Layer Generator</span>
+                    </a>
+                    <a href="/standards/import-manager" class="command-button">
+                        <i>📥</i>
+                        <span class="command-button-text">Import Manager</span>
+                    </a>
+                    <a href="/standards/bulk-editor" class="command-button">
+                        <i>✏️</i>
+                        <span class="command-button-text">Bulk Editor</span>
+                    </a>
+                </div>
             </div>
             
-            <!-- Standards & Templates -->
+            <!-- 🗺️ Map Controls -->
             <div class="command-category">
-                <div class="command-category-title">Standards</div>
-                <a href="/standards/layers" class="command-button">
-                    <i>📄</i>
-                    <span class="command-button-text">Layer Standards</span>
-                </a>
-                <a href="/standards/blocks" class="command-button">
-                    <i>🔲</i>
-                    <span class="command-button-text">Block Standards</span>
-                </a>
-                <a href="/standards/linetypes" class="command-button">
-                    <i>➖</i>
-                    <span class="command-button-text">Linetypes</span>
-                </a>
+                <div class="command-category-title" onclick="toggleDropdown('mapControls')">
+                    <span class="dropdown-toggle" id="toggle-mapControls">▶</span>
+                    <span>🗺️ Map Controls</span>
+                </div>
+                <div class="command-category-content" id="content-mapControls">
+                    <div class="basemap-selector">
+                        <div style="font-size: 0.7rem; color: var(--mc-accent); margin-bottom: 0.5rem; text-transform: uppercase;">Basemap</div>
+                        <label class="basemap-option">
+                            <input type="radio" name="basemap" value="streets" checked onchange="changeBasemap('streets')">
+                            <span>Streets</span>
+                        </label>
+                        <label class="basemap-option">
+                            <input type="radio" name="basemap" value="satellite" onchange="changeBasemap('satellite')">
+                            <span>Satellite</span>
+                        </label>
+                        <label class="basemap-option">
+                            <input type="radio" name="basemap" value="topo" onchange="changeBasemap('topo')">
+                            <span>Topo</span>
+                        </label>
+                        <label class="basemap-option">
+                            <input type="radio" name="basemap" value="dark" onchange="changeBasemap('dark')">
+                            <span>Dark</span>
+                        </label>
+                    </div>
+                    
+                    <div style="font-size: 0.7rem; color: var(--mc-accent); margin-bottom: 0.5rem; text-transform: uppercase;">Layers</div>
+                    <div id="layerToggles">
+                        <div style="color: rgba(255,255,255,0.5); text-align: center; font-size: 0.75rem; padding: 1rem 0;">
+                            Loading layers...
+                        </div>
+                    </div>
+                    <button class="toggle-all-btn" onclick="toggleAllLayers()">Toggle All</button>
+                </div>
             </div>
             
-            <!-- Project Navigation -->
+            <!-- 🧭 Navigation -->
             <div class="command-category">
-                <div class="command-category-title">Navigation</div>
-                <a href="/" class="command-button">
-                    <i>🏠</i>
-                    <span class="command-button-text">Home</span>
-                </a>
-                <a href="/projects" class="command-button">
-                    <i>📂</i>
-                    <span class="command-button-text">All Projects</span>
-                </a>
+                <div class="command-category-title" onclick="toggleDropdown('navigation')">
+                    <span class="dropdown-toggle" id="toggle-navigation">▶</span>
+                    <span>🧭 Navigation</span>
+                </div>
+                <div class="command-category-content" id="content-navigation">
+                    <a href="/" class="command-button">
+                        <i>🏠</i>
+                        <span class="command-button-text">Home</span>
+                    </a>
+                    <a href="/projects" class="command-button">
+                        <i>📂</i>
+                        <span class="command-button-text">All Projects</span>
+                    </a>
+                </div>
             </div>
         </div>
         
@@ -376,6 +625,23 @@
 let map;
 let activeProjectId = null;
 let projectData = null;
+let layerGroups = {};
+let currentBasemap = null;
+
+const basemaps = {
+    streets: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }),
+    satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '© Esri'
+    }),
+    topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenTopoMap contributors'
+    }),
+    dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© CartoDB'
+    })
+};
 
 // Initialize read-only map
 function initMap() {
@@ -390,10 +656,31 @@ function initMap() {
         tap: false
     }).setView([37.7749, -122.4194], 13);
     
-    // Add basemap
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    currentBasemap = basemaps.streets;
+    currentBasemap.addTo(map);
+}
+
+// Toggle dropdown sections
+function toggleDropdown(sectionId) {
+    const toggle = document.getElementById(`toggle-${sectionId}`);
+    const content = document.getElementById(`content-${sectionId}`);
+    
+    if (content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        toggle.classList.remove('expanded');
+    } else {
+        content.classList.add('expanded');
+        toggle.classList.add('expanded');
+    }
+}
+
+// Change basemap
+function changeBasemap(basemapType) {
+    if (currentBasemap) {
+        map.removeLayer(currentBasemap);
+    }
+    currentBasemap = basemaps[basemapType];
+    currentBasemap.addTo(map);
 }
 
 // Fetch active project
@@ -471,9 +758,18 @@ async function loadProjectData() {
 function displayMapData(data) {
     if (!data.layer_groups || data.layer_groups.length === 0) return;
     
-    // Add all layer groups to map
+    // Remove existing layers from map before adding new ones
+    Object.values(layerGroups).forEach(group => {
+        if (group.layer) {
+            map.removeLayer(group.layer);
+        }
+    });
+    
+    layerGroups = {};
+    
+    // Add all layer groups to map and store references
     data.layer_groups.forEach(groupData => {
-        L.geoJSON(groupData.features, {
+        const layerGroup = L.geoJSON(groupData.features, {
             style: {
                 color: groupData.color,
                 weight: 2,
@@ -491,6 +787,14 @@ function displayMapData(data) {
                 });
             }
         }).addTo(map);
+        
+        layerGroups[groupData.id] = {
+            layer: layerGroup,
+            name: groupData.name,
+            category: groupData.category,
+            count: groupData.feature_count,
+            visible: true
+        };
     });
     
     // Auto-fit to project extent
@@ -503,40 +807,86 @@ function displayMapData(data) {
     }
 }
 
-// Display map controls (entity counts)
+// Toggle layer visibility
+function toggleLayer(groupId, visible) {
+    if (layerGroups[groupId]) {
+        if (visible) {
+            map.addLayer(layerGroups[groupId].layer);
+        } else {
+            map.removeLayer(layerGroups[groupId].layer);
+        }
+        layerGroups[groupId].visible = visible;
+    }
+}
+
+// Toggle all layers
+function toggleAllLayers() {
+    const anyVisible = Object.values(layerGroups).some(g => g.visible);
+    const newState = !anyVisible;
+    
+    Object.keys(layerGroups).forEach(groupId => {
+        toggleLayer(groupId, newState);
+        const checkbox = document.getElementById(`layer-${groupId}`);
+        if (checkbox) {
+            checkbox.checked = newState;
+        }
+    });
+}
+
+// Display map controls (layer checkboxes in sidebar)
 function displayMapControls(data) {
-    const container = document.getElementById('entityCounts');
+    const layerTogglesContainer = document.getElementById('layerToggles');
     
     if (!data.layer_groups || data.layer_groups.length === 0) {
-        container.innerHTML = `
-            <div style="color: rgba(255,255,255,0.5); text-align: center; font-size: 0.85rem;">
-                No entities
+        layerTogglesContainer.innerHTML = `
+            <div style="color: rgba(255,255,255,0.5); text-align: center; font-size: 0.75rem; padding: 1rem 0;">
+                No layers available
             </div>
         `;
         return;
     }
     
-    // Group by category and sum counts
-    const categoryCounts = {};
-    data.layer_groups.forEach(group => {
-        const category = group.category;
-        if (!categoryCounts[category]) {
-            categoryCounts[category] = 0;
-        }
-        categoryCounts[category] += group.feature_count;
-    });
-    
     let html = '';
-    Object.entries(categoryCounts).forEach(([category, count]) => {
+    data.layer_groups.forEach(group => {
         html += `
-            <div class="entity-count-item">
-                <span class="entity-count-label">${category}</span>
-                <span class="entity-count-value">${count}</span>
-            </div>
+            <label class="layer-checkbox-item">
+                <input 
+                    type="checkbox" 
+                    id="layer-${group.id}" 
+                    checked 
+                    onchange="toggleLayer('${group.id}', this.checked)"
+                >
+                <span class="layer-checkbox-label">${group.name}</span>
+                <span class="layer-count">${group.feature_count}</span>
+            </label>
         `;
     });
     
-    container.innerHTML = html;
+    layerTogglesContainer.innerHTML = html;
+    
+    const entityCountsContainer = document.getElementById('entityCounts');
+    if (entityCountsContainer) {
+        const categoryCounts = {};
+        data.layer_groups.forEach(group => {
+            const category = group.category;
+            if (!categoryCounts[category]) {
+                categoryCounts[category] = 0;
+            }
+            categoryCounts[category] += group.feature_count;
+        });
+        
+        let countsHtml = '';
+        Object.entries(categoryCounts).forEach(([category, count]) => {
+            countsHtml += `
+                <div class="entity-count-item">
+                    <span class="entity-count-label">${category}</span>
+                    <span class="entity-count-value">${count}</span>
+                </div>
+            `;
+        });
+        
+        entityCountsContainer.innerHTML = countsHtml;
+    }
 }
 
 // Display health metrics
