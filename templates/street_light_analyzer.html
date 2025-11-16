@@ -211,10 +211,27 @@ async function loadLights() {
     clearMap();
 
     try {
-        const response = await fetch('/api/specialized-tools/street-lights');
+        // Get active project from global context
+        const activeProject = window.projectContext ?
+            await window.projectContext.getActiveProject() : null;
+
+        if (!activeProject) {
+            showError('No active project selected. Please select a project from the dashboard.');
+            showLoading(false);
+            return;
+        }
+
+        const response = await fetch(`/api/specialized-tools/street-lights?project_id=${activeProject.project_id}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
+
+        if (!data.success) {
+            showError(data.error || 'Failed to load street light data');
+            showLoading(false);
+            return;
+        }
+
         currentData = data.lights || [];
 
         if (currentData.length === 0) {
@@ -229,7 +246,7 @@ async function loadLights() {
 
     } catch (error) {
         console.error('Error loading lights:', error);
-        alert('Failed to load street light data: ' + error.message);
+        showError('Failed to load street light data: ' + error.message);
     } finally {
         showLoading(false);
     }
@@ -255,8 +272,9 @@ function renderMap(lights) {
     const showCoverage = document.getElementById('showCoverage').checked;
 
     lights.forEach(light => {
-        const lat = light.y / 364000; // Convert CAD coords to lat/lng
-        const lng = light.x / 364000;
+        // Use pre-converted WGS84 coordinates from backend
+        const lat = light.map_lat;
+        const lng = light.map_lng;
         bounds.push([lat, lng]);
 
         // Marker with custom icon
@@ -402,9 +420,34 @@ function viewDetails(lightId) {
     alert(`Detailed view for ${lightId} coming soon!`);
 }
 
+// Error display function
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: rgba(255,0,0,0.9); color: white; padding: 20px; border-radius: 8px; z-index: 10000; max-width: 400px;';
+    errorDiv.innerHTML = `
+        <strong>Error:</strong><br>
+        ${message}<br><br>
+        <button onclick="this.parentElement.remove()" style="background: white; color: black; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Dismiss</button>
+    `;
+    document.body.appendChild(errorDiv);
+}
+
 // Auto-load on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     initMap();
+
+    // Wait for ProjectContext to initialize
+    if (window.projectContext) {
+        await window.projectContext.init();
+
+        // Subscribe to project changes
+        window.projectContext.subscribe(() => {
+            console.log('Active project changed, reloading data...');
+            loadLights();
+        });
+    }
+
+    // Initial load
     setTimeout(loadLights, 500);
 });
 </script>
