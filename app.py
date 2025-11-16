@@ -19202,5 +19202,351 @@ def check_relationship_sync(set_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== NATURAL LANGUAGE QUERY API =====
+
+@app.route('/api/nl-query/process', methods=['POST'])
+def process_nl_query():
+    """Process a natural language query and generate SQL"""
+    try:
+        data = request.get_json()
+        nl_query = data.get('query', '').strip()
+
+        if not nl_query:
+            return jsonify({'error': 'Query is required'}), 400
+
+        # Get OpenAI API key from environment
+        openai_api_key = os.environ.get('OPENAI_API_KEY')
+        if not openai_api_key:
+            return jsonify({'error': 'OpenAI API key not configured'}), 500
+
+        # Build system prompt with schema context
+        system_prompt = """You are a SQL expert for a PostgreSQL/PostGIS CAD/GIS database.
+Generate safe, read-only SQL queries based on natural language input.
+
+Key Tables:
+- utility_structures: storm/sewer structures (structure_type, rim_elevation, geometry)
+- utility_lines: pipes (line_type, material, diameter, geometry)
+- survey_points: survey data (point_number, point_description, elevation, geometry)
+- projects: engineering projects (project_name, client, municipality)
+- structure_type_standards: controlled vocab for structure types
+- survey_point_description_standards: controlled vocab for point descriptions
+- survey_method_types: survey method standards
+
+Important:
+- ALWAYS use read-only SELECT queries (no INSERT/UPDATE/DELETE)
+- Use ST_Distance, ST_DWithin for proximity queries (SRID 2226)
+- Join with standards tables for human-readable names
+- Include LIMIT clause (default 100) for large result sets
+- Return JSON-formatted SQL with explanation
+
+Example:
+Input: "Show me all manholes within 100 feet of project boundaries"
+Output: {
+  "sql": "SELECT us.structure_number, sts.type_name, ST_Distance(us.rim_geometry, pb.geometry) as distance FROM utility_structures us JOIN structure_type_standards sts ON us.structure_type_id = sts.type_id JOIN project_boundaries pb ON ST_DWithin(us.rim_geometry, pb.geometry, 100) WHERE sts.type_code = 'MH' LIMIT 100",
+  "explanation": "Finds manholes (MH) within 100 feet of project boundaries using spatial distance",
+  "intent": "spatial",
+  "complexity": 0.6
+}"""
+
+        # Call OpenAI API
+        import openai
+        openai.api_key = openai_api_key
+
+        start_time = datetime.now()
+
+        response = openai.ChatCompletion.create(
+            model=data.get('model', 'gpt-4'),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Generate SQL for: {nl_query}"}
+            ],
+            temperature=0.1,
+            max_tokens=1000
+        )
+
+        processing_time = (datetime.now() - start_time).total_seconds() * 1000
+
+        # Parse response
+        ai_response = response.choices[0].message.content
+
+        # Try to extract JSON if present
+        try:
+            # Remove markdown code blocks if present
+            if '```json' in ai_response:
+                ai_response = ai_response.split('```json')[1].split('```')[0].strip()
+            elif '```' in ai_response:
+                ai_response = ai_response.split('```')[1].split('```')[0].strip()
+
+            result = json.loads(ai_response)
+            generated_sql = result.get('sql', '')
+            explanation = result.get('explanation', '')
+            intent = result.get('intent', 'select')
+            complexity = result.get('complexity', 0.5)
+        except:
+            # Fallback: treat entire response as SQL
+            generated_sql = ai_response.strip()
+            explanation = 'SQL query generated from natural language'
+            intent = 'select'
+            complexity = 0.5
+
+        # Security check: ensure SELECT-only query
+        sql_upper = generated_sql.upper().strip()
+        if not sql_upper.startswith('SELECT'):
+            return jsonify({'error': 'Only SELECT queries are allowed'}), 400
+
+        dangerous_keywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE']
+        for keyword in dangerous_keywords:
+            if keyword in sql_upper:
+                return jsonify({'error': f'Dangerous keyword {keyword} detected'}), 400
+
+        # Save to history
+        query_id = str(uuid.uuid4())
+        history_query = """
+            INSERT INTO nl_query_history
+            (query_id, natural_language_query, generated_sql, sql_explanation, model_used,
+             tokens_used, processing_time_ms, query_intent, complexity_score, execution_status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
+            RETURNING query_id
+        """
+
+        execute_query(history_query, (
+            query_id, nl_query, generated_sql, explanation,
+            data.get('model', 'gpt-4'),
+            response.usage.total_tokens,
+            int(processing_time),
+            intent,
+            complexity
+        ))
+
+        return jsonify({
+            'query_id': query_id,
+            'sql': generated_sql,
+            'explanation': explanation,
+            'intent': intent,
+            'complexity': complexity,
+            'processing_time_ms': int(processing_time),
+            'tokens_used': response.usage.total_tokens
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nl-query/execute', methods=['POST'])
+def execute_nl_query():
+    """Execute a generated SQL query safely"""
+    try:
+        data = request.get_json()
+        query_id = data.get('query_id')
+        sql = data.get('sql', '').strip()
+
+        if not sql:
+            return jsonify({'error': 'SQL is required'}), 400
+
+        # Security re-check
+        sql_upper = sql.upper().strip()
+        if not sql_upper.startswith('SELECT'):
+            return jsonify({'error': 'Only SELECT queries are allowed'}), 400
+
+        # Execute with timeout
+        start_time = datetime.now()
+
+        try:
+            results = execute_query(sql)
+            execution_time = (datetime.now() - start_time).total_seconds() * 1000
+
+            # Update history
+            if query_id:
+                update_query = """
+                    UPDATE nl_query_history
+                    SET execution_status = 'success',
+                        result_count = %s,
+                        execution_time_ms = %s
+                    WHERE query_id = %s
+                """
+                execute_query(update_query, (len(results) if results else 0, int(execution_time), query_id))
+
+            return jsonify({
+                'success': True,
+                'results': results if results else [],
+                'count': len(results) if results else 0,
+                'execution_time_ms': int(execution_time)
+            })
+
+        except Exception as exec_error:
+            # Update history with error
+            if query_id:
+                update_query = """
+                    UPDATE nl_query_history
+                    SET execution_status = 'error',
+                        error_message = %s
+                    WHERE query_id = %s
+                """
+                execute_query(update_query, (str(exec_error), query_id))
+
+            return jsonify({'error': f'SQL execution error: {str(exec_error)}'}), 400
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nl-query/history')
+def get_nl_query_history():
+    """Get query history with optional filtering"""
+    try:
+        limit = int(request.args.get('limit', 50))
+        favorites_only = request.args.get('favorites_only') == 'true'
+
+        where_clauses = []
+        params = []
+
+        if favorites_only:
+            where_clauses.append('is_favorite = TRUE')
+
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses) if where_clauses else ''
+
+        query = f"""
+            SELECT query_id, natural_language_query, generated_sql, sql_explanation,
+                   execution_status, result_count, execution_time_ms, processing_time_ms,
+                   query_intent, complexity_score, user_feedback, user_rating,
+                   is_favorite, is_template, template_name,
+                   created_at, updated_at
+            FROM nl_query_history
+            {where_sql}
+            ORDER BY created_at DESC
+            LIMIT %s
+        """
+
+        params.append(limit)
+        results = execute_query(query, params)
+
+        return jsonify(results if results else [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nl-query/history/<uuid:query_id>', methods=['PUT'])
+def update_nl_query_history(query_id):
+    """Update query history (mark as favorite, add feedback, etc.)"""
+    try:
+        data = request.get_json()
+
+        updates = []
+        params = []
+
+        if 'is_favorite' in data:
+            updates.append('is_favorite = %s')
+            params.append(data['is_favorite'])
+
+        if 'user_feedback' in data:
+            updates.append('user_feedback = %s')
+            params.append(data['user_feedback'])
+
+        if 'user_rating' in data:
+            updates.append('user_rating = %s')
+            params.append(data['user_rating'])
+
+        if 'user_comment' in data:
+            updates.append('user_comment = %s')
+            params.append(data['user_comment'])
+
+        if not updates:
+            return jsonify({'error': 'No fields to update'}), 400
+
+        params.append(str(query_id))
+
+        query = f"""
+            UPDATE nl_query_history
+            SET {', '.join(updates)}
+            WHERE query_id = %s
+            RETURNING query_id
+        """
+
+        result = execute_query(query, params)
+
+        if not result:
+            return jsonify({'error': 'Query not found'}), 404
+
+        return jsonify({'message': 'Query updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nl-query/templates')
+def get_nl_query_templates():
+    """Get all query templates"""
+    try:
+        category = request.args.get('category')
+        featured_only = request.args.get('featured_only') == 'true'
+
+        where_clauses = ['is_active = TRUE']
+        params = []
+
+        if category:
+            where_clauses.append('category = %s')
+            params.append(category)
+
+        if featured_only:
+            where_clauses.append('is_featured = TRUE')
+
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses)
+
+        query = f"""
+            SELECT template_id, template_name, template_description, category,
+                   natural_language_template, sql_template, sql_explanation,
+                   parameters, example_values, tags,
+                   usage_count, is_featured, created_at
+            FROM nl_query_templates
+            {where_sql}
+            ORDER BY is_featured DESC, usage_count DESC, template_name
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nl-query/templates/<uuid:template_id>/use', methods=['POST'])
+def use_nl_query_template(template_id):
+    """Use a template with specific parameter values"""
+    try:
+        data = request.get_json()
+        param_values = data.get('parameters', {})
+
+        # Get template
+        template_query = """
+            SELECT natural_language_template, sql_template, parameters
+            FROM nl_query_templates
+            WHERE template_id = %s
+        """
+        template = execute_query(template_query, (str(template_id),))
+
+        if not template:
+            return jsonify({'error': 'Template not found'}), 404
+
+        template = template[0]
+
+        # Replace placeholders in both NL and SQL
+        nl_filled = template['natural_language_template']
+        sql_filled = template['sql_template']
+
+        for param_name, param_value in param_values.items():
+            nl_filled = nl_filled.replace(f'{{{param_name}}}', str(param_value))
+            sql_filled = sql_filled.replace(f'{{{param_name}}}', str(param_value))
+
+        # Update usage count
+        update_query = """
+            UPDATE nl_query_templates
+            SET usage_count = usage_count + 1,
+                last_used_at = CURRENT_TIMESTAMP
+            WHERE template_id = %s
+        """
+        execute_query(update_query, (str(template_id),))
+
+        return jsonify({
+            'natural_language_query': nl_filled,
+            'sql': sql_filled,
+            'template_id': str(template_id)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
