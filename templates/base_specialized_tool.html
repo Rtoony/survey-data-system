@@ -326,9 +326,9 @@ EXAMPLE:
     }
 
     .tool-bottom-area {
-        height: 400px;
+        height: 280px;
         min-height: 200px;
-        max-height: 60vh;
+        max-height: 45vh;
         overflow: hidden;
         background: var(--mc-bg-dark);
         display: flex;
@@ -550,6 +550,146 @@ EXAMPLE:
         background: var(--mc-accent);
     }
 
+    /* ============================================
+       ABOUT THIS TOOL SECTION
+       ============================================ */
+    .about-tool-section {
+        background: linear-gradient(135deg, rgba(0, 40, 80, 0.4), rgba(0, 20, 40, 0.6));
+        border: 2px solid rgba(0, 255, 255, 0.3);
+        border-radius: 12px;
+        margin: 2rem;
+        padding: 2rem;
+        color: var(--mc-text);
+    }
+
+    .about-tool-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+    }
+
+    .about-tool-header i {
+        font-size: 2rem;
+        color: var(--mc-primary);
+    }
+
+    .about-tool-header h3 {
+        color: var(--mc-primary);
+        font-family: 'Orbitron', monospace;
+        font-size: 1.3rem;
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .about-tool-description {
+        margin-bottom: 2rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 1rem;
+    }
+
+    .about-tool-subsection {
+        margin-bottom: 1.5rem;
+    }
+
+    .about-tool-subsection h4 {
+        color: var(--mc-accent);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 0 0 0.75rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .about-tool-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .about-tool-tag {
+        background: rgba(0, 255, 255, 0.15);
+        border: 1px solid rgba(0, 255, 255, 0.4);
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: var(--mc-primary);
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .about-tool-examples {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .about-tool-example {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(0, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 0.75rem 1rem;
+        transition: all 0.2s;
+    }
+
+    .about-tool-example:hover {
+        border-color: rgba(0, 255, 255, 0.5);
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    .about-tool-example-layer {
+        font-family: 'Courier New', monospace;
+        font-size: 1rem;
+        color: var(--mc-accent);
+        font-weight: bold;
+        margin-bottom: 0.3rem;
+        letter-spacing: 0.5px;
+    }
+
+    .about-tool-example-desc {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.65);
+        line-height: 1.4;
+    }
+
+    .about-tool-links {
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba(0, 255, 255, 0.2);
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .about-tool-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(0, 255, 100, 0.1);
+        border: 1px solid rgba(0, 255, 100, 0.3);
+        color: var(--mc-accent);
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+
+    .about-tool-link:hover {
+        background: rgba(0, 255, 100, 0.2);
+        border-color: rgba(0, 255, 100, 0.5);
+        transform: translateX(4px);
+    }
+
     {% block extra_css %}{% endblock %}
 </style>
 
@@ -627,6 +767,57 @@ EXAMPLE:
         </div>
     </div>
 </div>
+
+<!-- About This Specialized Tool Section -->
+{% block about_tool_section %}
+<div class="about-tool-section">
+    <div class="about-tool-header">
+        <i class="fas fa-info-circle"></i>
+        <h3>About This Specialized Tool</h3>
+    </div>
+    
+    <div class="about-tool-description">
+        {% block about_tool_description %}
+        This specialized management tool provides interactive capabilities for working with specific CAD layer types in ACAD-GIS.
+        {% endblock %}
+    </div>
+    
+    {% block about_tool_content %}
+    <!-- Default content if child template doesn't override -->
+    <div class="about-tool-subsection">
+        <h4><i class="fas fa-tags"></i> Manages:</h4>
+        <div class="about-tool-tags">
+            {% block about_tool_tags %}
+            <span class="about-tool-tag">OBJECT</span>
+            {% endblock %}
+        </div>
+    </div>
+    
+    <div class="about-tool-subsection">
+        <h4><i class="fas fa-layer-group"></i> Example Layer Names:</h4>
+        <div class="about-tool-examples">
+            {% block about_tool_examples %}
+            <div class="about-tool-example">
+                <div class="about-tool-example-layer">CIV-ADA-OBJECT-EXST-LN</div>
+                <div class="about-tool-example-desc">→ Existing Object - Civil/ADA</div>
+            </div>
+            {% endblock %}
+        </div>
+    </div>
+    {% endblock %}
+    
+    {% block about_tool_links %}
+    <div class="about-tool-links">
+        <a href="/tools/specialized-tools-directory" class="about-tool-link">
+            <i class="fas fa-search"></i> Discover more specialized tools
+        </a>
+        <a href="/standards/layer-generator" class="about-tool-link">
+            <i class="fas fa-wrench"></i> Configure mappings
+        </a>
+    </div>
+    {% endblock %}
+</div>
+{% endblock %}
 
 <script>
 // Fullscreen toggle functionality
