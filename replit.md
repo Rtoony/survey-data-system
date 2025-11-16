@@ -46,7 +46,8 @@ Preferred communication style: Simple, everyday language.
 - **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards.
 - **Standards Mapping Framework:** 11-table database schema with 5 name mapping managers for bidirectional DXF↔Database translation.
 - **DXF Tools:** Full DXF import/export with intelligent object creation, change detection, and bidirectional sync, including survey-grade 3D elevation preservation. Includes a Z-Value Stress Test for coordinate precision.
-- **Map Viewer & Export:** Interactive Leaflet map with coordinate transformation, bounding box export, and measurement tools.
+- **Enhanced Map Viewer:** Full-featured spatial workbench with Leaflet-based interactive mapping, layer toggle controls, basemap selection (Streets/Satellite/Topo/Dark), multi-format export (DXF/KML/SHP/PNG), measurement tools (distance/area), address search with geocoding, bounding box selection for exports, and full-screen mode optimized for wide-screen monitors (20"/27"/ultrawide). See [VISUALIZATION_TOOLS.md](VISUALIZATION_TOOLS.md) for complete documentation.
+- **Project Command Center:** Streamlined project management dashboard with collapsible 250px sidebar containing 10 specialized tools and 24 CAD standards, read-only context map with layer toggles and basemap selection, health metrics ribbon (entities/layers/intelligent objects/drawings), quick access navigation, and full-screen mode. Provides central hub for all project operations with visual project overview.
 - **Entity Viewer:** Lightweight 2D viewer for project entities with SVG rendering, multi-select filters, and dynamic legend.
 - **Network Managers Suite:** Unified framework of specialized manager tools (Gravity Pipe, Pressure Pipe, BMP Manager) following the Entity Viewer pattern.
 - **Unified Batch CAD Import Tool:** Productivity tool for batch importing Blocks, Details, Hatches, and Linetypes from DXF files.
