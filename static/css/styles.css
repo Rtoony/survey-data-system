@@ -1486,3 +1486,52 @@ table tr:hover {
     display: none;
 }
 
+/* ============================================
+   ENHANCED TOAST NOTIFICATIONS
+   ============================================ */
+.mc-toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 20px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    background: var(--mc-surface);
+    border-left: 4px solid;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    animation: slideIn 0.3s ease;
+    transition: opacity 0.3s;
+    min-width: 300px;
+}
+
+.mc-toast-success {
+    border-left-color: var(--mc-accent);
+    color: var(--mc-accent);
+}
+
+.mc-toast-error {
+    border-left-color: var(--mc-danger);
+    color: var(--mc-danger);
+}
+
+.mc-toast-warning {
+    border-left-color: #ffaa00;
+    color: #ffaa00;
+}
+
+.mc-toast-info {
+    border-left-color: var(--mc-primary);
+    color: var(--mc-primary);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+

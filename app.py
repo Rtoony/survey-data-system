@@ -20681,6 +20681,7 @@ def get_validation_results():
         status = request.args.get('status')
         entity_type = request.args.get('entity_type')
         severity = request.args.get('severity')
+        rule_id = request.args.get('rule_id')
         limit = int(request.args.get('limit', 100))
 
         query = """
@@ -20700,6 +20701,9 @@ def get_validation_results():
         if severity:
             query += " AND r.severity = %s"
             params.append(severity)
+        if rule_id:
+            query += " AND vr.rule_id = %s"
+            params.append(rule_id)
 
         query += " ORDER BY vr.detected_at DESC LIMIT %s"
         params.append(limit)

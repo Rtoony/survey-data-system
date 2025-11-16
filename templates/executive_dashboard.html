@@ -37,6 +37,19 @@
     transition: var(--mc-transition);
 }
 
+.metric-card {
+    cursor: default;
+}
+
+.metric-card[onclick] {
+    cursor: pointer;
+}
+
+.metric-card[onclick]:hover {
+    transform: translateY(-8px);
+    border-color: var(--mc-accent);
+}
+
 .metric-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--mc-shadow-lg);
@@ -106,6 +119,40 @@
 .refresh-btn:hover {
     background: var(--mc-accent);
 }
+
+.quick-action-btn {
+    background: var(--mc-background);
+    border: 2px solid var(--mc-primary);
+    border-radius: var(--mc-radius-md);
+    padding: var(--mc-spacing-lg);
+    color: var(--mc-text);
+    cursor: pointer;
+    transition: var(--mc-transition);
+    text-align: center;
+}
+
+.quick-action-btn:hover {
+    background: rgba(0, 255, 255, 0.1);
+    border-color: var(--mc-accent);
+    transform: translateY(-3px);
+}
+
+.quick-action-btn i {
+    font-size: 2em;
+    color: var(--mc-primary);
+    display: block;
+    margin-bottom: 10px;
+}
+
+.quick-action-btn div {
+    font-weight: bold;
+    margin: 5px 0;
+}
+
+.quick-action-btn small {
+    color: var(--mc-muted);
+    font-size: 0.85em;
+}
 </style>
 {% endblock %}
 
@@ -132,18 +179,30 @@
 
     <!-- Metrics Cards -->
     <div class="metrics-grid">
-        <div class="metric-card">
+        <div class="metric-card" onclick="window.location.href='/projects'" style="cursor: pointer;">
             <div class="metric-label">Total Projects</div>
             <div class="metric-value" id="totalProjects">-</div>
+            <div style="font-size: 0.8em; color: var(--mc-muted); margin-top: 5px;">
+                <i class="fas fa-arrow-right"></i> View All
+            </div>
         </div>
-        <div class="metric-card">
+
+        <div class="metric-card" onclick="window.location.href='/entity-viewer'" style="cursor: pointer;">
             <div class="metric-label">Total Entities</div>
             <div class="metric-value" id="totalEntities">-</div>
+            <div style="font-size: 0.8em; color: var(--mc-muted); margin-top: 5px;">
+                <i class="fas fa-arrow-right"></i> Browse
+            </div>
         </div>
-        <div class="metric-card">
+
+        <div class="metric-card" onclick="window.location.href='/tools/validation-engine'" style="cursor: pointer;">
             <div class="metric-label">Data Quality Score</div>
             <div class="metric-value" id="qualityScore">-</div>
+            <div style="font-size: 0.8em; color: var(--mc-muted); margin-top: 5px;">
+                <i class="fas fa-arrow-right"></i> View Details
+            </div>
         </div>
+
         <div class="metric-card">
             <div class="metric-label">Survey Points</div>
             <div class="metric-value" id="surveyPoints">-</div>
@@ -179,6 +238,38 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Quick Actions -->
+    <div class="chart-card" style="margin-top: 30px;">
+        <div class="chart-title"><i class="fas fa-bolt"></i> Quick Actions</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+
+            <button onclick="window.location.href='/tools/validation-engine'" class="quick-action-btn">
+                <i class="fas fa-shield-check"></i>
+                <div>Run Validation</div>
+                <small>Check data quality</small>
+            </button>
+
+            <button onclick="window.location.href='/tools/report-builder'" class="quick-action-btn">
+                <i class="fas fa-file-pdf"></i>
+                <div>Generate Report</div>
+                <small>Create PDF/Excel reports</small>
+            </button>
+
+            <button onclick="window.location.href='/map-viewer-v2'" class="quick-action-btn">
+                <i class="fas fa-map-marked-alt"></i>
+                <div>View Map</div>
+                <small>Spatial visualization</small>
+            </button>
+
+            <button onclick="window.location.href='/projects'" class="quick-action-btn">
+                <i class="fas fa-folder-open"></i>
+                <div>Browse Projects</div>
+                <small>View all projects</small>
+            </button>
+
+        </div>
+    </div>
 </div>
 
 <script>
@@ -194,10 +285,18 @@ document.addEventListener('DOMContentLoaded', function() {
 document.getElementById('dateRangeSelect').addEventListener('change', loadDashboardData);
 
 function loadDashboardData() {
+    // Show loading skeletons
+    document.querySelectorAll('.metric-value').forEach(el => {
+        el.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    });
+
     const dateRange = document.getElementById('dateRangeSelect').value;
 
     fetch(`/api/dashboard/metrics?date_range=${dateRange}`)
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        })
         .then(data => {
             // Update metric cards
             document.getElementById('totalProjects').textContent = data.total_projects;
@@ -213,8 +312,18 @@ function loadDashboardData() {
 
             // Update Project Health Table
             updateProjectHealth(data.project_health);
+
+            showToast('Dashboard updated', 'success');
         })
-        .catch(err => console.error('Dashboard error:', err));
+        .catch(err => {
+            showToast('Failed to load dashboard data', 'error');
+            console.error('Dashboard error:', err);
+            // Show error state
+            document.querySelectorAll('.metric-value').forEach(el => {
+                el.innerHTML = '—';
+                el.style.color = 'var(--mc-danger)';
+            });
+        });
 }
 
 function updateMaterialChart(data) {
