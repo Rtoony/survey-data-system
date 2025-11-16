@@ -1,0 +1,784 @@
+{% extends "base.html" %}
+
+{% block title %}Batch Operations{% endblock %}
+
+{% block content %}
+<div class="mc-page-header">
+    <div class="mc-header-content">
+        <div>
+            <h1><i class="fas fa-tasks"></i> Batch Operations</h1>
+            <p class="mc-text-muted">Perform bulk operations on multiple entities with job tracking and rollback support</p>
+        </div>
+        <div class="mc-header-actions">
+            <button class="mc-btn mc-btn-secondary" id="viewJobsBtn">
+                <i class="fas fa-history"></i> View Jobs
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="batch-ops-container">
+    <!-- Left: Template Browser -->
+    <div class="batch-sidebar">
+        <div class="mc-card">
+            <h3 class="section-title"><i class="fas fa-layer-group"></i> Operation Templates</h3>
+
+            <div class="filter-group">
+                <label class="mc-label">Entity Type</label>
+                <select class="mc-input" id="entityTypeSelect">
+                    <option value="">All Types</option>
+                    <option value="utility_structures">Utility Structures</option>
+                    <option value="survey_points">Survey Points</option>
+                    <option value="utility_lines">Utility Lines</option>
+                    <option value="projects">Projects</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="mc-label">Category</label>
+                <select class="mc-input" id="categorySelect">
+                    <option value="">All Categories</option>
+                    <option value="Export">Export</option>
+                    <option value="Update">Update</option>
+                    <option value="Data Cleanup">Data Cleanup</option>
+                    <option value="Quality Control">Quality Control</option>
+                    <option value="Metadata">Metadata</option>
+                    <option value="Transformation">Transformation</option>
+                </select>
+            </div>
+
+            <div class="template-list" id="templateList">
+                <!-- Templates loaded here -->
+            </div>
+        </div>
+
+        <!-- Job Queue -->
+        <div class="mc-card">
+            <h3 class="section-title"><i class="fas fa-clock"></i> Recent Jobs</h3>
+            <div class="job-queue" id="jobQueue">
+                <!-- Jobs loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main: Operation Configuration -->
+    <div class="batch-main">
+        <div class="mc-card" id="configCard">
+            <div class="empty-state" id="emptyState">
+                <i class="fas fa-hand-pointer fa-3x"></i>
+                <h3>Select an operation template</h3>
+                <p>Choose a template from the left sidebar to configure a batch operation</p>
+            </div>
+
+            <!-- Configuration Form -->
+            <div id="configForm" style="display: none;">
+                <div class="config-header">
+                    <div>
+                        <h2 id="operationTitle">Batch Operation</h2>
+                        <p id="operationDescription"></p>
+                    </div>
+                    <div class="config-badges">
+                        <span class="badge badge-info" id="operationTypeBadge"></span>
+                        <span class="badge badge-warning" id="destructiveBadge" style="display: none;">⚠️ Destructive</span>
+                        <span class="badge badge-warning" id="approvalBadge" style="display: none;">🔒 Requires Approval</span>
+                    </div>
+                </div>
+
+                <!-- Step 1: Entity Selection -->
+                <div class="config-section">
+                    <h3><span class="step-number">1</span> Select Entities</h3>
+                    <div class="entity-selection">
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="selectionMethod" value="manual" checked>
+                                <span>Enter entity IDs manually</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="selectionMethod" value="search">
+                                <span>Use search results</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="selectionMethod" value="filter">
+                                <span>Apply filter</span>
+                            </label>
+                        </div>
+
+                        <div id="manualSelection" class="selection-panel">
+                            <label class="mc-label">Entity IDs (one per line or comma-separated)</label>
+                            <textarea class="mc-input" id="entityIdsInput" rows="5" placeholder="Enter entity IDs..."></textarea>
+                            <div class="selection-info">
+                                <span id="entityCount">0 entities</span>
+                            </div>
+                        </div>
+
+                        <div id="searchSelection" class="selection-panel" style="display: none;">
+                            <p class="info-text">This feature integrates with Advanced Search. Run a search first, then return here to operate on the results.</p>
+                            <button class="mc-btn mc-btn-secondary" onclick="window.open('/tools/advanced-search', '_blank')">
+                                <i class="fas fa-external-link-alt"></i> Open Advanced Search
+                            </button>
+                        </div>
+
+                        <div id="filterSelection" class="selection-panel" style="display: none;">
+                            <label class="mc-label">Quick Filter</label>
+                            <input type="text" class="mc-input" id="quickFilterInput" placeholder="e.g., project_id = 'abc-123'">
+                            <button class="mc-btn mc-btn-sm mc-btn-secondary" id="validateFilterBtn">
+                                <i class="fas fa-check"></i> Validate Filter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Configure Parameters -->
+                <div class="config-section">
+                    <h3><span class="step-number">2</span> Configure Parameters</h3>
+                    <div id="parametersForm">
+                        <!-- Dynamic parameters loaded here -->
+                    </div>
+                </div>
+
+                <!-- Step 3: Review & Execute -->
+                <div class="config-section">
+                    <h3><span class="step-number">3</span> Review & Execute</h3>
+
+                    <div class="review-summary">
+                        <div class="summary-row">
+                            <strong>Operation:</strong>
+                            <span id="reviewOperation"></span>
+                        </div>
+                        <div class="summary-row">
+                            <strong>Entity Type:</strong>
+                            <span id="reviewEntityType"></span>
+                        </div>
+                        <div class="summary-row">
+                            <strong>Target Count:</strong>
+                            <span id="reviewCount">0</span>
+                        </div>
+                        <div class="summary-row">
+                            <strong>Warning Threshold:</strong>
+                            <span id="reviewThreshold"></span>
+                        </div>
+                    </div>
+
+                    <div class="warning-box" id="warningBox" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>
+                            <strong>Warning</strong>
+                            <p id="warningMessage"></p>
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label class="mc-label">Job Name</label>
+                        <input type="text" class="mc-input" id="jobName" placeholder="My Batch Operation">
+                    </div>
+
+                    <div class="filter-group">
+                        <label class="mc-label">Description (Optional)</label>
+                        <textarea class="mc-input" id="jobDescription" rows="2" placeholder="Describe what this job does..."></textarea>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="mc-btn mc-btn-secondary" id="resetBtn">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                        <button class="mc-btn mc-btn-primary mc-btn-lg" id="executeBtn">
+                            <i class="fas fa-play"></i> Execute Operation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="mc-card" id="resultsCard" style="display: none;">
+            <div class="results-header">
+                <h3><i class="fas fa-chart-line"></i> Operation Results</h3>
+                <button class="mc-btn mc-btn-sm mc-btn-secondary" id="closeResultsBtn">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+
+            <div class="progress-section" id="progressSection">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div class="progress-stats">
+                    <span><strong>Status:</strong> <span id="jobStatus">Running</span></span>
+                    <span><strong>Progress:</strong> <span id="jobProgress">0/0</span></span>
+                    <span><strong>Success:</strong> <span id="jobSuccess">0</span></span>
+                    <span><strong>Failed:</strong> <span id="jobFailed">0</span></span>
+                </div>
+            </div>
+
+            <div class="results-summary" id="resultsSummary"></div>
+
+            <div class="results-actions">
+                <button class="mc-btn mc-btn-sm mc-btn-secondary" id="downloadResultsBtn">
+                    <i class="fas fa-download"></i> Download Results
+                </button>
+                <button class="mc-btn mc-btn-sm mc-btn-warning" id="rollbackBtn" style="display: none;">
+                    <i class="fas fa-undo-alt"></i> Rollback Operation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.batch-ops-container {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+}
+
+.section-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--spacing-md) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* Template List */
+.template-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: var(--spacing-md);
+}
+
+.template-item {
+    padding: var(--spacing-sm);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-xs);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.template-item:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent-cyan);
+}
+
+.template-item.active {
+    background: var(--accent-cyan);
+    color: white;
+    border-color: var(--accent-cyan);
+}
+
+.template-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: var(--spacing-xs);
+}
+
+.template-item-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.template-item-category {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    background: var(--accent-purple);
+    color: white;
+    border-radius: var(--radius-sm);
+}
+
+.template-item.active .template-item-category {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.template-item-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+
+.template-item.active .template-item-desc {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.template-item-meta {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+    font-size: 0.7rem;
+}
+
+.template-badge {
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+}
+
+.template-item.active .template-badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* Job Queue */
+.job-queue {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.job-item {
+    padding: var(--spacing-sm);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-xs);
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.job-item:hover {
+    background: var(--bg-secondary);
+}
+
+.job-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.job-item-name {
+    font-weight: 600;
+}
+
+.job-status {
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+}
+
+.job-status.pending { background: #f39c12; color: white; }
+.job-status.running { background: #3498db; color: white; }
+.job-status.completed { background: #27ae60; color: white; }
+.job-status.failed { background: #e74c3c; color: white; }
+.job-status.cancelled { background: #95a5a6; color: white; }
+
+/* Configuration */
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    color: var(--accent-cyan);
+    margin-bottom: var(--spacing-md);
+}
+
+.config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.config-header h2 {
+    margin: 0 0 var(--spacing-xs) 0;
+    color: var(--text-primary);
+}
+
+.config-header p {
+    color: var(--text-muted);
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.config-badges {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.badge {
+    padding: 4px 12px;
+    border-radius: var(--radius-md);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-info { background: var(--accent-cyan); color: white; }
+.badge-warning { background: #f39c12; color: white; }
+
+.config-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.config-section h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+.step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--accent-cyan);
+    color: white;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.entity-selection {
+    background: var(--bg-tertiary);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+}
+
+.radio-group {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.selection-panel {
+    margin-top: var(--spacing-md);
+}
+
+.selection-info {
+    margin-top: var(--spacing-xs);
+    font-size: 0.85rem;
+    color: var(--accent-cyan);
+    font-weight: 600;
+}
+
+.info-text {
+    padding: var(--spacing-md);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    margin-bottom: var(--spacing-md);
+}
+
+.review-summary {
+    background: var(--bg-tertiary);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--spacing-xs) 0;
+    font-size: 0.9rem;
+}
+
+.summary-row:not(:last-child) {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.warning-box {
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.warning-box i {
+    color: #f39c12;
+    font-size: 1.5rem;
+}
+
+.warning-box strong {
+    color: #856404;
+}
+
+.warning-box p {
+    margin: 4px 0 0 0;
+    color: #856404;
+}
+
+.action-buttons {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+    margin-top: var(--spacing-lg);
+}
+
+/* Results */
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.progress-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.progress-bar {
+    height: 30px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: var(--spacing-md);
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.progress-stats {
+    display: flex;
+    justify-content: space-around;
+    font-size: 0.9rem;
+}
+
+.results-summary {
+    background: var(--bg-tertiary);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-lg);
+    min-height: 100px;
+}
+
+.results-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+}
+</style>
+
+<script>
+let currentTemplate = null;
+let selectedEntityIds = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadTemplates();
+    loadRecentJobs();
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    document.getElementById('entityTypeSelect').addEventListener('change', loadTemplates);
+    document.getElementById('categorySelect').addEventListener('change', loadTemplates);
+
+    document.querySelectorAll('input[name="selectionMethod"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.getElementById('manualSelection').style.display = this.value === 'manual' ? 'block' : 'none';
+            document.getElementById('searchSelection').style.display = this.value === 'search' ? 'block' : 'none';
+            document.getElementById('filterSelection').style.display = this.value === 'filter' ? 'block' : 'none';
+        });
+    });
+
+    document.getElementById('entityIdsInput').addEventListener('input', updateEntityCount);
+    document.getElementById('executeBtn').addEventListener('click', executeOperation);
+    document.getElementById('resetBtn').addEventListener('click', resetForm);
+    document.getElementById('closeResultsBtn').addEventListener('click', closeResults);
+}
+
+async function loadTemplates() {
+    const entityType = document.getElementById('entityTypeSelect').value;
+    const category = document.getElementById('categorySelect').value;
+
+    try {
+        const params = new URLSearchParams();
+        if (entityType) params.append('entity_type', entityType);
+        if (category) params.append('category', category);
+
+        const response = await fetch(`/api/batch/templates?${params}`);
+        const templates = await response.json();
+
+        const templateList = document.getElementById('templateList');
+        if (templates.length === 0) {
+            templateList.innerHTML = '<div style="text-align: center; padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">No templates found</div>';
+            return;
+        }
+
+        templateList.innerHTML = templates.map(t => `
+            <div class="template-item" data-template='${JSON.stringify(t)}'>
+                <div class="template-item-header">
+                    <div class="template-item-name">${t.template_name}</div>
+                    <div class="template-item-category">${t.category}</div>
+                </div>
+                <div class="template-item-desc">${t.template_description || ''}</div>
+                <div class="template-item-meta">
+                    ${t.is_destructive ? '<span class="template-badge">⚠️ Destructive</span>' : ''}
+                    ${t.requires_approval ? '<span class="template-badge">🔒 Approval</span>' : ''}
+                    <span class="template-badge">${t.entity_type.replace('_', ' ')}</span>
+                </div>
+            </div>
+        `).join('');
+
+        templateList.querySelectorAll('.template-item').forEach(item => {
+            item.addEventListener('click', () => selectTemplate(JSON.parse(item.dataset.template)));
+        });
+    } catch (error) {
+        console.error('Error loading templates:', error);
+    }
+}
+
+function selectTemplate(template) {
+    currentTemplate = template;
+
+    // Highlight selected template
+    document.querySelectorAll('.template-item').forEach(item => item.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
+    // Show config form
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('configForm').style.display = 'block';
+
+    // Populate form
+    document.getElementById('operationTitle').textContent = template.template_name;
+    document.getElementById('operationDescription').textContent = template.template_description || '';
+    document.getElementById('operationTypeBadge').textContent = template.operation_type.replace('_', ' ').toUpperCase();
+    document.getElementById('destructiveBadge').style.display = template.is_destructive ? 'inline-block' : 'none';
+    document.getElementById('approvalBadge').style.display = template.requires_approval ? 'inline-block' : 'none';
+
+    // Set review fields
+    document.getElementById('reviewOperation').textContent = template.template_name;
+    document.getElementById('reviewEntityType').textContent = template.entity_type.replace('_', ' ');
+    document.getElementById('reviewThreshold').textContent = `${template.max_items_warning_threshold} items`;
+
+    // Build parameter form (simplified - in production, use the parameter_schema)
+    const parametersForm = document.getElementById('parametersForm');
+    parametersForm.innerHTML = '<p class="info-text">Configure operation-specific parameters based on the template defaults.</p>';
+}
+
+function updateEntityCount() {
+    const input = document.getElementById('entityIdsInput').value.trim();
+    if (!input) {
+        selectedEntityIds = [];
+    } else {
+        // Parse IDs from textarea (newline or comma separated)
+        selectedEntityIds = input.split(/[\n,]+/).map(id => id.trim()).filter(id => id);
+    }
+
+    document.getElementById('entityCount').textContent = `${selectedEntityIds.length} entities`;
+    document.getElementById('reviewCount').textContent = selectedEntityIds.length;
+
+    // Check warning threshold
+    if (currentTemplate && selectedEntityIds.length > currentTemplate.max_items_warning_threshold) {
+        document.getElementById('warningBox').style.display = 'flex';
+        document.getElementById('warningMessage').textContent =
+            `You are about to operate on ${selectedEntityIds.length} items, which exceeds the recommended threshold of ${currentTemplate.max_items_warning_threshold}. Please review carefully.`;
+    } else {
+        document.getElementById('warningBox').style.display = 'none';
+    }
+}
+
+async function executeOperation() {
+    if (!currentTemplate || selectedEntityIds.length === 0) {
+        alert('Please select a template and specify entity IDs');
+        return;
+    }
+
+    const jobName = document.getElementById('jobName').value.trim() || currentTemplate.template_name;
+    const jobDescription = document.getElementById('jobDescription').value.trim();
+
+    try {
+        const response = await fetch('/api/batch/jobs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                job_name: jobName,
+                job_description: jobDescription,
+                operation_type: currentTemplate.operation_type,
+                entity_type: currentTemplate.entity_type,
+                entity_ids: selectedEntityIds,
+                operation_config: currentTemplate.default_config,
+                created_by: 'user'
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert(`Job created successfully! Job ID: ${data.job_id}`);
+
+            // Show results panel
+            document.getElementById('resultsCard').style.display = 'block';
+            document.getElementById('jobStatus').textContent = 'Created';
+
+            loadRecentJobs();
+            resetForm();
+        } else {
+            alert(`Error: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Error creating job:', error);
+        alert('Failed to create job');
+    }
+}
+
+function resetForm() {
+    document.getElementById('entityIdsInput').value = '';
+    document.getElementById('jobName').value = '';
+    document.getElementById('jobDescription').value = '';
+    selectedEntityIds = [];
+    updateEntityCount();
+}
+
+function closeResults() {
+    document.getElementById('resultsCard').style.display = 'none';
+}
+
+async function loadRecentJobs() {
+    try {
+        const response = await fetch('/api/batch/jobs?limit=10');
+        const jobs = await response.json();
+
+        const jobQueue = document.getElementById('jobQueue');
+        if (jobs.length === 0) {
+            jobQueue.innerHTML = '<div style="text-align: center; padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">No recent jobs</div>';
+            return;
+        }
+
+        jobQueue.innerHTML = jobs.map(j => `
+            <div class="job-item" data-job-id="${j.job_id}">
+                <div class="job-item-header">
+                    <div class="job-item-name">${j.job_name}</div>
+                    <span class="job-status ${j.status}">${j.status.toUpperCase()}</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                    ${j.total_items} items • ${new Date(j.created_at).toLocaleString()}
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading jobs:', error);
+    }
+}
+</script>
+
+{% endblock %}

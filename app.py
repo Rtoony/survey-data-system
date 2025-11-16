@@ -198,6 +198,11 @@ def advanced_search_page():
     """Advanced Search & Filtering Interface page"""
     return render_template('advanced_search.html')
 
+@app.route('/tools/batch-operations')
+def batch_operations_page():
+    """Batch Operations Interface page"""
+    return render_template('batch_operations.html')
+
 @app.route('/tools/survey-code-tester')
 def survey_code_tester():
     """Survey Code Testing Interface - Test parsing, preview CAD output, simulate field shots"""
@@ -20066,6 +20071,330 @@ def export_search_results():
 
         else:
             return jsonify({'error': f'Unsupported format: {export_format}'}), 400
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# BATCH OPERATIONS API
+# ============================================
+
+@app.route('/api/batch/templates')
+def get_batch_operation_templates():
+    """Get all batch operation templates"""
+    try:
+        entity_type = request.args.get('entity_type')
+        category = request.args.get('category')
+
+        where_clauses = ["is_active = TRUE"]
+        params = []
+
+        if entity_type:
+            where_clauses.append("entity_type = %s")
+            params.append(entity_type)
+
+        if category:
+            where_clauses.append("category = %s")
+            params.append(category)
+
+        where_sql = " AND ".join(where_clauses)
+
+        query = f"""
+            SELECT template_id, template_name, template_description,
+                   operation_type, entity_type, default_config, parameter_schema,
+                   category, tags, requires_approval, is_destructive,
+                   max_items_warning_threshold, usage_count
+            FROM batch_operation_templates
+            WHERE {where_sql}
+            ORDER BY category, template_name
+        """
+
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs', methods=['POST'])
+def create_batch_job():
+    """Create a new batch operation job"""
+    try:
+        data = request.get_json()
+
+        # Validate required fields
+        required_fields = ['job_name', 'operation_type', 'entity_type', 'entity_ids', 'operation_config']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        # Call function to create job and items
+        query = """
+            SELECT create_batch_operation_job(%s, %s, %s, %s, %s, %s)
+        """
+
+        result = execute_query(query, (
+            data['job_name'],
+            data['operation_type'],
+            data['entity_type'],
+            json.dumps(data['entity_ids']),
+            json.dumps(data['operation_config']),
+            data.get('created_by', 'system')
+        ))
+
+        job_id = result[0]['create_batch_operation_job'] if result else None
+
+        return jsonify({
+            'job_id': str(job_id),
+            'message': 'Batch job created successfully'
+        }), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs')
+def get_batch_jobs():
+    """Get all batch jobs with optional filtering"""
+    try:
+        status = request.args.get('status')
+        entity_type = request.args.get('entity_type')
+        limit = int(request.args.get('limit', 50))
+
+        where_clauses = ["is_active = TRUE"]
+        params = []
+
+        if status:
+            where_clauses.append("status = %s")
+            params.append(status)
+
+        if entity_type:
+            where_clauses.append("entity_type = %s")
+            params.append(entity_type)
+
+        where_sql = " AND ".join(where_clauses)
+
+        query = f"""
+            SELECT job_id, job_name, job_description, operation_type, entity_type,
+                   status, total_items, processed_items, successful_items, failed_items,
+                   started_at, completed_at, execution_time_ms,
+                   export_file_path, export_format, created_by, created_at,
+                   requires_approval, approved_by, approved_at
+            FROM batch_operation_jobs
+            WHERE {where_sql}
+            ORDER BY created_at DESC
+            LIMIT %s
+        """
+
+        params.append(limit)
+        results = execute_query(query, params)
+        return jsonify(results if results else [])
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs/<uuid:job_id>')
+def get_batch_job_details(job_id):
+    """Get detailed information about a specific batch job"""
+    try:
+        # Get job details
+        job_query = """
+            SELECT *
+            FROM batch_operation_jobs
+            WHERE job_id = %s
+        """
+        job = execute_query(job_query, (str(job_id),))
+
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Get job items
+        items_query = """
+            SELECT item_id, entity_type, entity_id, entity_identifier,
+                   status, processed_at, original_values, new_values,
+                   error_message, validation_warnings
+            FROM batch_operation_items
+            WHERE job_id = %s
+            ORDER BY created_at
+        """
+        items = execute_query(items_query, (str(job_id),))
+
+        return jsonify({
+            'job': job[0],
+            'items': items if items else []
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs/<uuid:job_id>/start', methods=['POST'])
+def start_batch_job(job_id):
+    """Start executing a batch job"""
+    try:
+        # Update job status to running
+        update_query = """
+            UPDATE batch_operation_jobs
+            SET status = 'running',
+                started_at = CURRENT_TIMESTAMP
+            WHERE job_id = %s AND status = 'pending'
+            RETURNING job_id
+        """
+
+        result = execute_query(update_query, (str(job_id),))
+
+        if not result:
+            return jsonify({'error': 'Job not found or already started'}), 404
+
+        # In a production system, this would trigger background processing
+        # For now, we'll return success and process would happen asynchronously
+
+        return jsonify({
+            'message': 'Batch job started',
+            'job_id': str(job_id)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs/<uuid:job_id>/cancel', methods=['POST'])
+def cancel_batch_job(job_id):
+    """Cancel a running batch job"""
+    try:
+        update_query = """
+            UPDATE batch_operation_jobs
+            SET status = 'cancelled',
+                completed_at = CURRENT_TIMESTAMP
+            WHERE job_id = %s
+              AND status IN ('pending', 'running')
+            RETURNING job_id
+        """
+
+        result = execute_query(update_query, (str(job_id),))
+
+        if not result:
+            return jsonify({'error': 'Job not found or cannot be cancelled'}), 404
+
+        return jsonify({'message': 'Batch job cancelled'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs/<uuid:job_id>/rollback', methods=['POST'])
+def rollback_batch_job(job_id):
+    """Rollback a completed batch job"""
+    try:
+        # Call rollback function
+        query = """
+            SELECT rollback_batch_operation(%s)
+        """
+
+        result = execute_query(query, (str(job_id),))
+
+        return jsonify({
+            'message': 'Batch job rolled back successfully',
+            'success': result[0]['rollback_batch_operation'] if result else False
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/jobs/<uuid:job_id>/approve', methods=['POST'])
+def approve_batch_job(job_id):
+    """Approve a batch job that requires approval"""
+    try:
+        data = request.get_json()
+        approved_by = data.get('approved_by', 'system')
+
+        update_query = """
+            UPDATE batch_operation_jobs
+            SET approved_by = %s,
+                approved_at = CURRENT_TIMESTAMP
+            WHERE job_id = %s
+              AND requires_approval = TRUE
+              AND approved_at IS NULL
+            RETURNING job_id
+        """
+
+        result = execute_query(update_query, (approved_by, str(job_id)))
+
+        if not result:
+            return jsonify({'error': 'Job not found or does not require approval'}), 404
+
+        return jsonify({'message': 'Batch job approved'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch/execute-operation', methods=['POST'])
+def execute_batch_operation():
+    """Execute a batch operation immediately (for simple operations)"""
+    try:
+        data = request.get_json()
+        operation_type = data.get('operation_type')
+        entity_type = data.get('entity_type')
+        entity_ids = data.get('entity_ids', [])
+        operation_config = data.get('operation_config', {})
+
+        if not all([operation_type, entity_type, entity_ids]):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        results = {
+            'successful': [],
+            'failed': [],
+            'total': len(entity_ids)
+        }
+
+        # Process based on operation type
+        if operation_type == 'bulk_update':
+            field = operation_config.get('field')
+            value = operation_config.get('value')
+
+            if not field:
+                return jsonify({'error': 'Missing field for bulk update'}), 400
+
+            # Build update query based on entity type
+            table_name = entity_type
+            id_column = f"{entity_type[:-1]}_id"  # Remove 's' and add '_id'
+
+            for entity_id in entity_ids:
+                try:
+                    update_query = f"""
+                        UPDATE {table_name}
+                        SET {field} = %s
+                        WHERE {id_column} = %s
+                        RETURNING {id_column}
+                    """
+                    result = execute_query(update_query, (value, entity_id))
+                    if result:
+                        results['successful'].append(entity_id)
+                    else:
+                        results['failed'].append({'entity_id': entity_id, 'error': 'Not found'})
+                except Exception as e:
+                    results['failed'].append({'entity_id': entity_id, 'error': str(e)})
+
+        elif operation_type == 'bulk_delete':
+            # Soft delete
+            table_name = entity_type
+            id_column = f"{entity_type[:-1]}_id"
+
+            for entity_id in entity_ids:
+                try:
+                    delete_query = f"""
+                        UPDATE {table_name}
+                        SET is_active = FALSE
+                        WHERE {id_column} = %s
+                        RETURNING {id_column}
+                    """
+                    result = execute_query(delete_query, (entity_id,))
+                    if result:
+                        results['successful'].append(entity_id)
+                    else:
+                        results['failed'].append({'entity_id': entity_id, 'error': 'Not found'})
+                except Exception as e:
+                    results['failed'].append({'entity_id': entity_id, 'error': str(e)})
+
+        return jsonify({
+            'message': 'Batch operation completed',
+            'results': results
+        })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
