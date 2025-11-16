@@ -551,38 +551,77 @@ EXAMPLE:
     }
 
     /* ============================================
-       ABOUT THIS TOOL SECTION
+       ABOUT THIS TOOL SECTION - COLLAPSIBLE
        ============================================ */
     .about-tool-section {
         background: linear-gradient(135deg, rgba(0, 40, 80, 0.4), rgba(0, 20, 40, 0.6));
         border: 2px solid rgba(0, 255, 255, 0.3);
         border-radius: 12px;
         margin: 2rem;
-        padding: 2rem;
+        padding: 0;
         color: var(--mc-text);
+        transition: all 0.3s ease;
     }
 
-    .about-tool-header {
+    .about-tool-toggle {
+        width: 100%;
+        background: rgba(0, 40, 80, 0.6);
+        border: none;
+        border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+        padding: 1.5rem 2rem;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .about-tool-toggle:hover {
+        background: rgba(0, 60, 100, 0.8);
+    }
+
+    .about-tool-toggle-title {
         display: flex;
         align-items: center;
         gap: 1rem;
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+        color: var(--mc-primary);
+        font-family: 'Orbitron', monospace;
+        font-size: 1.3rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
 
-    .about-tool-header i {
+    .about-tool-toggle-icon {
         font-size: 2rem;
         color: var(--mc-primary);
     }
 
-    .about-tool-header h3 {
-        color: var(--mc-primary);
-        font-family: 'Orbitron', monospace;
-        font-size: 1.3rem;
-        margin: 0;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+    .about-tool-collapse-icon {
+        font-size: 1.5rem;
+        color: var(--mc-accent);
+        transition: transform 0.3s;
+    }
+
+    .about-tool-collapse-icon.collapsed {
+        transform: rotate(-90deg);
+    }
+
+    .about-tool-content {
+        max-height: 2000px;
+        overflow: hidden;
+        padding: 2rem;
+        transition: max-height 0.4s ease, padding 0.4s ease;
+    }
+
+    .about-tool-content.collapsed {
+        max-height: 0;
+        padding: 0 2rem;
+    }
+
+    /* Hide About section in fullscreen mode */
+    body.fullscreen-mode .about-tool-section {
+        display: none !important;
     }
 
     .about-tool-description {
@@ -771,51 +810,55 @@ EXAMPLE:
 <!-- About This Specialized Tool Section -->
 {% block about_tool_section %}
 <div class="about-tool-section">
-    <div class="about-tool-header">
-        <i class="fas fa-info-circle"></i>
-        <h3>About This Specialized Tool</h3>
-    </div>
-    
-    <div class="about-tool-description">
-        {% block about_tool_description %}
-        This specialized management tool provides interactive capabilities for working with specific CAD layer types in ACAD-GIS.
+    <button class="about-tool-toggle" onclick="toggleAboutSection()" aria-expanded="true">
+        <div class="about-tool-toggle-title">
+            <i class="fas fa-info-circle about-tool-toggle-icon"></i>
+            <h3 style="margin: 0;">About This Specialized Tool</h3>
+        </div>
+        <i class="fas fa-chevron-down about-tool-collapse-icon" id="aboutCollapseIcon"></i>
+    </button>
+
+    <div class="about-tool-content" id="aboutToolContent">
+        <div class="about-tool-description">
+            {% block about_tool_description %}
+            This specialized management tool provides interactive capabilities for working with specific CAD layer types in ACAD-GIS.
+            {% endblock %}
+        </div>
+
+        {% block about_tool_content %}
+        <div class="about-tool-subsection">
+            <h4><i class="fas fa-tags"></i> Manages:</h4>
+            <div class="about-tool-tags">
+                {% block about_tool_tags %}
+                <span class="about-tool-tag">OBJECT-CODE</span>
+                {% endblock %}
+            </div>
+        </div>
+
+        <div class="about-tool-subsection">
+            <h4><i class="fas fa-layer-group"></i> Example Layer Names:</h4>
+            <div class="about-tool-examples">
+                {% block about_tool_examples %}
+                <div class="about-tool-example">
+                    <div class="about-tool-example-layer">CIV-ADA-OBJECT-EXST-LN</div>
+                    <div class="about-tool-example-desc">→ Existing Object - Civil/ADA</div>
+                </div>
+                {% endblock %}
+            </div>
+        </div>
+        {% endblock %}
+
+        {% block about_tool_links %}
+        <div class="about-tool-links">
+            <a href="/tools/specialized-tools-directory" class="about-tool-link">
+                <i class="fas fa-search"></i> Discover more specialized tools
+            </a>
+            <a href="/standards/layer-generator" class="about-tool-link">
+                <i class="fas fa-wrench"></i> Configure mappings
+            </a>
+        </div>
         {% endblock %}
     </div>
-    
-    {% block about_tool_content %}
-    <!-- Default content if child template doesn't override -->
-    <div class="about-tool-subsection">
-        <h4><i class="fas fa-tags"></i> Manages:</h4>
-        <div class="about-tool-tags">
-            {% block about_tool_tags %}
-            <span class="about-tool-tag">OBJECT</span>
-            {% endblock %}
-        </div>
-    </div>
-    
-    <div class="about-tool-subsection">
-        <h4><i class="fas fa-layer-group"></i> Example Layer Names:</h4>
-        <div class="about-tool-examples">
-            {% block about_tool_examples %}
-            <div class="about-tool-example">
-                <div class="about-tool-example-layer">CIV-ADA-OBJECT-EXST-LN</div>
-                <div class="about-tool-example-desc">→ Existing Object - Civil/ADA</div>
-            </div>
-            {% endblock %}
-        </div>
-    </div>
-    {% endblock %}
-    
-    {% block about_tool_links %}
-    <div class="about-tool-links">
-        <a href="/tools/specialized-tools-directory" class="about-tool-link">
-            <i class="fas fa-search"></i> Discover more specialized tools
-        </a>
-        <a href="/standards/layer-generator" class="about-tool-link">
-            <i class="fas fa-wrench"></i> Configure mappings
-        </a>
-    </div>
-    {% endblock %}
 </div>
 {% endblock %}
 
@@ -839,6 +882,30 @@ function toggleFullscreen() {
         text.textContent = 'Fullscreen (F)';
     }
 }
+
+// About section collapse toggle
+function toggleAboutSection() {
+    const content = document.getElementById('aboutToolContent');
+    const icon = document.getElementById('aboutCollapseIcon');
+    const button = document.querySelector('.about-tool-toggle');
+
+    content.classList.toggle('collapsed');
+    icon.classList.toggle('collapsed');
+
+    const isCollapsed = content.classList.contains('collapsed');
+    button.setAttribute('aria-expanded', !isCollapsed);
+}
+
+// Start with section collapsed by default to save space
+document.addEventListener('DOMContentLoaded', function() {
+    const content = document.getElementById('aboutToolContent');
+    const icon = document.getElementById('aboutCollapseIcon');
+    if (content && icon) {
+        content.classList.add('collapsed');
+        icon.classList.add('collapsed');
+        document.querySelector('.about-tool-toggle')?.setAttribute('aria-expanded', 'false');
+    }
+});
 
 // Keyboard shortcut for fullscreen (F key)
 document.addEventListener('keydown', function(e) {

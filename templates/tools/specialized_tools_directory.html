@@ -10,15 +10,22 @@
 
 <div class="mc-card">
     <div class="mc-card-content">
-        <p class="text-dim" style="margin-bottom: 2rem; line-height: 1.6;">
-            Some CAD layer types have specialized interactive management tools built into ACAD-GIS. 
-            These tools provide advanced capabilities like network analysis, hydraulic calculations, 
-            and intelligent editing beyond standard CAD layer operations.
-        </p>
-        
+        <div class="directory-controls">
+            <div class="directory-search">
+                <input type="text"
+                       id="searchInput"
+                       placeholder="Search tools by name, object type, or description..."
+                       oninput="searchTools(this.value)">
+            </div>
+            <div class="directory-count">
+                <i class="fas fa-layer-group"></i>
+                <span id="toolCount">Loading...</span>
+            </div>
+        </div>
+
         <div id="toolsDirectory" class="tools-directory">
-            <div class="text-dim" style="text-align: center; padding: 4rem;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 48px; margin-bottom: 1.5rem;"></i>
+            <div class="directory-loading-state">
+                <i class="fas fa-spinner fa-spin"></i>
                 <p style="font-size: 18px;">Loading specialized tools...</p>
             </div>
         </div>
@@ -26,76 +33,124 @@
 </div>
 
 <style>
-.tools-directory {
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.directory-controls {
     display: flex;
-    flex-direction: column;
-    gap: 2rem;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    align-items: center;
+}
+
+.directory-search {
+    flex: 1;
+    max-width: 400px;
+}
+
+.directory-search input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 40, 80, 0.6);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.directory-search input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.directory-count {
+    color: var(--text-dim);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tools-directory {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
 }
 
 .directory-tool-card {
-    background: linear-gradient(135deg, rgba(0, 255, 100, 0.05), rgba(0, 200, 255, 0.05));
+    background: linear-gradient(135deg, rgba(0, 255, 100, 0.03), rgba(0, 200, 255, 0.03));
     border: 2px solid rgba(0, 255, 100, 0.2);
     border-radius: 12px;
-    padding: 2rem;
+    padding: 1.5rem;
     transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    height: 280px;
+    position: relative;
+    overflow: hidden;
 }
 
 .directory-tool-card:hover {
-    border-color: rgba(0, 255, 100, 0.4);
-    box-shadow: 0 12px 32px rgba(0, 255, 100, 0.2);
+    border-color: rgba(0, 255, 100, 0.5);
+    box-shadow: 0 8px 24px rgba(0, 255, 100, 0.2);
     transform: translateY(-4px);
 }
 
-.directory-tool-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid rgba(0, 255, 100, 0.2);
-}
-
 .directory-tool-icon {
-    font-size: 64px;
-    flex-shrink: 0;
-}
-
-.directory-tool-info {
-    flex: 1;
+    font-size: 48px;
+    margin-bottom: 1rem;
+    display: block;
 }
 
 .directory-tool-title {
-    font-size: 28px;
+    font-size: 20px;
     font-weight: 700;
     color: var(--accent-green);
     margin: 0 0 0.5rem 0;
+    line-height: 1.2;
 }
 
 .directory-tool-subtitle {
-    font-size: 14px;
+    font-size: 11px;
     color: var(--text-dim);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
+    font-family: 'Courier New', monospace;
 }
 
 .directory-tool-description {
-    font-size: 16px;
+    font-size: 13px;
     color: var(--text-secondary);
-    line-height: 1.6;
-    margin-bottom: 1.5rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+    flex: 1;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.directory-tool-footer {
+    margin-top: auto;
+    display: flex;
+    gap: 0.5rem;
 }
 
 .directory-tool-link {
+    flex: 1;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     background: linear-gradient(135deg, rgba(0, 255, 100, 0.2), rgba(0, 200, 255, 0.2));
     border: 1px solid rgba(0, 255, 100, 0.4);
     color: var(--accent-green);
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-size: 15px;
+    padding: 0.65rem 1rem;
+    border-radius: 6px;
+    font-size: 13px;
     font-weight: 600;
     text-decoration: none;
     transition: all 0.2s;
@@ -104,201 +159,130 @@
 .directory-tool-link:hover {
     background: linear-gradient(135deg, rgba(0, 255, 100, 0.3), rgba(0, 200, 255, 0.3));
     border-color: rgba(0, 255, 100, 0.6);
-    transform: translateX(4px);
+    transform: translateX(2px);
 }
 
-.directory-examples-section {
-    margin-top: 1.5rem;
-}
-
-.directory-examples-title {
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+.directory-empty-state,
+.directory-loading-state,
+.directory-error-state {
+    text-align: center;
+    padding: 4rem 2rem;
     color: var(--text-dim);
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
 }
 
-.directory-examples-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1rem;
+.directory-empty-state i,
+.directory-loading-state i,
+.directory-error-state i {
+    font-size: 48px;
+    margin-bottom: 1.5rem;
+    display: block;
 }
 
-.directory-example-card {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(0, 255, 255, 0.2);
-    border-radius: 8px;
-    padding: 1rem;
-    transition: all 0.2s;
+.directory-loading-state i {
+    animation: spin 1s linear infinite;
 }
 
-.directory-example-card:hover {
-    border-color: rgba(0, 255, 255, 0.4);
-    background: rgba(0, 0, 0, 0.4);
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
-.directory-example-layer {
-    font-family: 'Courier New', monospace;
-    font-size: 16px;
-    color: var(--accent-cyan);
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-    letter-spacing: 0.5px;
-}
-
-.directory-example-description {
-    font-size: 13px;
+.no-results-message {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 3rem;
     color: var(--text-dim);
-    line-height: 1.4;
-}
-
-.directory-example-components {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-}
-
-.directory-component-badge {
-    display: inline-block;
-    background: rgba(0, 255, 255, 0.1);
-    border: 1px solid rgba(0, 255, 255, 0.2);
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 11px;
-    color: var(--accent-cyan);
-    font-family: 'Courier New', monospace;
 }
 </style>
 
 <script>
+let allTools = [];
+
 async function loadToolsDirectory() {
     try {
         const response = await fetch('/api/cad-standards/specialized-tools-directory');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        const container = document.getElementById('toolsDirectory');
-        
-        if (data.tools && data.tools.length > 0) {
-            container.innerHTML = '';
-            
-            data.tools.forEach(tool => {
-                const card = document.createElement('div');
-                card.className = 'directory-tool-card';
-                
-                const header = document.createElement('div');
-                header.className = 'directory-tool-header';
-                
-                const icon = document.createElement('div');
-                icon.className = 'directory-tool-icon';
-                icon.textContent = tool.tool_icon || '🔧';
-                
-                const info = document.createElement('div');
-                info.className = 'directory-tool-info';
-                
-                const title = document.createElement('h2');
-                title.className = 'directory-tool-title';
-                title.textContent = tool.tool_name;
-                
-                const subtitle = document.createElement('div');
-                subtitle.className = 'directory-tool-subtitle';
-                subtitle.textContent = `Object Code: ${tool.object_code} - ${tool.object_name}`;
-                
-                const description = document.createElement('p');
-                description.className = 'directory-tool-description';
-                description.textContent = tool.description || 'Interactive management tool for specialized CAD layers';
-                
-                const link = document.createElement('a');
-                link.className = 'directory-tool-link';
-                link.href = tool.tool_url;
-                link.innerHTML = '<i class="fas fa-external-link-alt"></i> Launch Tool';
-                
-                info.appendChild(title);
-                info.appendChild(subtitle);
-                info.appendChild(description);
-                info.appendChild(link);
-                
-                header.appendChild(icon);
-                header.appendChild(info);
-                
-                const examplesSection = document.createElement('div');
-                examplesSection.className = 'directory-examples-section';
-                
-                const examplesTitle = document.createElement('div');
-                examplesTitle.className = 'directory-examples-title';
-                examplesTitle.innerHTML = '<i class="fas fa-layer-group"></i> Compatible Layer Examples';
-                
-                const examplesGrid = document.createElement('div');
-                examplesGrid.className = 'directory-examples-grid';
-                
-                tool.layer_examples.forEach(example => {
-                    const exampleCard = document.createElement('div');
-                    exampleCard.className = 'directory-example-card';
-                    
-                    const layerName = document.createElement('div');
-                    layerName.className = 'directory-example-layer';
-                    layerName.textContent = example.layer;
-                    
-                    const layerDesc = document.createElement('div');
-                    layerDesc.className = 'directory-example-description';
-                    layerDesc.textContent = example.description;
-                    
-                    const components = document.createElement('div');
-                    components.className = 'directory-example-components';
-                    
-                    [
-                        example.discipline_code,
-                        example.category_code,
-                        example.object_code,
-                        example.phase_code,
-                        example.geometry_code
-                    ].forEach(code => {
-                        const badge = document.createElement('span');
-                        badge.className = 'directory-component-badge';
-                        badge.textContent = code;
-                        components.appendChild(badge);
-                    });
-                    
-                    exampleCard.appendChild(layerName);
-                    exampleCard.appendChild(layerDesc);
-                    exampleCard.appendChild(components);
-                    
-                    examplesGrid.appendChild(exampleCard);
-                });
-                
-                examplesSection.appendChild(examplesTitle);
-                examplesSection.appendChild(examplesGrid);
-                
-                card.appendChild(header);
-                card.appendChild(examplesSection);
-                
-                container.appendChild(card);
-            });
-        } else {
-            container.innerHTML = `
-                <div class="text-dim" style="text-align: center; padding: 4rem;">
-                    <i class="fas fa-info-circle" style="font-size: 48px; margin-bottom: 1rem;"></i>
-                    <p style="font-size: 18px;">No specialized tools available yet.</p>
-                    <p style="font-size: 14px;">New tools will automatically appear here as they are added to the system.</p>
-                </div>
-            `;
-        }
+        allTools = data.tools || [];
+
+        updateToolCount();
+        renderTools(allTools);
+
     } catch (error) {
         console.error('Error loading tools directory:', error);
         document.getElementById('toolsDirectory').innerHTML = `
-            <div class="text-dim" style="text-align: center; padding: 4rem;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 1rem; color: var(--accent-red);"></i>
+            <div class="directory-error-state">
+                <i class="fas fa-exclamation-triangle" style="color: var(--accent-red);"></i>
                 <p style="font-size: 18px;">Failed to load specialized tools.</p>
                 <p style="font-size: 14px;">Please try refreshing the page.</p>
             </div>
         `;
+    }
+}
+
+function renderTools(tools) {
+    const container = document.getElementById('toolsDirectory');
+
+    if (!tools || tools.length === 0) {
+        container.innerHTML = `
+            <div class="directory-empty-state">
+                <i class="fas fa-info-circle"></i>
+                <p style="font-size: 18px;">No specialized tools available yet.</p>
+                <p style="font-size: 14px;">New tools will automatically appear here as they are added to the system.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = tools.map(tool => `
+        <div class="directory-tool-card">
+            <div class="directory-tool-icon">${tool.tool_icon || '🔧'}</div>
+            <h2 class="directory-tool-title">${tool.tool_name}</h2>
+            <div class="directory-tool-subtitle">${tool.object_code} - ${tool.object_name}</div>
+            <p class="directory-tool-description">${tool.description || 'Interactive management tool for specialized CAD layers'}</p>
+            <div class="directory-tool-footer">
+                <a href="${tool.tool_url}" class="directory-tool-link">
+                    <i class="fas fa-external-link-alt"></i> Launch Tool
+                </a>
+            </div>
+        </div>
+    `).join('');
+}
+
+function searchTools(query) {
+    const searchTerm = query.toLowerCase().trim();
+
+    if (!searchTerm) {
+        renderTools(allTools);
+        return;
+    }
+
+    const filtered = allTools.filter(tool =>
+        tool.tool_name.toLowerCase().includes(searchTerm) ||
+        tool.object_code.toLowerCase().includes(searchTerm) ||
+        tool.object_name.toLowerCase().includes(searchTerm) ||
+        (tool.description && tool.description.toLowerCase().includes(searchTerm))
+    );
+
+    renderTools(filtered);
+
+    if (filtered.length === 0) {
+        document.getElementById('toolsDirectory').innerHTML = `
+            <div class="no-results-message">
+                <i class="fas fa-search" style="font-size: 32px; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>
+                <p>No tools found matching "${query}"</p>
+            </div>
+        `;
+    }
+}
+
+function updateToolCount() {
+    const countElement = document.getElementById('toolCount');
+    if (countElement) {
+        countElement.textContent = `${allTools.length} ${allTools.length === 1 ? 'Tool' : 'Tools'} Available`;
     }
 }
 

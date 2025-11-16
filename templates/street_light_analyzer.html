@@ -6,21 +6,26 @@
 
 {% block content_layout_class %}tool-complex-layout{% endblock %}
 
-{% block sidebar_content %}
-<div class="tool-info-card">
-    <h3><i class="fas fa-lightbulb"></i> Street Light Analyzer</h3>
-    <p>Analyze street light spacing, coverage, and electrical infrastructure.</p>
-</div>
+{% block leaflet_assets %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+{% endblock %}
 
+{% block sidebar_content %}
 <div class="tool-filter-section">
     <h4>Analysis Options</h4>
     <div class="tool-filter-item">
         <label>Light Radius (ft):</label>
-        <input type="number" value="50" min="10" max="200" style="width: 100%; padding: 0.5rem;">
+        <input type="number" id="lightRadius" value="50" min="10" max="200" onchange="updateVisualization()">
     </div>
     <div class="tool-filter-item">
-        <label>Min Spacing (ft):</label>
-        <input type="number" value="100" min="50" max="500" style="width: 100%; padding: 0.5rem;">
+        <label>Show Coverage Circles:</label>
+        <div class="tool-checkbox-item">
+            <input type="checkbox" id="showCoverage" checked onchange="updateVisualization()">
+            <span>Display radius overlay</span>
+        </div>
     </div>
 </div>
 
@@ -28,49 +33,34 @@
     <h4>Light Stats</h4>
     <div class="tool-stat-item">
         <span class="tool-stat-label">Total Lights:</span>
-        <span class="tool-stat-value">0</span>
+        <span class="tool-stat-value" id="sidebarTotalLights">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Wattage:</span>
+        <span class="tool-stat-value" id="sidebarTotalWattage">0 W</span>
     </div>
     <div class="tool-stat-item">
         <span class="tool-stat-label">Avg Spacing:</span>
-        <span class="tool-stat-value">0 ft</span>
+        <span class="tool-stat-value" id="sidebarAvgSpacing">0 ft</span>
     </div>
 </div>
 
-<button class="tool-action-btn" disabled>
-    <i class="fas fa-sync"></i> Analyze Coverage
+<button class="tool-action-btn" onclick="loadLights()">
+    <i class="fas fa-sync"></i> Refresh Data
+</button>
+<button class="tool-action-btn secondary" onclick="exportReport()">
+    <i class="fas fa-file-export"></i> Export Report
 </button>
 {% endblock %}
 
 {% block main_content %}
 <div class="tool-top-area">
-    <!-- Loading State -->
-    <div id="loadingState" class="tool-empty-state" style="display:none;">
-        <div class="empty-state-icon"><i class="fas fa-spinner fa-spin"></i></div>
-        <h3>Loading street lights...</h3>
-    </div>
+    <div id="lightMap" style="height: 100%; width: 100%; background: #0a1929;"></div>
 
-    <!-- Error State -->
-    <div id="errorState" class="tool-empty-state" style="display:none;">
-        <div class="empty-state-icon"><i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i></div>
-        <h3>Error Loading Data</h3>
-        <p id="errorMessage"></p>
-        <button class="tool-action-btn" onclick="loadLights()">Retry</button>
-    </div>
-
-    <!-- Empty State -->
-    <div id="emptyState" class="tool-empty-state">
-        <div class="empty-state-icon"><i class="fas fa-lightbulb"></i></div>
-        <h3>No Street Lights Found</h3>
-        <p>Generate test data or import a DXF file with street light entities.</p>
-        <a href="/tools/dxf-test-generator" class="tool-action-btn">Generate Test DXF</a>
-    </div>
-
-    <!-- Success State with Map -->
-    <div id="successState" style="display:none; padding: 2rem;">
-        <h3 style="margin-bottom: 1rem;"><i class="fas fa-map"></i> Light Coverage Map</h3>
-        <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 1rem; border-radius: 4px;">
-            <p style="margin: 0;">Interactive map visualization coming soon...</p>
-        </div>
+    <!-- Loading overlay -->
+    <div id="mapLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; text-align: center; z-index: 1000;">
+        <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--mc-primary); margin-bottom: 1rem;"></i>
+        <p style="color: var(--mc-text); font-size: 18px;">Loading street lights...</p>
     </div>
 </div>
 
@@ -78,49 +68,72 @@
 
 <div class="tool-bottom-area">
     <div class="tool-data-tabs">
-        <button class="tool-data-tab active" onclick="showTab('lights')">Lights</button>
-        <button class="tool-data-tab" onclick="showTab('stats')">Statistics</button>
+        <button class="tool-data-tab active" onclick="showTab('lights')">
+            <i class="fas fa-lightbulb"></i> Lights (<span id="lightsTabCount">0</span>)
+        </button>
+        <button class="tool-data-tab" onclick="showTab('stats')">
+            <i class="fas fa-chart-bar"></i> Statistics
+        </button>
+        <button class="tool-data-tab" onclick="showTab('maintenance')">
+            <i class="fas fa-wrench"></i> Maintenance
+        </button>
     </div>
+
     <div class="tool-data-content">
         <!-- Lights Tab -->
         <div id="lightsTab" class="tab-content">
-            <table id="lightsTable" class="mc-table" style="display:none;">
+            <table class="tool-data-table" id="lightsTable" style="display: none;">
                 <thead>
                     <tr>
                         <th>Pole #</th>
                         <th>Type</th>
                         <th>Wattage</th>
-                        <th>Height (ft)</th>
+                        <th>Height</th>
                         <th>Circuit</th>
                         <th>Condition</th>
-                        <th>Location (X, Y)</th>
+                        <th>Location</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="lightsTableBody"></tbody>
             </table>
+            <div id="lightsEmpty" style="text-align: center; padding: 3rem; color: var(--mc-text);">
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No street light data available</p>
+            </div>
         </div>
 
         <!-- Stats Tab -->
-        <div id="statsTab" class="tab-content" style="display:none;">
-            <div id="statsContent" style="padding: 2rem;">
-                <h4 style="margin-bottom: 1rem;">Summary Statistics</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Lights</div>
-                        <div class="stat-value" id="statTotalLights">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Wattage</div>
-                        <div class="stat-value" id="statTotalWattage">0 W</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Average Spacing</div>
-                        <div class="stat-value" id="statAvgSpacing">0 ft</div>
-                    </div>
+        <div id="statsTab" class="tab-content" style="display: none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <div class="stat-label">Total Lights</div>
+                    <div class="stat-value" id="statTotalLights">0</div>
                 </div>
-                <h4 style="margin: 2rem 0 1rem 0;">By Lamp Type</h4>
-                <div id="byLampType"></div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Wattage</div>
+                    <div class="stat-value" id="statTotalWattage">0 W</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Spacing</div>
+                    <div class="stat-value" id="statAvgSpacing">0 ft</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Est. Annual Cost</div>
+                    <div class="stat-value" id="statAnnualCost">$0</div>
+                </div>
             </div>
+
+            <h4 style="color: var(--mc-accent); margin: 2rem 0 1rem 0;">By Lamp Type</h4>
+            <div id="byLampType"></div>
+
+            <h4 style="color: var(--mc-accent); margin: 2rem 0 1rem 0;">By Condition</h4>
+            <div id="byCondition"></div>
+        </div>
+
+        <!-- Maintenance Tab -->
+        <div id="maintenanceTab" class="tab-content" style="display: none;">
+            <div id="maintenanceList"></div>
         </div>
     </div>
 </div>
@@ -131,127 +144,293 @@
     background: rgba(0,255,255,0.05);
     border: 1px solid rgba(0,255,255,0.2);
     padding: 1.5rem;
-    border-radius: 4px;
+    border-radius: 8px;
     text-align: center;
 }
 .stat-label {
-    font-size: 0.9rem;
-    color: var(--text-dim);
+    font-size: 0.85rem;
+    color: var(--mc-text);
     margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 .stat-value {
     font-size: 2rem;
     font-weight: bold;
-    color: var(--accent-color);
+    color: var(--mc-accent);
+    font-family: 'Orbitron', monospace;
 }
+.type-breakdown {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background: rgba(0,255,255,0.03);
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    border-left: 3px solid var(--mc-accent);
+}
+.condition-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+.condition-excellent { background: rgba(0,255,100,0.2); color: #00ff88; }
+.condition-good { background: rgba(0,200,255,0.2); color: #00ccff; }
+.condition-fair { background: rgba(255,200,0,0.2); color: #ffcc00; }
+.condition-poor { background: rgba(255,100,100,0.2); color: #ff6666; }
 </style>
 
 <script>
+let map = null;
+let lightMarkers = [];
+let coverageCircles = [];
 let currentData = [];
-let currentTab = 'lights';
+let selectedLight = null;
 
-// Show specific tab
-function showTab(tabName) {
-    currentTab = tabName;
-    document.getElementById('lightsTab').style.display = tabName === 'lights' ? 'block' : 'none';
-    document.getElementById('statsTab').style.display = tabName === 'stats' ? 'block' : 'none';
+// Initialize map
+function initMap() {
+    if (!map) {
+        map = L.map('lightMap', {
+            center: [38.9072, -77.0369],
+            zoom: 18,
+            zoomControl: true
+        });
 
-    // Update active tab button
-    const tabs = document.querySelectorAll('.tool-data-tab');
-    tabs.forEach((tab, i) => {
-        tab.classList.toggle('active', (i === 0 && tabName === 'lights') || (i === 1 && tabName === 'stats'));
-    });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 22
+        }).addTo(map);
+    }
 }
 
 // Load lights data
 async function loadLights() {
-    showState('loading');
+    showLoading(true);
+    clearMap();
 
     try {
         const response = await fetch('/api/specialized-tools/street-lights');
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-        currentData = data;
+        currentData = data.lights || [];
 
-        if (!data.lights || data.lights.length === 0) {
-            showState('empty');
+        if (currentData.length === 0) {
+            showEmptyState();
             return;
         }
 
-        renderLightsTable(data.lights);
+        renderMap(currentData);
+        renderTable(currentData);
         renderStats(data.stats);
-        showState('success');
+        updateSidebarStats(data.stats);
 
     } catch (error) {
         console.error('Error loading lights:', error);
-        showState('error', error.message);
+        alert('Failed to load street light data: ' + error.message);
+    } finally {
+        showLoading(false);
     }
 }
 
-// Render lights table
-function renderLightsTable(lights) {
+function showLoading(show) {
+    document.getElementById('mapLoading').style.display = show ? 'block' : 'none';
+}
+
+function clearMap() {
+    lightMarkers.forEach(m => map.removeLayer(m));
+    coverageCircles.forEach(c => map.removeLayer(c));
+    lightMarkers = [];
+    coverageCircles = [];
+}
+
+function renderMap(lights) {
+    initMap();
+    clearMap();
+
+    const bounds = [];
+    const radius = parseInt(document.getElementById('lightRadius').value);
+    const showCoverage = document.getElementById('showCoverage').checked;
+
+    lights.forEach(light => {
+        const lat = light.y / 364000; // Convert CAD coords to lat/lng
+        const lng = light.x / 364000;
+        bounds.push([lat, lng]);
+
+        // Marker with custom icon
+        const icon = L.divIcon({
+            html: '<i class="fas fa-lightbulb" style="color: #ffeb3b; font-size: 24px;"></i>',
+            className: 'custom-light-marker',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+
+        const marker = L.marker([lat, lng], { icon }).addTo(map);
+        marker.lightData = light;
+
+        marker.bindPopup(`
+            <div style="font-family: 'Rajdhani', sans-serif;">
+                <strong style="color: #00ffaa;">${light.pole_number}</strong><br>
+                <strong>Type:</strong> ${light.lamp_type}<br>
+                <strong>Wattage:</strong> ${light.wattage}W<br>
+                <strong>Height:</strong> ${light.pole_height_ft}ft<br>
+                <strong>Circuit:</strong> ${light.circuit_id}<br>
+                <strong>Condition:</strong> <span class="condition-${light.condition.toLowerCase()}">${light.condition}</span>
+            </div>
+        `);
+
+        marker.on('click', function() {
+            selectLight(light);
+        });
+
+        lightMarkers.push(marker);
+
+        // Coverage circle
+        if (showCoverage) {
+            const circle = L.circle([lat, lng], {
+                radius: radius * 0.3048, // feet to meters
+                color: '#ffeb3b',
+                fillColor: '#ffeb3b',
+                fillOpacity: 0.1,
+                weight: 1
+            }).addTo(map);
+            coverageCircles.push(circle);
+        }
+    });
+
+    if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [50, 50] });
+    }
+}
+
+function updateVisualization() {
+    if (currentData.length > 0) {
+        renderMap(currentData);
+    }
+}
+
+function renderTable(lights) {
     const tbody = document.getElementById('lightsTableBody');
     tbody.innerHTML = lights.map(light => `
-        <tr>
-            <td>${light.pole_number || 'N/A'}</td>
-            <td>${light.lamp_type || 'UNKNOWN'}</td>
-            <td>${light.wattage || 'N/A'}</td>
-            <td>${light.pole_height_ft || 'N/A'}</td>
-            <td>${light.circuit_id || 'N/A'}</td>
-            <td>${light.condition || 'UNKNOWN'}</td>
-            <td>${light.x?.toFixed(1) || 'N/A'}, ${light.y?.toFixed(1) || 'N/A'}</td>
+        <tr onclick="selectLight(${JSON.stringify(light).replace(/"/g, '&quot;')})" style="cursor: pointer;">
+            <td>${light.pole_number}</td>
+            <td>${light.lamp_type}</td>
+            <td>${light.wattage}W</td>
+            <td>${light.pole_height_ft}ft</td>
+            <td>${light.circuit_id}</td>
+            <td><span class="condition-badge condition-${light.condition.toLowerCase()}">${light.condition}</span></td>
+            <td>${light.x.toFixed(1)}, ${light.y.toFixed(1)}</td>
+            <td>
+                <button class="tool-action-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="event.stopPropagation(); viewDetails('${light.light_id}')">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+            </td>
         </tr>
     `).join('');
+
     document.getElementById('lightsTable').style.display = 'table';
+    document.getElementById('lightsEmpty').style.display = 'none';
+    document.getElementById('lightsTabCount').textContent = lights.length;
 }
 
-// Render statistics
 function renderStats(stats) {
-    document.getElementById('statTotalLights').textContent = stats.total_count || 0;
-    document.getElementById('statTotalWattage').textContent = `${stats.total_wattage || 0} W`;
-    document.getElementById('statAvgSpacing').textContent = `${stats.average_spacing_ft || 0} ft`;
+    document.getElementById('statTotalLights').textContent = stats.total_count;
+    document.getElementById('statTotalWattage').textContent = `${stats.total_wattage.toLocaleString()} W`;
+    document.getElementById('statAvgSpacing').textContent = `${stats.average_spacing_ft} ft`;
 
-    // Render by lamp type
-    const byType = stats.by_lamp_type || {};
-    const typeHtml = Object.entries(byType).map(([type, count]) => `
-        <div style="padding: 0.75rem; background: rgba(0,255,255,0.03); margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between;">
-            <span>${type}</span>
-            <span style="color: var(--accent-color); font-weight: bold;">${count}</span>
+    // Calculate annual cost (estimate: $0.12/kWh, 12 hours/day)
+    const annualKwh = (stats.total_wattage / 1000) * 12 * 365;
+    const annualCost = annualKwh * 0.12;
+    document.getElementById('statAnnualCost').textContent = `$${annualCost.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+
+    // By lamp type
+    const byTypeHtml = Object.entries(stats.by_lamp_type).map(([type, count]) => `
+        <div class="type-breakdown">
+            <span style="font-weight: bold; color: var(--mc-primary);">${type}</span>
+            <span style="color: var(--mc-accent);">${count} lights</span>
         </div>
     `).join('');
-    document.getElementById('byLampType').innerHTML = typeHtml || '<p>No data</p>';
+    document.getElementById('byLampType').innerHTML = byTypeHtml;
+
+    // By condition
+    const byConditionHtml = Object.entries(stats.by_condition).map(([condition, count]) => `
+        <div class="type-breakdown">
+            <span class="condition-badge condition-${condition.toLowerCase()}">${condition}</span>
+            <span style="color: var(--mc-accent);">${count} lights</span>
+        </div>
+    `).join('');
+    document.getElementById('byCondition').innerHTML = byConditionHtml;
 }
 
-// Show state
-function showState(state, message = '') {
-    document.getElementById('loadingState').style.display = state === 'loading' ? 'flex' : 'none';
-    document.getElementById('errorState').style.display = state === 'error' ? 'flex' : 'none';
-    document.getElementById('emptyState').style.display = state === 'empty' ? 'flex' : 'none';
-    document.getElementById('successState').style.display = state === 'success' ? 'block' : 'none';
-
-    if (state === 'error') {
-        document.getElementById('errorMessage').textContent = message;
-    }
+function updateSidebarStats(stats) {
+    document.getElementById('sidebarTotalLights').textContent = stats.total_count;
+    document.getElementById('sidebarTotalWattage').textContent = `${stats.total_wattage.toLocaleString()} W`;
+    document.getElementById('sidebarAvgSpacing').textContent = `${stats.average_spacing_ft} ft`;
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', loadLights);
+function selectLight(light) {
+    selectedLight = light;
+    // Highlight in table
+    document.querySelectorAll('#lightsTableBody tr').forEach((row, idx) => {
+        row.classList.toggle('selected', currentData[idx]?.light_id === light.light_id);
+    });
+}
+
+function showTab(tabName) {
+    ['lights', 'stats', 'maintenance'].forEach(name => {
+        document.getElementById(`${name}Tab`).style.display = name === tabName ? 'block' : 'none';
+    });
+
+    document.querySelectorAll('.tool-data-tab').forEach((tab, idx) => {
+        const tabs = ['lights', 'stats', 'maintenance'];
+        tab.classList.toggle('active', tabs[idx] === tabName);
+    });
+}
+
+function showEmptyState() {
+    document.getElementById('lightsTable').style.display = 'none';
+    document.getElementById('lightsEmpty').style.display = 'block';
+}
+
+function exportReport() {
+    alert('Export functionality coming soon! Will generate PDF report with light inventory and coverage analysis.');
+}
+
+function viewDetails(lightId) {
+    alert(`Detailed view for ${lightId} coming soon!`);
+}
+
+// Auto-load on page load
+document.addEventListener('DOMContentLoaded', function() {
+    initMap();
+    setTimeout(loadLights, 500);
+});
 </script>
 {% endblock %}
 
 {% block about_tool_description %}
-Comprehensive street light analysis tool that calculates spacing between lights, generates visual radius coverage maps, 
-identifies coverage gaps, and depicts underground electrical infrastructure including conduits and circuits.
+The Street Light Analyzer helps civil engineers analyze street lighting infrastructure, including spacing analysis, coverage mapping, electrical circuit tracking, and maintenance scheduling. Generate reports on energy consumption, identify coverage gaps, and plan upgrades.
 {% endblock %}
 
 {% block about_tool_tags %}
-<span class="about-tool-tag">POLE</span>
+<span class="about-tool-tag">LIGHT</span>
+<span class="about-tool-tag">STREETLIGHT</span>
+<span class="about-tool-tag">ILLUMINATION</span>
 {% endblock %}
 
 {% block about_tool_examples %}
 <div class="about-tool-example">
-    <div class="about-tool-example-layer">CIV-SITE-POLE-PROP-PT</div>
-    <div class="about-tool-example-desc">→ Proposed Light Poles - Civil/Site</div>
+    <div class="about-tool-example-layer">CIV-LIGHT-POLE-EXST-PT</div>
+    <div class="about-tool-example-desc">→ Existing light pole points</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-LIGHT-FIXTURE-PROP-PT</div>
+    <div class="about-tool-example-desc">→ Proposed light fixtures</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">UTL-ELEC-CONDUIT-EXST-LN</div>
+    <div class="about-tool-example-desc">→ Electrical conduit for lighting</div>
 </div>
 {% endblock %}
