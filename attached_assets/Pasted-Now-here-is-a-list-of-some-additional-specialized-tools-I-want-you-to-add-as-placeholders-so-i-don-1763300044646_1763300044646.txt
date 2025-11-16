@@ -1,0 +1,38 @@
+Now, here is a list of some additional specialized tools I want you to add as placeholders, so i dont have to put this into every tool summary, here are some general functions I want to include. Maybe these items should even be added to the template reference guide we just created.
+
+All Specialized tools can generate some sort of exhibit that can be exported directly as multiple formats directly for convenience in sharing with outside office and makes these tools still useful in a simpler way if users don't want to participate in the full experience or why they are still learning the tool.
+
+Something like potentially generate a report or table for PDF export, Or create a DXF/SHP/KML file export, for import into other software, as it makes sense in context of the tool.
+
+Here are the examples I could think of. Add these and update all relevant portions of the APP the point to or reference the Specialized tools. Including the the “CAD Layer Generator” gets updated with all the new specialized tools.
+
+Curb Type tracker: Tracks different curb types per the CAD Layer Attributes. Creates tables and/or reports. 
+
+Street Light Analyzer:Analyzes the distance between lights, generates light radius maps, depicts electrical system underground.
+
+Pavement Zone Analyzer: A tool that displays an overlay of the distinct pavement zones and colorful hatches. Reports square footage and acres area numbers. References links to specs. etc.
+
+Slope Analysis: Shows visual analysis of 3d faces with different color schemes depending on the 3d faces slopes. Used for ADA compliance and other analysis.
+
+Flow Analysis: Analyzes Storm Sewer systems for detailed flow calculations like industry standard software that works with Civil 3d.
+
+General Queries and report wizard generator
+
+Surrounding Parcels: Generate a list of APN and Addresses of surrounding parcels from local GIS data. Create an interactive display that allows the user to adjust the radius and to see a representation of the project and the APN’s included..
+
+Whats Nearby:queries spatial data about adjacent landmarks, schools, hospitals, airports, etc. 
+
+Sewer and Water Lateral connection Analyzer: Lists all properties with connections with “zoom to” feature for each property. Other analysis tools for clearances for proposed pipes and existing features.
+
+Postgrsql Topo Database Linking?
+
+Alignment tangent check
+
+Line and Curve bearing and distance analyzer
+
+Survey Point Connect-the-Dot Wizard: Interactive display where the user can preview the survey point line connections and has dynamic rules and sliders that control the logic of the connections. I am going to design the rules for these connections based on the proximity, descriptions and other logic of the surrounding points. The user should be able to “program” different surveyed “objects” with different connection rules ( a curb is different than buildings) and then when this is all preconfigured, generate the linework. This is an ambitious tool i think.
+
+
+
+
+
