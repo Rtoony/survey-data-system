@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Area Calculator{% endblock %}
+
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/specialized-tool-info.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="content">
+    <div class="page-header">
+        <div class="page-header-content">
+            <i class="fas fa-ruler-combined neon-blue"></i>
+            <div>
+                <h2 class="orbitron">Area Calculator</h2>
+                <p>Calculate accurate areas for closed polygons and 3D regions</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toolInfoCard" style="margin: 20px;"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadToolInfoCard('AREA', 'toolInfoCard');
+        });
+    </script>
+
+    <div class="mc-container" style="margin: 20px;">
+        <div class="mc-card">
+            <h3 style="color: var(--mc-primary); margin-bottom: 16px;">
+                <i class="fas fa-info-circle"></i> Area Calculation Tool (Prototype)
+            </h3>
+            <p style="color: var(--mc-text); margin-bottom: 20px;">
+                This specialized tool will provide accurate area calculations for all closed polygons and 3D regions 
+                based on their object classification. Calculate areas for buildings, sidewalks, parking lots, BMPs, 
+                accessible features, and other site elements.
+            </p>
+
+            <div style="background: rgba(0,255,255,0.1); border-left: 4px solid var(--mc-accent); padding: 16px; margin-bottom: 20px;">
+                <h4 style="color: var(--mc-accent); margin: 0 0 12px 0;">
+                    <i class="fas fa-th-list"></i> Planned Features
+                </h4>
+                <ul style="color: var(--mc-text); margin: 0; padding-left: 24px;">
+                    <li>Multi-select area calculation by object type</li>
+                    <li>Support for 2D polygons and 3D closed regions</li>
+                    <li>Area grouping by category (accessible features, BMPs, grading, etc.)</li>
+                    <li>Unit conversion (SF, acres, hectares)</li>
+                    <li>Export area takeoff reports</li>
+                    <li>Integration with Material Volume Calculator and Pervious/Impervious Analysis</li>
+                </ul>
+            </div>
+
+            <div style="background: rgba(0,20,40,0.5); border-radius: 8px; padding: 24px; text-align: center;">
+                <i class="fas fa-hammer" style="font-size: 3rem; color: var(--mc-muted); margin-bottom: 16px;"></i>
+                <h4 style="color: var(--mc-muted); margin: 0 0 8px 0;">Under Construction</h4>
+                <p style="color: var(--mc-muted); margin: 0;">
+                    This tool is currently in development. Check back soon for the full implementation.
+                </p>
+            </div>
+        </div>
+
+        <div class="mc-card" style="margin-top: 20px;">
+            <h3 style="color: var(--mc-primary); margin-bottom: 16px;">
+                <i class="fas fa-object-group"></i> Supported Object Types
+            </h3>
+            <p style="color: var(--mc-muted); font-size: 0.9rem; margin-bottom: 12px;">
+                This tool will work with multiple object classifications from your CAD vocabulary:
+            </p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                <div style="background: rgba(0,255,255,0.05); padding: 12px; border-radius: 6px; border-left: 3px solid var(--mc-accent);">
+                    <strong style="color: var(--mc-accent);">Accessible Features</strong>
+                    <div style="color: var(--mc-muted); font-size: 0.85rem; margin-top: 4px;">Ramps, paths, parking</div>
+                </div>
+                <div style="background: rgba(0,255,255,0.05); padding: 12px; border-radius: 6px; border-left: 3px solid var(--mc-accent);">
+                    <strong style="color: var(--mc-accent);">BMPs</strong>
+                    <div style="color: var(--mc-muted); font-size: 0.85rem; margin-top: 4px;">Bioretention, basins, ponds</div>
+                </div>
+                <div style="background: rgba(0,255,255,0.05); padding: 12px; border-radius: 6px; border-left: 3px solid var(--mc-accent);">
+                    <strong style="color: var(--mc-accent);">Grading Features</strong>
+                    <div style="color: var(--mc-muted); font-size: 0.85rem; margin-top: 4px;">Pads, berms, slopes, swales</div>
+                </div>
+                <div style="background: rgba(0,255,255,0.05); padding: 12px; border-radius: 6px; border-left: 3px solid var(--mc-accent);">
+                    <strong style="color: var(--mc-accent);">Site Boundaries</strong>
+                    <div style="color: var(--mc-muted); font-size: 0.85rem; margin-top: 4px;">Property lines, ROW</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
