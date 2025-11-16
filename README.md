@@ -27,12 +27,27 @@ ACAD-GIS replaces traditional file-based CAD workflows with a PostgreSQL/PostGIS
 - **Export Engine:** Generate clean DXF files with standard or client-specific layer names
 - **Change Detection:** Geometry hashing detects modifications for merge operations
 
-### 🗺️ Map Viewer
-- **Interactive Leaflet Map:** View all spatial data with coordinate transformation (SRID 0 ↔ SRID 2226)
-- **Standards Filtering:** Filter layers by discipline, category, and phase
+### 🗺️ Visualization Tools
+**Full documentation:** [VISUALIZATION_TOOLS.md](VISUALIZATION_TOOLS.md)
+
+#### Enhanced Map Viewer
+Full-featured spatial workbench for CAD/GIS analysis:
+- **Interactive Leaflet Map:** View all spatial data with coordinate transformation (SRID 0 ↔ SRID 2226 ↔ SRID 4326)
+- **Layer Controls:** Toggle individual layers, expand groups, view feature counts
+- **Basemap Selection:** Streets, Satellite, Topo, Dark basemap options
 - **Multi-Format Export:** DXF, Shapefile, PNG, KML with bounding box selection
-- **WFS Integration:** Load external GIS layers
-- **Address Search & Measurement Tools**
+- **Measurement Tools:** Distance and area measurement capabilities
+- **Address Search:** Geocoding integration with auto-zoom
+- **Full-Screen Mode:** Press `F` or click button to maximize workspace (optimized for wide-screen monitors)
+
+#### Project Command Center
+Streamlined project management dashboard:
+- **Collapsible Sidebar:** 250px sidebar with 10 tools and 24 CAD standards
+- **Read-Only Context Map:** Auto-fit project overview with layer toggles
+- **Basemap Selection:** Switch between Streets/Satellite/Topo/Dark for context
+- **Health Metrics:** Real-time project statistics (entities, layers, intelligent objects, drawings)
+- **Quick Access:** One-click navigation to all project tools
+- **Full-Screen Mode:** Click button or press `ESC` to maximize workspace
 
 ### 🔧 Civil Engineering Tools
 - **Gravity Pipe Network Editor:** Interactive SVG diagrams with auto-connection and classification
