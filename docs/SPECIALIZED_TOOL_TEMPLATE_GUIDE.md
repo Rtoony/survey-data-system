@@ -57,6 +57,93 @@ Base template: `templates/base_specialized_tool.html`
 
 ---
 
+## About This Specialized Tool Section
+
+Every specialized tool automatically includes an **"About This Specialized Tool"** section at the bottom of the page. This section provides context about what the tool manages, example layer names, and links to related resources.
+
+### Default Structure
+
+The About section includes:
+- **Tool description**: Detailed explanation of tool capabilities
+- **Manages tags**: Object type codes the tool handles (badges)
+- **Example layer names**: Real CAD layer examples with descriptions
+- **Links**: Discover more tools and configure mappings
+
+### Customizing the About Section
+
+Override these blocks in your tool template to customize the About section:
+
+```html
+{# Description - appears at the top of About section #}
+{% block about_tool_description %}
+Your detailed tool description explaining capabilities, features, and use cases.
+{% endblock %}
+
+{# Object type tags - badge-style tags showing what the tool manages #}
+{% block about_tool_tags %}
+<span class="about-tool-tag">OBJECT1</span>
+<span class="about-tool-tag">OBJECT2</span>
+<span class="about-tool-tag">OBJECT3</span>
+{% endblock %}
+
+{# Layer name examples - shows real CAD layer naming examples #}
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-CAT-OBJ-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Object - Civil/Category</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-CAT-OBJ-EXST-PT</div>
+    <div class="about-tool-example-desc">→ Existing Points - Civil/Category</div>
+</div>
+{% endblock %}
+```
+
+### Full About Section Example
+
+```html
+{% block about_tool_description %}
+Interactive tool for analyzing, editing, and managing gravity pipe networks with hydraulic calculations. 
+Supports storm drain and sanitary sewer systems with automatic slope validation, invert elevation management, 
+and network connectivity analysis.
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">STORM</span>
+<span class="about-tool-tag">SANIT</span>
+<span class="about-tool-tag">MH</span>
+<span class="about-tool-tag">INLET</span>
+<span class="about-tool-tag">GRAV</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-STM-STORM-PROP-LN</div>
+    <div class="about-tool-example-desc">→ Proposed Storm Drain Pipes - Civil/Storm Drainage</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-SAN-SANIT-EXST-LN</div>
+    <div class="about-tool-example-desc">→ Existing Sanitary Sewer Pipes - Civil/Sanitary</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-STM-MH-PROP-PT</div>
+    <div class="about-tool-example-desc">→ Proposed Manholes - Civil/Storm Drainage</div>
+</div>
+{% endblock %}
+```
+
+### Hiding the About Section
+
+If you want to hide the About section entirely for a specific tool:
+
+```html
+{% block about_tool_section %}
+{# Empty block - hides the entire About section #}
+{% endblock %}
+```
+
+---
+
 ## How to Create a New Specialized Tool
 
 ### Step 1: Create Your Template File
