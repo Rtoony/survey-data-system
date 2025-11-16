@@ -12,27 +12,36 @@
         crossorigin=""></script>
 
 <style>
+    /* Full-screen lock - no scrolling */
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
     :root {
         --mc-primary: #00ffff;
         --mc-accent: #00ff88;
         --mc-bg-dark: rgba(0, 20, 40, 0.95);
         --mc-bg-section: rgba(0, 40, 80, 0.6);
         --mc-text: #e0f0ff;
+        --header-height: 140px;
     }
 
     .command-center-container {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 120px);
-        gap: 0.75rem;
-        padding: 1rem;
+        height: calc(100vh - var(--header-height));
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
     }
 
     /* Main content area with sidebar + map */
     .command-center-main {
         display: grid;
         grid-template-columns: 250px 1fr;
-        gap: 1rem;
+        gap: 0;
         flex: 1 1 auto;
         min-height: 0;
         overflow: hidden;
@@ -41,8 +50,8 @@
     /* Left Sidebar - All controls consolidated */
     .command-strip {
         background: var(--mc-bg-dark);
-        border: 1px solid var(--mc-primary);
-        border-radius: 8px;
+        border-right: 1px solid var(--mc-primary);
+        border-radius: 0;
         padding: 1.5rem;
         display: flex;
         flex-direction: column;
@@ -204,11 +213,13 @@
     /* Map Container - Read Only */
     .map-panel {
         background: rgba(0, 0, 0, 0.9);
-        border: 1px solid var(--mc-primary);
-        border-radius: 8px;
+        border: none;
+        border-radius: 0;
         overflow: hidden;
         position: relative;
         z-index: 1;
+        height: 100%;
+        width: 100%;
     }
 
     #mapView {
@@ -339,9 +350,40 @@
         font-size: 0.75rem;
     }
 </style>
+
+<script>
+// Set header height SYNCHRONOUSLY before page renders to prevent layout shift
+(function() {
+    function updateHeaderHeight() {
+        const header = document.querySelector('.sticky-header-container');
+        if (header) {
+            const height = header.offsetHeight;
+            document.documentElement.style.setProperty('--header-height', height + 'px');
+        }
+    }
+    
+    // Run immediately when script executes (blocking)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', updateHeaderHeight);
+    } else {
+        updateHeaderHeight();
+    }
+})();
+</script>
 {% endblock %}
 
 {% block content %}
+<script>
+// Calculate header height BEFORE rendering content (runs synchronously)
+(function() {
+    const header = document.querySelector('.sticky-header-container');
+    if (header) {
+        const height = header.offsetHeight;
+        document.documentElement.style.setProperty('--header-height', height + 'px');
+    }
+})();
+</script>
+
 <div class="command-center-container">
     <!-- Main Content: Sidebar + Map -->
     <div class="command-center-main">
@@ -622,6 +664,36 @@
 </div>
 
 <script>
+// Calculate and set header height dynamically
+function setHeaderHeight() {
+    const header = document.querySelector('.sticky-header-container');
+    if (header) {
+        const height = header.offsetHeight;
+        document.documentElement.style.setProperty('--header-height', `${height}px`);
+    }
+}
+
+// Set header height on load and resize
+window.addEventListener('load', setHeaderHeight);
+window.addEventListener('resize', setHeaderHeight);
+
+// Watch for header changes (e.g., when project selector is revealed)
+const headerObserver = new MutationObserver(() => {
+    setTimeout(setHeaderHeight, 50); // Small delay to let layout settle
+});
+
+// Start observing header for attribute and child changes
+window.addEventListener('load', () => {
+    const header = document.querySelector('.sticky-header-container');
+    if (header) {
+        headerObserver.observe(header, {
+            attributes: true,
+            childList: true,
+            subtree: true
+        });
+    }
+});
+
 let map;
 let activeProjectId = null;
 let projectData = null;
