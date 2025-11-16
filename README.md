@@ -13,7 +13,8 @@ ACAD-GIS replaces traditional file-based CAD workflows with a PostgreSQL/PostGIS
 ### 🎯 CAD Standards System
 - **Hierarchical Layer Naming:** `DISCIPLINE-CATEGORY-TYPE-ATTRIBUTE-PHASE-GEOMETRY`
 - **CAD Layer Vocabulary:** Manage 6 vocabulary types (disciplines, categories, object types, phases, geometries, attributes)
-- **Reference Data Hub:** Manage 7 types of project-agnostic reference data (Entity Registry, Clients, Vendors, Municipalities, Coordinate Systems, Survey Point Descriptions, GIS Data Layers)
+- **Attribute System:** Three-dimensional filtering (Object Type → Attribute → Database Table) for surgical precision in tool workflows. See [ATTRIBUTE_SYSTEM_GUIDE.md](ATTRIBUTE_SYSTEM_GUIDE.md)
+- **Reference Data Hub:** Manage 9 types of project-agnostic reference data (Attribute Codes, CAD Standards, Clients, Municipalities, Coordinate Systems, Survey Point Descriptions, Naming Templates, Tool-Object Mappings, Specialized Tools Registry)
 - **Import Template Manager:** Configure client-specific layer mapping patterns with live regex testing
 - **Standards Portal:** Visual documentation of the layer naming system
 
@@ -105,6 +106,7 @@ Access at `http://localhost:5000`
 ## Documentation
 
 ### Essential Guides
+- **[Attribute System Guide](ATTRIBUTE_SYSTEM_GUIDE.md)** - Complete guide to three-dimensional filtering (Object Type → Attribute → Database Table)
 - **[CAD Standards Guide](CAD_STANDARDS_GUIDE.md)** - Comprehensive user guide and cheat sheet for the CAD standards system
 - **[Projects Only Migration Guide](PROJECTS_ONLY_MIGRATION_GUIDE.md)** - Complete guide to the new Projects Only system with hybrid classification
 - **[replit.md](replit.md)** - Project overview, architecture, and recent changes

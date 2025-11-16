@@ -123,6 +123,15 @@
                 Attributes add precision to specialized tools by filtering object types (e.g., BASIN+STORAGE for volume calculations vs BASIN+TREATMENT for water quality analysis).
                 Locked attributes are system-critical and cannot be deleted.
             </p>
+            <div style="margin-bottom: 20px;">
+                <input 
+                    type="text" 
+                    id="attributeSearchBox" 
+                    placeholder="🔍 Search attributes by code, name, or category..." 
+                    style="width: 100%; padding: 12px; border: 1px solid rgba(0,255,255,0.3); border-radius: 6px; background: rgba(0,20,40,0.3); color: var(--text-color); font-size: 0.95rem;"
+                    oninput="filterAttributeCodes(this.value)"
+                />
+            </div>
             <div id="attributeCodesContainer"></div>
         </div>
     </div>
@@ -1808,6 +1817,90 @@
         container.innerHTML = html;
     }
     
+    function filterAttributeCodes(searchQuery) {
+        const query = searchQuery.toLowerCase().trim();
+        const container = document.getElementById('attributeCodesContainer');
+        
+        if (!query) {
+            renderAttributeCodes();
+            return;
+        }
+        
+        // Filter attributes by code, name, or category
+        const filtered = attributeCodes.filter(attr => 
+            (attr.code && attr.code.toLowerCase().includes(query)) ||
+            (attr.full_name && attr.full_name.toLowerCase().includes(query)) ||
+            (attr.attribute_category && attr.attribute_category.toLowerCase().includes(query)) ||
+            (attr.description && attr.description.toLowerCase().includes(query))
+        );
+        
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div class="placeholder-message">
+                    <i class="fas fa-search"></i>
+                    <h3>No matching attributes</h3>
+                    <p>No attributes found matching "${searchQuery}". Try a different search term.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const grouped = filtered.reduce((acc, attr) => {
+            const category = attr.attribute_category || 'Uncategorized';
+            if (!acc[category]) acc[category] = [];
+            acc[category].push(attr);
+            return acc;
+        }, {});
+        
+        const html = Object.entries(grouped).map(([category, items]) => `
+            <div class="category-section">
+                <div class="category-header">
+                    <span class="category-title">${category}</span>
+                    <span class="category-count">(${items.length} ${items.length === 1 ? 'attribute' : 'attributes'})</span>
+                </div>
+                <div class="grid">
+                    ${items.map(attr => `
+                        <div class="entity-item">
+                            <div class="entity-header">
+                                <div style="display: flex; align-items: start;">
+                                    <i class="fas fa-tag entity-icon"></i>
+                                    <div class="entity-title">
+                                        <div class="entity-name">
+                                            ${attr.code}
+                                            ${attr.is_locked ? ' <i class="fas fa-lock" style="color: var(--accent-gold); font-size: 0.9em;" title="Locked - System Critical"></i>' : ''}
+                                        </div>
+                                        <div class="entity-table">${attr.full_name}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="entity-desc">
+                                <div>
+                                    <span class="mc-badge mc-badge-${attr.attribute_type === 'primary' ? 'primary' : attr.attribute_type === 'secondary' ? 'info' : 'warning'}">${attr.attribute_type || 'N/A'}</span>
+                                    ${attr.attribute_category ? `<span class="entity-category">${attr.attribute_category}</span>` : ''}
+                                </div>
+                                ${attr.description ? `<div style="margin-top: 8px; color: var(--muted); font-size: 0.9em;">${attr.description}</div>` : ''}
+                                ${attr.sort_order !== null && attr.sort_order !== undefined ? `<div style="margin-top: 4px; font-size: 0.85em; color: var(--muted);"><i class="fas fa-sort"></i> Order: ${attr.sort_order}</div>` : ''}
+                            </div>
+                            <div class="item-actions">
+                                <button class="icon-btn" onclick='openEditAttributeCodeModal(${attr.attribute_id}, ${JSON.stringify(attr).replace(/'/g, "&apos;")})' title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="icon-btn delete" 
+                                    onclick='openDeleteModal(${attr.attribute_id}, "${attr.code.replace(/'/g, "\\'")}", "attribute-code")' 
+                                    title="${attr.is_locked ? 'Cannot delete locked attribute' : 'Delete'}"
+                                    ${attr.is_locked ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''}>
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = html;
+    }
+    
     function openAddAttributeCodeModal() {
         currentEdit = { id: null, data: null, type: 'attribute-code' };
         document.getElementById('attributeCodeModalTitle').textContent = 'Add New Attribute Code';
@@ -2670,6 +2763,14 @@
             
             if (response.ok) {
                 showToast(result.message || 'Tool mapping created successfully', 'success');
+                // Display warnings if any
+                if (result.warnings && result.warnings.length > 0) {
+                    setTimeout(() => {
+                        result.warnings.forEach(warning => {
+                            showToast('⚠️ ' + warning, 'warning');
+                        });
+                    }, 500);
+                }
                 closeToolMappingModal();
                 await loadToolMappings();
             } else {

@@ -16364,27 +16364,64 @@ def get_tool_mapping_detail(mapping_id):
 
 @app.route('/api/tool-mappings', methods=['POST'])
 def create_tool_mapping():
-    """Create a new tool-object mapping"""
+    """
+    Create a new tool-object mapping with optional attribute filtering.
+    Includes conflict detection to prevent overlapping wildcard and attribute-specific mappings.
+    """
     try:
         data = request.get_json()
         
         if not data.get('tool_code') or not data.get('object_type_code'):
             return jsonify({'error': 'tool_code and object_type_code are required'}), 400
         
+        tool_code = data['tool_code'].strip().upper()
+        object_type_code = data['object_type_code'].strip().upper()
+        attribute_code = data.get('attribute_code', '').strip().upper() or None
+        
+        # CONFLICT DETECTION: Check for overlapping mappings
+        conflict_check = """
+            SELECT 
+                mapping_id,
+                attribute_code,
+                purpose
+            FROM tool_object_mappings
+            WHERE tool_code = %s 
+            AND object_type_code = %s
+            AND is_active = TRUE
+        """
+        existing = execute_query(conflict_check, (tool_code, object_type_code))
+        
+        if existing:
+            warnings = []
+            for mapping in existing:
+                if attribute_code is None and mapping['attribute_code'] is not None:
+                    # Creating wildcard when attribute-specific exists
+                    warnings.append(f"Attribute-specific mapping exists: {object_type_code}+{mapping['attribute_code']}. This wildcard will override it.")
+                elif attribute_code is not None and mapping['attribute_code'] is None:
+                    # Creating attribute-specific when wildcard exists
+                    warnings.append(f"Wildcard mapping exists for {object_type_code}. Consider removing it for cleaner filtering.")
+        
         query = """
-            INSERT INTO tool_object_mappings (tool_code, object_type_code, purpose, sort_order)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO tool_object_mappings (tool_code, object_type_code, attribute_code, purpose, sort_order)
+            VALUES (%s, %s, %s, %s, %s)
             RETURNING mapping_id
         """
         result = execute_query(query, (
-            data['tool_code'].strip().upper(),
-            data['object_type_code'].strip().upper(),
+            tool_code,
+            object_type_code,
+            attribute_code,
             data.get('purpose', '').strip() or None,
             data.get('sort_order', 0)
         ))
         
         if result:
-            return jsonify({'message': 'Tool mapping created successfully', 'mapping_id': result[0]['mapping_id']}), 201
+            response_data = {
+                'message': 'Tool mapping created successfully', 
+                'mapping_id': result[0]['mapping_id']
+            }
+            if warnings:
+                response_data['warnings'] = warnings
+            return jsonify(response_data), 201
         else:
             return jsonify({'error': 'Failed to create tool mapping'}), 500
     except Exception as e:
