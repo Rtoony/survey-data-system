@@ -9434,6 +9434,21 @@ def bmp_manager():
     """BMP Manager page"""
     return render_template('bmp_manager.html')
 
+@app.route('/area-calculator')
+def area_calculator():
+    """Area Calculator - Calculate areas for closed polygons and 3D regions"""
+    return render_template('area_calculator.html')
+
+@app.route('/pervious-impervious-analysis')
+def pervious_impervious_analysis():
+    """Pervious/Impervious Analysis - Analyze hardscape vs landscape for water absorption"""
+    return render_template('pervious_impervious_analysis.html')
+
+@app.route('/material-volume-calculator')
+def material_volume_calculator():
+    """Material Volume Calculator - Calculate material volumes for earthwork and construction takeoffs"""
+    return render_template('material_volume_calculator.html')
+
 @app.route('/api/pressure-networks')
 def get_pressure_networks():
     """Get list of pressure pipe networks (potable, reclaimed, fire)"""
