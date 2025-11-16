@@ -218,6 +218,31 @@ def reference_data_mappings_tool():
     """Reference Data Mappings - Manage project reference data mappings"""
     return render_template('tools/reference_data_mappings.html')
 
+@app.route('/tools/dxf-test-generator')
+def dxf_test_generator_tool():
+    """DXF Test Generator - Generate comprehensive test DXF files with random entities"""
+    return render_template('tools/dxf_test_generator.html')
+
+@app.route('/tools/street-light-analyzer')
+def street_light_analyzer_tool():
+    """Street Light Analyzer - Analyze street light spacing, coverage, and electrical infrastructure"""
+    return render_template('street_light_analyzer.html')
+
+@app.route('/tools/pavement-zone-analyzer')
+def pavement_zone_analyzer_tool():
+    """Pavement Zone Analyzer - Analyze pavement zones with area calculations"""
+    return render_template('pavement_zone_analyzer.html')
+
+@app.route('/tools/flow-analysis')
+def flow_analysis_tool():
+    """Flow Analysis - Analyze gravity pipe network flow capacity"""
+    return render_template('flow_analysis.html')
+
+@app.route('/tools/lateral-analyzer')
+def lateral_analyzer_tool():
+    """Lateral Analyzer - Analyze sewer and water lateral connections"""
+    return render_template('lateral_analyzer.html')
+
 @app.route('/tools/assign-standards')
 def assign_standards_tool():
     """Assign Standards - Assign layer and block standards to project"""
@@ -9163,103 +9188,235 @@ def generate_test_dxf():
                 hatch.set_pattern_fill('ANSI31', scale=0.5)
         
         # Generate network objects
-        if 'GRAV' in networks:  # Gravity Pipe System
-            pipe_layer = 'CIV-PIPE-GRAV-EXST-AXIS' if layer_mode == 'canonical' else 'Gravity_Pipes'
-            mh_layer = 'CIV-STRC-MH-EXST-SYMB' if layer_mode == 'canonical' else 'Manholes'
-            ensure_layer(pipe_layer, 2)
-            ensure_layer(mh_layer, 1)
-            
-            # Create simple manhole block
-            if 'MH_SYMBOL' not in doc.blocks:
-                blk = doc.blocks.new(name='MH_SYMBOL')
-                blk.add_circle((0, 0), radius=2.5)
-                blk.add_text('MH', dxfattribs={'height': 1.5, 'insert': (-1, -0.75)})
-            
-            # Generate pipe network
-            x_start = base_x - 100
-            y_start = base_y + 100
-            for i in range(count):
-                x1 = x_start + (i * 50)
-                y1 = y_start - (i * 30)
-                x2 = x1 + 50
-                y2 = y1 - 30
-                # Add pipe
-                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': pipe_layer})
-                # Add manholes
-                msp.add_blockref('MH_SYMBOL', (x1, y1), dxfattribs={'layer': mh_layer})
-                if i == count - 1:
-                    msp.add_blockref('MH_SYMBOL', (x2, y2), dxfattribs={'layer': mh_layer})
+        if 'GRAV' in networks or 'STORM' in networks:  # Gravity Pipe System (Storm/Sanitary)
+            # Determine system type
+            system_name = 'STRM' if 'STORM' in networks else 'GRAV'
+            diameters = [12, 18, 24, 36, 48]  # inches
+            materials = ['RCP', 'HDPE', 'PVC']
+
+            # Create 3 manholes first at random positions
+            manholes = []
+            for i in range(3):
+                x = base_x + random.uniform(-300, 300)
+                y = base_y + random.uniform(-300, 300)
+                z = random_elevation() - random.uniform(0, 5)  # MH invert below grade
+                diam = random.choice(diameters)
+
+                manholes.append({'x': x, 'y': y, 'z': z, 'id': f'MH-{i+1}', 'diameter': diam})
+
+                # Add manhole to DXF
+                mh_layer = f'UTIL-{system_name}-MH-{diam}IN-EXST-PT' if layer_mode == 'canonical' else 'Storm_Manholes'
+                ensure_layer(mh_layer, 3)
+
+                # Create manhole block if needed
+                block_name = f'MH_{system_name}_SYMBOL'
+                if block_name not in doc.blocks:
+                    blk = doc.blocks.new(name=block_name)
+                    blk.add_circle((0, 0), radius=2.5)
+                    blk.add_text('MH', dxfattribs={'height': 1.5, 'insert': (-1, -0.75)})
+
+                msp.add_blockref(block_name, (x, y, z), dxfattribs={'layer': mh_layer})
+                msp.add_text(f'{manholes[i]["id"]}\\nRIM: {z+4:.1f}\\nINV: {z:.1f}', dxfattribs={
+                    'layer': mh_layer, 'height': 2.0, 'insert': (x+3, y+3, z)
+                })
+
+            # Create 2 pipes connecting manholes (sequential chain)
+            for i in range(min(2, len(manholes) - 1)):
+                start_mh = manholes[i]
+                end_mh = manholes[i+1]
+
+                # Calculate slope (flow downhill)
+                length = ((end_mh['x'] - start_mh['x'])**2 + (end_mh['y'] - start_mh['y'])**2)**0.5
+                slope = abs(start_mh['z'] - end_mh['z']) / length if length > 0 else 0.01
+                slope = max(slope, 0.005)  # Minimum 0.5% slope
+
+                pipe_diam = random.choice(diameters)
+                pipe_mat = random.choice(materials)
+
+                # Add pipe line
+                pipe_layer = f'UTIL-{system_name}-PIPE-{pipe_diam}IN-EXST-LN' if layer_mode == 'canonical' else 'Storm_Pipes'
+                ensure_layer(pipe_layer, 4)
+                msp.add_line((start_mh['x'], start_mh['y'], start_mh['z']),
+                             (end_mh['x'], end_mh['y'], end_mh['z']),
+                             dxfattribs={'layer': pipe_layer})
+
+                # Add pipe label
+                mid_x = (start_mh['x'] + end_mh['x']) / 2
+                mid_y = (start_mh['y'] + end_mh['y']) / 2
+                mid_z = (start_mh['z'] + end_mh['z']) / 2
+                msp.add_text(f'{pipe_diam}" {pipe_mat}\\nS={slope:.3f}', dxfattribs={
+                    'layer': pipe_layer, 'height': 1.5, 'insert': (mid_x, mid_y+5, mid_z)
+                })
         
-        if 'PRES' in networks:  # Pressure Pipe System
-            pipe_layer = 'CIV-PIPE-PRES-EXST-AXIS' if layer_mode == 'canonical' else 'Pressure_Pipes'
-            valve_layer = 'CIV-STRC-VALVE-EXST-SYMB' if layer_mode == 'canonical' else 'Valves'
-            ensure_layer(pipe_layer, 4)
-            ensure_layer(valve_layer, 6)
-            
-            # Create valve symbol
-            if 'VALVE_SYM' not in doc.blocks:
-                blk = doc.blocks.new(name='VALVE_SYM')
-                blk.add_circle((0, 0), radius=2)
-                blk.add_line((-2, 0), (2, 0))
-            
-            # Generate pressure network
-            x_start = base_x + 100
-            y_start = base_y - 100
-            for i in range(count):
-                x1 = x_start + (i * 40)
-                y1 = y_start + (i * 20)
-                x2 = x1 + 40
-                y2 = y1 + 20
-                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': pipe_layer})
-                msp.add_blockref('VALVE_SYM', (x1, y1), dxfattribs={'layer': valve_layer})
-        
-        if 'STORM' in networks:  # Storm Drain Network
-            pipe_layer = 'CIV-PIPE-STORM-EXST-AXIS' if layer_mode == 'canonical' else 'Storm_Pipes'
-            inlet_layer = 'CIV-STRC-INLET-EXST-SYMB' if layer_mode == 'canonical' else 'Inlets'
-            ensure_layer(pipe_layer, 3)
-            ensure_layer(inlet_layer, 5)
-            
-            # Create inlet symbol
-            if 'INLET_SYM' not in doc.blocks:
-                blk = doc.blocks.new(name='INLET_SYM')
-                blk.add_lwpolyline([(0, 2), (1.5, 0), (0, -2), (-1.5, 0), (0, 2)])
-                blk.add_text('I', dxfattribs={'height': 1, 'insert': (-0.3, -0.5)})
-            
-            # Generate storm network
-            for i in range(count):
-                x1 = base_x + random_offset()
-                y1 = base_y + random_offset()
-                x2 = x1 + random.uniform(30, 70)
-                y2 = y1 - random.uniform(20, 40)
-                msp.add_line((x1, y1), (x2, y2), dxfattribs={'layer': pipe_layer})
-                msp.add_blockref('INLET_SYM', (x1, y1), dxfattribs={'layer': inlet_layer})
-        
-        if 'WATER' in networks:  # Water Distribution
-            pipe_layer = 'CIV-PIPE-WATER-EXST-AXIS' if layer_mode == 'canonical' else 'Water_Pipes'
-            hydrant_layer = 'CIV-STRC-HYDRANT-EXST-SYMB' if layer_mode == 'canonical' else 'Hydrants'
-            ensure_layer(pipe_layer, 4)
-            ensure_layer(hydrant_layer, 1)
-            
-            # Create hydrant symbol
-            if 'HYDRANT_SYM' not in doc.blocks:
-                blk = doc.blocks.new(name='HYDRANT_SYM')
-                blk.add_circle((0, 0), radius=2.5)
-                blk.add_text('H', dxfattribs={'height': 1.5, 'insert': (-0.6, -0.75)})
-            
-            # Generate water network in grid pattern
-            grid_size = 60
-            for i in range(int(count / 2) + 1):
-                for j in range(2):
-                    x = base_x + (i * grid_size) - 150
-                    y = base_y + (j * grid_size) - 150
-                    if i < count / 2:
-                        msp.add_line((x, y), (x + grid_size, y), dxfattribs={'layer': pipe_layer})
-                    if j == 0:
-                        msp.add_line((x, y), (x, y + grid_size), dxfattribs={'layer': pipe_layer})
-                    if i % 2 == 0:
-                        msp.add_blockref('HYDRANT_SYM', (x, y), dxfattribs={'layer': hydrant_layer})
-        
-        # Generate BMP features
+        if 'PRES' in networks or 'WATER' in networks:  # Pressure Pipe System (Water)
+            # Determine system type
+            system_name = 'WATR' if 'WATER' in networks else 'PRES'
+            diameters = [6, 8, 12, 16]  # inches
+            materials = ['DIP', 'PVC', 'HDPE']
+
+            # Create 3 nodes (valves/hydrants) at random positions
+            nodes = []
+            for i in range(3):
+                x = base_x + random.uniform(-300, 300)
+                y = base_y + random.uniform(-300, 300)
+                z = random_elevation()
+                node_type = random.choice(['VALVE', 'HYDRANT']) if system_name == 'WATR' else 'VALVE'
+                diam = random.choice(diameters)
+
+                nodes.append({'x': x, 'y': y, 'z': z, 'id': f'{node_type[0]}-{i+1}', 'type': node_type, 'diameter': diam})
+
+                # Add node to DXF
+                node_layer = f'UTIL-{system_name}-{node_type}-{diam}IN-EXST-PT' if layer_mode == 'canonical' else f'{node_type}s'
+                ensure_layer(node_layer, 6 if node_type == 'VALVE' else 1)
+
+                # Create node block if needed
+                block_name = f'{node_type}_{system_name}_SYMBOL'
+                if block_name not in doc.blocks:
+                    blk = doc.blocks.new(name=block_name)
+                    if node_type == 'VALVE':
+                        blk.add_circle((0, 0), radius=2)
+                        blk.add_line((-2, 0), (2, 0))
+                        blk.add_line((0, -2), (0, 2))
+                    else:  # HYDRANT
+                        blk.add_circle((0, 0), radius=2.5)
+                        blk.add_text('H', dxfattribs={'height': 1.5, 'insert': (-0.6, -0.75)})
+
+                msp.add_blockref(block_name, (x, y, z), dxfattribs={'layer': node_layer})
+                msp.add_text(f'{nodes[i]["id"]}', dxfattribs={
+                    'layer': node_layer, 'height': 2.0, 'insert': (x+3, y+3, z)
+                })
+
+            # Create 2 pipes connecting nodes
+            for i in range(min(2, len(nodes) - 1)):
+                start_node = nodes[i]
+                end_node = nodes[i+1]
+
+                pipe_diam = random.choice(diameters)
+                pipe_mat = random.choice(materials)
+                pressure_psi = random.randint(40, 100)
+
+                # Add pipe line
+                pipe_layer = f'UTIL-{system_name}-PIPE-{pipe_diam}IN-EXST-LN' if layer_mode == 'canonical' else 'Water_Pipes'
+                ensure_layer(pipe_layer, 4)
+                msp.add_line((start_node['x'], start_node['y'], start_node['z']),
+                             (end_node['x'], end_node['y'], end_node['z']),
+                             dxfattribs={'layer': pipe_layer})
+
+                # Add pipe label
+                mid_x = (start_node['x'] + end_node['x']) / 2
+                mid_y = (start_node['y'] + end_node['y']) / 2
+                mid_z = (start_node['z'] + end_node['z']) / 2
+                msp.add_text(f'{pipe_diam}" {pipe_mat}\\n{pressure_psi} PSI', dxfattribs={
+                    'layer': pipe_layer, 'height': 1.5, 'insert': (mid_x, mid_y+5, mid_z)
+                })
+
+        # === SPECIALIZED TOOL ENTITIES ===
+
+        # Street Lights - NEW!
+        specialized_entities = data.get('specialized', [])
+        if 'LIGHT' in specialized or any(s.get('value') == 'LIGHT' for s in specialized_entities if isinstance(s, dict)):
+            lamp_types = ['LED', 'HPS', 'MH']  # LED, High Pressure Sodium, Metal Halide
+            wattages = [70, 100, 150, 250]
+
+            for i in range(3):  # Generate 3 street lights
+                x = base_x + random.uniform(-400, 400)
+                y = base_y + random.uniform(-400, 400)
+                z = random_elevation()
+                lamp_type = random.choice(lamp_types)
+                wattage = random.choice(wattages)
+                pole_height = random.choice([20, 25, 30, 35])  # feet
+
+                layer_name = f'SITE-LITE-{lamp_type}-{pole_height}FT-NEW-PT' if layer_mode == 'canonical' else 'Street_Lights'
+                ensure_layer(layer_name, 2)
+
+                # Create light pole symbol
+                block_name = 'LIGHT_POLE_SYMBOL'
+                if block_name not in doc.blocks:
+                    blk = doc.blocks.new(name=block_name)
+                    blk.add_circle((0, 0), radius=1.5)
+                    blk.add_line((0, 0), (0, 3))  # Pole
+                    blk.add_circle((0, 3), radius=0.8)  # Light head
+
+                msp.add_blockref(block_name, (x, y, z), dxfattribs={'layer': layer_name})
+                msp.add_text(f'L-{i+1}\\n{lamp_type} {wattage}W\\nH={pole_height}ft', dxfattribs={
+                    'layer': layer_name, 'height': 1.5, 'insert': (x+3, y, z)
+                })
+
+        # Pavement Zones - NEW!
+        if 'PVMT' in specialized or any(s.get('value') == 'PVMT' for s in specialized_entities if isinstance(s, dict)):
+            pavement_types = ['ASPH', 'CONC', 'PERM']  # Asphalt, Concrete, Permeable
+            thicknesses = [4, 6, 8]  # inches
+
+            for i in range(2):  # Generate 2 pavement zones
+                x = base_x + random.uniform(-400, 400)
+                y = base_y + random.uniform(-400, 400)
+                z = random_elevation()
+                pav_type = random.choice(pavement_types)
+                thickness = random.choice(thicknesses)
+                width = random.uniform(100, 200)
+                length = random.uniform(150, 300)
+                area = width * length
+
+                layer_name = f'SITE-PVMT-{pav_type}-{thickness}IN-NEW-PG' if layer_mode == 'canonical' else 'Pavement_Zones'
+                ensure_layer(layer_name, 8)
+
+                # Create polygon zone
+                points = [
+                    (x, y), (x + length, y), (x + length, y + width), (x, y + width), (x, y)
+                ]
+                msp.add_lwpolyline(points, close=True, dxfattribs={'layer': layer_name})
+                msp.add_text(f'ZONE-{i+1}\\n{pav_type} {thickness}"\\n{area:.0f} SF', dxfattribs={
+                    'layer': layer_name, 'height': 4.0, 'insert': (x + length/2 - 10, y + width/2, z)
+                })
+
+        # Laterals (Service Connections) - NEW!
+        if 'LATERAL' in specialized or any(s.get('value') == 'LATERAL' for s in specialized_entities if isinstance(s, dict)):
+            lateral_types = ['SEWER', 'WATER']
+            diameters = [4, 6]  # inches
+
+            for i in range(2):  # Generate 2 laterals
+                # Start from random point (property connection)
+                x1 = base_x + random.uniform(-400, 400)
+                y1 = base_y + random.uniform(-400, 400)
+                z1 = random_elevation()
+
+                # End at nearby point (main line connection)
+                x2 = x1 + random.uniform(10, 30)
+                y2 = y1 + random.uniform(-20, 20)
+                z2 = z1 - random.uniform(0, 2)  # Slightly downhill
+
+                lat_type = random.choice(lateral_types)
+                diam = random.choice(diameters)
+
+                layer_name = f'UTIL-{lat_type[:3]}-LATERAL-{diam}IN-NEW-LN' if layer_mode == 'canonical' else f'{lat_type}_Laterals'
+                ensure_layer(layer_name, 5)
+
+                msp.add_line((x1, y1, z1), (x2, y2, z2), dxfattribs={'layer': layer_name})
+                msp.add_text(f'LAT-{i+1}\\n{diam}" {lat_type}', dxfattribs={
+                    'layer': layer_name, 'height': 1.2, 'insert': (x1, y1+3, z1)
+                })
+
+        # Intentional Unclassified Entities - NEW!
+        if 'PROBLEM' in generic or any(g == 'PROBLEM' for g in generic):
+            unclassified_layers = ['MISC_STUFF', 'TEMP_LAYER', 'UNKNOWN_TYPE']
+            for i, layer in enumerate(unclassified_layers[:2]):  # Create 2-3 unclassified entities
+                ensure_layer(layer, random.randint(1, 255))
+                x = base_x + random.uniform(-500, 500)
+                y = base_y + random.uniform(-500, 500)
+                # Random geometry type
+                geom_type = random.choice(['circle', 'line', 'poly'])
+                if geom_type == 'circle':
+                    msp.add_circle((x, y), radius=random.uniform(5, 15), dxfattribs={'layer': layer})
+                elif geom_type == 'line':
+                    x2 = x + random.uniform(20, 50)
+                    y2 = y + random.uniform(-30, 30)
+                    msp.add_line((x, y), (x2, y2), dxfattribs={'layer': layer})
+                else:  # polygon
+                    size = random.uniform(15, 30)
+                    pts = [(x, y), (x+size, y), (x+size, y+size), (x, y+size), (x, y)]
+                    msp.add_lwpolyline(pts, close=True, dxfattribs={'layer': layer})
+
+        # === GENERATE BMP FEATURES (Improved with canonical names) ===
         if 'BIOR' in bmps:  # Bioretention
             layer_name = 'SITE-BMP-BIOR-EXST-AREA' if layer_mode == 'canonical' else 'Bioretention'
             ensure_layer(layer_name, 82)
@@ -20907,6 +21064,307 @@ def map_measure():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ============================================
+# ADMIN / INITIALIZATION ENDPOINTS
+# ============================================
+
+@app.route('/api/admin/init-specialized-tables', methods=['POST'])
+def init_specialized_tables():
+    """Initialize specialized tool tables (bmps, street_lights, pavement_zones)"""
+    try:
+        # Read and execute the SQL schema file
+        schema_path = 'database/create_specialized_tool_tables.sql'
+        if not os.path.exists(schema_path):
+            return jsonify({'error': f'Schema file not found: {schema_path}'}), 404
+
+        with open(schema_path, 'r') as f:
+            sql_content = f.read()
+
+        # Execute using database connection
+        from database import get_db
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql_content)
+
+        # Verify tables were created
+        verify_query = """
+            SELECT table_name FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_name IN ('bmps', 'street_lights', 'pavement_zones')
+            ORDER BY table_name
+        """
+        tables = execute_query(verify_query)
+
+        return jsonify({
+            'success': True,
+            'message': 'Specialized tool tables initialized successfully',
+            'tables_created': [t['table_name'] for t in tables]
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+# ============================================
+# SPECIALIZED TOOL API ENDPOINTS
+# ============================================
+
+@app.route('/api/specialized-tools/street-lights')
+def get_street_lights():
+    """Get all street lights with statistics"""
+    try:
+        project_id = request.args.get('project_id')
+
+        # Build query with optional project filter
+        where_clause = f"WHERE project_id = '{project_id}'" if project_id else ""
+
+        query = f"""
+            SELECT
+                light_id,
+                pole_number,
+                pole_height_ft,
+                lamp_type,
+                wattage,
+                lumens,
+                circuit_id,
+                ST_X(geometry) as x,
+                ST_Y(geometry) as y,
+                ST_AsGeoJSON(geometry) as geometry_json,
+                attributes,
+                condition,
+                install_date
+            FROM street_lights
+            {where_clause}
+            ORDER BY pole_number
+        """
+        lights = execute_query(query)
+
+        # Calculate statistics
+        total_count = len(lights)
+        total_wattage = sum(l.get('wattage', 0) or 0 for l in lights)
+
+        # Calculate average spacing (simplified - distance to nearest neighbor)
+        avg_spacing = 0
+        if total_count > 1:
+            spacings = []
+            for i, light in enumerate(lights):
+                if i > 0:
+                    x1, y1 = lights[i-1]['x'], lights[i-1]['y']
+                    x2, y2 = light['x'], light['y']
+                    dist = ((x2 - x1)**2 + (y2 - y1)**2)**0.5
+                    spacings.append(dist)
+            avg_spacing = sum(spacings) / len(spacings) if spacings else 0
+
+        # Group by lamp type
+        by_lamp_type = {}
+        for light in lights:
+            lamp_type = light.get('lamp_type', 'UNKNOWN')
+            by_lamp_type[lamp_type] = by_lamp_type.get(lamp_type, 0) + 1
+
+        return jsonify({
+            'lights': lights,
+            'stats': {
+                'total_count': total_count,
+                'total_wattage': total_wattage,
+                'average_spacing_ft': round(avg_spacing, 1),
+                'by_lamp_type': by_lamp_type
+            }
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+@app.route('/api/specialized-tools/pavement-zones')
+def get_pavement_zones():
+    """Get all pavement zones with area calculations"""
+    try:
+        project_id = request.args.get('project_id')
+
+        # Build query with optional project filter
+        where_clause = f"WHERE project_id = '{project_id}'" if project_id else ""
+
+        query = f"""
+            SELECT
+                zone_id,
+                zone_name,
+                pavement_type,
+                area_sqft,
+                thickness_inches,
+                material_spec,
+                traffic_category,
+                ST_AsGeoJSON(geometry) as geometry_json,
+                attributes,
+                condition,
+                install_date
+            FROM pavement_zones
+            {where_clause}
+            ORDER BY zone_name
+        """
+        zones = execute_query(query)
+
+        # Calculate totals by type
+        type_totals = {}
+        for zone in zones:
+            ptype = zone.get('pavement_type', 'UNKNOWN')
+            area = zone.get('area_sqft', 0) or 0
+            type_totals[ptype] = type_totals.get(ptype, 0) + area
+
+        total_area = sum(z.get('area_sqft', 0) or 0 for z in zones)
+        total_acres = total_area / 43560  # Convert sqft to acres
+
+        return jsonify({
+            'zones': zones,
+            'stats': {
+                'total_count': len(zones),
+                'total_area_sqft': round(total_area, 2),
+                'total_area_acres': round(total_acres, 2),
+                'by_type': type_totals
+            }
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+@app.route('/api/specialized-tools/flow-analysis')
+def analyze_flow():
+    """Analyze gravity pipe network flow capacity using Manning's equation"""
+    try:
+        project_id = request.args.get('project_id')
+
+        # Build query with optional project filter
+        where_clause = f"AND project_id = '{project_id}'" if project_id else ""
+
+        query = f"""
+            SELECT
+                line_id,
+                line_number,
+                utility_system as line_type,
+                diameter_mm,
+                material,
+                ST_Length(geometry) as length_ft,
+                slope,
+                attributes->>'mannings_n' as mannings_n,
+                from_structure_id,
+                to_structure_id,
+                ST_AsGeoJSON(geometry) as geometry_json
+            FROM utility_lines
+            WHERE utility_system IN ('STORM', 'SANITARY', 'GRAVITY')
+            {where_clause}
+            AND slope IS NOT NULL
+            AND slope > 0
+            ORDER BY line_number
+        """
+        pipes = execute_query(query)
+
+        # Calculate flow capacity for each pipe (Manning's equation)
+        for pipe in pipes:
+            diameter_in = (pipe.get('diameter_mm', 0) or 0) / 25.4  # Convert mm to inches
+            slope = pipe.get('slope', 0) or 0.01
+            mannings_n = float(pipe.get('mannings_n') or 0.013)
+
+            # Manning's equation for full pipe flow
+            # Q = (1.486/n) * A * R^(2/3) * S^(1/2)
+            if diameter_in > 0:
+                import math
+                radius_ft = (diameter_in / 12) / 2
+                area = math.pi * radius_ft**2
+                wetted_perimeter = 2 * math.pi * radius_ft
+                hydraulic_radius = area / wetted_perimeter
+                velocity = (1.486 / mannings_n) * (hydraulic_radius ** (2/3)) * (slope ** 0.5)
+                capacity_cfs = area * velocity
+                pipe['capacity_cfs'] = round(capacity_cfs, 2)
+                pipe['velocity_fps'] = round(velocity, 2)
+                pipe['diameter_in'] = round(diameter_in, 1)
+            else:
+                pipe['capacity_cfs'] = 0
+                pipe['velocity_fps'] = 0
+                pipe['diameter_in'] = 0
+
+        total_length = sum(p.get('length_ft', 0) or 0 for p in pipes)
+        total_capacity = sum(p.get('capacity_cfs', 0) or 0 for p in pipes)
+
+        return jsonify({
+            'pipes': pipes,
+            'stats': {
+                'total_pipes': len(pipes),
+                'total_length_ft': round(total_length, 1),
+                'total_capacity_cfs': round(total_capacity, 2)
+            }
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+@app.route('/api/specialized-tools/laterals')
+def analyze_laterals():
+    """Analyze lateral connections from mains to properties"""
+    try:
+        project_id = request.args.get('project_id')
+
+        # Build query with optional project filter
+        where_clause = f"AND project_id = '{project_id}'" if project_id else ""
+
+        # Query utility_service_connections table for laterals
+        query = f"""
+            SELECT
+                service_id as lateral_id,
+                service_type as lateral_type,
+                service_address as address,
+                size_mm,
+                material,
+                ST_Length(
+                    ST_MakeLine(
+                        service_point_geometry,
+                        (SELECT geometry FROM utility_structures WHERE structure_id = usc.structure_id LIMIT 1)
+                    )
+                ) as length_ft,
+                line_id as connected_to,
+                ST_AsGeoJSON(service_point_geometry) as geometry_json,
+                attributes,
+                install_date
+            FROM utility_service_connections usc
+            WHERE service_type IN ('SEWER_LATERAL', 'WATER_LATERAL', 'LATERAL')
+            {where_clause}
+            ORDER BY service_address
+        """
+        laterals = execute_query(query)
+
+        # Convert diameter from mm to inches
+        for lateral in laterals:
+            diameter_mm = lateral.get('size_mm', 0) or 0
+            lateral['diameter_in'] = round(diameter_mm / 25.4, 1) if diameter_mm > 0 else 0
+
+        # Group by diameter
+        by_diameter = {}
+        for lateral in laterals:
+            diam = lateral.get('diameter_in', 0)
+            diam_str = f"{diam}\"" if diam > 0 else "UNKNOWN"
+            by_diameter[diam_str] = by_diameter.get(diam_str, 0) + 1
+
+        # Group by type
+        by_type = {}
+        for lateral in laterals:
+            ltype = lateral.get('lateral_type', 'UNKNOWN')
+            by_type[ltype] = by_type.get(ltype, 0) + 1
+
+        total_length = sum(l.get('length_ft', 0) or 0 for l in laterals)
+
+        return jsonify({
+            'laterals': laterals,
+            'stats': {
+                'total_count': len(laterals),
+                'total_length_ft': round(total_length, 1),
+                'by_diameter': by_diameter,
+                'by_type': by_type
+            }
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
