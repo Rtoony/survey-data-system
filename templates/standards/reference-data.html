@@ -14,6 +14,7 @@
         <div class="tab" data-tab="coordinate-systems">Coordinate Systems</div>
         <div class="tab" data-tab="survey-points">Survey Point Descriptions</div>
         <div class="tab" data-tab="gis-layers">GIS Data Layers</div>
+        <div class="tab" data-tab="attribute-codes">Attribute Codes</div>
         <div class="tab" data-tab="naming-templates">Naming Templates</div>
         <div class="tab" data-tab="tool-mappings">Tool Object Mappings</div>
         <div class="tab" data-tab="cad-standards">CAD Standards</div>
@@ -106,6 +107,23 @@
                 Manage GIS data layers from external services with server links and configuration.
             </p>
             <div id="gisLayersContainer"></div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="attribute-codes">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-tag"></i> Attribute Codes</h2>
+                <button class="btn btn-add" onclick="openAddAttributeCodeModal()">
+                    <i class="fas fa-plus"></i> Add New Attribute
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                <strong>Layer Classification Attributes:</strong> Manage attribute codes used in layer naming (sizes, materials, functions). 
+                Attributes add precision to specialized tools by filtering object types (e.g., BASIN+STORAGE for volume calculations vs BASIN+TREATMENT for water quality analysis).
+                Locked attributes are system-critical and cannot be deleted.
+            </p>
+            <div id="attributeCodesContainer"></div>
         </div>
     </div>
     
@@ -657,6 +675,71 @@
     </div>
 </div>
 
+<div id="attributeCodeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="attributeCodeModalTitle">Add New Attribute Code</h3>
+            <button class="close-btn" onclick="closeAttributeCodeModal()">&times;</button>
+        </div>
+        <form id="attributeCodeForm" onsubmit="handleAttributeCodeSubmit(event)">
+            <div class="form-group">
+                <label>Code <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="code" required placeholder="e.g., STORAGE" maxlength="50" style="text-transform: uppercase;">
+                <div class="help-text">Short code for this attribute (will be converted to uppercase)</div>
+            </div>
+            <div class="form-group">
+                <label>Full Name <span style="color: #ff4444;">*</span></label>
+                <input type="text" name="full_name" required placeholder="e.g., Storage Basin">
+                <div class="help-text">Descriptive name for this attribute</div>
+            </div>
+            <div class="form-group">
+                <label>Attribute Category <span style="color: #ff4444;">*</span></label>
+                <select name="attribute_category" required>
+                    <option value="">Select Category</option>
+                    <option value="Function">Function</option>
+                    <option value="Material">Material</option>
+                    <option value="Size">Size</option>
+                    <option value="Condition">Condition</option>
+                    <option value="Status">Status</option>
+                    <option value="Location">Location</option>
+                    <option value="Other">Other</option>
+                </select>
+                <div class="help-text">Type of attribute classification</div>
+            </div>
+            <div class="form-group">
+                <label>Attribute Type <span style="color: #ff4444;">*</span></label>
+                <select name="attribute_type" required>
+                    <option value="">Select Type</option>
+                    <option value="primary">Primary</option>
+                    <option value="secondary">Secondary</option>
+                    <option value="modifier">Modifier</option>
+                </select>
+                <div class="help-text">How this attribute is used in layer naming</div>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" placeholder="Detailed description of this attribute..." rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Sort Order</label>
+                <input type="number" name="sort_order" min="0" placeholder="100">
+                <div class="help-text">Display order (lower numbers appear first)</div>
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" name="is_locked" id="isLockedCheckbox">
+                    <span>Lock this attribute (system-critical, cannot be deleted)</span>
+                </label>
+                <div class="help-text">Locked attributes are protected from deletion</div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeAttributeCodeModal()">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="namingTemplateModal" class="modal">
     <div class="modal-content" style="max-width: 900px;">
         <div class="modal-header">
@@ -894,6 +977,7 @@
     let coordinateSystems = [];
     let surveyPoints = [];
     let gisLayers = [];
+    let attributeCodes = [];
     let namingTemplates = [];
     let toolMappings = [];
     
@@ -940,6 +1024,9 @@
                     break;
                 case 'gis-layers':
                     if (gisLayers.length === 0) loadGISLayers();
+                    break;
+                case 'attribute-codes':
+                    if (attributeCodes.length === 0) loadAttributeCodes();
                     break;
                 case 'tool-mappings':
                     if (toolMappings.length === 0) loadToolMappings();
@@ -1630,6 +1717,162 @@
         }
     }
     
+    // ===== ATTRIBUTE CODES FUNCTIONS =====
+    
+    async function loadAttributeCodes() {
+        try {
+            const response = await fetch('/api/standards/attributes');
+            const data = await response.json();
+            attributeCodes = data.attributes || [];
+            renderAttributeCodes();
+        } catch (error) {
+            console.error('Error loading attribute codes:', error);
+            showToast('Failed to load attribute codes', 'error');
+        }
+    }
+    
+    function renderAttributeCodes() {
+        const container = document.getElementById('attributeCodesContainer');
+        
+        if (attributeCodes.length === 0) {
+            container.innerHTML = `
+                <div class="placeholder-message">
+                    <i class="fas fa-tag"></i>
+                    <h3>No attribute codes yet</h3>
+                    <p>Click "Add New Attribute" to create your first attribute code.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const grouped = attributeCodes.reduce((acc, attr) => {
+            const category = attr.attribute_category || 'Uncategorized';
+            if (!acc[category]) acc[category] = [];
+            acc[category].push(attr);
+            return acc;
+        }, {});
+        
+        const html = Object.entries(grouped).map(([category, items]) => `
+            <div class="category-section">
+                <div class="category-header">
+                    <span class="category-title">${category}</span>
+                    <span class="category-count">(${items.length} ${items.length === 1 ? 'attribute' : 'attributes'})</span>
+                </div>
+                <div class="grid">
+                    ${items.map(attr => `
+                        <div class="entity-item">
+                            <div class="entity-header">
+                                <div style="display: flex; align-items: start;">
+                                    <i class="fas fa-tag entity-icon"></i>
+                                    <div class="entity-title">
+                                        <div class="entity-name">
+                                            ${attr.code}
+                                            ${attr.is_locked ? ' <i class="fas fa-lock" style="color: var(--accent-gold); font-size: 0.9em;" title="Locked - System Critical"></i>' : ''}
+                                        </div>
+                                        <div class="entity-table">${attr.full_name}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="entity-desc">
+                                <div>
+                                    <span class="mc-badge mc-badge-${attr.attribute_type === 'primary' ? 'primary' : attr.attribute_type === 'secondary' ? 'info' : 'warning'}">${attr.attribute_type || 'N/A'}</span>
+                                    ${attr.attribute_category ? `<span class="entity-category">${attr.attribute_category}</span>` : ''}
+                                </div>
+                                ${attr.description ? `<div style="margin-top: 8px; color: var(--muted); font-size: 0.9em;">${attr.description}</div>` : ''}
+                                ${attr.sort_order !== null && attr.sort_order !== undefined ? `<div style="margin-top: 4px; font-size: 0.85em; color: var(--muted);"><i class="fas fa-sort"></i> Order: ${attr.sort_order}</div>` : ''}
+                            </div>
+                            <div class="item-actions">
+                                <button class="icon-btn" onclick='openEditAttributeCodeModal(${attr.attribute_id}, ${JSON.stringify(attr).replace(/'/g, "&apos;")})' title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="icon-btn delete" 
+                                    onclick='openDeleteModal(${attr.attribute_id}, "${attr.code.replace(/'/g, "\\'")}", "attribute-code")' 
+                                    title="${attr.is_locked ? 'Cannot delete locked attribute' : 'Delete'}"
+                                    ${attr.is_locked ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''}>
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = html;
+    }
+    
+    function openAddAttributeCodeModal() {
+        currentEdit = { id: null, data: null, type: 'attribute-code' };
+        document.getElementById('attributeCodeModalTitle').textContent = 'Add New Attribute Code';
+        document.getElementById('attributeCodeForm').reset();
+        document.getElementById('attributeCodeModal').classList.add('active');
+    }
+    
+    function openEditAttributeCodeModal(id, data) {
+        currentEdit = { id, data, type: 'attribute-code' };
+        document.getElementById('attributeCodeModalTitle').textContent = 'Edit Attribute Code';
+        
+        const form = document.getElementById('attributeCodeForm');
+        form.code.value = data.code || '';
+        form.full_name.value = data.full_name || '';
+        form.attribute_category.value = data.attribute_category || '';
+        form.attribute_type.value = data.attribute_type || '';
+        form.description.value = data.description || '';
+        form.sort_order.value = data.sort_order !== null && data.sort_order !== undefined ? data.sort_order : '';
+        form.is_locked.checked = data.is_locked || false;
+        
+        document.getElementById('attributeCodeModal').classList.add('active');
+    }
+    
+    function closeAttributeCodeModal() {
+        document.getElementById('attributeCodeModal').classList.remove('active');
+        currentEdit = { id: null, data: null, type: null };
+    }
+    
+    async function handleAttributeCodeSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const attributeData = {
+            code: formData.get('code').toUpperCase(),
+            full_name: formData.get('full_name'),
+            attribute_category: formData.get('attribute_category'),
+            attribute_type: formData.get('attribute_type'),
+            description: formData.get('description'),
+            sort_order: formData.get('sort_order') ? parseInt(formData.get('sort_order')) : null,
+            is_locked: formData.get('is_locked') === 'on'
+        };
+        
+        try {
+            let response;
+            if (currentEdit.id) {
+                response = await fetch(`/api/attribute-codes/${currentEdit.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(attributeData)
+                });
+            } else {
+                response = await fetch('/api/attribute-codes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(attributeData)
+                });
+            }
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(result.message, 'success');
+                closeAttributeCodeModal();
+                loadAttributeCodes();
+            } else {
+                showToast(result.error || 'Failed to save attribute code', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving attribute code:', error);
+            showToast('Failed to save attribute code', 'error');
+        }
+    }
+    
     async function loadNamingTemplates() {
         try {
             const response = await fetch('/api/naming-templates');
@@ -2138,6 +2381,10 @@
                 endpoint = `/api/gis-data-layers/${id}`;
                 reloadFunction = loadGISLayers;
                 break;
+            case 'attribute-code':
+                endpoint = `/api/attribute-codes/${id}`;
+                reloadFunction = loadAttributeCodes;
+                break;
             case 'naming-template':
                 endpoint = `/api/naming-templates/${id}`;
                 reloadFunction = loadNamingTemplates;
@@ -2191,6 +2438,7 @@
             closeMunicipalityModal();
             closeCoordinateSystemModal();
             closeSurveyPointModal();
+            closeAttributeCodeModal();
             closeConfirmModal();
         }
     });
@@ -2213,6 +2461,10 @@
     
     document.getElementById('surveyPointModal').addEventListener('click', (e) => {
         if (e.target.id === 'surveyPointModal') closeSurveyPointModal();
+    });
+    
+    document.getElementById('attributeCodeModal').addEventListener('click', (e) => {
+        if (e.target.id === 'attributeCodeModal') closeAttributeCodeModal();
     });
     
     document.getElementById('confirmModal').addEventListener('click', (e) => {

@@ -2969,11 +2969,11 @@ def get_attribute_codes():
     """Get all attribute codes"""
     try:
         query = """
-            SELECT attribute_id, code, full_name, attribute_category, 
-                   description, pattern, is_active, created_at, updated_at
+            SELECT attribute_id, code, full_name, attribute_category, attribute_type,
+                   description, pattern, is_locked, is_active, sort_order, created_at, updated_at
             FROM attribute_codes
             WHERE is_active = TRUE
-            ORDER BY attribute_category, code
+            ORDER BY attribute_category, sort_order, code
         """
         attributes = execute_query(query)
         return jsonify({'attributes': attributes})
@@ -2986,16 +2986,19 @@ def create_attribute_code():
     try:
         data = request.json
         query = """
-            INSERT INTO attribute_codes (code, full_name, attribute_category, description, pattern, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING attribute_id, code, full_name, attribute_category, description, pattern, is_active
+            INSERT INTO attribute_codes (code, full_name, attribute_category, attribute_type, description, pattern, is_locked, sort_order, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING attribute_id, code, full_name, attribute_category, attribute_type, description, pattern, is_locked, sort_order, is_active
         """
         result = execute_query(query, (
-            data['code'],
-            data['full_name'],
+            data['code'].strip().upper(),
+            data['full_name'].strip(),
             data.get('attribute_category', 'other'),
+            data.get('attribute_type', '').strip() or None,
             data.get('description', ''),
             data.get('pattern', ''),
+            data.get('is_locked', False),
+            data.get('sort_order', 100),
             data.get('is_active', True)
         ))
         cache.clear()
@@ -3010,17 +3013,20 @@ def update_attribute_code(attribute_id):
         data = request.json
         query = """
             UPDATE attribute_codes
-            SET code = %s, full_name = %s, attribute_category = %s, 
-                description = %s, pattern = %s, is_active = %s, updated_at = CURRENT_TIMESTAMP
+            SET code = %s, full_name = %s, attribute_category = %s, attribute_type = %s,
+                description = %s, pattern = %s, is_locked = %s, sort_order = %s, is_active = %s, updated_at = CURRENT_TIMESTAMP
             WHERE attribute_id = %s
-            RETURNING attribute_id, code, full_name, attribute_category, description, pattern, is_active
+            RETURNING attribute_id, code, full_name, attribute_category, attribute_type, description, pattern, is_locked, sort_order, is_active
         """
         result = execute_query(query, (
-            data['code'],
-            data['full_name'],
+            data['code'].strip().upper(),
+            data['full_name'].strip(),
             data.get('attribute_category', 'other'),
+            data.get('attribute_type', '').strip() or None,
             data.get('description', ''),
             data.get('pattern', ''),
+            data.get('is_locked', False),
+            data.get('sort_order', 100),
             data.get('is_active', True),
             attribute_id
         ))
@@ -3031,8 +3037,18 @@ def update_attribute_code(attribute_id):
 
 @app.route('/api/standards/attributes/<int:attribute_id>', methods=['DELETE'])
 def delete_attribute_code(attribute_id):
-    """Soft delete an attribute code"""
+    """Soft delete an attribute code (only if not locked)"""
     try:
+        # Check if attribute is locked
+        check_query = "SELECT is_locked FROM attribute_codes WHERE attribute_id = %s"
+        result = execute_query(check_query, (attribute_id,))
+        
+        if not result:
+            return jsonify({'success': False, 'error': 'Attribute code not found'}), 404
+        
+        if result[0].get('is_locked', False):
+            return jsonify({'success': False, 'error': 'Cannot delete locked attribute code'}), 403
+        
         query = """
             UPDATE attribute_codes
             SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
