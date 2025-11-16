@@ -858,8 +858,15 @@
                 <div class="help-text">The CAD object type classification from your vocabulary</div>
             </div>
             <div class="form-group">
+                <label>Attribute Filter (Optional)</label>
+                <select name="attribute_code" id="attributeCodeSelect">
+                    <option value="">No Filter (All Attributes)</option>
+                </select>
+                <div class="help-text">Optional: Filter to specific attribute (e.g., STORAGE vs TREATMENT). Leave as "No Filter" for tools that work with any attribute variant.</div>
+            </div>
+            <div class="form-group">
                 <label>Purpose</label>
-                <input type="text" name="purpose" placeholder="e.g., Manage hydraulic calculations for gravity pipes">
+                <input type="text" name="purpose" placeholder="e.g., Calculate storage volume for detention basins (STORAGE function only)">
                 <div class="help-text">Optional: describe why this object type is mapped to this tool</div>
             </div>
             <div class="form-group">
@@ -2517,9 +2524,13 @@
             `;
             
             group.mappings.forEach(mapping => {
+                const attributeBadge = mapping.attribute_code 
+                    ? `<span style="background: rgba(255,165,0,0.2); border: 1px solid rgba(255,165,0,0.4); color: #ffaa00; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">${mapping.attribute_code}</span>`
+                    : '';
                 html += `
                     <div style="background: rgba(0,255,255,0.1); border: 1px solid rgba(0,255,255,0.3); border-radius: 6px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 8px;">
                         <code style="color: var(--mc-accent); font-weight: bold;">${mapping.object_type_code}</code>
+                        ${attributeBadge}
                         <span style="color: var(--text-color); font-size: 0.9rem;">${mapping.object_type_name}</span>
                         <span style="color: var(--muted); font-size: 0.85rem;">${mapping.discipline}-${mapping.category}</span>
                         ${mapping.purpose ? `<span style="color: var(--muted); font-size: 0.85rem; font-style: italic;">• ${mapping.purpose}</span>` : ''}
@@ -2546,6 +2557,7 @@
         currentEdit.id = null;
         loadToolsDropdown();
         loadObjectTypesDropdown();
+        loadAttributesDropdown();
         document.getElementById('toolMappingModal').style.display = 'flex';
     }
     
@@ -2599,13 +2611,50 @@
         }
     }
     
+    async function loadAttributesDropdown() {
+        try {
+            const response = await fetch('/api/standards/attributes');
+            const data = await response.json();
+            const select = document.getElementById('attributeCodeSelect');
+            select.innerHTML = '<option value="">No Filter (All Attributes)</option>';
+            
+            const groupedByCategory = {};
+            (data.attributes || []).forEach(attr => {
+                const category = attr.attribute_category || 'Other';
+                if (!groupedByCategory[category]) {
+                    groupedByCategory[category] = [];
+                }
+                groupedByCategory[category].push(attr);
+            });
+            
+            const categoryOrder = ['Size', 'Material', 'Function', 'Other'];
+            categoryOrder.forEach(category => {
+                if (groupedByCategory[category]) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = category;
+                    groupedByCategory[category].forEach(attr => {
+                        const option = document.createElement('option');
+                        option.value = attr.code;
+                        option.textContent = `${attr.code} - ${attr.full_name}`;
+                        optgroup.appendChild(option);
+                    });
+                    select.appendChild(optgroup);
+                }
+            });
+        } catch (error) {
+            console.error('Error loading attributes:', error);
+        }
+    }
+    
     async function handleToolMappingSubmit(event) {
         event.preventDefault();
         
         const formData = new FormData(event.target);
+        const attributeCode = formData.get('attribute_code');
         const data = {
             tool_code: formData.get('tool_code'),
             object_type_code: formData.get('object_type_code'),
+            attribute_code: attributeCode || null,
             purpose: formData.get('purpose'),
             sort_order: parseInt(formData.get('sort_order')) || 0
         };

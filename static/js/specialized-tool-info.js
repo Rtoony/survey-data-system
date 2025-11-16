@@ -53,14 +53,22 @@ async function loadToolInfoCard(objectCode, containerId) {
                         <i class="fas fa-layer-group"></i> Example Layer Names
                     </h4>
                     <div style="display: flex; flex-direction: column; gap: 6px;">
-                        ${tool.layer_examples.slice(0, 4).map(ex => `
+                        ${tool.layer_examples.slice(0, 4).map(ex => {
+                            const attributeBadge = ex.attribute_code 
+                                ? `<span style="background: rgba(255,165,0,0.2); border: 1px solid rgba(255,165,0,0.4); color: #ffaa00; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: 600; margin-left: 8px;">FILTER: ${ex.attribute_code}</span>`
+                                : '';
+                            return `
                             <div style="background: rgba(0,20,40,0.5); padding: 8px 12px; border-radius: 4px; border-left: 3px solid var(--mc-accent);">
-                                <code style="color: var(--mc-primary); font-weight: bold; font-size: 0.9rem;">${ex.layer_name}</code>
+                                <div style="display: flex; align-items: center;">
+                                    <code style="color: var(--mc-primary); font-weight: bold; font-size: 0.9rem;">${ex.layer_name}</code>
+                                    ${attributeBadge}
+                                </div>
                                 <div style="color: var(--mc-muted); font-size: 0.85rem; margin-top: 4px;">
                                     <i class="fas fa-arrow-right" style="font-size: 0.7rem;"></i> ${ex.description}
                                 </div>
                             </div>
-                        `).join('')}
+                        `;
+                        }).join('')}
                     </div>
                     ${tool.layer_examples.length > 4 ? `
                         <p style="margin-top: 8px; color: var(--mc-muted); font-size: 0.85rem;">
@@ -76,9 +84,12 @@ async function loadToolInfoCard(objectCode, containerId) {
             objectTypesHtml = `
                 <div style="margin-top: var(--mc-spacing-sm);">
                     <span style="font-size: 0.9rem; color: var(--mc-muted);">
-                        <i class="fas fa-tags"></i> Manages: ${tool.mapped_object_types.map(obj => 
-                            `<code style="background: rgba(0,255,255,0.15); padding: 2px 6px; border-radius: 3px; margin: 0 2px;">${obj.code}</code>`
-                        ).join(' ')}
+                        <i class="fas fa-tags"></i> Manages: ${tool.mapped_object_types.map(obj => {
+                            const attributeLabel = obj.attribute_code 
+                                ? `+${obj.attribute_code}` 
+                                : '';
+                            return `<code style="background: rgba(0,255,255,0.15); padding: 2px 6px; border-radius: 3px; margin: 0 2px;">${obj.code}${attributeLabel}</code>`;
+                        }).join(' ')}
                     </span>
                 </div>
             `;

@@ -36,11 +36,11 @@ Preferred communication style: Simple, everyday language.
 - **Mission Control Design System:** Centralized design system with reusable classes, variables, and a cyan/neon color palette.
 - **Horizontal Navigation Architecture:** Sticky horizontal navbar with dropdown menus.
 - **Projects Only System:** Migration to a "Projects Only" architecture where DXF imports create entities directly at the project level, featuring a hybrid intelligent object creation system for classification and review.
-- **Specialized Tools Registry:** Database-driven system linking CAD object types to interactive management tools.
+- **Specialized Tools Registry:** Database-driven system linking CAD object types to interactive management tools with three-dimensional filtering: Object Type → Attribute → Database Table. Enables surgical precision (e.g., BASIN+STORAGE for volume calculations vs BASIN+TREATMENT for water quality analysis).
 - **Truth-Driven Filterable Columns Registry:** Reference Data Hub table (`filterable_entity_columns`) serving as authoritative source for filterable metadata columns in Project Relationship Sets, preventing manual typos and enabling dynamic vocabulary updates without code changes.
 
 **Key Features & Design:**
-- **Standards Management:** Dedicated interfaces for CAD Layer Vocabulary (managing naming standards) and Reference Data Hub (managing 8 types of project-agnostic reference data like CAD Standards, Clients, Municipalities).
+- **Standards Management:** Dedicated interfaces for CAD Layer Vocabulary (managing naming standards) and Reference Data Hub (managing 9 types of project-agnostic reference data: Attribute Codes, CAD Standards, Clients, Municipalities, Coordinate Systems, Survey Point Descriptions, Naming Templates, Tool-Object Mappings, and Specialized Tools Registry).
 - **Schema Explorer & Data Manager:** CRUD operations for CAD standards and vocabulary.
 - **Schema Visualization Suite:** Tools for visualizing database schema, including a classic table browser, relationship diagram, and an optimized knowledge graph using Cytoscape.js.
 - **CAD Standards Portal:** Visual, read-only display of AI-optimized CAD standards.
