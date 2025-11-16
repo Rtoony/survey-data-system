@@ -7,69 +7,104 @@
 {% block content_layout_class %}tool-complex-layout{% endblock %}
 
 {% block sidebar_content %}
-<div class="tool-info-card">
-    <h3><i class="fas fa-layer-group"></i> Pavement Zone Analyzer</h3>
-    <p>Analyze pavement zones with area calculations and specification links.</p>
+<div class="tool-info-box">
+    <div class="tool-name">
+        <i class="fas fa-layer-group"></i>
+        <span>Pavement Zone Analyzer</span>
+    </div>
+    <div class="tool-description">
+        Analyze pavement zones with area calculations and specification links
+    </div>
 </div>
 
 <div class="tool-filter-section">
     <h4>Pavement Types</h4>
     <div class="tool-checkbox-item">
-        <input type="checkbox" id="pavAC" checked>
-        <label for="pavAC">Asphalt Concrete</label>
+        <input type="checkbox" id="pavAC" checked onchange="applyFilters()">
+        <label for="pavAC">Asphalt Concrete (AC)</label>
     </div>
     <div class="tool-checkbox-item">
-        <input type="checkbox" id="pavPCC" checked>
-        <label for="pavPCC">Portland Concrete</label>
+        <input type="checkbox" id="pavPCC" checked onchange="applyFilters()">
+        <label for="pavPCC">Portland Concrete (PCC)</label>
     </div>
     <div class="tool-checkbox-item">
-        <input type="checkbox" id="pavGravel" checked>
+        <input type="checkbox" id="pavGravel" checked onchange="applyFilters()">
         <label for="pavGravel">Gravel/Aggregate</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="pavPermeable" checked onchange="applyFilters()">
+        <label for="pavPermeable">Permeable Pavement</label>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Traffic Category</h4>
+    <div class="tool-filter-item">
+        <label>Filter by Category:</label>
+        <select id="trafficFilter" onchange="applyFilters()">
+            <option value="all">All Categories</option>
+            <option value="light">Light Traffic</option>
+            <option value="medium">Medium Traffic</option>
+            <option value="heavy">Heavy Traffic</option>
+        </select>
     </div>
 </div>
 
 <div class="tool-stats-section">
     <h4>Area Summary</h4>
     <div class="tool-stat-item">
-        <span class="tool-stat-label">Total SF:</span>
-        <span class="tool-stat-value">0</span>
+        <span class="tool-stat-label">Total Zones:</span>
+        <span class="tool-stat-value" id="sidebarTotalZones">0</span>
     </div>
     <div class="tool-stat-item">
-        <span class="tool-stat-label">Total Acres:</span>
-        <span class="tool-stat-value">0.00</span>
+        <span class="tool-stat-label">Total Area:</span>
+        <span class="tool-stat-value" id="sidebarTotalArea">0 SF</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total (Acres):</span>
+        <span class="tool-stat-value" id="sidebarTotalAcres">0.00 ac</span>
     </div>
 </div>
+
+<button class="tool-action-btn" onclick="loadZones()">
+    <i class="fas fa-sync"></i> Refresh Data
+</button>
+<button class="tool-action-btn secondary" onclick="exportReport()">
+    <i class="fas fa-file-export"></i> Export Report
+</button>
 {% endblock %}
 
 {% block main_content %}
 <div class="tool-top-area">
-    <!-- Loading State -->
-    <div id="loadingState" class="tool-empty-state" style="display:none;">
-        <div class="empty-state-icon"><i class="fas fa-spinner fa-spin"></i></div>
-        <h3>Loading pavement zones...</h3>
-    </div>
+    <div id="pavementVisualContainer" style="height: 100%; width: 100%; background: #0a1929; position: relative;">
+        <!-- Loading State -->
+        <div id="loadingState" style="display:none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--mc-primary); margin-bottom: 1rem;"></i>
+            <h3 style="color: var(--mc-text);">Loading pavement zones...</h3>
+        </div>
 
-    <!-- Error State -->
-    <div id="errorState" class="tool-empty-state" style="display:none;">
-        <div class="empty-state-icon"><i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i></div>
-        <h3>Error Loading Data</h3>
-        <p id="errorMessage"></p>
-        <button class="tool-action-btn" onclick="loadZones()">Retry</button>
-    </div>
+        <!-- Error State -->
+        <div id="errorState" style="display:none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--danger); margin-bottom: 1rem;"></i>
+            <h3 style="color: var(--mc-text);">Error Loading Data</h3>
+            <p style="color: var(--mc-muted);" id="errorMessage"></p>
+            <button class="tool-action-btn" onclick="loadZones()">Retry</button>
+        </div>
 
-    <!-- Empty State -->
-    <div id="emptyState" class="tool-empty-state">
-        <div class="empty-state-icon"><i class="fas fa-layer-group"></i></div>
-        <h3>No Pavement Zones Found</h3>
-        <p>Generate test data or import a DXF file with pavement zone entities.</p>
-        <a href="/tools/dxf-test-generator" class="tool-action-btn">Generate Test DXF</a>
-    </div>
+        <!-- Empty State -->
+        <div id="emptyState" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <i class="fas fa-layer-group" style="font-size: 64px; color: var(--mc-primary); opacity: 0.3; margin-bottom: 1rem;"></i>
+            <h3 style="color: var(--mc-text);">No Pavement Zones Found</h3>
+            <p style="color: var(--mc-muted); max-width: 400px; margin: 1rem auto;">
+                Load project data to analyze pavement zones and material specifications
+            </p>
+        </div>
 
-    <!-- Success State with Map -->
-    <div id="successState" style="display:none; padding: 2rem;">
-        <h3 style="margin-bottom: 1rem;"><i class="fas fa-map"></i> Pavement Zone Map</h3>
-        <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 1rem; border-radius: 4px;">
-            <p style="margin: 0;">Interactive map visualization coming soon...</p>
+        <!-- Success State with Map -->
+        <div id="successState" style="display:none; height: 100%; width: 100%; position: relative;">
+            <div style="padding: 1rem; color: var(--mc-text); text-align: center; background: rgba(0,40,80,0.5);">
+                <i class="fas fa-map"></i> Pavement Zone Map Visualization
+            </div>
         </div>
     </div>
 </div>
@@ -78,48 +113,83 @@
 
 <div class="tool-bottom-area">
     <div class="tool-data-tabs">
-        <button class="tool-data-tab active" onclick="showTab('zones')">Zones</button>
-        <button class="tool-data-tab" onclick="showTab('stats')">Statistics</button>
+        <button class="tool-data-tab active" onclick="showTab('zones')">
+            <i class="fas fa-th-list"></i> Zones (<span id="zonesTabCount">0</span>)
+        </button>
+        <button class="tool-data-tab" onclick="showTab('stats')">
+            <i class="fas fa-chart-bar"></i> Statistics
+        </button>
+        <button class="tool-data-tab" onclick="showTab('specs')">
+            <i class="fas fa-file-alt"></i> Specifications
+        </button>
     </div>
+
     <div class="tool-data-content">
         <!-- Zones Tab -->
         <div id="zonesTab" class="tab-content">
-            <table id="zonesTable" class="mc-table" style="display:none;">
+            <table class="tool-data-table" id="zonesTable" style="display:none;">
                 <thead>
                     <tr>
                         <th>Zone Name</th>
                         <th>Type</th>
-                        <th>Area (sqft)</th>
+                        <th>Area (SF)</th>
+                        <th>Area (Acres)</th>
                         <th>Thickness (in)</th>
                         <th>Material Spec</th>
                         <th>Traffic Category</th>
                         <th>Condition</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="zonesTableBody"></tbody>
             </table>
+            <div id="zonesEmpty" style="text-align: center; padding: 3rem; color: var(--mc-text);">
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No pavement zone data available</p>
+                <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                    Load project data to begin analysis
+                </p>
+            </div>
         </div>
 
         <!-- Stats Tab -->
         <div id="statsTab" class="tab-content" style="display:none;">
-            <div id="statsContent" style="padding: 2rem;">
-                <h4 style="margin-bottom: 1rem;">Summary Statistics</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Zones</div>
-                        <div class="stat-value" id="statTotalZones">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Area (sqft)</div>
-                        <div class="stat-value" id="statTotalArea">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Area (acres)</div>
-                        <div class="stat-value" id="statTotalAcres">0.00</div>
-                    </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <div class="stat-label">Total Zones</div>
+                    <div class="stat-value" id="statTotalZones">0</div>
                 </div>
-                <h4 style="margin: 2rem 0 1rem 0;">By Pavement Type</h4>
-                <div id="byType"></div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Area (SF)</div>
+                    <div class="stat-value" id="statTotalArea">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Area (Acres)</div>
+                    <div class="stat-value" id="statTotalAcres">0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Zone Size</div>
+                    <div class="stat-value" id="statAvgSize">0 SF</div>
+                </div>
+            </div>
+
+            <h4 style="color: var(--mc-accent); margin: 2rem 0 1rem 0;">
+                <i class="fas fa-chart-pie"></i> By Pavement Type
+            </h4>
+            <div id="byType" style="background: rgba(0,40,80,0.4); border-radius: 8px; padding: 1.5rem;">
+                <p style="color: var(--mc-muted); text-align: center;">No data available</p>
+            </div>
+        </div>
+
+        <!-- Specifications Tab -->
+        <div id="specsTab" class="tab-content" style="display:none;">
+            <div style="background: rgba(0,255,255,0.1); border: 2px solid rgba(0,255,255,0.3); border-radius: 12px; padding: 2rem;">
+                <h4 style="color: var(--mc-primary); margin: 0 0 1rem 0;">
+                    <i class="fas fa-info-circle"></i> Pavement Specifications
+                </h4>
+                <div id="specsList">
+                    <p style="color: var(--mc-text);">Specification links will appear here based on loaded pavement zones</p>
+                </div>
             </div>
         </div>
     </div>
@@ -131,49 +201,75 @@
     background: rgba(0,255,255,0.05);
     border: 1px solid rgba(0,255,255,0.2);
     padding: 1.5rem;
-    border-radius: 4px;
+    border-radius: 8px;
     text-align: center;
 }
 .stat-label {
+    color: var(--mc-muted);
     font-size: 0.9rem;
-    color: var(--text-dim);
     margin-bottom: 0.5rem;
 }
 .stat-value {
-    font-size: 2rem;
+    color: var(--mc-primary);
+    font-size: 1.8rem;
     font-weight: bold;
-    color: var(--accent-color);
 }
 </style>
+{% endblock %}
 
+{% block about_tool_description %}
+<p>
+    The <strong>Pavement Zone Analyzer</strong> provides interactive visualization and analysis of distinct pavement zones
+    throughout your project. This tool displays colorful hatches to differentiate zone types, calculates areas, and links
+    to material specifications for accurate quantity takeoffs.
+</p>
+<p style="margin-top: 1rem;">
+    Analyzes pavement types including asphalt concrete, portland concrete, gravel/aggregate surfaces, and permeable pavement
+    systems. Generates comprehensive reports showing area totals, traffic categories, and material specifications.
+</p>
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">PVMT</span>
+<span class="about-tool-tag">PAVEMENT</span>
+<span class="about-tool-tag">ASPHALT</span>
+<span class="about-tool-tag">CONCRETE</span>
+<span class="about-tool-tag">AREA</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-PVMT-ASPH-2IN-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Asphalt pavement zone (2" thickness)</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-PVMT-CONC-6IN-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Concrete pavement zone (6" thickness)</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-PVMT-PERM-PARKING-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Permeable pavement parking area</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
 let currentData = [];
-let currentTab = 'zones';
+let zonesData = [];
 
-// Show specific tab
-function showTab(tabName) {
-    currentTab = tabName;
-    document.getElementById('zonesTab').style.display = tabName === 'zones' ? 'block' : 'none';
-    document.getElementById('statsTab').style.display = tabName === 'stats' ? 'block' : 'none';
-
-    // Update active tab button
-    const tabs = document.querySelectorAll('.tool-data-tab');
-    tabs.forEach((tab, i) => {
-        tab.classList.toggle('active', (i === 0 && tabName === 'zones') || (i === 1 && tabName === 'stats'));
-    });
+function applyFilters() {
+    console.log('Filters applied');
+    renderZonesTable(zonesData);
 }
 
-// Load zones data
 async function loadZones() {
     showState('loading');
 
     try {
-        // Get active project from global context
         const activeProject = window.projectContext ?
             await window.projectContext.getActiveProject() : null;
 
         if (!activeProject) {
-            showError('No active project selected. Please select a project from the dashboard.');
             showState('error', 'No active project selected');
             return;
         }
@@ -184,68 +280,85 @@ async function loadZones() {
         const data = await response.json();
 
         if (!data.success) {
-            showError(data.error || 'Failed to load pavement zones');
             showState('error', data.error || 'Failed to load data');
             return;
         }
 
         currentData = data;
+        zonesData = data.zones || [];
 
-        if (!data.zones || data.zones.length === 0) {
+        if (zonesData.length === 0) {
             showState('empty');
             return;
         }
 
-        renderZonesTable(data.zones);
+        renderZonesTable(zonesData);
         renderStats(data.stats);
         showState('success');
 
     } catch (error) {
         console.error('Error loading zones:', error);
-        showError('Failed to load pavement zones: ' + error.message);
         showState('error', error.message);
     }
 }
 
-// Render zones table
 function renderZonesTable(zones) {
     const tbody = document.getElementById('zonesTableBody');
+    const table = document.getElementById('zonesTable');
+    const emptyDiv = document.getElementById('zonesEmpty');
+
+    if (!zones || zones.length === 0) {
+        table.style.display = 'none';
+        emptyDiv.style.display = 'block';
+        return;
+    }
+
     tbody.innerHTML = zones.map(zone => `
         <tr>
             <td>${zone.zone_name || 'N/A'}</td>
             <td>${zone.pavement_type || 'UNKNOWN'}</td>
             <td>${zone.area_sqft?.toFixed(0) || 'N/A'}</td>
+            <td>${(zone.area_sqft / 43560).toFixed(3) || 'N/A'}</td>
             <td>${zone.thickness_inches || 'N/A'}</td>
             <td>${zone.material_spec || 'N/A'}</td>
             <td>${zone.traffic_category || 'N/A'}</td>
             <td>${zone.condition || 'UNKNOWN'}</td>
+            <td><button class="tool-action-btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">View</button></td>
         </tr>
     `).join('');
-    document.getElementById('zonesTable').style.display = 'table';
+
+    table.style.display = 'table';
+    emptyDiv.style.display = 'none';
+
+    document.getElementById('zonesTabCount').textContent = zones.length;
+    document.getElementById('sidebarTotalZones').textContent = zones.length;
 }
 
-// Render statistics
 function renderStats(stats) {
+    if (!stats) return;
+
     document.getElementById('statTotalZones').textContent = stats.total_count || 0;
     document.getElementById('statTotalArea').textContent = `${stats.total_area_sqft?.toFixed(0) || 0}`;
     document.getElementById('statTotalAcres').textContent = `${stats.total_area_acres?.toFixed(2) || 0}`;
+    document.getElementById('statAvgSize').textContent = `${stats.avg_zone_size?.toFixed(0) || 0} SF`;
 
-    // Render by type
+    document.getElementById('sidebarTotalArea').textContent = `${stats.total_area_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('sidebarTotalAcres').textContent = `${stats.total_area_acres?.toFixed(2) || 0} ac`;
+
     const byType = stats.by_type || {};
     const typeHtml = Object.entries(byType).map(([type, area]) => `
-        <div style="padding: 0.75rem; background: rgba(0,255,255,0.03); margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between;">
-            <span>${type}</span>
-            <span style="color: var(--accent-color); font-weight: bold;">${area.toFixed(0)} sqft</span>
+        <div style="padding: 0.75rem; background: rgba(0,255,255,0.05); margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between; border-left: 3px solid var(--mc-accent);">
+            <span style="color: var(--mc-text);">${type}</span>
+            <span style="color: var(--mc-accent); font-weight: bold;">${area.toFixed(0)} SF</span>
         </div>
     `).join('');
-    document.getElementById('byType').innerHTML = typeHtml || '<p>No data</p>';
+    document.getElementById('byType').innerHTML = typeHtml || '<p style="color: var(--mc-muted); text-align: center;">No data</p>';
 }
 
-// Show state
 function showState(state, message = '') {
-    document.getElementById('loadingState').style.display = state === 'loading' ? 'flex' : 'none';
-    document.getElementById('errorState').style.display = state === 'error' ? 'flex' : 'none';
-    document.getElementById('emptyState').style.display = state === 'empty' ? 'flex' : 'none';
+    document.getElementById('loadingState').style.display = state === 'loading' ? 'block' : 'none';
+    document.getElementById('errorState').style.display = state === 'error' ? 'block' : 'none';
+    document.getElementById('emptyState').style.display = state === 'empty' ? 'block' : 'none';
     document.getElementById('successState').style.display = state === 'success' ? 'block' : 'none';
 
     if (state === 'error') {
@@ -253,50 +366,27 @@ function showState(state, message = '') {
     }
 }
 
-// Error display function
-function showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: rgba(255,0,0,0.9); color: white; padding: 20px; border-radius: 8px; z-index: 10000; max-width: 400px;';
-    errorDiv.innerHTML = `
-        <strong>Error:</strong><br>
-        ${message}<br><br>
-        <button onclick="this.parentElement.remove()" style="background: white; color: black; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Dismiss</button>
-    `;
-    document.body.appendChild(errorDiv);
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+    document.querySelectorAll('.tool-data-tab').forEach(btn => btn.classList.remove('active'));
+
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) selectedTab.style.display = 'block';
+
+    event.target.closest('.tool-data-tab').classList.add('active');
 }
 
-// Initialize
+function exportReport() {
+    console.log('Exporting pavement zone report...');
+    alert('Pavement zone report export functionality will be implemented here');
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
-    // Wait for ProjectContext to initialize
     if (window.projectContext) {
         await window.projectContext.init();
-
-        // Subscribe to project changes
-        window.projectContext.subscribe(() => {
-            console.log('Active project changed, reloading data...');
-            loadZones();
-        });
+        window.projectContext.subscribe(() => loadZones());
     }
-
-    // Initial load
     loadZones();
 });
 </script>
-{% endblock %}
-
-{% block about_tool_description %}
-Interactive pavement zone analysis tool that displays visual overlays with colorful hatches for distinct pavement zones. 
-Calculates areas in square footage and acres, links to specifications, and generates quantity reports.
-{% endblock %}
-
-{% block about_tool_tags %}
-<span class="about-tool-tag">PERV</span>
-<span class="about-tool-tag">AREA</span>
-{% endblock %}
-
-{% block about_tool_examples %}
-<div class="about-tool-example">
-    <div class="about-tool-example-layer">CIV-SITE-PERV-PROP-AR</div>
-    <div class="about-tool-example-desc">→ Proposed Pervious Areas - Civil/Site</div>
-</div>
 {% endblock %}

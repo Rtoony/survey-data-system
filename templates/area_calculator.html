@@ -1,90 +1,471 @@
-{% extends "base.html" %}
+{% extends "base_specialized_tool.html" %}
 
-{% block title %}Area Calculator{% endblock %}
+{% block tool_title %}Area Calculator{% endblock %}
+{% block tool_icon %}fas fa-ruler-combined{% endblock %}
+{% block tool_description %}Calculate accurate areas for closed polygons and 3D regions{% endblock %}
 
-{% block extra_head %}
-<script src="{{ url_for('static', filename='js/specialized-tool-info.js') }}"></script>
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-info-box">
+    <div class="tool-name">
+        <i class="fas fa-ruler-combined"></i>
+        <span>Area Calculator</span>
+    </div>
+    <div class="tool-description">
+        Calculate areas for closed polygons grouped by object classification
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Object Categories</h4>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterAccessible" checked onchange="applyFilters()">
+        <label for="filterAccessible">Accessible Features</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterBMP" checked onchange="applyFilters()">
+        <label for="filterBMP">BMPs & Stormwater</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterGrading" checked onchange="applyFilters()">
+        <label for="filterGrading">Grading & Earthwork</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterPaving" checked onchange="applyFilters()">
+        <label for="filterPaving">Paving & Hardscape</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterLandscape" checked onchange="applyFilters()">
+        <label for="filterLandscape">Landscape Areas</label>
+    </div>
+    <div class="tool-checkbox-item">
+        <input type="checkbox" id="filterBuildings" checked onchange="applyFilters()">
+        <label for="filterBuildings">Buildings & Structures</label>
+    </div>
+</div>
+
+<div class="tool-filter-section">
+    <h4>Area Units</h4>
+    <div class="tool-filter-item">
+        <label>Display Units:</label>
+        <select id="unitSelect" onchange="updateUnits()">
+            <option value="sf">Square Feet (SF)</option>
+            <option value="acres">Acres</option>
+            <option value="hectares">Hectares</option>
+            <option value="sm">Square Meters (m²)</option>
+        </select>
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Quick Stats</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Polygons:</span>
+        <span class="tool-stat-value" id="sidebarTotalPolygons">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Area:</span>
+        <span class="tool-stat-value" id="sidebarTotalArea">0 SF</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Largest Feature:</span>
+        <span class="tool-stat-value" id="sidebarLargestFeature">— </span>
+    </div>
+</div>
+
+<button class="tool-action-btn" onclick="calculateAreas()">
+    <i class="fas fa-calculator"></i> Calculate Areas
+</button>
+<button class="tool-action-btn secondary" onclick="exportReport()">
+    <i class="fas fa-file-export"></i> Export Takeoff
+</button>
 {% endblock %}
 
-{% block content %}
-<div class="content">
-    <div class="page-header">
-        <div class="page-header-content">
-            <i class="fas fa-ruler-combined neon-blue"></i>
-            <div>
-                <h2 class="orbitron">Area Calculator</h2>
-                <p>Calculate accurate areas for closed polygons and 3D regions</p>
-            </div>
-        </div>
+{% block main_content %}
+<div class="tool-top-area">
+    <div id="areaVisualContainer" style="height: 100%; width: 100%; background: #0a1929; position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+        <i class="fas fa-ruler-combined" style="font-size: 64px; color: var(--mc-primary); opacity: 0.3; margin-bottom: 1rem;"></i>
+        <p style="color: var(--mc-text); font-size: 18px; opacity: 0.6;">Area Calculation Visualization</p>
+        <p style="color: var(--mc-muted); font-size: 14px; opacity: 0.4; margin-top: 0.5rem;">Load project data to begin area calculations</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active" onclick="showTab('areas')">
+            <i class="fas fa-th-list"></i> Areas (<span id="areasTabCount">0</span>)
+        </button>
+        <button class="tool-data-tab" onclick="showTab('bycategory')">
+            <i class="fas fa-layer-group"></i> By Category
+        </button>
+        <button class="tool-data-tab" onclick="showTab('summary')">
+            <i class="fas fa-chart-bar"></i> Summary
+        </button>
     </div>
 
-    <div id="toolInfoCard" style="margin: 20px;"></div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            loadToolInfoCard('AREA', 'toolInfoCard');
-        });
-    </script>
-
-    <div class="mc-container" style="margin: 20px;">
-        <div class="mc-card">
-            <h3 style="color: var(--mc-primary); margin-bottom: 16px;">
-                <i class="fas fa-info-circle"></i> Area Calculation Tool (Prototype)
-            </h3>
-            <p style="color: var(--mc-text); margin-bottom: 20px;">
-                This specialized tool will provide accurate area calculations for all closed polygons and 3D regions 
-                based on their object classification. Calculate areas for buildings, sidewalks, parking lots, BMPs, 
-                accessible features, and other site elements.
-            </p>
-
-            <div style="background: rgba(0,255,255,0.1); border-left: 4px solid var(--mc-accent); padding: 16px; margin-bottom: 20px;">
-                <h4 style="color: var(--mc-accent); margin: 0 0 12px 0;">
-                    <i class="fas fa-th-list"></i> Planned Features
-                </h4>
-                <ul style="color: var(--mc-text); margin: 0; padding-left: 24px;">
-                    <li>Multi-select area calculation by object type</li>
-                    <li>Support for 2D polygons and 3D closed regions</li>
-                    <li>Area grouping by category (accessible features, BMPs, grading, etc.)</li>
-                    <li>Unit conversion (SF, acres, hectares)</li>
-                    <li>Export area takeoff reports</li>
-                    <li>Integration with Material Volume Calculator and Pervious/Impervious Analysis</li>
-                </ul>
-            </div>
-
-            <div style="background: rgba(0,20,40,0.5); border-radius: 8px; padding: 24px; text-align: center;">
-                <i class="fas fa-hammer" style="font-size: 3rem; color: var(--mc-muted); margin-bottom: 16px;"></i>
-                <h4 style="color: var(--mc-muted); margin: 0 0 8px 0;">Under Construction</h4>
-                <p style="color: var(--mc-muted); margin: 0;">
-                    This tool is currently in development. Check back soon for the full implementation.
+    <div class="tool-data-content">
+        <!-- Areas Tab -->
+        <div id="areasTab" class="tab-content">
+            <table class="tool-data-table" id="areasTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Feature Name</th>
+                        <th>Category</th>
+                        <th>Object Type</th>
+                        <th>Area (SF)</th>
+                        <th>Area (Acres)</th>
+                        <th>Geometry Type</th>
+                        <th>Layer</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="areasTableBody"></tbody>
+            </table>
+            <div id="areasEmpty" style="text-align: center; padding: 3rem; color: var(--mc-text);">
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No area calculations available</p>
+                <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                    Load project data and click "Calculate Areas" to begin
                 </p>
             </div>
         </div>
 
-        <div class="mc-card" style="margin-top: 20px;">
-            <h3 style="color: var(--mc-primary); margin-bottom: 16px;">
-                <i class="fas fa-object-group"></i> Supported Object Types
-            </h3>
-            <p style="color: var(--mc-muted); font-size: 0.9rem; margin-bottom: 12px;">
-                This tool will work with multiple object classifications from your CAD vocabulary:
-            </p>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                <div style="background: rgba(0,255,255,0.05); padding: 12px; border-radius: 6px; border-left: 3px solid var(--mc-accent);">
-                    <strong style="color: var(--mc-accent);">Accessible Features</strong>
-                    <div style="color: var(--mc-muted); font-size: 0.85rem; margin-top: 4px;">Ramps, paths, parking</div>
+        <!-- By Category Tab -->
+        <div id="bycategoryTab" class="tab-content" style="display: none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-wheelchair"></i> Accessible Features
+                    </div>
+                    <div class="stat-value" id="statAccessible">0 SF</div>
                 </div>
-                <div style="background: rgba(0,255,255,0.05); padding: 12px; border-radius: 6px; border-left: 3px solid var(--mc-accent);">
-                    <strong style="color: var(--mc-accent);">BMPs</strong>
-                    <div style="color: var(--mc-muted); font-size: 0.85rem; margin-top: 4px;">Bioretention, basins, ponds</div>
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-water"></i> BMPs & Stormwater
+                    </div>
+                    <div class="stat-value" id="statBMP">0 SF</div>
                 </div>
-                <div style="background: rgba(0,255,255,0.05); padding: 12px; border-radius: 6px; border-left: 3px solid var(--mc-accent);">
-                    <strong style="color: var(--mc-accent);">Grading Features</strong>
-                    <div style="color: var(--mc-muted); font-size: 0.85rem; margin-top: 4px;">Pads, berms, slopes, swales</div>
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-mountain"></i> Grading & Earthwork
+                    </div>
+                    <div class="stat-value" id="statGrading">0 SF</div>
                 </div>
-                <div style="background: rgba(0,255,255,0.05); padding: 12px; border-radius: 6px; border-left: 3px solid var(--mc-accent);">
-                    <strong style="color: var(--mc-accent);">Site Boundaries</strong>
-                    <div style="color: var(--mc-muted); font-size: 0.85rem; margin-top: 4px;">Property lines, ROW</div>
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-road"></i> Paving & Hardscape
+                    </div>
+                    <div class="stat-value" id="statPaving">0 SF</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-tree"></i> Landscape Areas
+                    </div>
+                    <div class="stat-value" id="statLandscape">0 SF</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">
+                        <i class="fas fa-building"></i> Buildings & Structures
+                    </div>
+                    <div class="stat-value" id="statBuildings">0 SF</div>
+                </div>
+            </div>
+
+            <h4 style="color: var(--mc-accent); margin: 2rem 0 1rem 0;">
+                <i class="fas fa-chart-pie"></i> Area Distribution
+            </h4>
+            <div id="categoryBreakdown" style="background: rgba(0,40,80,0.4); border-radius: 8px; padding: 1.5rem;">
+                <p style="color: var(--mc-muted); text-align: center;">Category breakdown chart will appear here</p>
+            </div>
+        </div>
+
+        <!-- Summary Tab -->
+        <div id="summaryTab" class="tab-content" style="display: none;">
+            <div style="background: rgba(0,255,255,0.1); border: 2px solid rgba(0,255,255,0.3); border-radius: 12px; padding: 2rem; margin-bottom: 2rem;">
+                <h3 style="color: var(--mc-primary); margin: 0 0 1.5rem 0;">
+                    <i class="fas fa-calculator"></i> Total Area Summary
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
+                    <div>
+                        <div style="color: var(--mc-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Total (SF)</div>
+                        <div style="color: var(--mc-accent); font-size: 2rem; font-weight: bold;" id="summaryTotalSF">0 SF</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--mc-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Total (Acres)</div>
+                        <div style="color: var(--mc-accent); font-size: 2rem; font-weight: bold;" id="summaryTotalAcres">0 ac</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--mc-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Feature Count</div>
+                        <div style="color: var(--mc-accent); font-size: 2rem; font-weight: bold;" id="summaryFeatureCount">0</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--mc-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Categories</div>
+                        <div style="color: var(--mc-accent); font-size: 2rem; font-weight: bold;" id="summaryCategoryCount">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: rgba(0,40,80,0.4); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
+                <h4 style="color: var(--mc-primary); margin: 0 0 1rem 0;">
+                    <i class="fas fa-info-circle"></i> Area Calculation Methods
+                </h4>
+                <div style="color: var(--mc-text); line-height: 1.8;">
+                    <p><strong>2D Polygons:</strong> Uses planar area calculation for closed polylines and 2D regions</p>
+                    <p style="margin-top: 0.5rem;"><strong>3D Regions:</strong> Projects 3D surfaces to horizontal plane for area calculation</p>
+                    <p style="margin-top: 0.5rem;"><strong>Unit Conversions:</strong></p>
+                    <ul style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem; padding-left: 2rem;">
+                        <li>1 acre = 43,560 square feet</li>
+                        <li>1 hectare = 107,639 square feet = 2.471 acres</li>
+                        <li>1 square meter = 10.764 square feet</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="background: linear-gradient(135deg, rgba(0,255,255,0.05), rgba(0,255,136,0.05)); border-radius: 8px; padding: 1.5rem;">
+                <h4 style="color: var(--mc-accent); margin: 0 0 1rem 0;">
+                    <i class="fas fa-link"></i> Integration with Other Tools
+                </h4>
+                <p style="color: var(--mc-text); margin: 0; line-height: 1.6;">
+                    Area calculations from this tool feed directly into the <strong>Material Volume Calculator</strong> and
+                    <strong>Pervious/Impervious Analysis</strong> tools for comprehensive quantity takeoffs and site hydrology assessment.
+                </p>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.tab-content { padding: 1rem; }
+.stat-card {
+    background: rgba(0,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+}
+.stat-label {
+    color: var(--mc-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+.stat-value {
+    color: var(--mc-primary);
+    font-size: 1.8rem;
+    font-weight: bold;
+}
+</style>
+{% endblock %}
+
+{% block about_tool_description %}
+<p>
+    The <strong>Area Calculator</strong> is a specialized tool for calculating accurate areas of closed polygons and
+    3D regions based on their object classification. This tool processes all polygon features in your project and
+    groups them by category for comprehensive area takeoffs.
+</p>
+<p style="margin-top: 1rem;">
+    Supports 2D closed polylines, 3D closed polylines (projected to horizontal plane), and polygon regions. Area
+    calculations integrate with the Material Volume Calculator for earthwork quantification and the Pervious/Impervious
+    Analysis tool for site hydrology assessment.
+</p>
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">AREA</span>
+<span class="about-tool-tag">POLYGON</span>
+<span class="about-tool-tag">ACCESSIBLE</span>
+<span class="about-tool-tag">BMP</span>
+<span class="about-tool-tag">GRADING</span>
+<span class="about-tool-tag">PAVING</span>
+<span class="about-tool-tag">LANDSCAPE</span>
+<span class="about-tool-tag">BUILDING</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-ACBL-PATH-CONCRETE-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Accessible path area calculation</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-BMP-BIORET-BASIN-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Bioretention basin surface area</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-GRAD-PAD-BLDG-NEW-3D</div>
+    <div class="about-tool-example-desc">→ Building pad grading area</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-PVMT-ASPH-PARKING-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Parking lot paving area</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-LAND-TURF-HYDROSEED-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Landscape hydroseeding area</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">ARCH-BLDG-FOOTPRINT-MAIN-NEW-PL</div>
+    <div class="about-tool-example-desc">→ Building footprint area</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize the tool
+let areaData = [];
+let currentUnit = 'sf';
+
+function applyFilters() {
+    console.log('Filters applied');
+    renderAreaData();
+}
+
+function updateUnits() {
+    currentUnit = document.getElementById('unitSelect').value;
+    renderAreaData();
+}
+
+async function calculateAreas() {
+    console.log('Calculating areas...');
+
+    const emptyDiv = document.getElementById('areasEmpty');
+    emptyDiv.innerHTML = `
+        <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--mc-primary); margin-bottom: 1rem;"></i>
+        <p>Calculating polygon areas...</p>
+    `;
+
+    try {
+        const activeProject = window.projectContext ?
+            await window.projectContext.getActiveProject() : null;
+
+        if (!activeProject) {
+            emptyDiv.innerHTML = `
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No active project selected</p>
+                <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                    Please select a project to calculate areas
+                </p>
+            `;
+            return;
+        }
+
+        const response = await fetch(`/api/specialized-tools/area-calculator?project_id=${activeProject.project_id}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+
+        if (!data.success || !data.areas || data.areas.length === 0) {
+            emptyDiv.innerHTML = `
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No area calculations available</p>
+                <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                    ${data.source === 'test_data' ? 'Showing test data - Import DXF to see real areas' : 'Import CAD data to begin'}
+                </p>
+            `;
+            return;
+        }
+
+        areaData = data.areas;
+        renderAreaData();
+        renderStats(data.stats);
+
+    } catch (error) {
+        console.error('Error:', error);
+        emptyDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--danger); margin-bottom: 1rem;"></i>
+            <p>Error loading area data</p>
+            <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">${error.message}</p>
+        `;
+    }
+}
+
+function renderStats(stats) {
+    if (!stats) return;
+
+    // Update sidebar stats
+    document.getElementById('sidebarTotalPolygons').textContent = stats.total_count || 0;
+    document.getElementById('sidebarTotalArea').textContent = `${stats.total_sqft?.toFixed(0) || 0} SF`;
+
+    // Update summary tab
+    document.getElementById('summaryTotalSF').textContent = `${stats.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('summaryTotalAcres').textContent = `${stats.total_acres?.toFixed(2) || 0} ac`;
+    document.getElementById('summaryFeatureCount').textContent = stats.total_count || 0;
+
+    // Update by-category stats
+    const byCategory = stats.by_category || {};
+    document.getElementById('statAccessible').textContent = `${byCategory['Accessible']?.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('statBMP').textContent = `${byCategory['BMP']?.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('statGrading').textContent = `${byCategory['Grading']?.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('statPaving').textContent = `${byCategory['Paving']?.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('statLandscape').textContent = `${byCategory['Landscape']?.total_sqft?.toFixed(0) || 0} SF`;
+    document.getElementById('statBuildings').textContent = `${byCategory['Building']?.total_sqft?.toFixed(0) || 0} SF`;
+
+    document.getElementById('summaryCategoryCount').textContent = Object.keys(byCategory).length;
+}
+
+function renderAreaData() {
+    const tbody = document.getElementById('areasTableBody');
+    const table = document.getElementById('areasTable');
+    const emptyDiv = document.getElementById('areasEmpty');
+
+    if (!areaData || areaData.length === 0) {
+        table.style.display = 'none';
+        emptyDiv.style.display = 'block';
+        return;
+    }
+
+    // Populate table
+    tbody.innerHTML = areaData.map(area => `
+        <tr>
+            <td>${area.layer_name || 'N/A'}</td>
+            <td>${area.category || 'Other'}</td>
+            <td>${area.entity_type || 'Polygon'}</td>
+            <td>${area.area_sqft?.toFixed(0) || 'N/A'}</td>
+            <td>${area.area_acres?.toFixed(3) || 'N/A'}</td>
+            <td>${area.geometry_type || 'Polygon'}</td>
+            <td style="font-size: 0.85rem; color: var(--mc-muted);">${(area.layer_name || 'N/A').substring(0, 30)}</td>
+            <td><button class="tool-action-btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;" onclick="alert('Zoom to feature')">View</button></td>
+        </tr>
+    `).join('');
+
+    table.style.display = 'table';
+    emptyDiv.style.display = 'none';
+
+    // Update counts
+    document.getElementById('areasTabCount').textContent = areaData.length;
+}
+
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.style.display = 'none';
+    });
+
+    document.querySelectorAll('.tool-data-tab').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) {
+        selectedTab.style.display = 'block';
+    }
+
+    event.target.closest('.tool-data-tab').classList.add('active');
+}
+
+function exportReport() {
+    console.log('Exporting area takeoff report...');
+    alert('Area takeoff export functionality will be implemented here');
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Area Calculator loaded');
+    renderAreaData();
+});
+</script>
 {% endblock %}

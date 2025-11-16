@@ -2,24 +2,29 @@
 
 {% block tool_title %}Flow Analysis{% endblock %}
 {% block tool_icon %}fas fa-water{% endblock %}
-{% block tool_description %}Analyzes storm sewer systems for detailed flow calculations similar to industry standard software.{% endblock %}
+{% block tool_description %}Analyzes storm sewer systems for detailed flow calculations similar to industry standard software{% endblock %}
 
 {% block content_layout_class %}tool-complex-layout{% endblock %}
 
 {% block sidebar_content %}
-<div class="tool-info-card">
-    <h3><i class="fas fa-water"></i> Flow Analysis</h3>
-    <p>Detailed storm sewer flow calculations and hydraulic analysis.</p>
+<div class="tool-info-box">
+    <div class="tool-name">
+        <i class="fas fa-water"></i>
+        <span>Flow Analysis</span>
+    </div>
+    <div class="tool-description">
+        Detailed storm sewer flow calculations and hydraulic analysis
+    </div>
 </div>
 
 <div class="tool-filter-section">
     <h4>Analysis Method</h4>
     <div class="tool-checkbox-item">
-        <input type="radio" name="method" id="rational" checked>
+        <input type="radio" name="method" id="rational" checked onchange="updateMethod()">
         <label for="rational">Rational Method</label>
     </div>
     <div class="tool-checkbox-item">
-        <input type="radio" name="method" id="hydrograph">
+        <input type="radio" name="method" id="hydrograph" onchange="updateMethod()">
         <label for="hydrograph">Unit Hydrograph</label>
     </div>
 </div>
@@ -28,61 +33,66 @@
     <h4>Design Storm</h4>
     <div class="tool-filter-item">
         <label>Return Period:</label>
-        <select style="width: 100%; padding: 0.5rem;">
+        <select id="returnPeriod" onchange="updateDesignStorm()">
             <option value="10">10-Year</option>
             <option value="25" selected>25-Year</option>
             <option value="50">50-Year</option>
             <option value="100">100-Year</option>
         </select>
     </div>
+    <div class="tool-filter-item" style="margin-top: 0.5rem;">
+        <label>Intensity (in/hr):</label>
+        <input type="number" id="intensity" value="3.5" step="0.1" min="0" onchange="updateIntensity()">
+    </div>
 </div>
 
 <div class="tool-stats-section">
     <h4>System Summary</h4>
     <div class="tool-stat-item">
-        <span class="tool-stat-label">Peak Flow:</span>
-        <span class="tool-stat-value">0 CFS</span>
+        <span class="tool-stat-label">Total Pipes:</span>
+        <span class="tool-stat-value" id="sidebarTotalPipes">0</span>
     </div>
     <div class="tool-stat-item">
-        <span class="tool-stat-label">Capacity:</span>
-        <span class="tool-stat-value">--</span>
+        <span class="tool-stat-label">Peak Flow:</span>
+        <span class="tool-stat-value" id="sidebarPeakFlow">0 CFS</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Avg Capacity:</span>
+        <span class="tool-stat-value" id="sidebarAvgCapacity">--</span>
     </div>
 </div>
 
-<button class="tool-action-btn" disabled>
+<button class="tool-action-btn" onclick="runAnalysis()">
     <i class="fas fa-calculator"></i> Run Analysis
+</button>
+<button class="tool-action-btn secondary" onclick="exportReport()">
+    <i class="fas fa-file-export"></i> Export Report
 </button>
 {% endblock %}
 
 {% block main_content %}
 <div class="tool-top-area">
-    <!-- Loading State -->
-    <div id="loadingState" class="tool-empty-state" style="display:none;">
-        <div class="empty-state-icon"><i class="fas fa-spinner fa-spin"></i></div>
-        <h3>Loading flow analysis...</h3>
-    </div>
+    <div id="flowVisualContainer" style="height: 100%; width: 100%; background: #0a1929; position: relative;">
+        <!-- Loading State -->
+        <div id="loadingState" style="display:none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--mc-primary); margin-bottom: 1rem;"></i>
+            <h3 style="color: var(--mc-text);">Running flow analysis...</h3>
+        </div>
 
-    <!-- Error State -->
-    <div id="errorState" class="tool-empty-state" style="display:none;">
-        <div class="empty-state-icon"><i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i></div>
-        <h3>Error Loading Data</h3>
-        <p id="errorMessage"></p>
-        <button class="tool-action-btn" onclick="loadPipes()">Retry</button>
-    </div>
+        <!-- Empty State -->
+        <div id="emptyState" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <i class="fas fa-water" style="font-size: 64px; color: var(--mc-primary); opacity: 0.3; margin-bottom: 1rem;"></i>
+            <h3 style="color: var(--mc-text);">Flow Network Visualization</h3>
+            <p style="color: var(--mc-muted); max-width: 400px; margin: 1rem auto;">
+                Load project data and run analysis to view hydraulic calculations
+            </p>
+        </div>
 
-    <!-- Empty State -->
-    <div id="emptyState" class="tool-empty-state">
-        <div class="empty-state-icon"><i class="fas fa-water"></i></div>
-        <h3>No Flow Analysis Data Found</h3>
-        <p>Generate test data or import a DXF file with storm/gravity pipe entities.</p>
-        <a href="/tools/dxf-test-generator" class="tool-action-btn">Generate Test DXF</a>
-    </div>
-
-    <!-- Success State with Map -->
-    <div id="successState" style="display:none; padding: 2rem;">
-        <h3 style="margin-bottom: 1rem;"><i class="fas fa-map"></i> Flow Network Map</h3>
-        <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 1rem; border-radius: 4px;">
-            <p style="margin: 0;">Interactive network flow visualization coming soon...</p>
+        <!-- Success State -->
+        <div id="successState" style="display:none; height: 100%; width: 100%;">
+            <div style="padding: 1rem; color: var(--mc-text); text-align: center; background: rgba(0,40,80,0.5);">
+                <i class="fas fa-project-diagram"></i> Flow Network Map
+            </div>
         </div>
     </div>
 </div>
@@ -91,13 +101,21 @@
 
 <div class="tool-bottom-area">
     <div class="tool-data-tabs">
-        <button class="tool-data-tab active" onclick="showTab('pipes')">Pipes</button>
-        <button class="tool-data-tab" onclick="showTab('stats')">Statistics</button>
+        <button class="tool-data-tab active" onclick="showTab('pipes')">
+            <i class="fas fa-grip-lines"></i> Pipes (<span id="pipesTabCount">0</span>)
+        </button>
+        <button class="tool-data-tab" onclick="showTab('nodes')">
+            <i class="fas fa-circle-notch"></i> Nodes
+        </button>
+        <button class="tool-data-tab" onclick="showTab('results')">
+            <i class="fas fa-chart-line"></i> Results
+        </button>
     </div>
+
     <div class="tool-data-content">
         <!-- Pipes Tab -->
         <div id="pipesTab" class="tab-content">
-            <table id="pipesTable" class="mc-table" style="display:none;">
+            <table class="tool-data-table" id="pipesTable" style="display:none;">
                 <thead>
                     <tr>
                         <th>Line #</th>
@@ -105,35 +123,71 @@
                         <th>Diameter (in)</th>
                         <th>Material</th>
                         <th>Length (ft)</th>
-                        <th>Slope</th>
+                        <th>Slope (%)</th>
                         <th>Capacity (CFS)</th>
                         <th>Velocity (FPS)</th>
+                        <th>Flow (CFS)</th>
                     </tr>
                 </thead>
                 <tbody id="pipesTableBody"></tbody>
             </table>
+            <div id="pipesEmpty" style="text-align: center; padding: 3rem; color: var(--mc-text);">
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No pipe flow data available</p>
+                <p style="color: var(--mc-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                    Load project data and run analysis
+                </p>
+            </div>
         </div>
 
-        <!-- Stats Tab -->
-        <div id="statsTab" class="tab-content" style="display:none;">
-            <div id="statsContent" style="padding: 2rem;">
-                <h4 style="margin-bottom: 1rem;">Summary Statistics</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Pipes</div>
-                        <div class="stat-value" id="statTotalPipes">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Length (ft)</div>
-                        <div class="stat-value" id="statTotalLength">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Capacity (CFS)</div>
-                        <div class="stat-value" id="statTotalCapacity">0</div>
-                    </div>
+        <!-- Nodes Tab -->
+        <div id="nodesTab" class="tab-content" style="display:none;">
+            <table class="tool-data-table" id="nodesTable" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Node ID</th>
+                        <th>Type</th>
+                        <th>Rim Elevation (ft)</th>
+                        <th>Invert Elevation (ft)</th>
+                        <th>HGL (ft)</th>
+                        <th>EGL (ft)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="nodesTableBody"></tbody>
+            </table>
+            <div id="nodesEmpty" style="text-align: center; padding: 3rem; color: var(--mc-text);">
+                <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <p>No node data available</p>
+            </div>
+        </div>
+
+        <!-- Results Tab -->
+        <div id="resultsTab" class="tab-content" style="display:none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <div class="stat-label">Total System Flow</div>
+                    <div class="stat-value" id="statSystemFlow">0 CFS</div>
                 </div>
-                <h4 style="margin: 2rem 0 1rem 0;">By Pipe Type</h4>
-                <div id="byType"></div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Capacity</div>
+                    <div class="stat-value" id="statTotalCapacity">0 CFS</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Velocity</div>
+                    <div class="stat-value" id="statAvgVelocity">0 FPS</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">System Status</div>
+                    <div class="stat-value" id="statSystemStatus" style="font-size: 1.2rem;">--</div>
+                </div>
+            </div>
+
+            <h4 style="color: var(--mc-accent); margin: 2rem 0 1rem 0;">
+                <i class="fas fa-exclamation-triangle"></i> Warnings & Alerts
+            </h4>
+            <div id="warningsContainer" style="background: rgba(0,40,80,0.4); border-radius: 8px; padding: 1.5rem;">
+                <p style="color: var(--mc-muted); text-align: center;">No warnings - Run analysis to check system</p>
             </div>
         </div>
     </div>
@@ -145,85 +199,122 @@
     background: rgba(0,255,255,0.05);
     border: 1px solid rgba(0,255,255,0.2);
     padding: 1.5rem;
-    border-radius: 4px;
+    border-radius: 8px;
     text-align: center;
 }
 .stat-label {
+    color: var(--mc-muted);
     font-size: 0.9rem;
-    color: var(--text-dim);
     margin-bottom: 0.5rem;
 }
 .stat-value {
-    font-size: 2rem;
+    color: var(--mc-primary);
+    font-size: 1.8rem;
     font-weight: bold;
-    color: var(--accent-color);
 }
 </style>
+{% endblock %}
 
+{% block about_tool_description %}
+<p>
+    The <strong>Flow Analysis</strong> tool performs comprehensive hydraulic analysis of storm sewer systems using industry-standard
+    methods including Rational Method and Unit Hydrograph approaches. Calculate hydraulic grade lines (HGL), energy grade lines (EGL),
+    and verify pipe capacity for various design storms.
+</p>
+<p style="margin-top: 1rem;">
+    Analyzes flow rates, velocities, and capacities throughout the drainage network. Identifies potential capacity issues, computes
+    pressure conditions, and generates detailed hydraulic reports for engineering review and regulatory submittal.
+</p>
+{% endblock %}
+
+{% block about_tool_tags %}
+<span class="about-tool-tag">STORM</span>
+<span class="about-tool-tag">GRAV</span>
+<span class="about-tool-tag">SANIT</span>
+<span class="about-tool-tag">FLOW</span>
+<span class="about-tool-tag">HYDRAULICS</span>
+{% endblock %}
+
+{% block about_tool_examples %}
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-UTIL-STORM-12IN-NEW-LN</div>
+    <div class="about-tool-example-desc">→ Storm drain pipe for flow analysis</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-UTIL-GRAV-MH-NEW-PT</div>
+    <div class="about-tool-example-desc">→ Manhole node for hydraulic calculations</div>
+</div>
+<div class="about-tool-example">
+    <div class="about-tool-example-layer">CIV-UTIL-STORM-INLET-NEW-PT</div>
+    <div class="about-tool-example-desc">→ Inlet structure for runoff collection</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
-let currentData = [];
-let currentTab = 'pipes';
+let pipesData = [];
+let nodesData = [];
 
-// Show specific tab
-function showTab(tabName) {
-    currentTab = tabName;
-    document.getElementById('pipesTab').style.display = tabName === 'pipes' ? 'block' : 'none';
-    document.getElementById('statsTab').style.display = tabName === 'stats' ? 'block' : 'none';
-
-    // Update active tab button
-    const tabs = document.querySelectorAll('.tool-data-tab');
-    tabs.forEach((tab, i) => {
-        tab.classList.toggle('active', (i === 0 && tabName === 'pipes') || (i === 1 && tabName === 'stats'));
-    });
+function updateMethod() {
+    console.log('Analysis method updated');
 }
 
-// Load pipes data
-async function loadPipes() {
+function updateDesignStorm() {
+    console.log('Design storm updated');
+}
+
+function updateIntensity() {
+    console.log('Rainfall intensity updated');
+}
+
+async function runAnalysis() {
     showState('loading');
 
     try {
-        // Get active project from global context
         const activeProject = window.projectContext ?
             await window.projectContext.getActiveProject() : null;
 
         if (!activeProject) {
-            showError('No active project selected. Please select a project from the dashboard.');
-            showState('error', 'No active project selected');
+            showState('empty');
+            alert('No active project selected');
             return;
         }
 
         const response = await fetch(`/api/specialized-tools/flow-analysis?project_id=${activeProject.project_id}`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
 
         if (!data.success) {
-            showError(data.error || 'Failed to load flow analysis data');
-            showState('error', data.error || 'Failed to load data');
-            return;
-        }
-
-        currentData = data;
-
-        if (!data.pipes || data.pipes.length === 0) {
             showState('empty');
             return;
         }
 
-        renderPipesTable(data.pipes);
-        renderStats(data.stats);
+        pipesData = data.pipes || [];
+        nodesData = data.nodes || [];
+
+        renderPipesTable(pipesData);
+        renderNodesTable(nodesData);
+        renderResults(data.results);
         showState('success');
 
     } catch (error) {
-        console.error('Error loading pipes:', error);
-        showError('Failed to load flow analysis data: ' + error.message);
-        showState('error', error.message);
+        console.error('Error:', error);
+        showState('empty');
     }
 }
 
-// Render pipes table
 function renderPipesTable(pipes) {
     const tbody = document.getElementById('pipesTableBody');
+    const table = document.getElementById('pipesTable');
+    const emptyDiv = document.getElementById('pipesEmpty');
+
+    if (!pipes || pipes.length === 0) {
+        table.style.display = 'none';
+        emptyDiv.style.display = 'block';
+        return;
+    }
+
     tbody.innerHTML = pipes.map(pipe => `
         <tr>
             <td>${pipe.line_number || 'N/A'}</td>
@@ -231,87 +322,81 @@ function renderPipesTable(pipes) {
             <td>${pipe.diameter_in?.toFixed(1) || 'N/A'}</td>
             <td>${pipe.material || 'N/A'}</td>
             <td>${pipe.length_ft?.toFixed(1) || 'N/A'}</td>
-            <td>${pipe.slope?.toFixed(3) || 'N/A'}</td>
+            <td>${(pipe.slope * 100)?.toFixed(2) || 'N/A'}</td>
             <td>${pipe.capacity_cfs?.toFixed(2) || 'N/A'}</td>
             <td>${pipe.velocity_fps?.toFixed(2) || 'N/A'}</td>
+            <td>${pipe.flow_cfs?.toFixed(2) || 'N/A'}</td>
         </tr>
     `).join('');
-    document.getElementById('pipesTable').style.display = 'table';
+
+    table.style.display = 'table';
+    emptyDiv.style.display = 'none';
+    document.getElementById('pipesTabCount').textContent = pipes.length;
+    document.getElementById('sidebarTotalPipes').textContent = pipes.length;
 }
 
-// Render statistics
-function renderStats(stats) {
-    document.getElementById('statTotalPipes').textContent = stats.total_pipes || 0;
-    document.getElementById('statTotalLength').textContent = `${stats.total_length_ft?.toFixed(1) || 0}`;
-    document.getElementById('statTotalCapacity').textContent = `${stats.total_capacity_cfs?.toFixed(2) || 0}`;
+function renderNodesTable(nodes) {
+    const tbody = document.getElementById('nodesTableBody');
+    const table = document.getElementById('nodesTable');
+    const emptyDiv = document.getElementById('nodesEmpty');
 
-    // Render by type
-    const byType = stats.by_type || {};
-    const typeHtml = Object.entries(byType).map(([type, count]) => `
-        <div style="padding: 0.75rem; background: rgba(0,255,255,0.03); margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between;">
-            <span>${type}</span>
-            <span style="color: var(--accent-color); font-weight: bold;">${count}</span>
-        </div>
-    `).join('');
-    document.getElementById('byType').innerHTML = typeHtml || '<p>No data</p>';
-}
-
-// Show state
-function showState(state, message = '') {
-    document.getElementById('loadingState').style.display = state === 'loading' ? 'flex' : 'none';
-    document.getElementById('errorState').style.display = state === 'error' ? 'flex' : 'none';
-    document.getElementById('emptyState').style.display = state === 'empty' ? 'flex' : 'none';
-    document.getElementById('successState').style.display = state === 'success' ? 'block' : 'none';
-
-    if (state === 'error') {
-        document.getElementById('errorMessage').textContent = message;
+    if (!nodes || nodes.length === 0) {
+        table.style.display = 'none';
+        emptyDiv.style.display = 'block';
+        return;
     }
+
+    tbody.innerHTML = nodes.map(node => `
+        <tr>
+            <td>${node.node_id?.substring(0, 8) || 'N/A'}</td>
+            <td>${node.node_type || 'UNKNOWN'}</td>
+            <td>${node.rim_elev?.toFixed(2) || 'N/A'}</td>
+            <td>${node.invert_elev?.toFixed(2) || 'N/A'}</td>
+            <td>${node.hgl?.toFixed(2) || 'N/A'}</td>
+            <td>${node.egl?.toFixed(2) || 'N/A'}</td>
+            <td>${node.status || 'OK'}</td>
+        </tr>
+    `).join('');
+
+    table.style.display = 'table';
+    emptyDiv.style.display = 'none';
 }
 
-// Error display function
-function showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: rgba(255,0,0,0.9); color: white; padding: 20px; border-radius: 8px; z-index: 10000; max-width: 400px;';
-    errorDiv.innerHTML = `
-        <strong>Error:</strong><br>
-        ${message}<br><br>
-        <button onclick="this.parentElement.remove()" style="background: white; color: black; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Dismiss</button>
-    `;
-    document.body.appendChild(errorDiv);
+function renderResults(results) {
+    if (!results) return;
+
+    document.getElementById('statSystemFlow').textContent = `${results.total_flow_cfs?.toFixed(2) || 0} CFS`;
+    document.getElementById('statTotalCapacity').textContent = `${results.total_capacity_cfs?.toFixed(2) || 0} CFS`;
+    document.getElementById('statAvgVelocity').textContent = `${results.avg_velocity_fps?.toFixed(2) || 0} FPS`;
+    document.getElementById('statSystemStatus').textContent = results.system_status || 'OK';
 }
 
-// Initialize
+function showState(state) {
+    document.getElementById('loadingState').style.display = state === 'loading' ? 'block' : 'none';
+    document.getElementById('emptyState').style.display = state === 'empty' ? 'block' : 'none';
+    document.getElementById('successState').style.display = state === 'success' ? 'block' : 'none';
+}
+
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+    document.querySelectorAll('.tool-data-tab').forEach(btn => btn.classList.remove('active'));
+
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) selectedTab.style.display = 'block';
+
+    event.target.closest('.tool-data-tab').classList.add('active');
+}
+
+function exportReport() {
+    console.log('Exporting flow analysis report...');
+    alert('Flow analysis report export functionality will be implemented here');
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
-    // Wait for ProjectContext to initialize
     if (window.projectContext) {
         await window.projectContext.init();
-
-        // Subscribe to project changes
-        window.projectContext.subscribe(() => {
-            console.log('Active project changed, reloading data...');
-            loadPipes();
-        });
+        window.projectContext.subscribe(() => runAnalysis());
     }
-
-    // Initial load
-    loadPipes();
 });
 </script>
-{% endblock %}
-
-{% block about_tool_description %}
-Professional hydraulic analysis tool for storm sewer systems. Performs detailed flow calculations using Rational Method 
-or Unit Hydrograph approaches, calculates hydraulic and energy grade lines, and verifies pipe capacity for various design storms.
-{% endblock %}
-
-{% block about_tool_tags %}
-<span class="about-tool-tag">STORM</span>
-<span class="about-tool-tag">GRAV</span>
-{% endblock %}
-
-{% block about_tool_examples %}
-<div class="about-tool-example">
-    <div class="about-tool-example-layer">CIV-STM-STORM-PROP-LN</div>
-    <div class="about-tool-example-desc">→ Proposed Storm Drain - Civil/Storm</div>
-</div>
 {% endblock %}
