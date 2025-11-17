@@ -1,7 +1,7 @@
 # ACAD-GIS Documentation Index
 **Last Updated:** November 17, 2025
-**Total Active Documentation Files:** 42 markdown files + About page
-**Archived Files:** 20 files in `archive/completed-migrations/`
+**Total Active Documentation Files:** 37 markdown files + About page
+**Archived Files:** 25 files in `archive/completed-migrations/`
 
 ---
 
@@ -110,17 +110,15 @@ Vocabulary and standards reference
 |------|-------------|----------|
 | [standards/cad_standards_vocabulary.md](standards/cad_standards_vocabulary.md) | CAD standards vocabulary reference | standards/ |
 
-### 8. 📦 Scripts & Phase Quickstarts (6 files)
-Implementation guides and quickstart scripts
+### 8. 📦 Scripts & Integration Guides (2 files)
+Active implementation and integration guides
 
 | File | Description | Location |
 |------|-------------|----------|
-| [scripts/PHASE1_QUICKSTART.md](scripts/PHASE1_QUICKSTART.md) | Phase 1 quickstart guide | scripts/ |
-| [scripts/PHASE2_QUICKSTART.md](scripts/PHASE2_QUICKSTART.md) | Phase 2 quickstart guide | scripts/ |
-| [scripts/PHASE3_QUICKSTART.md](scripts/PHASE3_QUICKSTART.md) | Phase 3 quickstart guide | scripts/ |
-| [scripts/PHASE2_IMPLEMENTATION_SUMMARY.md](scripts/PHASE2_IMPLEMENTATION_SUMMARY.md) | Phase 2 implementation details | scripts/ |
 | [scripts/PHASE2_INTEGRATION_GUIDE.md](scripts/PHASE2_INTEGRATION_GUIDE.md) | Phase 2 integration procedures | scripts/ |
-| [scripts/PHASE3_IMPLEMENTATION_SUMMARY.md](scripts/PHASE3_IMPLEMENTATION_SUMMARY.md) | Phase 3 implementation details | scripts/ |
+| [scripts/README.md](scripts/README.md) | Scripts documentation | scripts/ |
+
+**Note:** Phase quickstart guides have been archived to `archive/completed-migrations/` as implementation is complete.
 
 ### 9. 📋 Project Reports & Audits (1 file)
 Current audit and status reports
@@ -131,7 +129,7 @@ Current audit and status reports
 
 ---
 
-## 🗂️ Archive - Completed Work (20 files)
+## 🗂️ Archive - Completed Work (25 files)
 Historical documentation for completed features and migrations
 
 **Location:** `archive/completed-migrations/`
@@ -150,19 +148,26 @@ Historical documentation for completed features and migrations
 9. [FINAL_IMPROVEMENTS_SUMMARY.md](archive/completed-migrations/FINAL_IMPROVEMENTS_SUMMARY.md)
 10. [CLAUDE_CODE_IMPROVEMENTS_SUMMARY.md](archive/completed-migrations/CLAUDE_CODE_IMPROVEMENTS_SUMMARY.md)
 11. [PHASE1_IMPLEMENTATION_SUMMARY.md](archive/completed-migrations/PHASE1_IMPLEMENTATION_SUMMARY.md)
-12. [DRAWING_PAPERSPACE_CLEANUP_STATUS.md](archive/completed-migrations/DRAWING_PAPERSPACE_CLEANUP_STATUS.md)
+12. [PHASE2_IMPLEMENTATION_SUMMARY.md](archive/completed-migrations/PHASE2_IMPLEMENTATION_SUMMARY.md)
+13. [PHASE3_IMPLEMENTATION_SUMMARY.md](archive/completed-migrations/PHASE3_IMPLEMENTATION_SUMMARY.md)
+14. [DRAWING_PAPERSPACE_CLEANUP_STATUS.md](archive/completed-migrations/DRAWING_PAPERSPACE_CLEANUP_STATUS.md)
 
 ### Testing & Reviews
-13. [PHASE_4_ANALYSIS.md](archive/completed-migrations/PHASE_4_ANALYSIS.md)
-14. [TESTING_IMPLEMENTATION_SUMMARY.md](archive/completed-migrations/TESTING_IMPLEMENTATION_SUMMARY.md)
-15. [PHASE1_TESTING_RESULTS.md](archive/completed-migrations/PHASE1_TESTING_RESULTS.md)
-16. [COMPREHENSIVE_CODE_REVIEW.md](archive/completed-migrations/COMPREHENSIVE_CODE_REVIEW.md)
-17. [COMPREHENSIVE_CODEBASE_REVIEW_REPORT.md](archive/completed-migrations/COMPREHENSIVE_CODEBASE_REVIEW_REPORT.md)
-18. [CODE_REVIEW_QUICK_FIXES.md](archive/completed-migrations/CODE_REVIEW_QUICK_FIXES.md)
+15. [PHASE_4_ANALYSIS.md](archive/completed-migrations/PHASE_4_ANALYSIS.md)
+16. [TESTING_IMPLEMENTATION_SUMMARY.md](archive/completed-migrations/TESTING_IMPLEMENTATION_SUMMARY.md)
+17. [PHASE1_TESTING_RESULTS.md](archive/completed-migrations/PHASE1_TESTING_RESULTS.md)
+18. [COMPREHENSIVE_CODE_REVIEW.md](archive/completed-migrations/COMPREHENSIVE_CODE_REVIEW.md)
+19. [COMPREHENSIVE_CODEBASE_REVIEW_REPORT.md](archive/completed-migrations/COMPREHENSIVE_CODEBASE_REVIEW_REPORT.md)
+20. [CODE_REVIEW_QUICK_FIXES.md](archive/completed-migrations/CODE_REVIEW_QUICK_FIXES.md)
 
 ### AI/ML Planning
-19. [AI_IMPLEMENTATION_GAME_PLAN.md](archive/completed-migrations/AI_IMPLEMENTATION_GAME_PLAN.md)
-20. [AI_EMBEDDING_GRAPH_RAG_AUDIT.md](archive/completed-migrations/AI_EMBEDDING_GRAPH_RAG_AUDIT.md)
+21. [AI_IMPLEMENTATION_GAME_PLAN.md](archive/completed-migrations/AI_IMPLEMENTATION_GAME_PLAN.md)
+22. [AI_EMBEDDING_GRAPH_RAG_AUDIT.md](archive/completed-migrations/AI_EMBEDDING_GRAPH_RAG_AUDIT.md)
+
+### Phase Quickstarts (Archived - Completed)
+23. [PHASE1_QUICKSTART.md](archive/completed-migrations/PHASE1_QUICKSTART.md) - Phase 1 quickstart guide
+24. [PHASE2_QUICKSTART.md](archive/completed-migrations/PHASE2_QUICKSTART.md) - Phase 2 quickstart guide
+25. [PHASE3_QUICKSTART.md](archive/completed-migrations/PHASE3_QUICKSTART.md) - Phase 3 quickstart guide
 
 ---
 
@@ -215,15 +220,15 @@ Historical documentation for completed features and migrations
 - **Developer Resources:** 4 files
 - **DXF/Naming System:** 6 files
 - **Phase Documentation:** 3 files
-- **Scripts & Quickstarts:** 6 files
+- **Scripts & Integration:** 2 files
 - **Reference Data:** 1 file
 - **Audit Reports:** 1 file
-- **Archived (completed work):** 20 files
+- **Archived (completed work):** 25 files
 
 ### Total Lines of Documentation
-- **Active Documentation:** ~42 files, estimated 50,000+ lines
+- **Active Documentation:** ~37 files, estimated 45,000+ lines
 - **About Page:** 1,319 lines
-- **Archived Documentation:** ~20 files, estimated 25,000+ lines
+- **Archived Documentation:** ~25 files, estimated 30,000+ lines
 
 ---
 
