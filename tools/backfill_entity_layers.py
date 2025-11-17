@@ -157,8 +157,7 @@ def backfill_entity_layers():
                 # Get or create the layer
                 layer_id, layer_standard_id = lookup_service.get_or_create_layer(
                     layer_name=layer_name,
-                    project_id=project_id,
-                    drawing_id=None  # Project-level layers
+                    project_id=project_id
                 )
                 
                 # Upsert drawing_entities record with geometry

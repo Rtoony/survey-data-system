@@ -38,23 +38,22 @@ class DXFLookupService:
         else:
             return psycopg2.connect(**self.db_config), True  # Close when done
     
-    def get_or_create_layer(self, layer_name: str, project_id: str = None, drawing_id: str = None,
+    def get_or_create_layer(self, layer_name: str, project_id: str = None,
                            color_aci: int = 7, linetype: str = 'Continuous') -> tuple:
         """
         Get or create a layer and return (layer_id, layer_standard_id).
-        
+
         Args:
             layer_name: Name of the layer
             project_id: UUID of the project (used for project-level layers)
-            drawing_id: UUID of the drawing (optional for project-level layers)
             color_aci: AutoCAD Color Index (default: 7 = white)
             linetype: Linetype name (default: Continuous)
-            
+
         Returns:
             Tuple of (layer_id UUID, layer_standard_id UUID or None)
         """
-        # Check cache first (use project_id+drawing_id+layer_name for cache key)
-        cache_key = f"{project_id}:{drawing_id}:{layer_name}"
+        # Check cache first (use project_id+layer_name for cache key)
+        cache_key = f"{project_id}:{layer_name}"
         if cache_key in self._layer_cache:
             return self._layer_cache[cache_key]
         
@@ -72,50 +71,42 @@ class DXFLookupService:
             
             layer_standard = cur.fetchone()
             layer_standard_id = layer_standard['layer_id'] if layer_standard else None
-            
-            # Check if layer exists in layers table
-            # Priority: drawing-specific layer, then project-level layer
-            if drawing_id:
+
+            # Check if layer exists in layers table (project-level only)
+            if project_id:
                 cur.execute("""
                     SELECT layer_id
                     FROM layers
-                    WHERE drawing_id = %s AND layer_name = %s
-                    LIMIT 1
-                """, (drawing_id, layer_name))
-            elif project_id:
-                cur.execute("""
-                    SELECT layer_id
-                    FROM layers
-                    WHERE project_id = %s AND drawing_id IS NULL AND layer_name = %s
+                    WHERE project_id = %s AND layer_name = %s
                     LIMIT 1
                 """, (project_id, layer_name))
             else:
-                # Lookup without project or drawing context
+                # Lookup without project context
                 cur.execute("""
                     SELECT layer_id
                     FROM layers
                     WHERE layer_name = %s
                     LIMIT 1
                 """, (layer_name,))
-            
+
             layer = cur.fetchone()
             
             if layer:
                 layer_id = layer['layer_id']
             else:
                 # Create new layer in layers table
-                if not project_id and not drawing_id:
-                    raise ValueError("project_id or drawing_id is required to create a new layer")
-                
+                if not project_id:
+                    raise ValueError("project_id is required to create a new layer")
+
                 layer_id = str(uuid.uuid4())
                 cur.execute("""
                     INSERT INTO layers (
-                        layer_id, project_id, drawing_id, layer_name, layer_standard_id,
-                        color, linetype, is_frozen, is_locked, 
+                        layer_id, project_id, layer_name, layer_standard_id,
+                        color, linetype, is_frozen, is_locked,
                         quality_score, tags, attributes
                     )
-                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s::uuid, %s, %s, false, false, 0.5, '{}', '{}')
-                """, (layer_id, project_id, drawing_id, layer_name, layer_standard_id, color_aci, linetype))
+                    VALUES (%s::uuid, %s::uuid, %s, %s::uuid, %s, %s, false, false, 0.5, '{}', '{}')
+                """, (layer_id, project_id, layer_name, layer_standard_id, color_aci, linetype))
                 
                 if not self.external_conn:
                     conn.commit()
@@ -307,81 +298,39 @@ class DXFLookupService:
             if should_close:
                 conn.close()
     
-    def record_layer_usage(self, project_id: str, layer_id: str, 
-                          drawing_id: str = None, layer_standard_id: Optional[str] = None):
+    def record_layer_usage(self, project_id: str, layer_id: str,
+                          layer_standard_id: Optional[str] = None):
         """
-        Record that a project/drawing uses a specific layer.
-        
+        Record that a project uses a specific layer.
+
+        Note: This function is deprecated. The drawing_layer_usage table was removed
+        in Migration 009. Layer usage is now tracked implicitly through entity references.
+
         Args:
             project_id: UUID of the project
             layer_id: UUID of the layer
-            drawing_id: Optional UUID of the drawing (for drawing-specific usage)
             layer_standard_id: Optional UUID of the layer standard
         """
-        conn, should_close = self._get_connection()
-        cur = conn.cursor()
-        
-        try:
-            if drawing_id:
-                # Record drawing-specific layer usage
-                cur.execute("""
-                    INSERT INTO drawing_layer_usage (
-                        drawing_id, layer_id, layer_standard_id, entity_count
-                    )
-                    VALUES (%s, %s, %s, 1)
-                    ON CONFLICT (drawing_id, layer_id) 
-                    DO UPDATE SET entity_count = drawing_layer_usage.entity_count + 1
-                """, (drawing_id, layer_id, layer_standard_id))
-            else:
-                # For project-level layer usage, we could track in a separate table
-                # or skip tracking for now (project-level layers don't have drawing_layer_usage)
-                pass
-            
-            if not self.external_conn:
-                conn.commit()
-                
-        finally:
-            cur.close()
-            if should_close:
-                conn.close()
+        # No-op: drawing_layer_usage table was dropped in Migration 009
+        # Layer usage is tracked implicitly through entity references
+        pass
     
     def record_linetype_usage(self, project_id: str, linetype_name: str,
-                             drawing_id: str = None, linetype_standard_id: Optional[str] = None):
+                             linetype_standard_id: Optional[str] = None):
         """
-        Record that a project/drawing uses a specific linetype.
-        
+        Record that a project uses a specific linetype.
+
+        Note: This function is deprecated. The drawing_linetype_usage table was removed
+        in Migration 009. Linetype usage is now tracked implicitly through entity references.
+
         Args:
             project_id: UUID of the project
             linetype_name: Name of the linetype
-            drawing_id: Optional UUID of the drawing (for drawing-specific usage)
             linetype_standard_id: Optional UUID of the linetype standard
         """
-        conn, should_close = self._get_connection()
-        cur = conn.cursor()
-        
-        try:
-            if drawing_id:
-                # Record drawing-specific linetype usage
-                cur.execute("""
-                    INSERT INTO drawing_linetype_usage (
-                        drawing_id, linetype_name, linetype_standard_id, usage_count
-                    )
-                    VALUES (%s, %s, %s, 1)
-                    ON CONFLICT (drawing_id, linetype_name) 
-                    DO UPDATE SET usage_count = drawing_linetype_usage.usage_count + 1
-                """, (drawing_id, linetype_name, linetype_standard_id))
-            else:
-                # For project-level linetype usage, we could track in a separate table
-                # or skip tracking for now
-                pass
-            
-            if not self.external_conn:
-                conn.commit()
-                
-        finally:
-            cur.close()
-            if should_close:
-                conn.close()
+        # No-op: drawing_linetype_usage table was dropped in Migration 009
+        # Linetype usage is tracked implicitly through entity references
+        pass
     
     def clear_cache(self):
         """Clear all cached lookups."""

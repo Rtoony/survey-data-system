@@ -2068,8 +2068,7 @@ def reclassify_generic_object(project_id, object_id):
         lookup_service = DXFLookupService(DB_CONFIG)
         layer_id = lookup_service.get_or_create_layer(
             layer_name=constructed_layer_name,
-            project_id=project_id,
-            drawing_id=None  # Project-level layer assignment
+            project_id=project_id
         )
         
         # Get the generic object

@@ -19,15 +19,14 @@ class DXFChangeDetector:
         self.db_config = db_config
         self.classifier = LayerClassifier()
     
-    def detect_changes(self, project_id: str, reimported_entities: List[Dict], drawing_id: str = None) -> Dict:
+    def detect_changes(self, project_id: str, reimported_entities: List[Dict]) -> Dict:
         """
         Detect changes between reimported DXF entities and database.
-        
+
         Args:
             project_id: UUID of the project
             reimported_entities: List of entity dicts from DXF reimport
-            drawing_id: Optional UUID of the drawing being reimported (None for project-level imports)
-            
+
         Returns:
             Dictionary with change detection statistics and operations
         """
@@ -46,8 +45,8 @@ class DXFChangeDetector:
         conn = psycopg2.connect(**self.db_config)
         
         try:
-            # Get all existing entity links for this drawing/project
-            existing_links = self._get_existing_links(project_id, conn, drawing_id)
+            # Get all existing entity links for this project
+            existing_links = self._get_existing_links(project_id, conn)
             
             # Initialize intelligent object creator for new entities
             creator = IntelligentObjectCreator(self.db_config, conn=conn)
@@ -83,7 +82,7 @@ class DXFChangeDetector:
                 else:
                     # New entity - create intelligent object
                     stats['new_entities'] += 1
-                    result = creator.create_from_entity(entity, project_id, drawing_id)
+                    result = creator.create_from_entity(entity, project_id)
                     if result:
                         stats['new_objects_created'] += 1
             
@@ -103,49 +102,31 @@ class DXFChangeDetector:
         
         return stats
     
-    def _get_existing_links(self, project_id: str, conn, drawing_id: str = None) -> Dict[str, Dict]:
+    def _get_existing_links(self, project_id: str, conn) -> Dict[str, Dict]:
         """
-        Get all existing entity links for a project/drawing, indexed by DXF handle.
-        
+        Get all existing entity links for a project, indexed by DXF handle.
+
         Args:
             project_id: UUID of the project
             conn: Database connection
-            drawing_id: Optional UUID of the drawing (if None, gets project-level links)
         """
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        if drawing_id:
-            # Get drawing-specific entity links
-            cur.execute("""
-                SELECT 
-                    dxf_handle,
-                    entity_type,
-                    layer_name,
-                    geometry_hash,
-                    object_type,
-                    object_id,
-                    table_name,
-                    sync_status,
-                    last_modified_in_db
-                FROM dxf_entity_links
-                WHERE drawing_id = %s
-            """, (drawing_id,))
-        else:
-            # Get project-level entity links (where drawing_id IS NULL)
-            cur.execute("""
-                SELECT 
-                    dxf_handle,
-                    entity_type,
-                    layer_name,
-                    geometry_hash,
-                    object_type,
-                    object_id,
-                    table_name,
-                    sync_status,
-                    last_modified_in_db
-                FROM dxf_entity_links
-                WHERE project_id = %s AND drawing_id IS NULL
-            """, (project_id,))
+
+        # Get project-level entity links
+        cur.execute("""
+            SELECT
+                dxf_handle,
+                entity_type,
+                layer_name,
+                geometry_hash,
+                object_type,
+                object_id,
+                table_name,
+                sync_status,
+                last_modified_in_db
+            FROM dxf_entity_links
+            WHERE project_id = %s AND drawing_id IS NULL
+        """, (project_id,))
         
         links = cur.fetchall()
         cur.close()

@@ -178,8 +178,8 @@ class DXFImporter:
                     'linetype': entity['linetype']
                 }
                 
-                # Attempt to create intelligent object (no drawing_id needed)
-                result = creator.create_from_entity(entity_data, project_id, None)
+                # Attempt to create intelligent object
+                result = creator.create_from_entity(entity_data, project_id)
                 
                 if result:
                     created_count += 1
