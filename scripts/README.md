@@ -8,6 +8,7 @@ This directory contains production-ready scripts for implementing AI embeddings 
 
 | Script | Purpose | Duration | Cost |
 |--------|---------|----------|------|
+| `phase1_00_fix_schema.py` | Fix database schema (add missing columns) | 5-10s | $0 |
 | `phase1_01_generate_embeddings.py` | Generate vector embeddings using OpenAI | 30-60s | ~$0.0015 |
 | `phase1_02_build_relationships.py` | Build semantic relationships from embeddings | 10-30s | $0 |
 | `phase1_03_verify.py` | Verify Phase 1 implementation | 5-10s | $0 |
@@ -38,6 +39,7 @@ This directory contains production-ready scripts for implementing AI embeddings 
 
 | File | Purpose |
 |------|---------|
+| `database/migrations/phase1_00_fix_embedding_models.sql` | Schema fix for embedding_models table |
 | `database/migrations/phase2_01_embedding_queue.sql` | Queue infrastructure |
 | `workers/embedding_worker.py` | Background embedding processor |
 
@@ -46,6 +48,9 @@ This directory contains production-ready scripts for implementing AI embeddings 
 ### **Phase 1: Initial Setup** (~2 minutes)
 
 ```bash
+# 0. Fix database schema (REQUIRED - run first!)
+python3 scripts/phase1_00_fix_schema.py
+
 # 1. Estimate cost (no API calls)
 python3 scripts/phase1_01_generate_embeddings.py --dry-run
 

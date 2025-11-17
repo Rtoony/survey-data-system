@@ -34,6 +34,34 @@ psql "$DATABASE_URL" -c "SELECT extname, extversion FROM pg_extension WHERE extn
 
 ## 🚀 **Step-by-Step Execution**
 
+### **Step 0: Fix Database Schema (REQUIRED)**
+
+⚠️ **Important**: Run this first to add missing columns to the `embedding_models` table.
+
+```bash
+python3 scripts/phase1_00_fix_schema.py
+```
+
+**What this does:**
+- Checks if `embedding_models` table has required columns
+- Adds `cost_per_1k_tokens` and `max_input_tokens` columns if missing
+- Sets default values for OpenAI model
+- Verifies schema is correct
+
+**Expected Output:**
+```
+✓ All required columns present!
+✓ SCHEMA FIX SUCCESSFUL
+
+You can now run Phase 1 scripts:
+  python3 scripts/phase1_01_generate_embeddings.py --dry-run
+```
+
+**⏱ Duration**: 5-10 seconds
+**✅ Success if**: No errors and schema verification passes
+
+---
+
 ### **Step 1: Dry Run (Cost Estimation)**
 
 First, let's estimate costs without making any API calls:
