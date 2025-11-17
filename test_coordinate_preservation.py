@@ -79,8 +79,7 @@ def test_coordinate_preservation(original_dxf_path: str, test_name: str, toleran
             drawing_id=drawing_id,
             output_path=exported_dxf_path,
             dxf_version='AC1027',
-            include_modelspace=True,
-            include_paperspace=False
+            include_modelspace=True
         )
         
         if export_stats.get('errors'):

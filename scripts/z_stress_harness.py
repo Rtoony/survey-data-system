@@ -648,7 +648,6 @@ class ZStressHarness:
                 drawing_id=drawing_id,
                 coordinate_system=coordinate_system,
                 import_modelspace=True,
-                import_paperspace=False,
                 external_conn=conn
             )
             
@@ -663,7 +662,6 @@ class ZStressHarness:
                 drawing_id=drawing_id,
                 output_path=export_path,
                 include_modelspace=True,
-                include_paperspace=False,
                 external_conn=conn
             )
             

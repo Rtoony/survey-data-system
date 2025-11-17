@@ -25,22 +25,20 @@ class DXFImporter:
         self.db_config = db_config
         self.create_intelligent_objects = create_intelligent_objects
     
-    def import_dxf(self, file_path: str, project_id: str, 
-                   coordinate_system: str = 'LOCAL', 
+    def import_dxf(self, file_path: str, project_id: str,
+                   coordinate_system: str = 'LOCAL',
                    import_modelspace: bool = True,
-                   import_paperspace: bool = True,
                    external_conn=None) -> Dict:
         """
         Import a DXF file into the database at project level.
-        
+
         Args:
             file_path: Path to DXF file
             project_id: ID of the project to associate entities with
             coordinate_system: Coordinate system ('LOCAL', 'WGS84', etc.')
             import_modelspace: Whether to import model space entities
-            import_paperspace: Whether to import paper space entities
             external_conn: Optional external database connection (will not be closed)
-            
+
         Returns:
             Dictionary with import statistics
         """
@@ -96,15 +94,7 @@ class DXFImporter:
                 if import_modelspace:
                     modelspace = doc.modelspace()
                     self._import_entities(modelspace, project_id, 'MODEL', conn, stats, resolver)
-                
-                # Import paper space layouts
-                if import_paperspace:
-                    for layout_name in doc.layout_names():
-                        if layout_name != 'Model':
-                            layout = doc.layout(layout_name)
-                            self._import_entities(layout, project_id, 'PAPER', conn, stats, resolver)
-                            self._import_viewports(layout, project_id, conn, stats, resolver)
-                
+
                 # Create intelligent objects from imported entities
                 if self.create_intelligent_objects:
                     stats['intelligent_objects_created'] = self._create_intelligent_objects(
@@ -668,46 +658,7 @@ class DXFImporter:
             stats['errors'].append(f"Failed to import block insert: {str(e)}")
         
         cur.close()
-    
-    def _import_viewports(self, layout, project_id: str, conn, stats: Dict, resolver: DXFLookupService):
-        """Import paper space viewports at project level."""
-        cur = conn.cursor()
-        
-        for viewport in layout.viewports():
-            try:
-                center = viewport.dxf.center
-                view_center = viewport.dxf.view_center_point if hasattr(viewport.dxf, 'view_center_point') else center
-                
-                # Get viewport properties
-                width = viewport.dxf.width if hasattr(viewport.dxf, 'width') else 0
-                height = viewport.dxf.height if hasattr(viewport.dxf, 'height') else 0
-                scale = viewport.dxf.custom_scale if hasattr(viewport.dxf, 'custom_scale') else 1.0
-                
-                # Create polygon geometry for viewport boundary
-                x1, y1 = center.x - width/2, center.y - height/2
-                x2, y2 = center.x + width/2, center.y + height/2
-                geometry_wkt = f'POLYGON Z (({x1} {y1} 0, {x2} {y1} 0, {x2} {y2} 0, {x1} {y2} 0, {x1} {y1} 0))'
-                
-                # Get view center as point
-                view_center_wkt = f'POINT Z ({view_center.x} {view_center.y} 0)'
-                
-                cur.execute(f"""
-                    INSERT INTO layout_viewports (
-                        drawing_id, layout_name, viewport_geometry,
-                        view_center, scale_factor
-                    )
-                    VALUES (NULL, %s, ST_GeomFromText(%s, {self.srid}), ST_GeomFromText(%s, {self.srid}), %s)
-                """, (
-                    layout.name, geometry_wkt, view_center_wkt, scale
-                ))
-                
-                stats['viewports'] += 1
-                
-            except Exception as e:
-                stats['errors'].append(f"Failed to import viewport: {str(e)}")
-        
-        cur.close()
-    
+
     def _import_point(self, entity, project_id: str, space: str,
                       conn, stats: Dict, resolver: DXFLookupService):
         """Import POINT entity at project level."""
