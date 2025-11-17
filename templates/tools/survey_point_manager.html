@@ -2,6 +2,10 @@
 
 {% block title %}Survey Point Manager{% endblock %}
 
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="mc-page">
     <div class="mc-header">
@@ -23,13 +27,6 @@
     <div class="mc-card">
         <h2>🔍 Filters</h2>
         <div class="filter-grid">
-            <div class="filter-item">
-                <label for="projectFilter" class="mc-label">Project:</label>
-                <select id="projectFilter" class="mc-select">
-                    <option value="">All Projects</option>
-                </select>
-            </div>
-
             <div class="filter-item">
                 <label for="disciplineFilter" class="mc-label">Discipline:</label>
                 <select id="disciplineFilter" class="mc-select">
@@ -370,46 +367,40 @@ tr.selected-point {
 <script>
 let allPoints = [];
 let selectedPointIds = new Set();
+const projectContext = new ProjectContext();
 let currentFilters = {};
 
 // Load initial data
 window.addEventListener('DOMContentLoaded', async () => {
-    await loadProjects();
-    await applyFilters();
-});
+    await projectContext.init();
 
-// Load projects
-async function loadProjects() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        
-        if (data.error) {
-            console.error('Error loading projects:', data.error);
-            return;
-        }
-        
-        const projectFilter = document.getElementById('projectFilter');
-        projectFilter.innerHTML = '<option value="">All Projects</option>';
-        
-        (data.projects || []).forEach(project => {
-            const option = document.createElement('option');
-            option.value = project.project_id;
-            option.textContent = `${project.project_number} - ${project.project_name}`;
-            projectFilter.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading projects:', error);
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
     }
-}
+
+    await applyFilters();
+
+    // Reload data when project changes
+    projectContext.onProjectChange(() => {
+        applyFilters();
+    });
+});
 
 // Apply filters button
 document.getElementById('applyFiltersBtn').addEventListener('click', applyFilters);
 
 // Apply filters and fetch points
 async function applyFilters() {
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
+    }
+
     const filters = {
-        project_id: document.getElementById('projectFilter').value,
+        project_id: activeProject.project_id,
         discipline: document.getElementById('disciplineFilter').value,
         connectivity: document.getElementById('connectivityFilter').value,
         sequence_status: document.getElementById('sequenceFilter').value,

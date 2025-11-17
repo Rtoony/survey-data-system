@@ -11,6 +11,10 @@ the generic_objects table, and provides ML-powered suggestions with spatial cont
 
 {% block title %}Object Reclassifier (DEPRECATED){% endblock %}
 
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="mc-page-header">
     <div style="background: #ff4444; color: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
@@ -39,14 +43,6 @@ the generic_objects table, and provides ML-powered suggestions with spatial cont
             <h2><i class="fas fa-filter"></i> Filters</h2>
         </div>
         <div class="mc-card-content">
-            <!-- Project Selection -->
-            <div class="mc-form-group">
-                <label for="projectSelect">Project:</label>
-                <select id="projectSelect" class="mc-select">
-                    <option value="">Select a project...</option>
-                </select>
-            </div>
-
             <!-- Review Status Filter -->
             <div class="mc-form-group">
                 <label for="statusFilter">Review Status:</label>
@@ -801,41 +797,43 @@ const vocabularyCache = {
 };
 
 // Load projects on page load
-document.addEventListener('DOMContentLoaded', function() {
-    loadProjects();
-    
+const projectContext = new ProjectContext();
+
+document.addEventListener('DOMContentLoaded', async function() {
+    await projectContext.init();
+
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
+    }
+
+    currentProjectId = activeProject.project_id;
+
     document.getElementById('confidenceFilter').addEventListener('input', function(e) {
         document.getElementById('confidenceValue').textContent = parseFloat(e.target.value).toFixed(1);
     });
+
+    // Reload data when project changes
+    projectContext.onProjectChange(async () => {
+        const newActiveProject = projectContext.getActiveProject();
+        if (newActiveProject) {
+            currentProjectId = newActiveProject.project_id;
+            currentObjects = [];
+            displayObjects([]);
+        }
+    });
 });
 
-async function loadProjects() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        
-        const select = document.getElementById('projectSelect');
-        select.innerHTML = '<option value="">Select a project...</option>';
-        
-        data.projects.forEach(project => {
-            const option = document.createElement('option');
-            option.value = project.project_id;
-            option.textContent = `${project.project_name} (${project.project_number || 'No Number'})`;
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading projects:', error);
-    }
-}
-
 document.getElementById('loadBtn').addEventListener('click', async function() {
-    const projectId = document.getElementById('projectSelect').value;
-    if (!projectId) {
-        alert('Please select a project first');
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
         return;
     }
-    
-    currentProjectId = projectId;
+
+    currentProjectId = activeProject.project_id;
+    const projectId = currentProjectId;
     const status = document.getElementById('statusFilter').value;
     const minConfidence = parseFloat(document.getElementById('confidenceFilter').value);
     

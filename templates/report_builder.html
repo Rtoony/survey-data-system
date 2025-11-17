@@ -3,6 +3,7 @@
 {% block title %}Report Builder{% endblock %}
 
 {% block extra_head %}
+<script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
 <style>
 .report-builder-container {
     display: grid;
@@ -215,12 +216,26 @@
 </div>
 
 <script>
+const projectContext = new ProjectContext();
 let currentTemplateId = null;
 
 // Load templates on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    await projectContext.init();
+
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
+    }
+
     loadTemplates();
     loadHistory();
+
+    // Reload when project changes
+    projectContext.onProjectChange(() => {
+        loadHistory();
+    });
 
     // Handle URL parameters
     const urlParams = new URLSearchParams(window.location.search);
@@ -318,30 +333,22 @@ function selectTemplate(templateId) {
                 }
             }).join('');
 
-            // Load projects for project_id dropdown
+            // Auto-fill project_id with active project
             if (params.project_id) {
-                loadProjectsDropdown('param_project_id');
+                const activeProject = projectContext.getActiveProject();
+                if (activeProject) {
+                    const projectSelect = document.getElementById('param_project_id');
+                    if (projectSelect) {
+                        projectSelect.value = activeProject.project_id;
+                        // Make it readonly since we're using active project
+                        projectSelect.setAttribute('readonly', 'true');
+                    }
+                }
             }
 
             // Highlight selected template
             document.querySelectorAll('.template-item').forEach(el => el.classList.remove('active'));
             event.target.closest('.template-item').classList.add('active');
-        });
-}
-
-function loadProjectsDropdown(selectId) {
-    fetch('/api/projects')
-        .then(r => r.json())
-        .then(data => {
-            const select = document.getElementById(selectId);
-            select.innerHTML = '<option value="">Select a project...</option>' +
-                data.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-        })
-        .catch(err => {
-            console.error('Failed to load projects:', err);
-            const select = document.getElementById(selectId);
-            select.innerHTML = '<option value="">Failed to load projects</option>';
-            showToast('Failed to load projects', 'error');
         });
 }
 

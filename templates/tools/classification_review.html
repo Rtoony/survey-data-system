@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Classification Review{% endblock %}
+
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="mc-page-header">
     <h1><i class="fas fa-tasks"></i> Classification Review</h1>
@@ -13,14 +18,6 @@
             <h2><i class="fas fa-filter"></i> Filters</h2>
         </div>
         <div class="mc-card-content">
-            <!-- Project Selection -->
-            <div class="mc-form-group">
-                <label for="projectFilter">Project:</label>
-                <select id="projectFilter" class="mc-select" onchange="loadReviewQueue()">
-                    <option value="">All Projects</option>
-                </select>
-            </div>
-
             <!-- Confidence Range -->
             <div class="mc-form-group">
                 <label>Confidence Range:</label>
@@ -275,43 +272,29 @@
 
 <script>
 let currentEntities = [];
+const projectContext = new ProjectContext();
 let selectedEntity = null;
 let selectedEntityIds = new Set();
-
-// Load projects for filter
-async function loadProjects() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-
-        const select = document.getElementById('projectFilter');
-        data.projects.forEach(proj => {
-            const option = document.createElement('option');
-            option.value = proj.project_id;
-            option.textContent = proj.project_name;
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Failed to load projects:', error);
-    }
-}
 
 // Load review queue
 async function loadReviewQueue() {
     try {
-        const projectId = document.getElementById('projectFilter').value;
+        const activeProject = projectContext.getActiveProject();
+        if (!activeProject) {
+            alert('Please select a project from the header');
+            return;
+        }
+
+        const projectId = activeProject.project_id;
         const minConf = document.getElementById('minConfidence').value;
         const maxConf = document.getElementById('maxConfidence').value;
 
         const params = new URLSearchParams({
             min_confidence: minConf,
             max_confidence: maxConf,
-            limit: 200
+            limit: 200,
+            project_id: projectId
         });
-
-        if (projectId) {
-            params.append('project_id', projectId);
-        }
 
         const response = await fetch(`/api/classification/review-queue?${params}`);
         const data = await response.json();
@@ -539,9 +522,21 @@ function updateConfidenceLabel() {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    loadProjects();
-    loadReviewQueue();
+document.addEventListener('DOMContentLoaded', async () => {
+    await projectContext.init();
+
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
+    }
+
+    await loadReviewQueue();
+
+    // Reload data when project changes
+    projectContext.onProjectChange(() => {
+        loadReviewQueue();
+    });
 });
 </script>
 {% endblock %}

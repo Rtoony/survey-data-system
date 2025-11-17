@@ -2,6 +2,10 @@
 
 {% block title %}Batch Point Import{% endblock %}
 
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="mc-page">
     <div class="mc-header">
@@ -26,14 +30,6 @@
         <h2>Step 1: Configure Import</h2>
         
         <div class="config-grid">
-            <div class="config-item">
-                <label for="projectSelect" class="mc-label">Select Project:</label>
-                <select id="projectSelect" class="mc-select" required>
-                    <option value="">-- Select Project --</option>
-                </select>
-                <p class="help-text">Points will be imported into the selected project</p>
-            </div>
-
             <div class="config-item">
                 <label for="coordSystemSelect" class="mc-label">Coordinate System:</label>
                 <select id="coordSystemSelect" class="mc-select" required>
@@ -627,39 +623,26 @@ let selectedFiles = [];
 let projects = [];
 let coordinateSystems = [];
 
+const projectContext = new ProjectContext();
+
 // Load initial data
 window.addEventListener('DOMContentLoaded', async () => {
-    await loadProjectsAndDrawings();
-    await loadCoordinateSystems();
-});
+    await projectContext.init();
 
-async function loadProjectsAndDrawings() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        
-        if (data.error) {
-            alert('Error loading projects: ' + data.error);
-            return;
-        }
-        
-        projects = data.projects || [];
-        
-        const projectSelect = document.getElementById('projectSelect');
-        projectSelect.innerHTML = '<option value="">-- Select Project --</option>';
-        
-        projects.forEach(project => {
-            const option = document.createElement('option');
-            option.value = project.project_id;
-            option.textContent = `${project.project_number} - ${project.project_name}`;
-            projectSelect.appendChild(option);
-        });
-        
-    } catch (error) {
-        console.error('Error loading projects:', error);
-        alert('Failed to load projects');
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
     }
-}
+
+    await loadCoordinateSystems();
+
+    // Reload data when project changes
+    projectContext.onProjectChange(() => {
+        // Clear any loaded data when project changes
+        resetImportState();
+    });
+});
 
 async function loadCoordinateSystems() {
     try {
@@ -730,14 +713,15 @@ function handleFileSelect(e) {
 
 // Parse button handler
 document.getElementById('parseBtn').addEventListener('click', async () => {
-    const projectId = document.getElementById('projectSelect').value;
-    const coordSystem = document.getElementById('coordSystemSelect').value;
-    
-    if (!projectId) {
-        alert('Please select a drawing');
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
         return;
     }
-    
+    const projectId = activeProject.project_id;
+
+    const coordSystem = document.getElementById('coordSystemSelect').value;
+
     if (!coordSystem) {
         alert('Please select a coordinate system');
         return;
@@ -893,9 +877,14 @@ document.getElementById('importBtn').addEventListener('click', async () => {
     }
     
     const selectedPoints = selectedIndices.map(i => parsedPoints[i]);
-    const projectId = document.getElementById('projectSelect').value;
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
+    }
+    const projectId = activeProject.project_id;
     const epsgCode = document.getElementById('coordSystemSelect').value;
-    
+
     try {
         document.getElementById('importBtn').disabled = true;
         document.getElementById('importBtn').textContent = 'Importing...';

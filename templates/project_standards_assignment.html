@@ -2,6 +2,10 @@
 
 {% block title %}Project Standards Assignment{% endblock %}
 
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <h2 class="orbitron"><i class="fas fa-project-diagram neon-cyan"></i> Project Standards Assignment</h2>
@@ -270,22 +274,20 @@ const standardTypeLabels = {
     standard_note: 'Standard Notes'
 };
 
+const projectContext = new ProjectContext();
+
 async function loadProjects() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        
-        if (data.error) {
-            showProjectError(data.error);
-            return;
-        }
-        
-        allProjects = data.projects || data || [];
-        renderProjects();
-        
-    } catch (error) {
-        showProjectError('Failed to load projects: ' + error.message);
+    // Use active project only
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        showProjectError('Please select a project from the header');
+        return;
     }
+
+    allProjects = [activeProject];
+    renderProjects();
+    // Auto-select the active project
+    selectProject(activeProject.project_id);
 }
 
 function filterProjects() {
@@ -553,8 +555,21 @@ window.onclick = function(event) {
     }
 }
 
-window.addEventListener('DOMContentLoaded', function() {
-    loadProjects();
+window.addEventListener('DOMContentLoaded', async function() {
+    await projectContext.init();
+
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
+    }
+
+    await loadProjects();
+
+    // Reload when project changes
+    projectContext.onProjectChange(() => {
+        loadProjects();
+    });
 });
 </script>
 {% endblock %}
