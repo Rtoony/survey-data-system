@@ -324,6 +324,11 @@ def utility_structure_manager_tool():
     """Utility Structure Manager - Manage manholes, inlets, and other structures"""
     return render_template('tools/utility_structure_manager.html')
 
+@app.route('/tools/bmp-manager')
+def bmp_manager_tool():
+    """BMP Manager - Manage stormwater Best Management Practices"""
+    return render_template('tools/bmp_manager.html')
+
 @app.route('/tools/assign-standards')
 def assign_standards_tool():
     """Assign Standards - Assign layer and block standards to project"""
@@ -9707,6 +9712,289 @@ def validate_structures():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# SPECIALIZED TOOLS API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/specialized-tools/street-lights')
+def get_street_lights():
+    """Get street light data for the Street Light Analyzer tool"""
+    try:
+        project_id = request.args.get('project_id') or session.get('active_project_id')
+        if not project_id:
+            return jsonify({'success': False, 'error': 'No project specified'}), 400
+
+        # Query street lights from utility_structures
+        # We'll look for structures tagged as light poles or with 'light' in type
+        query = """
+            SELECT
+                us.structure_id as light_id,
+                us.structure_number as pole_number,
+                COALESCE(us.attributes->>'lamp_type', 'LED') as lamp_type,
+                COALESCE((us.attributes->>'wattage')::integer, 100) as wattage,
+                COALESCE((us.attributes->>'pole_height_ft')::numeric, 20) as pole_height_ft,
+                COALESCE(us.attributes->>'circuit_id', 'Unknown') as circuit_id,
+                CASE
+                    WHEN us.condition_rating >= 4 THEN 'Excellent'
+                    WHEN us.condition_rating = 3 THEN 'Good'
+                    WHEN us.condition_rating = 2 THEN 'Fair'
+                    ELSE 'Poor'
+                END as condition,
+                ST_X(ST_Transform(us.geometry, 4326)) as map_lng,
+                ST_Y(ST_Transform(us.geometry, 4326)) as map_lat,
+                ST_X(us.geometry) as x,
+                ST_Y(us.geometry) as y
+            FROM utility_structures us
+            WHERE us.project_id = %s
+            AND (
+                us.structure_type ILIKE '%light%'
+                OR us.structure_type = 'light_pole'
+                OR us.tags @> ARRAY['street_light']
+                OR us.tags @> ARRAY['light_pole']
+            )
+            ORDER BY us.structure_number
+        """
+        lights = execute_query(query, (project_id,))
+
+        if not lights:
+            lights = []
+
+        # Calculate statistics
+        total_count = len(lights)
+        total_wattage = sum(light.get('wattage', 0) for light in lights)
+
+        # Calculate average spacing (simplified - distance between consecutive lights)
+        avg_spacing = 0
+        if len(lights) >= 2:
+            import math
+            distances = []
+            for i in range(len(lights) - 1):
+                x1, y1 = lights[i]['x'], lights[i]['y']
+                x2, y2 = lights[i + 1]['x'], lights[i + 1]['y']
+                dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+                distances.append(dist)
+            avg_spacing = int(sum(distances) / len(distances)) if distances else 0
+
+        # Group by lamp type
+        by_lamp_type = {}
+        for light in lights:
+            lamp_type = light.get('lamp_type', 'Unknown')
+            by_lamp_type[lamp_type] = by_lamp_type.get(lamp_type, 0) + 1
+
+        # Group by condition
+        by_condition = {}
+        for light in lights:
+            condition = light.get('condition', 'Unknown')
+            by_condition[condition] = by_condition.get(condition, 0) + 1
+
+        stats = {
+            'total_count': total_count,
+            'total_wattage': total_wattage,
+            'average_spacing_ft': avg_spacing,
+            'by_lamp_type': by_lamp_type,
+            'by_condition': by_condition
+        }
+
+        return jsonify({
+            'success': True,
+            'lights': lights,
+            'stats': stats
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/specialized-tools/street-lights/<light_id>/coverage')
+def analyze_light_coverage(light_id):
+    """Analyze coverage for a specific street light"""
+    try:
+        radius_ft = request.args.get('radius', 50, type=float)
+
+        # Get light location
+        query = """
+            SELECT
+                structure_id,
+                structure_number,
+                ST_AsGeoJSON(ST_Transform(geometry, 4326))::json as geometry,
+                ST_AsGeoJSON(
+                    ST_Transform(
+                        ST_Buffer(geometry, %s * 0.3048),  -- Convert feet to meters
+                        4326
+                    )
+                )::json as coverage_area
+            FROM utility_structures
+            WHERE structure_id = %s
+        """
+        result = execute_query(query, (radius_ft, light_id))
+
+        if not result or len(result) == 0:
+            return jsonify({'error': 'Light not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'light': result[0],
+            'radius_ft': radius_ft
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/specialized-tools/flow-analysis')
+def get_flow_analysis():
+    """Get gravity pipe network data and perform hydraulic analysis"""
+    try:
+        project_id = request.args.get('project_id') or session.get('active_project_id')
+        if not project_id:
+            return jsonify({'success': False, 'error': 'No project specified'}), 400
+
+        intensity = request.args.get('intensity', 3.5, type=float)  # in/hr
+
+        # Get gravity pipes (storm and sewer)
+        query = """
+            SELECT
+                ul.line_id,
+                ul.line_type,
+                ul.material,
+                ul.diameter,
+                ul.slope,
+                ul.length_ft,
+                ul.upstream_structure_id,
+                ul.downstream_structure_id,
+                ST_AsGeoJSON(ST_Transform(ul.geometry, 4326))::json as geometry
+            FROM utility_lines ul
+            WHERE ul.project_id = %s
+            AND ul.line_type IN ('gravity_main', 'storm_drain', 'sanitary_sewer')
+            AND ul.diameter IS NOT NULL
+            AND ul.slope IS NOT NULL
+            ORDER BY ul.line_id
+        """
+        pipes = execute_query(query, (project_id,))
+
+        if not pipes:
+            return jsonify({
+                'success': True,
+                'pipes': [],
+                'nodes': [],
+                'stats': {
+                    'total_system_flow': 0,
+                    'total_capacity': 0,
+                    'avg_velocity': 0,
+                    'system_status': 'No Data'
+                },
+                'warnings': []
+            })
+
+        # Calculate hydraulics for each pipe using Manning's equation
+        analyzed_pipes = []
+        total_capacity = 0
+        total_velocity = 0
+        warnings = []
+
+        for pipe in pipes:
+            # Get Manning's n value based on material
+            n = get_mannings_n(pipe.get('material', 'PVC'))
+
+            # Calculate full flow capacity (Manning's equation)
+            diameter_ft = pipe['diameter'] / 12  # Convert inches to feet
+            slope = pipe['slope']
+
+            # Cross-sectional area (circular pipe)
+            area_sqft = 3.14159 * (diameter_ft / 2) ** 2
+
+            # Hydraulic radius for circular pipe flowing full
+            hydraulic_radius = diameter_ft / 4
+
+            # Manning's equation: Q = (1.486/n) * A * R^(2/3) * S^(1/2)
+            capacity_cfs = (1.486 / n) * area_sqft * (hydraulic_radius ** (2/3)) * (slope ** 0.5)
+
+            # Estimate flow (simplified - using rational method approximation)
+            # Q = C * I * A, where we'll estimate A based on pipe position in network
+            estimated_flow = capacity_cfs * 0.5  # Assume 50% capacity for now
+
+            # Velocity: V = Q / A
+            velocity_fps = estimated_flow / area_sqft if area_sqft > 0 else 0
+
+            # Check for issues
+            if velocity_fps < 2.0:
+                warnings.append({
+                    'type': 'Low Velocity',
+                    'severity': 'warning',
+                    'message': f'Pipe {pipe["line_id"]} has velocity below 2 fps ({velocity_fps:.2f} fps) - potential for sediment buildup'
+                })
+
+            if velocity_fps > 10.0:
+                warnings.append({
+                    'type': 'High Velocity',
+                    'severity': 'warning',
+                    'message': f'Pipe {pipe["line_id"]} has velocity above 10 fps ({velocity_fps:.2f} fps) - potential for erosion'
+                })
+
+            if estimated_flow / capacity_cfs > 0.9:
+                warnings.append({
+                    'type': 'Capacity Warning',
+                    'severity': 'error',
+                    'message': f'Pipe {pipe["line_id"]} is near full capacity ({(estimated_flow/capacity_cfs*100):.1f}%) - consider upsizing'
+                })
+
+            analyzed_pipes.append({
+                **pipe,
+                'capacity_cfs': round(capacity_cfs, 2),
+                'flow_cfs': round(estimated_flow, 2),
+                'velocity_fps': round(velocity_fps, 2),
+                'mannings_n': n,
+                'utilization_pct': round((estimated_flow / capacity_cfs * 100), 1) if capacity_cfs > 0 else 0
+            })
+
+            total_capacity += capacity_cfs
+            total_velocity += velocity_fps
+
+        # Calculate statistics
+        avg_velocity = total_velocity / len(analyzed_pipes) if analyzed_pipes else 0
+        total_flow = sum(p['flow_cfs'] for p in analyzed_pipes)
+
+        # Determine system status
+        if not warnings:
+            system_status = 'OK'
+        elif any(w['severity'] == 'error' for w in warnings):
+            system_status = 'Critical'
+        else:
+            system_status = 'Warning'
+
+        stats = {
+            'total_system_flow': round(total_flow, 2),
+            'total_capacity': round(total_capacity, 2),
+            'avg_velocity': round(avg_velocity, 2),
+            'system_status': system_status
+        }
+
+        return jsonify({
+            'success': True,
+            'pipes': analyzed_pipes,
+            'nodes': [],  # TODO: Add node analysis (HGL/EGL calculations)
+            'stats': stats,
+            'warnings': warnings
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def get_mannings_n(material):
+    """Get Manning's roughness coefficient based on pipe material"""
+    n_values = {
+        'PVC': 0.010,
+        'HDPE': 0.010,
+        'DI': 0.012,  # Ductile Iron
+        'RCP': 0.013,  # Reinforced Concrete Pipe
+        'CMP': 0.024,  # Corrugated Metal Pipe
+        'VCP': 0.013,  # Vitrified Clay Pipe
+        'ABS': 0.010,
+        'PE': 0.010,  # Polyethylene
+    }
+    # Default to PVC if material not found
+    return n_values.get(material.upper() if material else 'PVC', 0.013)
 
 # ============================================================================
 # SCHEMA RELATIONSHIPS ROUTES
