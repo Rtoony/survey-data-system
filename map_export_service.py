@@ -75,7 +75,7 @@ class MapExportService:
 
         return (minx_transformed, miny_transformed, maxx_transformed, maxy_transformed)
     
-    def fetch_drawing_entities_by_layer(self, bbox: Tuple, project_id: str = None, srid: int = 2226) -> Dict[str, List[Dict]]:
+    def fetch_drawing_entities_by_layer(self, bbox: Tuple, project_id: Optional[str] = None, srid: int = 2226) -> Dict[str, List[Dict]]:
         """
         Fetch all drawing entities within bounding box, grouped by layer name.
         Optionally filter by project_id.
@@ -205,7 +205,11 @@ class MapExportService:
                 srsname=epsg_code,
                 outputFormat='application/json'
             )
-            
+
+            if response is None:
+                print(f"WFS getfeature returned None for {layer_config.get('name', 'unknown')}")
+                return {"type": "FeatureCollection", "features": []}
+
             geojson_data = json.loads(response.read())
             return geojson_data
             
@@ -303,6 +307,9 @@ class MapExportService:
         """Export features to DXF format with 3D support"""
         try:
             doc = ezdxf.new('R2010')
+            if doc is None:
+                print("Error: ezdxf.new() returned None")
+                return False
             msp = doc.modelspace()
             
             for layer_name, features in layers_data.items():
@@ -683,7 +690,7 @@ class MapExportService:
         draw.text((x + bar_length_px//2, y+bar_height//2+12), label, 
                  fill='#000000', font=scale_font, anchor='mm')
     
-    def create_export_package(self, job_id: str, params: Dict, project_id: str = None) -> Dict:
+    def create_export_package(self, job_id: str, params: Dict, project_id: Optional[str] = None) -> Dict:
         """
         Main export function - creates export package with selected formats.
 
