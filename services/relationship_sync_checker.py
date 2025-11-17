@@ -38,12 +38,12 @@ class RelationshipSyncChecker:
         if table_name not in self._column_cache:
             try:
                 query = """
-                    SELECT column_name 
-                    FROM information_schema.columns 
+                    SELECT column_name
+                    FROM information_schema.columns
                     WHERE table_name = %s AND table_schema = 'public'
                 """
                 result = execute_query(query, (table_name,))
-                self._column_cache[table_name] = {row['column_name'] for row in result}
+                self._column_cache[table_name] = {row['column_name'] for row in (result or [])}
             except Exception as e:
                 print(f"Warning: Could not fetch columns for {table_name}: {e}")
                 self._column_cache[table_name] = set()
@@ -445,10 +445,10 @@ class RelationshipSyncChecker:
             WHERE set_id = %s AND entity_id IS NOT NULL
         """
         members = execute_query(members_query, (set_id,))
-        
-        if len(members) < 2:
+
+        if not members or len(members) < 2:
             return violations  # Need at least 2 members to check consistency
-        
+
         # Check each rule
         for rule in rules:
             rule_id = rule['rule_id']
@@ -456,10 +456,10 @@ class RelationshipSyncChecker:
             expected_value = rule['expected_value']
             operator = rule['operator'] or 'equals'
             severity = rule['severity'] or 'warning'
-            
+
             # Collect attribute values from all members
             member_values = []
-            
+
             for member in members:
                 entity_table = member['entity_table']
                 entity_id = member['entity_id']
