@@ -146,27 +146,28 @@ water_main_789 --connects_to--> fire_hydrant_101 --serves--> building_456
 **Technical implementation:**
 ```sql
 CREATE TABLE entity_relationships (
-    source_entity_id UUID,
-    target_entity_id UUID,
-    relationship_type VARCHAR(100),  -- 'contains', 'connects_to', 'serves'
-    relationship_category VARCHAR(50), -- 'spatial', 'engineering', 'semantic'
-    strength NUMERIC,
+    relationship_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    subject_entity_id UUID NOT NULL,  -- Source entity
+    predicate VARCHAR(100) NOT NULL,  -- Relationship verb
+    object_entity_id UUID NOT NULL,    -- Target entity
+    relationship_type VARCHAR(50) NOT NULL,  -- Category: 'spatial', 'engineering', 'semantic'
+    confidence_score NUMERIC(4,3) DEFAULT 1.0 CHECK (confidence_score >= 0.0 AND confidence_score <= 1.0),
     metadata JSONB
 );
 
 -- Multi-hop traversal (find everything within 2 hops)
 WITH RECURSIVE graph_traverse AS (
     -- Start node
-    SELECT source_entity_id, target_entity_id, 1 AS hop
+    SELECT subject_entity_id, object_entity_id, 1 AS hop
     FROM entity_relationships
-    WHERE source_entity_id = 'start-uuid'
+    WHERE subject_entity_id = 'start-uuid'
     
     UNION ALL
     
     -- Follow edges
-    SELECT r.source_entity_id, r.target_entity_id, gt.hop + 1
+    SELECT r.subject_entity_id, r.object_entity_id, gt.hop + 1
     FROM entity_relationships r
-    JOIN graph_traverse gt ON r.source_entity_id = gt.target_entity_id
+    JOIN graph_traverse gt ON r.subject_entity_id = gt.object_entity_id
     WHERE gt.hop < 2
 )
 SELECT * FROM graph_traverse;

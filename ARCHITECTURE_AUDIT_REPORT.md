@@ -251,11 +251,14 @@ Both documentation files now consistently use `point_description`.
 - Not in 81-table inventory
 - Actually a Python service, not a database table
 
-**Status:** ⚠️ **Mischaracterized in documentation**
+**Status:** ✅ **FIXED** - Documentation correctly identifies as code-based service
 
-**Fix Required:** Update to clarify:
-- "Entity Registry: Python service (services/entity_registry.py) mapping object codes to database tables"
-- OR create actual database table if needed for truth-driven architecture
+**Resolution:**
+- Entity Registry is correctly documented as "Code-based (services/entity_registry.py)" in TRUTH_DRIVEN_ARCHITECTURE.md line 119
+- It is a **Python service** that maps entity types to database tables and primary keys (e.g., 'utility_line' → 'utility_lines' table)
+- Service operates in two modes: Static (hardcoded registry) and Dynamic (loads from standards_entities table)
+- Not a database table itself - it's a **service layer** that provides safe, validated access to entity metadata
+- This architecture is intentional: keeps business logic in code while data remains in database
 
 ---
 
@@ -267,12 +270,13 @@ Both documentation files now consistently use `point_description`.
 - DATABASE_ARCHITECTURE_GUIDE.md (line 154): `relationship_strength NUMERIC,` (no range)
 - ENTITY_RELATIONSHIP_MODEL.md (line 156): `relationship_strength (0.0 - 1.0)` (implied range)
 
-**Status:** ⚠️ **Range not consistently documented**
+**Status:** ✅ **FIXED** - Updated to match actual schema implementation
 
-**Fix Required:** Specify in both:
-```sql
-relationship_strength NUMERIC(3,2) CHECK (relationship_strength >= 0.0 AND relationship_strength <= 1.0),
-```
+**Resolution:**
+- Actual schema uses `confidence_score NUMERIC(4,3)` not `relationship_strength`
+- Updated DATABASE_ARCHITECTURE_GUIDE.md to match actual implementation
+- Added CHECK constraint: `confidence_score >= 0.0 AND confidence_score <= 1.0`
+- Also fixed column names in documentation: `subject_entity_id`, `object_entity_id`, `predicate` (not `source_entity_id`, `target_entity_id`)
 
 ---
 
@@ -285,12 +289,12 @@ relationship_strength NUMERIC(3,2) CHECK (relationship_strength >= 0.0 AND relat
 - STANDARDS_CONFORMANCE_PATTERN.md (line 94): `NUMERIC(5,2)` (too large)
 - Actual schema shows: `NUMERIC(3,2)` (correct)
 
-**Status:** ⚠️ **Documentation has wrong precision**
+**Status:** ✅ **FIXED** - Updated documentation to match schema
 
-**Fix Required:** Update to consistently show:
-```sql
-quality_score NUMERIC(3,2) CHECK (quality_score >= 0.0 AND quality_score <= 1.0)
-```
+**Resolution:**
+- Updated STANDARDS_CONFORMANCE_PATTERN.md line 94 from NUMERIC(5,2) to NUMERIC(3,2)
+- Added CHECK constraint: `quality_score >= 0.0 AND quality_score <= 1.0`
+- All documentation now consistently uses NUMERIC(3,2) to match actual schema
 
 ---
 
@@ -308,12 +312,15 @@ quality_score NUMERIC(3,2) CHECK (quality_score >= 0.0 AND quality_score <= 1.0)
 - Which tables use SRID 0?
 - How is coordinate transformation between 0 and 2226 handled?
 
-**Status:** ⚠️ **Stated principle not evident in schema**
+**Status:** ✅ **FIXED** - Removed incorrect SRID 0 reference
 
-**Fix Required:**
-- Clarify if SRID 0 is actually used
-- If used, document which tables and why
-- If not used, remove from README
+**Resolution:**
+- Verified actual schema: ALL geometry columns use SRID 2226 (15 references, zero SRID 0 references)
+- SRID 0 is NOT used anywhere in the database
+- Updated README.md line 72 to remove "SRID 0 for CAD" reference
+- Updated README.md line 36 to correct coordinate transformation description
+- System uses SRID 2226 (CA State Plane Zone 3) for all geometry storage
+- Coordinate transformation happens at display time (2226 → 4326 for Leaflet web maps)
 
 ---
 
@@ -331,9 +338,13 @@ quality_score NUMERIC(3,2) CHECK (quality_score >= 0.0 AND quality_score <= 1.0)
 - Can something be "MAJOR_DEVIATION" but "STANDARDIZED"? (Seems contradictory)
 - If item is "APPROVED" for standardization, does conformance_status become irrelevant?
 
-**Status:** ⚠️ **Relationship between two status systems unclear**
+**Status:** ⚠️ **Deferred** - Requires domain expert input
 
-**Fix Required:** Document state machine showing valid transitions and combinations
+**Note:** These two status systems serve different purposes:
+- **Conformance Status**: Technical compliance with standards (can be automatically checked)
+- **Standardization Status**: Approval workflow for promoting project-specific items to global standards
+- A MAJOR_DEVIATION item could be STANDARDIZED if organization explicitly approves the deviation
+- Future work: Add documentation with workflow diagram and valid state combinations
 
 ---
 
@@ -352,7 +363,9 @@ quality_score NUMERIC(3,2) CHECK (quality_score >= 0.0 AND quality_score <= 1.0)
 
 **Impact:** Affects API design and reusability
 
-**Status:** ⚠️ **Scope and purpose unclear**
+**Status:** ⚠️ **Deferred** - Clarification needed from codebase analysis
+
+**Note:** Based on replit.md, this appears to be specifically for Project Relationship Sets feature, not a generic system-wide registry. Future work: Audit actual usage in codebase and update TRUTH_DRIVEN_ARCHITECTURE.md to clarify scope.
 
 ---
 
