@@ -1,0 +1,573 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Utility Structure Manager{% endblock %}
+{% block tool_icon %}fas fa-cube{% endblock %}
+{% block tool_description %}Manage manholes, inlets, valves, and other utility structures with elevation tracking{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block leaflet_assets %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+{% endblock %}
+
+{% block map_navigation_links %}
+<div class="map-navigation-panel">
+    <a href="/project-command-center" class="map-nav-link">
+        <i class="fas fa-th-large"></i> Command Center
+    </a>
+    <a href="/map-viewer" class="map-nav-link">
+        <i class="fas fa-map-marked-alt"></i> Map Viewer
+    </a>
+</div>
+{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-filter-section">
+    <h4>Structure Filters</h4>
+    <div class="tool-filter-item">
+        <label for="filter-structure-type">Structure Type:</label>
+        <select id="filter-structure-type" onchange="applyFilters()">
+            <option value="">All Types</option>
+            <option value="manhole">Manhole</option>
+            <option value="inlet">Inlet</option>
+            <option value="catch_basin">Catch Basin</option>
+            <option value="outlet">Outlet</option>
+            <option value="junction">Junction</option>
+            <option value="cleanout">Cleanout</option>
+            <option value="valve">Valve</option>
+            <option value="meter">Meter</option>
+            <option value="pump_station">Pump Station</option>
+        </select>
+    </div>
+    <div class="tool-filter-item">
+        <label for="filter-condition">Condition:</label>
+        <select id="filter-condition" onchange="applyFilters()">
+            <option value="">All Conditions</option>
+            <option value="5">Excellent (5)</option>
+            <option value="4">Good (4)</option>
+            <option value="3">Fair (3)</option>
+            <option value="2">Poor (2)</option>
+            <option value="1">Critical (1)</option>
+        </select>
+    </div>
+    <div class="tool-filter-item">
+        <label>
+            <input type="checkbox" id="filter-validation-issues" onchange="applyFilters()">
+            Show Only Structures with Issues
+        </label>
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Structure Statistics</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Structures:</span>
+        <span class="tool-stat-value" id="stat-total-structures">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Manholes:</span>
+        <span class="tool-stat-value" id="stat-manholes">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Inlets:</span>
+        <span class="tool-stat-value" id="stat-inlets">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Avg Depth:</span>
+        <span class="tool-stat-value" id="stat-avg-depth">0 ft</span>
+    </div>
+</div>
+
+<button class="tool-action-btn" onclick="showAddStructureModal()">
+    <i class="fas fa-plus"></i> Add Structure
+</button>
+<button class="tool-action-btn secondary" onclick="validateStructures()">
+    <i class="fas fa-check-circle"></i> Validate Elevations
+</button>
+<button class="tool-action-btn secondary" onclick="exportStructures()">
+    <i class="fas fa-file-export"></i> Export Data
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div id="structure-map" style="height: 100%; width: 100%; background: #0a1929; position: relative;"></div>
+
+    <div id="mapLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; text-align: center; z-index: 1000;">
+        <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--mc-primary); margin-bottom: 1rem;"></i>
+        <p style="color: var(--mc-text); font-size: 18px;">Loading structures...</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active" onclick="showTab('structures')">
+            <i class="fas fa-cube"></i> Structures (<span id="structures-tab-count">0</span>)
+        </button>
+        <button class="tool-data-tab" onclick="showTab('connections')">
+            <i class="fas fa-link"></i> Connections
+        </button>
+        <button class="tool-data-tab" onclick="showTab('validation')">
+            <i class="fas fa-exclamation-triangle"></i> Validation Issues
+        </button>
+    </div>
+
+    <div class="tool-data-content">
+        <!-- Structures Tab -->
+        <div id="structuresTab" class="tab-content">
+            <table class="tool-data-table" id="structuresTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('structure_number')">Number <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('structure_type')">Type <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('rim_elevation')">Rim Elev <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('invert_elevation')">Invert Elev <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('depth_ft')">Depth <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('condition_rating')">Condition <i class="fas fa-sort"></i></th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="structures-table-body">
+                    <!-- Populated via JavaScript -->
+                </tbody>
+            </table>
+
+            <div id="structuresEmptyState" style="display: none; text-align: center; padding: 3rem; color: var(--mc-muted);">
+                <i class="fas fa-cube" style="font-size: 64px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <h3>No Structures Found</h3>
+                <p>Add structures to your project or adjust filters.</p>
+            </div>
+        </div>
+
+        <!-- Connections Tab -->
+        <div id="connectionsTab" class="tab-content" style="display: none;">
+            <div id="connections-content">
+                <p style="padding: 2rem; text-align: center; color: var(--mc-muted);">
+                    Select a structure to view connected pipes.
+                </p>
+            </div>
+        </div>
+
+        <!-- Validation Tab -->
+        <div id="validationTab" class="tab-content" style="display: none;">
+            <div id="validation-results">
+                <p style="padding: 2rem; text-align: center; color: var(--mc-muted);">
+                    Click "Validate Elevations" to check for elevation and depth issues.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.tool-data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tool-data-table th {
+    background: rgba(0, 255, 255, 0.1);
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 2px solid var(--mc-primary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.tool-data-table th:hover {
+    background: rgba(0, 255, 255, 0.2);
+}
+
+.tool-data-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+}
+
+.tool-data-table tbody tr:hover {
+    background: rgba(0, 255, 255, 0.05);
+}
+
+.tool-data-table .action-btn {
+    padding: 0.25rem 0.5rem;
+    margin: 0 0.25rem;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--mc-primary);
+    color: var(--mc-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.tool-data-table .action-btn:hover {
+    background: rgba(0, 255, 255, 0.2);
+}
+
+.tool-data-table .action-btn.danger {
+    border-color: var(--mc-danger);
+    color: var(--mc-danger);
+}
+
+.condition-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.condition-5 { background: rgba(0, 255, 0, 0.2); color: #00ff00; }
+.condition-4 { background: rgba(0, 200, 255, 0.2); color: #00ccff; }
+.condition-3 { background: rgba(255, 255, 0, 0.2); color: #ffff00; }
+.condition-2 { background: rgba(255, 165, 0, 0.2); color: #ffa500; }
+.condition-1 { background: rgba(255, 0, 0, 0.2); color: #ff0000; }
+
+.validation-issue {
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-left: 4px solid var(--mc-warning);
+    background: rgba(255, 165, 0, 0.1);
+    border-radius: 4px;
+}
+
+.validation-issue.error {
+    border-color: var(--mc-danger);
+    background: rgba(255, 68, 68, 0.1);
+}
+
+.validation-issue.success {
+    border-color: var(--mc-success);
+    background: rgba(0, 255, 100, 0.1);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let map;
+let structureLayer;
+let allStructures = [];
+let filteredStructures = [];
+let currentTab = 'structures';
+let sortColumn = null;
+let sortAsc = true;
+
+function initializeMap() {
+    map = L.map('structure-map', {
+        dragging: false,
+        touchZoom: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        zoomControl: true
+    }).setView([37.8, -122.4], 15);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    structureLayer = L.layerGroup().addTo(map);
+}
+
+async function loadStructures() {
+    document.getElementById('mapLoading').style.display = 'block';
+
+    try {
+        const response = await fetch('/api/structures');
+        const data = await response.json();
+
+        if (data.error) {
+            console.error('Error loading structures:', data.error);
+            return;
+        }
+
+        allStructures = data.structures || [];
+        filteredStructures = [...allStructures];
+
+        renderStructuresOnMap();
+        renderStructureTable();
+        updateStatistics();
+
+    } catch (error) {
+        console.error('Failed to load structures:', error);
+    } finally {
+        document.getElementById('mapLoading').style.display = 'none';
+    }
+}
+
+function renderStructuresOnMap() {
+    structureLayer.clearLayers();
+
+    if (filteredStructures.length === 0) return;
+
+    const bounds = [];
+
+    filteredStructures.forEach(structure => {
+        if (!structure.geometry) return;
+
+        const icon = getIconForStructureType(structure.structure_type);
+        const color = getColorForCondition(structure.condition_rating);
+
+        const marker = L.geoJSON(structure.geometry, {
+            pointToLayer: (feature, latlng) => {
+                return L.circleMarker(latlng, {
+                    radius: 6,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+            }
+        }).addTo(structureLayer);
+
+        const depth = structure.depth_ft || (structure.rim_elevation && structure.invert_elevation
+            ? structure.rim_elevation - structure.invert_elevation
+            : 0);
+
+        marker.bindPopup(`
+            <strong>${structure.structure_type || 'Unknown'}</strong><br>
+            Number: ${structure.structure_number || 'N/A'}<br>
+            Rim: ${structure.rim_elevation ? structure.rim_elevation.toFixed(2) + ' ft' : 'N/A'}<br>
+            Invert: ${structure.invert_elevation ? structure.invert_elevation.toFixed(2) + ' ft' : 'N/A'}<br>
+            Depth: ${depth.toFixed(2)} ft
+        `);
+
+        marker.eachLayer(l => {
+            if (l.getBounds) {
+                bounds.push(l.getBounds());
+            } else if (l.getLatLng) {
+                const latlng = l.getLatLng();
+                bounds.push(L.latLngBounds(latlng, latlng));
+            }
+        });
+    });
+
+    if (bounds.length > 0) {
+        const allBounds = bounds.reduce((a, b) => a.extend(b));
+        map.fitBounds(allBounds, { padding: [50, 50] });
+    }
+}
+
+function getIconForStructureType(type) {
+    const icons = {
+        'manhole': 'fa-circle',
+        'inlet': 'fa-square',
+        'catch_basin': 'fa-square',
+        'outlet': 'fa-arrow-down',
+        'junction': 'fa-code-branch',
+        'valve': 'fa-adjust',
+        'meter': 'fa-tachometer-alt'
+    };
+    return icons[type] || 'fa-circle';
+}
+
+function getColorForCondition(rating) {
+    const colors = {
+        5: '#00ff00',
+        4: '#00ccff',
+        3: '#ffff00',
+        2: '#ffa500',
+        1: '#ff0000'
+    };
+    return colors[rating] || '#666666';
+}
+
+function renderStructureTable() {
+    const tbody = document.getElementById('structures-table-body');
+    const emptyState = document.getElementById('structuresEmptyState');
+    const table = document.getElementById('structuresTable');
+
+    document.getElementById('structures-tab-count').textContent = filteredStructures.length;
+
+    if (filteredStructures.length === 0) {
+        table.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    table.style.display = 'table';
+    emptyState.style.display = 'none';
+
+    tbody.innerHTML = filteredStructures.map(structure => {
+        const depth = structure.depth_ft || (structure.rim_elevation && structure.invert_elevation
+            ? structure.rim_elevation - structure.invert_elevation
+            : 0);
+        const conditionClass = `condition-${structure.condition_rating || 3}`;
+
+        return `
+            <tr data-structure-id="${structure.structure_id}">
+                <td>${structure.structure_number || 'N/A'}</td>
+                <td>${structure.structure_type || 'N/A'}</td>
+                <td>${structure.rim_elevation ? structure.rim_elevation.toFixed(2) : 'N/A'}</td>
+                <td>${structure.invert_elevation ? structure.invert_elevation.toFixed(2) : 'N/A'}</td>
+                <td>${depth.toFixed(2)} ft</td>
+                <td><span class="condition-badge ${conditionClass}">${structure.condition_rating || 'N/A'}</span></td>
+                <td>
+                    <button class="action-btn" onclick="viewConnections('${structure.structure_id}')">
+                        <i class="fas fa-link"></i> Connections
+                    </button>
+                    <button class="action-btn" onclick="editStructure('${structure.structure_id}')">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="action-btn danger" onclick="deleteStructure('${structure.structure_id}')">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function updateStatistics() {
+    const total = filteredStructures.length;
+    const manholes = filteredStructures.filter(s => s.structure_type === 'manhole').length;
+    const inlets = filteredStructures.filter(s => s.structure_type === 'inlet' || s.structure_type === 'catch_basin').length;
+
+    const depths = filteredStructures.map(s => {
+        if (s.depth_ft) return s.depth_ft;
+        if (s.rim_elevation && s.invert_elevation) return s.rim_elevation - s.invert_elevation;
+        return 0;
+    }).filter(d => d > 0);
+
+    const avgDepth = depths.length > 0
+        ? depths.reduce((sum, d) => sum + d, 0) / depths.length
+        : 0;
+
+    document.getElementById('stat-total-structures').textContent = total;
+    document.getElementById('stat-manholes').textContent = manholes;
+    document.getElementById('stat-inlets').textContent = inlets;
+    document.getElementById('stat-avg-depth').textContent = avgDepth.toFixed(2) + ' ft';
+}
+
+function applyFilters() {
+    const structureType = document.getElementById('filter-structure-type').value;
+    const condition = document.getElementById('filter-condition').value;
+    const issuesOnly = document.getElementById('filter-validation-issues').checked;
+
+    filteredStructures = allStructures.filter(structure => {
+        if (structureType && structure.structure_type !== structureType) return false;
+        if (condition && structure.condition_rating != condition) return false;
+        if (issuesOnly) {
+            // Check for issues: rim < invert, or missing elevations
+            if (!structure.rim_elevation || !structure.invert_elevation) return true;
+            if (structure.rim_elevation < structure.invert_elevation) return true;
+            return false;
+        }
+        return true;
+    });
+
+    renderStructuresOnMap();
+    renderStructureTable();
+    updateStatistics();
+}
+
+function sortTable(column) {
+    if (sortColumn === column) {
+        sortAsc = !sortAsc;
+    } else {
+        sortColumn = column;
+        sortAsc = true;
+    }
+
+    filteredStructures.sort((a, b) => {
+        let aVal = a[column];
+        let bVal = b[column];
+
+        if (typeof aVal === 'string') {
+            return sortAsc ? (aVal || '').localeCompare(bVal || '') : (bVal || '').localeCompare(aVal || '');
+        } else {
+            return sortAsc ? (aVal || 0) - (bVal || 0) : (bVal || 0) - (aVal || 0);
+        }
+    });
+
+    renderStructureTable();
+}
+
+function showTab(tabName) {
+    currentTab = tabName;
+
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.style.display = 'none';
+    });
+
+    document.querySelectorAll('.tool-data-tab').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    document.getElementById(tabName + 'Tab').style.display = 'block';
+    event.target.classList.add('active');
+}
+
+async function validateStructures() {
+    const validationResults = document.getElementById('validation-results');
+    validationResults.innerHTML = '<p style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Validating...</p>';
+
+    try {
+        const response = await fetch('/api/structures/validate');
+        const data = await response.json();
+
+        if (data.issues && data.issues.length === 0) {
+            validationResults.innerHTML = `
+                <div class="validation-issue success">
+                    <i class="fas fa-check-circle"></i> <strong>Structure validation passed!</strong><br>
+                    No elevation or depth issues found.
+                </div>
+            `;
+        } else {
+            validationResults.innerHTML = data.issues.map(issue => `
+                <div class="validation-issue ${issue.severity}">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>${issue.type}</strong><br>
+                    ${issue.message}
+                </div>
+            `).join('');
+        }
+
+        showTab('validation');
+    } catch (error) {
+        console.error('Validation failed:', error);
+        validationResults.innerHTML = `
+            <div class="validation-issue error">
+                <i class="fas fa-times-circle"></i> <strong>Validation failed</strong><br>
+                ${error.message}
+            </div>
+        `;
+    }
+}
+
+function viewConnections(structureId) {
+    // TODO: Load and display connected pipes
+    alert('View connections for: ' + structureId);
+    showTab('connections');
+}
+
+function showAddStructureModal() {
+    alert('Add Structure modal - Coming soon');
+}
+
+function editStructure(structureId) {
+    alert('Edit structure: ' + structureId);
+}
+
+function deleteStructure(structureId) {
+    if (confirm('Are you sure you want to delete this structure?')) {
+        alert('Delete functionality coming soon');
+    }
+}
+
+function exportStructures() {
+    alert('Export functionality coming soon');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initializeMap();
+    loadStructures();
+});
+</script>
+{% endblock %}

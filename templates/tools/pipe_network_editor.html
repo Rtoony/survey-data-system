@@ -1,0 +1,544 @@
+{% extends "base_specialized_tool.html" %}
+
+{% block tool_title %}Pipe Network Editor{% endblock %}
+{% block tool_icon %}fas fa-project-diagram{% endblock %}
+{% block tool_description %}Manage gravity and pressure pipe networks with network connectivity validation{% endblock %}
+
+{% block content_layout_class %}tool-complex-layout{% endblock %}
+
+{% block leaflet_assets %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+{% endblock %}
+
+{% block map_navigation_links %}
+<div class="map-navigation-panel">
+    <a href="/project-command-center" class="map-nav-link" title="View full project overview with interactive map">
+        <i class="fas fa-th-large"></i> Command Center
+    </a>
+    <a href="/map-viewer" class="map-nav-link" title="Access full interactive map with pan and zoom">
+        <i class="fas fa-map-marked-alt"></i> Map Viewer
+    </a>
+</div>
+{% endblock %}
+
+{% block sidebar_content %}
+<div class="tool-filter-section">
+    <h4>Network Filters</h4>
+    <div class="tool-filter-item">
+        <label for="filter-line-type">Line Type:</label>
+        <select id="filter-line-type" onchange="applyFilters()">
+            <option value="">All Types</option>
+            <option value="storm_drain">Storm Drain</option>
+            <option value="sanitary_sewer">Sanitary Sewer</option>
+            <option value="water_distribution">Water Distribution</option>
+            <option value="gravity_main">Gravity Main</option>
+            <option value="pressure_main">Pressure Main</option>
+            <option value="force_main">Force Main</option>
+        </select>
+    </div>
+    <div class="tool-filter-item">
+        <label for="filter-material">Material:</label>
+        <select id="filter-material" onchange="applyFilters()">
+            <option value="">All Materials</option>
+            <option value="PVC">PVC</option>
+            <option value="DI">Ductile Iron</option>
+            <option value="HDPE">HDPE</option>
+            <option value="RCP">Reinforced Concrete</option>
+            <option value="VCP">Vitrified Clay</option>
+        </select>
+    </div>
+    <div class="tool-filter-item">
+        <label for="filter-min-diameter">Min Diameter (in):</label>
+        <input type="number" id="filter-min-diameter" min="0" step="1" placeholder="Any" onchange="applyFilters()">
+    </div>
+    <div class="tool-filter-item">
+        <label for="filter-max-diameter">Max Diameter (in):</label>
+        <input type="number" id="filter-max-diameter" min="0" step="1" placeholder="Any" onchange="applyFilters()">
+    </div>
+</div>
+
+<div class="tool-stats-section">
+    <h4>Network Statistics</h4>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Pipes:</span>
+        <span class="tool-stat-value" id="stat-total-pipes">0</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Total Length:</span>
+        <span class="tool-stat-value" id="stat-total-length">0 ft</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Avg Slope:</span>
+        <span class="tool-stat-value" id="stat-avg-slope">0.00%</span>
+    </div>
+    <div class="tool-stat-item">
+        <span class="tool-stat-label">Size Range:</span>
+        <span class="tool-stat-value" id="stat-diameter-range">--</span>
+    </div>
+</div>
+
+<button class="tool-action-btn" onclick="showAddPipeModal()">
+    <i class="fas fa-plus"></i> Add New Pipe
+</button>
+<button class="tool-action-btn secondary" onclick="validateNetwork()">
+    <i class="fas fa-check-circle"></i> Validate Network
+</button>
+<button class="tool-action-btn secondary" onclick="exportToDXF()">
+    <i class="fas fa-file-export"></i> Export to DXF
+</button>
+{% endblock %}
+
+{% block main_content %}
+<div class="tool-top-area">
+    <div id="pipe-map" style="height: 100%; width: 100%; background: #0a1929; position: relative;"></div>
+
+    <!-- Loading overlay -->
+    <div id="mapLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; text-align: center; z-index: 1000;">
+        <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--mc-primary); margin-bottom: 1rem;"></i>
+        <p style="color: var(--mc-text); font-size: 18px;">Loading pipe network...</p>
+    </div>
+</div>
+
+<div class="tool-resizer"></div>
+
+<div class="tool-bottom-area">
+    <div class="tool-data-tabs">
+        <button class="tool-data-tab active" onclick="showTab('pipes')">
+            <i class="fas fa-pipe"></i> Pipes (<span id="pipes-tab-count">0</span>)
+        </button>
+        <button class="tool-data-tab" onclick="showTab('structures')">
+            <i class="fas fa-cube"></i> Structures
+        </button>
+        <button class="tool-data-tab" onclick="showTab('validation')">
+            <i class="fas fa-exclamation-triangle"></i> Validation Issues
+        </button>
+    </div>
+
+    <div class="tool-data-content">
+        <!-- Pipes Tab -->
+        <div id="pipesTab" class="tab-content">
+            <table class="tool-data-table" id="pipesTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('line_id')">ID <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('line_type')">Type <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('diameter')">Diameter <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('material')">Material <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('length_ft')">Length (ft) <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('slope')">Slope (%) <i class="fas fa-sort"></i></th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="pipes-table-body">
+                    <!-- Populated via JavaScript -->
+                </tbody>
+            </table>
+
+            <!-- Empty state -->
+            <div id="pipesEmptyState" style="display: none; text-align: center; padding: 3rem; color: var(--mc-muted);">
+                <i class="fas fa-project-diagram" style="font-size: 64px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                <h3>No Pipes Found</h3>
+                <p>Add pipes to your project or adjust filters to see results.</p>
+            </div>
+        </div>
+
+        <!-- Structures Tab -->
+        <div id="structuresTab" class="tab-content" style="display: none;">
+            <p style="padding: 2rem; text-align: center; color: var(--mc-muted);">
+                Structure management coming soon. Use the Utility Structure Manager tool.
+            </p>
+        </div>
+
+        <!-- Validation Tab -->
+        <div id="validationTab" class="tab-content" style="display: none;">
+            <div id="validation-results">
+                <p style="padding: 2rem; text-align: center; color: var(--mc-muted);">
+                    Click "Validate Network" to check for connectivity and hydraulic issues.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.tool-data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tool-data-table th {
+    background: rgba(0, 255, 255, 0.1);
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 2px solid var(--mc-primary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.tool-data-table th:hover {
+    background: rgba(0, 255, 255, 0.2);
+}
+
+.tool-data-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+}
+
+.tool-data-table tbody tr:hover {
+    background: rgba(0, 255, 255, 0.05);
+}
+
+.tool-data-table .action-btn {
+    padding: 0.25rem 0.5rem;
+    margin: 0 0.25rem;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--mc-primary);
+    color: var(--mc-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.tool-data-table .action-btn:hover {
+    background: rgba(0, 255, 255, 0.2);
+}
+
+.tool-data-table .action-btn.danger {
+    border-color: var(--mc-danger);
+    color: var(--mc-danger);
+}
+
+.tab-content {
+    padding: 1rem;
+}
+
+.validation-issue {
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-left: 4px solid var(--mc-warning);
+    background: rgba(255, 165, 0, 0.1);
+    border-radius: 4px;
+}
+
+.validation-issue.error {
+    border-color: var(--mc-danger);
+    background: rgba(255, 68, 68, 0.1);
+}
+
+.validation-issue.success {
+    border-color: var(--mc-success);
+    background: rgba(0, 255, 100, 0.1);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global variables
+let map;
+let pipeLayer;
+let allPipes = [];
+let filteredPipes = [];
+let currentTab = 'pipes';
+let sortColumn = null;
+let sortAsc = true;
+
+// Initialize map
+function initializeMap() {
+    map = L.map('pipe-map', {
+        dragging: false,
+        touchZoom: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        zoomControl: true
+    }).setView([37.8, -122.4], 15);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    pipeLayer = L.layerGroup().addTo(map);
+}
+
+// Load pipes from API
+async function loadPipes() {
+    document.getElementById('mapLoading').style.display = 'block';
+
+    try {
+        const response = await fetch('/api/pipes');
+        const data = await response.json();
+
+        if (data.error) {
+            console.error('Error loading pipes:', data.error);
+            return;
+        }
+
+        allPipes = data.pipes || [];
+        filteredPipes = [...allPipes];
+
+        renderPipesOnMap();
+        renderPipeTable();
+        updateStatistics();
+
+    } catch (error) {
+        console.error('Failed to load pipes:', error);
+    } finally {
+        document.getElementById('mapLoading').style.display = 'none';
+    }
+}
+
+// Render pipes on map
+function renderPipesOnMap() {
+    pipeLayer.clearLayers();
+
+    if (filteredPipes.length === 0) return;
+
+    const bounds = [];
+
+    filteredPipes.forEach(pipe => {
+        if (!pipe.geometry) return;
+
+        const color = getColorForLineType(pipe.line_type);
+        const weight = Math.max(2, (pipe.diameter || 12) / 10);
+
+        const layer = L.geoJSON(pipe.geometry, {
+            style: {
+                color: color,
+                weight: weight,
+                opacity: 0.8
+            }
+        }).addTo(pipeLayer);
+
+        layer.bindPopup(`
+            <strong>${pipe.line_type || 'Unknown'} - ${pipe.diameter || 'N/A'}"</strong><br>
+            Material: ${pipe.material || 'N/A'}<br>
+            Length: ${(pipe.length_ft || 0).toFixed(1)} ft<br>
+            Slope: ${((pipe.slope || 0) * 100).toFixed(3)}%
+        `);
+
+        // Collect bounds
+        layer.eachLayer(l => {
+            if (l.getBounds) {
+                bounds.push(l.getBounds());
+            }
+        });
+    });
+
+    // Fit map to bounds
+    if (bounds.length > 0) {
+        const allBounds = bounds.reduce((a, b) => a.extend(b));
+        map.fitBounds(allBounds, { padding: [50, 50] });
+    }
+}
+
+// Get color for line type
+function getColorForLineType(lineType) {
+    const colors = {
+        'storm_drain': '#0088ff',
+        'sanitary_sewer': '#884400',
+        'water_distribution': '#0044ff',
+        'gravity_main': '#00aaff',
+        'pressure_main': '#ff6600',
+        'force_main': '#ff0066'
+    };
+    return colors[lineType] || '#666666';
+}
+
+// Render pipe table
+function renderPipeTable() {
+    const tbody = document.getElementById('pipes-table-body');
+    const emptyState = document.getElementById('pipesEmptyState');
+    const table = document.getElementById('pipesTable');
+
+    document.getElementById('pipes-tab-count').textContent = filteredPipes.length;
+
+    if (filteredPipes.length === 0) {
+        table.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    table.style.display = 'table';
+    emptyState.style.display = 'none';
+
+    tbody.innerHTML = filteredPipes.map(pipe => `
+        <tr data-pipe-id="${pipe.line_id}" onmouseover="highlightPipe('${pipe.line_id}')" onmouseout="unhighlightPipe('${pipe.line_id}')">
+            <td>${pipe.line_id.substring(0, 8)}...</td>
+            <td>${pipe.line_type || 'N/A'}</td>
+            <td>${pipe.diameter || 'N/A'}"</td>
+            <td>${pipe.material || 'N/A'}</td>
+            <td>${(pipe.length_ft || 0).toFixed(1)}</td>
+            <td>${((pipe.slope || 0) * 100).toFixed(3)}%</td>
+            <td>
+                <button class="action-btn" onclick="editPipe('${pipe.line_id}')">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="action-btn danger" onclick="deletePipe('${pipe.line_id}')">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Update statistics
+function updateStatistics() {
+    const totalPipes = filteredPipes.length;
+    const totalLength = filteredPipes.reduce((sum, p) => sum + (p.length_ft || 0), 0);
+    const avgSlope = totalPipes > 0
+        ? filteredPipes.reduce((sum, p) => sum + (p.slope || 0), 0) / totalPipes
+        : 0;
+
+    const diameters = filteredPipes.map(p => p.diameter).filter(d => d != null);
+    const minDiameter = diameters.length > 0 ? Math.min(...diameters) : 0;
+    const maxDiameter = diameters.length > 0 ? Math.max(...diameters) : 0;
+
+    document.getElementById('stat-total-pipes').textContent = totalPipes;
+    document.getElementById('stat-total-length').textContent = totalLength.toFixed(0) + ' ft';
+    document.getElementById('stat-avg-slope').textContent = (avgSlope * 100).toFixed(3) + '%';
+    document.getElementById('stat-diameter-range').textContent = diameters.length > 0
+        ? `${minDiameter}" - ${maxDiameter}"`
+        : '--';
+}
+
+// Apply filters
+function applyFilters() {
+    const lineType = document.getElementById('filter-line-type').value;
+    const material = document.getElementById('filter-material').value;
+    const minDiameter = parseFloat(document.getElementById('filter-min-diameter').value) || 0;
+    const maxDiameter = parseFloat(document.getElementById('filter-max-diameter').value) || Infinity;
+
+    filteredPipes = allPipes.filter(pipe => {
+        if (lineType && pipe.line_type !== lineType) return false;
+        if (material && pipe.material !== material) return false;
+        if (pipe.diameter < minDiameter) return false;
+        if (pipe.diameter > maxDiameter) return false;
+        return true;
+    });
+
+    renderPipesOnMap();
+    renderPipeTable();
+    updateStatistics();
+}
+
+// Sort table
+function sortTable(column) {
+    if (sortColumn === column) {
+        sortAsc = !sortAsc;
+    } else {
+        sortColumn = column;
+        sortAsc = true;
+    }
+
+    filteredPipes.sort((a, b) => {
+        let aVal = a[column];
+        let bVal = b[column];
+
+        if (typeof aVal === 'string') {
+            return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        } else {
+            return sortAsc ? aVal - bVal : bVal - aVal;
+        }
+    });
+
+    renderPipeTable();
+}
+
+// Show tab
+function showTab(tabName) {
+    currentTab = tabName;
+
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.style.display = 'none';
+    });
+
+    // Remove active class
+    document.querySelectorAll('.tool-data-tab').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    // Show selected tab
+    document.getElementById(tabName + 'Tab').style.display = 'block';
+    event.target.classList.add('active');
+}
+
+// Validate network
+async function validateNetwork() {
+    const validationResults = document.getElementById('validation-results');
+    validationResults.innerHTML = '<p style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Validating...</p>';
+
+    try {
+        const response = await fetch('/api/pipes/validate');
+        const data = await response.json();
+
+        if (data.issues && data.issues.length === 0) {
+            validationResults.innerHTML = `
+                <div class="validation-issue success">
+                    <i class="fas fa-check-circle"></i> <strong>Network validation passed!</strong><br>
+                    No issues found.
+                </div>
+            `;
+        } else {
+            validationResults.innerHTML = data.issues.map(issue => `
+                <div class="validation-issue ${issue.severity}">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>${issue.type}</strong><br>
+                    ${issue.message}
+                </div>
+            `).join('');
+        }
+
+        showTab('validation');
+    } catch (error) {
+        console.error('Validation failed:', error);
+        validationResults.innerHTML = `
+            <div class="validation-issue error">
+                <i class="fas fa-times-circle"></i> <strong>Validation failed</strong><br>
+                ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Placeholder functions
+function showAddPipeModal() {
+    alert('Add Pipe modal - Coming soon');
+}
+
+function editPipe(pipeId) {
+    alert('Edit pipe: ' + pipeId);
+}
+
+function deletePipe(pipeId) {
+    if (confirm('Are you sure you want to delete this pipe?')) {
+        // TODO: Implement delete
+        alert('Delete functionality coming soon');
+    }
+}
+
+function exportToDXF() {
+    alert('DXF export coming soon');
+}
+
+function highlightPipe(pipeId) {
+    // TODO: Highlight pipe on map
+}
+
+function unhighlightPipe(pipeId) {
+    // TODO: Unhighlight pipe on map
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    initializeMap();
+    loadPipes();
+});
+</script>
+{% endblock %}
