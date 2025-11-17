@@ -70,7 +70,7 @@ CREATE TABLE survey_points (
     elevation_datum VARCHAR(100),  -- NAVD88, NGVD29, etc.
     
     -- Survey metadata
-    description TEXT,
+    point_description TEXT,  -- Description of the survey point
     survey_date DATE,
     surveyor VARCHAR(255),
     instrument_type VARCHAR(100),
@@ -324,7 +324,7 @@ CREATE TABLE utility_lines (
     
     -- Physical properties
     diameter NUMERIC(10, 2),  -- inches
-    material VARCHAR(100),    -- PVC, DI, HDPE, etc.
+    material VARCHAR(100) REFERENCES material_standards(material_code),  -- FK to material_standards
     pipe_class VARCHAR(50),
     
     -- Hydraulic properties
@@ -358,11 +358,11 @@ CREATE TABLE utility_structures (
     entity_id UUID REFERENCES standards_entities(entity_id),
     
     -- Structure classification
-    structure_type VARCHAR(100) CHECK (structure_type IN (
-        'manhole', 'inlet', 'outlet', 'junction', 
-        'catch_basin', 'cleanout', 'valve', 'meter',
-        'pump_station', 'tank', 'vault'
-    )),
+    -- NOTE: CHECK constraint should be added for data quality, or better yet,
+    -- convert to FK to structure_type_standards table for better manageability
+    structure_type VARCHAR(100),  -- Common values: 'manhole', 'inlet', 'outlet',
+                                   -- 'junction', 'catch_basin', 'cleanout', 'valve',
+                                   -- 'meter', 'pump_station', 'tank', 'vault'
     
     -- 3D Location (PointZ at rim elevation)
     geometry geometry(PointZ, 2226) NOT NULL,
@@ -374,7 +374,7 @@ CREATE TABLE utility_structures (
     
     -- Physical properties
     diameter NUMERIC(8, 2),
-    material VARCHAR(100),
+    material VARCHAR(100) REFERENCES material_standards(material_code),  -- FK to material_standards
     
     -- Structure ID
     structure_number VARCHAR(100),
@@ -457,7 +457,8 @@ CREATE TABLE bmps (
     )),
     
     -- Geometry (polygon for area BMPs, point for device BMPs)
-    geometry geometry(GeometryZ, 2226) NOT NULL,
+    -- Using generic Geometry type to support both PointZ and PolygonZ
+    geometry geometry(Geometry, 2226) NOT NULL,
     
     -- Sizing
     surface_area_sqft NUMERIC(12, 3),
@@ -507,8 +508,8 @@ CREATE TABLE horizontal_alignments (
         'edge_of_pavement', 'right_of_way'
     )),
     
-    -- 2D Geometry (horizontal only)
-    geometry geometry(LineString, 2226) NOT NULL,
+    -- 3D Geometry (horizontal with elevation data for profile/cross-section integration)
+    geometry geometry(LineStringZ, 2226) NOT NULL,
     
     -- Stationing
     start_station NUMERIC(12, 3),  -- e.g., 0+00

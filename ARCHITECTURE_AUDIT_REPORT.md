@@ -100,12 +100,9 @@ Status: ✅ Partially implemented - CHECK constraint exists but should be replac
 - Profile visualization
 - Cut/fill calculations
 
-**Status:** ❌ **Schema definition is incomplete**
+**Status:** ✅ **FIXED** - Actual database schema (complete_schema.sql line 1753) correctly uses LineStringZ. Documentation in CIVIL_ENGINEERING_DOMAIN_MODEL.md line 511 has been updated to match.
 
-**Fix Required:** Change to:
-```sql
-geometry geometry(LineStringZ, 2226) NOT NULL,  -- Include elevation
-```
+**Resolution:** Documentation error corrected - actual schema was already correct.
 
 ---
 
@@ -124,19 +121,9 @@ geometry geometry(GeometryZ, 2226) NOT NULL,
 - Document says "polygon for area BMPs, point for device BMPs" but uses `GeometryZ`
 - Valid options: `PointZ`, `PolygonZ`, or use base types
 
-**Status:** ❌ **SQL is invalid - will not execute**
+**Status:** ✅ **FIXED** - Updated CIVIL_ENGINEERING_DOMAIN_MODEL.md line 461 to use valid PostGIS type: `geometry(Geometry, 2226)`
 
-**Fix Required:**
-```sql
--- Option 1: Support both with geometry column type
-geometry geometry(Geometry, 2226) NOT NULL,  -- Allow any type
-
--- Option 2: Separate point/polygon BMPs into different tables
--- For point BMPs:
-geometry geometry(PointZ, 2226) NOT NULL,
--- For area BMPs:
-geometry geometry(PolygonZ, 2226) NOT NULL,
-```
+**Resolution:** Changed from invalid `GeometryZ` to valid `Geometry` type which supports both PointZ and PolygonZ geometries. Note: BMP table does not exist in actual schema (complete_schema.sql) - this is aspirational documentation.
 
 ---
 
@@ -164,12 +151,14 @@ geometry geometry(PolygonZ, 2226) NOT NULL,
 
 **Impact:** Developers don't know which formula is authoritative. AI models trained on quality scores get inconsistent data.
 
-**Status:** ⚠️ **Conflicting specifications**
+**Status:** ✅ **FIXED** - Audited actual implementation in complete_schema.sql
 
-**Resolution Required:**
-- Audit actual `calculate_quality_score()` function in codebase
-- Document the single authoritative formula
-- Update both files to match
+**Actual Implementation (Authoritative):**
+- **Field completeness (70%)**: Base score from ratio of filled required fields
+- **Has embedding (+15%)**: Bonus for AI vector embeddings
+- **Has relationships (+15%)**: Bonus for entity connections
+
+**Resolution:** Both DATABASE_ARCHITECTURE_GUIDE.md and DATA_FLOW_AND_LIFECYCLE.md have been updated to show the authoritative implementation from complete_schema.sql. Previous versions were aspirational or outdated.
 
 ---
 
@@ -188,12 +177,14 @@ geometry geometry(PolygonZ, 2226) NOT NULL,
 - Are drawings completely replaced by projects?
 - What about multi-file projects?
 
-**Status:** ⚠️ **Architectural transition incomplete/undocumented**
+**Status:** ✅ **FIXED** - Architectural transition is complete and now clearly documented
 
-**Resolution Required:**
-- Clarify: Is drawing-level import deprecated?
-- Document the migration path
-- Update all docs to use consistent terminology
+**Resolution:**
+- **Drawing-level import is DEPRECATED**: System migrated from "Projects → Drawings → Entities" to "Projects → Entities"
+- **Migration 011** (011_remove_drawing_id_from_layers.sql) completed the transition by removing drawing_id column from layers table
+- **Multi-file projects:** Multiple DXF files can be imported, all associated with a single project
+- **Documentation updated:** ENTITY_RELATIONSHIP_MODEL.md now clearly states project-level architecture and references Migration 011
+- **Legacy drawing_id:** Removed from all tables except where still needed for schema compatibility
 
 ---
 
@@ -211,20 +202,14 @@ geometry geometry(PolygonZ, 2226) NOT NULL,
 - Developers may confuse "entity_type" meanings
 - Queries joining across tables could get wrong results
 
-**Status:** ⚠️ **Poor naming causing confusion**
+**Status:** ✅ **FIXED** - Added clarifying database comments (Migration 015)
 
-**Fix Required:** Rename columns to clarify:
-```sql
--- In standards_entities:
-standard_entity_type  -- or canonical_entity_type
+**Resolution:** Rather than renaming columns (breaking change), added comprehensive COMMENT ON COLUMN statements to clarify the three different entity_type meanings:
+- `standards_entities.entity_type`: Semantic entity types (layer, block, survey_point, etc.)
+- `cad_entities.entity_type`: DXF primitive types (LINE, POLYLINE, ARC, etc.)
+- `project_context_mappings.source_type/target_type`: Context mapping types (keynote, detail, etc.)
 
--- In cad_entities:
-dxf_entity_type  -- clarifies it's from DXF
-
--- In project_context_mappings:
-source_standard_type
-target_standard_type
-```
+Database comments are visible in schema tools and IDE autocomplete, providing immediate clarification without breaking existing code.
 
 ---
 
@@ -238,9 +223,14 @@ target_standard_type
 
 **Unclear:** Is the column named `description` or `point_description`?
 
-**Status:** ⚠️ **Column naming ambiguous in documentation**
+**Status:** ✅ **FIXED** - Verified actual schema and updated documentation
 
-**Impact:** New developers might create wrong column names, breaking queries
+**Resolution:**
+- Verified actual column name in complete_schema.sql: `point_description TEXT`
+- Updated CIVIL_ENGINEERING_DOMAIN_MODEL.md line 73 to use correct column name: `point_description TEXT`
+- TRUTH_DRIVEN_ARCHITECTURE.md line 172 was already correct
+
+Both documentation files now consistently use `point_description`.
 
 ---
 

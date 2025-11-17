@@ -441,59 +441,48 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY mv_survey_points_enriched;
 ### Helper Functions (Graph Operations)
 
 #### 1. Quality Score Calculation
+
+**AUTHORITATIVE IMPLEMENTATION** (from complete_schema.sql):
+
 ```sql
-CREATE FUNCTION calculate_quality_score(
-    p_entity_id UUID,
-    p_table_name VARCHAR
+CREATE FUNCTION compute_quality_score(
+    required_fields_filled INTEGER,
+    total_required_fields INTEGER,
+    has_embedding BOOLEAN DEFAULT false,
+    has_relationships BOOLEAN DEFAULT false
 ) RETURNS NUMERIC AS $$
 DECLARE
-    v_score NUMERIC := 0.0;
-    v_has_embedding BOOLEAN;
-    v_relationship_count INTEGER;
-    v_completeness NUMERIC;
+    completeness_score NUMERIC(4, 3);
+    bonus_score NUMERIC(4, 3);
 BEGIN
-    -- Check for embedding (40% weight)
-    SELECT EXISTS(
-        SELECT 1 FROM entity_embeddings 
-        WHERE entity_id = p_entity_id AND is_current = true
-    ) INTO v_has_embedding;
-    
-    IF v_has_embedding THEN
-        v_score := v_score + 0.40;
+    -- Base score from completeness (70% weight)
+    IF total_required_fields > 0 THEN
+        completeness_score := (required_fields_filled::NUMERIC / total_required_fields::NUMERIC) * 0.7;
+    ELSE
+        completeness_score := 0.7;
     END IF;
-    
-    -- Count relationships (30% weight)
-    SELECT COUNT(*) INTO v_relationship_count
-    FROM entity_relationships
-    WHERE source_entity_id = p_entity_id OR target_entity_id = p_entity_id;
-    
-    v_score := v_score + LEAST(v_relationship_count * 0.05, 0.30);
-    
-    -- Check field completeness (30% weight)
-    -- (Simplified: check if required fields are non-null)
-    EXECUTE format(
-        'SELECT 
-            CASE 
-                WHEN name IS NOT NULL AND description IS NOT NULL THEN 0.30
-                WHEN name IS NOT NULL THEN 0.15
-                ELSE 0.0
-            END
-         FROM %I WHERE entity_id = $1',
-        p_table_name
-    ) USING p_entity_id INTO v_completeness;
-    
-    v_score := v_score + COALESCE(v_completeness, 0.0);
-    
-    RETURN LEAST(v_score, 1.0);
+
+    -- Bonus for having embeddings and relationships (15% each)
+    bonus_score := 0.0;
+    IF has_embedding THEN
+        bonus_score := bonus_score + 0.15;  -- Embedding bonus: 15%
+    END IF;
+    IF has_relationships THEN
+        bonus_score := bonus_score + 0.15;  -- Relationships bonus: 15%
+    END IF;
+
+    RETURN LEAST(1.0, completeness_score + bonus_score);
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql IMMUTABLE;
 ```
 
 **What it does:**
 Computes a data quality score based on:
-- Has embedding? (+40%)
-- Number of relationships (+5% each, max 30%)
-- Field completeness (+30%)
+- **Field completeness (70%)**: Base score from ratio of filled required fields
+- **Has embedding (+15%)**: Bonus for AI vector embeddings
+- **Has relationships (+15%)**: Bonus for entity connections
+
+**Formula:** `score = min(1.0, completeness*0.7 + embedding_bonus*0.15 + relationships_bonus*0.15)`
 
 **Why it matters:**
 AI models work better with high-quality data. This score helps prioritize which entities need improvement.

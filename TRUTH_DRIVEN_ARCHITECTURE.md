@@ -68,7 +68,7 @@ These tables define the standardized CAD elements that appear in drawings:
 | `block_definitions` | Reusable symbols with SVG previews | Manhole symbols, valve symbols | ✅ Full CRUD |
 | `detail_standards` | Pre-approved construction details | Storm drain connections, curb sections | ✅ Full CRUD |
 | `hatch_patterns` | Material representation patterns | Concrete hatch, asphalt hatch | ✅ Full CRUD |
-| `material_standards` | Construction material specifications | PVC SDR-35, Concrete 4000 PSI | ✅ Full CRUD |
+| `material_standards` | Construction material specifications | PVC SDR-35, Concrete 4000 PSI | ✅ Full CRUD + FK Enforced (Migration 014) |
 | `note_standards` | Standard callout text | "See Detail D-01", "3% slope min" | ✅ Full CRUD |
 | `linetype_standards` | Line style definitions | Dashed, centerline, hidden | ✅ Full CRUD |
 | `color_standards` | Standardized color palette | AutoCAD Color Index mappings | ✅ Full CRUD |
@@ -234,14 +234,16 @@ discipline VARCHAR(50),           -- Free text (should be from discipline_codes)
 - Cost estimation breaks: Can't aggregate quantities by material
 - Detail cross-references fail: Can't auto-link "If PVC, use Detail D-PVC-01"
 
-**Solution Needed:**
-- Create `approved_material_types` table (may already exist as `material_standards`)
-- Fields: `material_code`, `material_name`, `category`, `specification`, `approved_by`, `effective_date`
-- Examples: "PVC-SDR35", "HDPE-DR17", "RCP-CLASS3", "DI-C900"
-- Enforce foreign key constraints on all material columns
-- Add dropdowns in all UIs that reference materials
+**Solution Implemented:**
+- ✅ `material_standards` table exists with fields: `material_code`, `material_name`, `material_type`, `specifications`, etc.
+- ✅ Added `material_code` column to `material_standards` (short codes like "PVC", "CONCRETE", "STEEL")
+- ✅ FK constraints added: `utility_lines.material` → `material_standards.material_code`
+- ✅ FK constraints added: `utility_structures.material` → `material_standards.material_code`
+- ✅ Constraints include ON DELETE SET NULL and ON UPDATE CASCADE for data safety
+- Examples: "PVC", "CONCRETE", "STEEL", "HDPE", "DI" (with full names in material_name column)
 
-**Status:** ⚠️ **Partially implemented** - `material_standards` exists but not enforced via FK
+**Status:** ✅ **IMPLEMENTED** - Material standards enforced via FK constraints (Migration 014)
+**Migration:** See `database/migrations/014_add_material_standards_fk_constraints.sql`
 
 ---
 
@@ -268,7 +270,8 @@ structure_type VARCHAR(50),       -- Free text (should be controlled vocabulary)
 - Link to `specialized_tools_registry` for auto-tool launching
 - Enforce via dropdown selects
 
-**Status:** ⚠️ **Not implemented** - Free text currently allowed
+**Status:** ⚠️ **Not implemented** - Free text currently allowed (no CHECK constraint or FK)
+**Recommendation:** Add CHECK constraint for immediate improvement, or better yet, create `structure_type_standards` table with FK for full truth-driven architecture compliance
 
 ---
 

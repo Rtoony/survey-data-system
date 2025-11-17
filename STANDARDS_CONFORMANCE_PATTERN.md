@@ -91,7 +91,7 @@ CREATE TABLE project_{entity_type} (
     
     -- Search & quality
     search_vector TSVECTOR,
-    quality_score NUMERIC(5,2) DEFAULT 0.00,
+    quality_score NUMERIC(3,2) DEFAULT 0.00 CHECK (quality_score >= 0.0 AND quality_score <= 1.0),
     
     UNIQUE(set_id, display_code)
 );
