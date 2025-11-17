@@ -1,10 +1,24 @@
+<!--
+DEPRECATED: This wizard-based reclassifier has been replaced by the new
+Classification Review Dashboard (/tools/classification-review).
+This file is kept for reference only. It will be removed in a future version.
+See: templates/tools/classification_review.html
+
+The new system uses classification metadata in standards_entities instead of
+the generic_objects table, and provides ML-powered suggestions with spatial context.
+-->
 {% extends "base.html" %}
 
-{% block title %}Object Reclassifier{% endblock %}
+{% block title %}Object Reclassifier (DEPRECATED){% endblock %}
 
 {% block content %}
 <div class="mc-page-header">
-    <h1><i class="fas fa-exchange-alt"></i> Object Reclassifier</h1>
+    <div style="background: #ff4444; color: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+        <strong>⚠️ DEPRECATED:</strong> This tool has been replaced by the new
+        <a href="/tools/classification-review" style="color: white; text-decoration: underline;">Classification Review Dashboard</a>.
+        Please use the new tool for better ML-powered classification with spatial context.
+    </div>
+    <h1><i class="fas fa-exchange-alt"></i> Object Reclassifier (DEPRECATED)</h1>
     <p>Review and reclassify unclassified or low-confidence DXF entities</p>
 </div>
 

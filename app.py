@@ -265,10 +265,19 @@ def survey_code_tester():
     """Survey Code Testing Interface - Test parsing, preview CAD output, simulate field shots"""
     return render_template('tools/survey_code_tester.html')
 
+@app.route('/tools/classification-review')
+def classification_review_tool():
+    """Classification Review - Review and classify uncertain entities"""
+    return render_template('tools/classification_review.html')
+
 @app.route('/tools/object-reclassifier')
 def object_reclassifier_tool():
-    """Object Reclassifier - Review and reclassify unclassified DXF entities"""
-    return render_template('tools/object_reclassifier.html')
+    """
+    DEPRECATED: Use /tools/classification-review instead.
+    This old wizard-based tool is kept for backward compatibility only.
+    """
+    # Redirect to new tool
+    return redirect(url_for('classification_review_tool'))
 
 @app.route('/tools/reference-data-mappings')
 def reference_data_mappings_tool():
@@ -2726,6 +2735,141 @@ def get_recent_activity():
             'recent_projects': recent_projects,
             'stats': stats[0] if stats else {}
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# CLASSIFICATION REVIEW API ENDPOINTS
+# ============================================
+
+@app.route('/api/classification/review-queue', methods=['GET'])
+def get_classification_review_queue():
+    """Get entities needing classification review"""
+    try:
+        project_id = request.args.get('project_id')
+        min_confidence = float(request.args.get('min_confidence', 0.0))
+        max_confidence = float(request.args.get('max_confidence', 1.0))
+        limit = int(request.args.get('limit', 100))
+
+        from services.classification_service import ClassificationService
+
+        with get_db() as conn:
+            service = ClassificationService(DB_CONFIG, conn=conn)
+            entities = service.get_review_queue(
+                project_id=project_id,
+                min_confidence=min_confidence,
+                max_confidence=max_confidence,
+                limit=limit
+            )
+
+        return jsonify({
+            'success': True,
+            'count': len(entities),
+            'entities': entities
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/classification/reclassify', methods=['POST'])
+def reclassify_entity():
+    """Reclassify a single entity"""
+    try:
+        data = request.get_json()
+        entity_id = data.get('entity_id')
+        new_type = data.get('new_type')
+        user_notes = data.get('notes')
+
+        if not entity_id or not new_type:
+            return jsonify({'error': 'entity_id and new_type required'}), 400
+
+        from services.classification_service import ClassificationService
+
+        with get_db() as conn:
+            service = ClassificationService(DB_CONFIG, conn=conn)
+            result = service.reclassify_entity(entity_id, new_type, user_notes)
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/classification/bulk-reclassify', methods=['POST'])
+def bulk_reclassify():
+    """Reclassify multiple entities at once"""
+    try:
+        data = request.get_json()
+        entity_ids = data.get('entity_ids', [])
+        new_type = data.get('new_type')
+        user_notes = data.get('notes')
+
+        if not entity_ids or not new_type:
+            return jsonify({'error': 'entity_ids and new_type required'}), 400
+
+        from services.classification_service import ClassificationService
+
+        with get_db() as conn:
+            service = ClassificationService(DB_CONFIG, conn=conn)
+            result = service.bulk_reclassify(entity_ids, new_type, user_notes)
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/classification/vocabulary', methods=['GET'])
+def get_classification_vocabulary():
+    """Get object types from CAD vocabulary for classification dropdowns"""
+    try:
+        query = """
+            SELECT
+                ot.code,
+                ot.full_name,
+                ot.database_table,
+                c.code as category_code,
+                c.full_name as category_name,
+                d.code as discipline_code,
+                d.full_name as discipline_name
+            FROM object_type_codes ot
+            LEFT JOIN category_codes c ON ot.category_id = c.category_id
+            LEFT JOIN discipline_codes d ON c.discipline_id = d.discipline_id
+            WHERE ot.is_active = true
+            ORDER BY d.full_name, c.full_name, ot.full_name
+        """
+
+        types = execute_query(query)
+
+        # Group by discipline for easier UI consumption
+        grouped = {}
+        for t in types:
+            disc = t['discipline_code']
+            if disc not in grouped:
+                grouped[disc] = {
+                    'name': t['discipline_name'],
+                    'categories': {}
+                }
+
+            cat = t['category_code']
+            if cat not in grouped[disc]['categories']:
+                grouped[disc]['categories'][cat] = {
+                    'name': t['category_name'],
+                    'types': []
+                }
+
+            grouped[disc]['categories'][cat]['types'].append({
+                'code': t['code'],
+                'name': t['full_name'],
+                'table': t['database_table']
+            })
+
+        return jsonify({
+            'success': True,
+            'vocabulary': grouped
+        })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

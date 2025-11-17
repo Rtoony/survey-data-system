@@ -57,33 +57,35 @@ class IntelligentObjectCreator:
             self.conn = psycopg2.connect(**self.db_config)
             self.should_close_conn = True
         
-        # If no classification or low confidence, create a generic object for review
+        # NEW CLASSIFICATION SYSTEM: No more generic_objects
+        # Instead, always create in target table but flag for review if low confidence
         if not classification or classification.confidence < 0.7:
-            result = self._create_generic_object(entity_data, classification, project_id)
-            # Create entity link for generic objects too
-            if result:
-                object_type, object_id, table_name = result
-                dxf_handle = entity_data.get('dxf_handle', '')
-                entity_type = entity_data.get('entity_type', 'UNKNOWN')
-                geometry_wkt = entity_data.get('geometry_wkt', '')
-                layer_name = entity_data.get('layer_name', '')
-                
-                # Ensure drawing_entities record with layer assignment (generic fallback layer)
-                self._ensure_drawing_entity(
-                    entity_id=object_id,
-                    project_id=project_id,
-                    classification=classification,
-                    entity_data=entity_data,
-                    is_generic=True
+            # Low confidence - create entity but flag for review
+            classification_state = 'needs_review'
+            # Use best guess for target type, or default to most common
+            target_type = classification.object_type if classification else self._guess_type_from_geometry(entity_data)
+
+            # Enrich with spatial context
+            spatial_context = self._get_spatial_context(entity_data, project_id)
+
+            # Get top 3 suggestions if uncertain
+            suggestions = self._get_classification_suggestions(entity_data, classification, spatial_context)
+
+            # Override classification with best guess
+            if not classification:
+                from layer_classifier import LayerClassification
+                classification = LayerClassification(
+                    object_type=target_type,
+                    confidence=0.5,
+                    properties={},
+                    network_mode=None
                 )
-                
-                if dxf_handle and geometry_wkt:
-                    self._create_entity_link(
-                        project_id, dxf_handle, entity_type,
-                        layer_name, geometry_wkt,
-                        object_type, object_id, table_name
-                    )
-            return result
+        else:
+            # High confidence - auto-classify
+            classification_state = 'auto_classified'
+            target_type = classification.object_type
+            suggestions = []
+            spatial_context = {}
         
         try:
             result = None
@@ -138,7 +140,7 @@ class IntelligentObjectCreator:
                 dxf_handle = entity_data.get('dxf_handle', '')
                 entity_type = entity_data.get('entity_type', 'UNKNOWN')
                 geometry_wkt = entity_data.get('geometry_wkt', '')
-                
+
                 # Ensure drawing_entities record with layer assignment (from classification)
                 self._ensure_drawing_entity(
                     entity_id=object_id,
@@ -147,7 +149,19 @@ class IntelligentObjectCreator:
                     entity_data=entity_data,
                     is_generic=False
                 )
-                
+
+                # NEW: Update standards_entities with classification metadata
+                self._update_classification_metadata(
+                    entity_id=object_id,
+                    classification_state=classification_state,
+                    confidence=classification.confidence if classification else 0.5,
+                    suggestions=suggestions,
+                    spatial_context=spatial_context,
+                    target_table=table_name,
+                    target_id=object_id,
+                    project_id=project_id
+                )
+
                 # Create entity link for project-level imports
                 if dxf_handle and geometry_wkt:
                     self._create_entity_link(
@@ -155,7 +169,7 @@ class IntelligentObjectCreator:
                         layer_name, geometry_wkt,
                         object_type, object_id, table_name
                     )
-            
+
             return result
             
         except Exception as e:
@@ -749,74 +763,7 @@ class IntelligentObjectCreator:
             return ('spot_elevation', str(result[0]), 'surface_models')
         return None
     
-    def _create_generic_object(self, entity_data: Dict, classification: Optional[LayerClassification], project_id: str) -> Optional[Tuple]:
-        """
-        Create generic_objects record for unclassified or low-confidence entities.
-        
-        Args:
-            entity_data: Dict with entity info
-            classification: Optional classification result (may be None or low confidence)
-            project_id: UUID of project
-            
-        Returns:
-            Tuple of (object_type, object_id, table_name) or None
-        """
-        if not self.conn:
-            return None
-        
-        cur = self.conn.cursor()
-        
-        layer_name = entity_data.get('layer_name', '')
-        entity_type = entity_data.get('entity_type', 'UNKNOWN')
-        geometry_wkt = entity_data.get('geometry_wkt', '')
-        dxf_handle = entity_data.get('dxf_handle', '')
-        
-        # Extract classification info if available
-        confidence = classification.confidence if classification else 0.0
-        suggested_type = classification.object_type if classification else None
-        
-        # Generate a descriptive name
-        object_name = f"{layer_name} ({entity_type})"
-        
-        try:
-            # Use ST_GeomFromText with SRID 2226 (CA State Plane)
-            # Note: If geometry is in SRID 0 (local CAD), it will be stored with that SRID
-            cur.execute("""
-                INSERT INTO generic_objects (
-                    project_id, object_name, original_layer_name, original_entity_type,
-                    classification_confidence, suggested_object_type,
-                    geometry, source_dxf_handle, needs_review, review_status,
-                    attributes
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, ST_GeomFromText(%s, 2226), %s, TRUE, 'pending', %s)
-                RETURNING object_id
-            """, (
-                project_id,
-                object_name,
-                layer_name,
-                entity_type,
-                confidence,
-                suggested_type,
-                geometry_wkt,
-                dxf_handle,
-                json.dumps({
-                    'source': 'dxf_import',
-                    'import_reason': 'low_confidence_classification',
-                    'geometry_type': entity_data.get('geometry_type', '')
-                })
-            ))
-            
-            result = cur.fetchone()
-            cur.close()
-            
-            if result:
-                return ('generic_object', str(result[0]), 'generic_objects')
-            return None
-            
-        except Exception as e:
-            print(f"Error creating generic object: {e}")
-            cur.close()
-            return None
+    # REMOVED: _create_generic_object - now using classification metadata in standards_entities instead
     
     def _ensure_drawing_entity(self, entity_id: str, project_id: str, classification: Optional[LayerClassification],
                                entity_data: Dict, is_generic: bool = False) -> None:
@@ -1115,7 +1062,7 @@ class IntelligentObjectCreator:
         """Add a pipe or structure to a network."""
         if not cur:
             return
-        
+
         cur.execute("""
             INSERT INTO utility_network_memberships (
                 network_id, line_id, structure_id
@@ -1123,7 +1070,186 @@ class IntelligentObjectCreator:
             VALUES (%s, %s, %s)
             ON CONFLICT DO NOTHING
         """, (network_id, line_id, structure_id))
-    
+
+    def _get_spatial_context(self, entity_data: Dict, project_id: str, radius_ft: float = 50.0) -> Dict:
+        """
+        Analyze spatial context around entity.
+        Returns counts of nearby objects within radius.
+        """
+        if not self.conn:
+            return {}
+
+        geometry_wkt = entity_data.get('geometry_wkt')
+        if not geometry_wkt:
+            return {}
+
+        try:
+            cur = self.conn.cursor(cursor_factory=RealDictCursor)
+
+            # Count nearby utility lines
+            cur.execute("""
+                SELECT COUNT(*) as count
+                FROM utility_lines
+                WHERE project_id = %s
+                AND ST_DWithin(
+                    geometry::geography,
+                    ST_GeomFromText(%s, 2226)::geography,
+                    %s
+                )
+            """, (project_id, geometry_wkt, radius_ft * 0.3048))  # Convert ft to meters
+            nearby_lines = cur.fetchone()['count']
+
+            # Count nearby structures
+            cur.execute("""
+                SELECT COUNT(*) as count
+                FROM utility_structures
+                WHERE project_id = %s
+                AND ST_DWithin(
+                    rim_geometry::geography,
+                    ST_GeomFromText(%s, 2226)::geography,
+                    %s
+                )
+            """, (project_id, geometry_wkt, radius_ft * 0.3048))
+            nearby_structures = cur.fetchone()['count']
+
+            # Find distance to nearest pipe
+            cur.execute("""
+                SELECT ST_Distance(
+                    geometry::geography,
+                    ST_GeomFromText(%s, 2226)::geography
+                ) as distance
+                FROM utility_lines
+                WHERE project_id = %s
+                ORDER BY geometry::geography <-> ST_GeomFromText(%s, 2226)::geography
+                LIMIT 1
+            """, (geometry_wkt, project_id, geometry_wkt))
+
+            nearest = cur.fetchone()
+            distance_to_nearest = nearest['distance'] if nearest else None
+
+            cur.close()
+
+            return {
+                'nearby_utility_lines': nearby_lines,
+                'nearby_structures': nearby_structures,
+                'distance_to_nearest_pipe_m': distance_to_nearest,
+                'radius_analyzed_ft': radius_ft
+            }
+
+        except Exception as e:
+            print(f"Spatial context analysis failed: {e}")
+            return {}
+
+    def _get_classification_suggestions(self, entity_data: Dict, classification: Optional[LayerClassification], spatial_context: Dict) -> list:
+        """
+        Generate top 3 classification suggestions with reasons.
+        Combines layer classifier + spatial context + geometry heuristics.
+        """
+        from typing import List
+        suggestions = []
+        geometry_type = entity_data.get('geometry_type', '').upper()
+
+        # Suggestion 1: Layer classifier result
+        if classification and classification.confidence > 0.3:
+            suggestions.append({
+                'type': classification.object_type,
+                'confidence': classification.confidence,
+                'reason': 'layer_pattern'
+            })
+
+        # Suggestion 2: Spatial context
+        if spatial_context.get('nearby_structures', 0) >= 3 and 'POINT' in geometry_type:
+            suggestions.append({
+                'type': 'utility_structure',
+                'confidence': min(0.7, spatial_context['nearby_structures'] / 10.0),
+                'reason': f"{spatial_context['nearby_structures']} nearby structures"
+            })
+
+        if spatial_context.get('nearby_utility_lines', 0) >= 5 and 'LINESTRING' in geometry_type:
+            suggestions.append({
+                'type': 'utility_line',
+                'confidence': min(0.7, spatial_context['nearby_utility_lines'] / 20.0),
+                'reason': f"{spatial_context['nearby_utility_lines']} nearby pipes"
+            })
+
+        # Suggestion 3: Geometry-based default
+        if 'POINT' in geometry_type:
+            suggestions.append({
+                'type': 'survey_point',
+                'confidence': 0.4,
+                'reason': 'point_geometry_default'
+            })
+        elif 'LINESTRING' in geometry_type:
+            suggestions.append({
+                'type': 'utility_line',
+                'confidence': 0.4,
+                'reason': 'line_geometry_default'
+            })
+        elif 'POLYGON' in geometry_type:
+            suggestions.append({
+                'type': 'bmp',
+                'confidence': 0.4,
+                'reason': 'polygon_geometry_default'
+            })
+
+        # Deduplicate and sort by confidence
+        unique_suggestions = {}
+        for s in suggestions:
+            if s['type'] not in unique_suggestions or s['confidence'] > unique_suggestions[s['type']]['confidence']:
+                unique_suggestions[s['type']] = s
+
+        return sorted(unique_suggestions.values(), key=lambda x: x['confidence'], reverse=True)[:3]
+
+    def _guess_type_from_geometry(self, entity_data: Dict) -> str:
+        """Fallback: guess type from geometry when no classification."""
+        geometry_type = entity_data.get('geometry_type', '').upper()
+        if 'POINT' in geometry_type:
+            return 'survey_point'
+        elif 'LINESTRING' in geometry_type:
+            return 'utility_line'
+        elif 'POLYGON' in geometry_type:
+            return 'bmp'
+        else:
+            return 'utility_line'  # Default fallback
+
+    def _update_classification_metadata(self, entity_id: str, classification_state: str,
+                                        confidence: float, suggestions: list,
+                                        spatial_context: Dict, target_table: str,
+                                        target_id: str, project_id: str):
+        """Update standards_entities with classification metadata."""
+        if not self.conn:
+            return
+
+        from datetime import datetime
+
+        try:
+            cur = self.conn.cursor()
+            cur.execute("""
+                UPDATE standards_entities
+                SET classification_state = %s,
+                    classification_confidence = %s,
+                    classification_metadata = %s,
+                    target_table = %s,
+                    target_id = %s,
+                    project_id = %s
+                WHERE entity_id = %s
+            """, (
+                classification_state,
+                confidence,
+                json.dumps({
+                    'suggestions': suggestions,
+                    'spatial_context': spatial_context,
+                    'classified_at': datetime.utcnow().isoformat()
+                }),
+                target_table,
+                target_id,
+                project_id,
+                entity_id
+            ))
+            cur.close()
+        except Exception as e:
+            print(f"Failed to update classification metadata: {e}")
+
     def __del__(self):
         """Clean up connection if we created it."""
         # Use hasattr to prevent AttributeError if __init__ failed partway

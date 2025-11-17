@@ -1927,6 +1927,12 @@ CREATE TABLE public.standards_entities (
     quality_score numeric(4,3),
     attributes jsonb,
     search_vector tsvector,
+    classification_state character varying(50) DEFAULT 'auto_classified'::character varying,
+    classification_confidence numeric(4,3),
+    classification_metadata jsonb DEFAULT '{}'::jsonb,
+    target_table character varying(100),
+    target_id uuid,
+    project_id uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
@@ -1936,7 +1942,7 @@ CREATE TABLE public.standards_entities (
 -- Name: TABLE standards_entities; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.standards_entities IS 'Unified entity registry - every CAD standard, drawing element, survey point gets a canonical identity for AI reasoning';
+COMMENT ON TABLE public.standards_entities IS 'Unified entity registry - every CAD standard, drawing element, survey point gets a canonical identity for AI reasoning. Classification states: auto_classified, needs_review, user_classified, validated. classification_metadata stores ML suggestions, spatial context, and reclassification history.';
 
 
 --
@@ -5130,6 +5136,20 @@ CREATE INDEX idx_entity_search ON public.standards_entities USING gin (search_ve
 --
 
 CREATE INDEX idx_entity_status ON public.standards_entities USING btree (status);
+
+
+--
+-- Name: idx_classification_state; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_classification_state ON public.standards_entities USING btree (classification_state);
+
+
+--
+-- Name: idx_classification_confidence; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_classification_confidence ON public.standards_entities USING btree (classification_confidence);
 
 
 --
