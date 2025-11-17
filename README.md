@@ -122,7 +122,7 @@ Access at `http://localhost:5000`
 ### Essential Guides
 - **[Attribute System Guide](ATTRIBUTE_SYSTEM_GUIDE.md)** - Complete guide to three-dimensional filtering (Object Type → Attribute → Database Table)
 - **[CAD Standards Guide](CAD_STANDARDS_GUIDE.md)** - Comprehensive user guide and cheat sheet for the CAD standards system
-- **[Projects Only Migration Guide](PROJECTS_ONLY_MIGRATION_GUIDE.md)** - Complete guide to the new Projects Only system with hybrid classification
+- **[Projects Only Migration Guide](archive/completed-migrations/PROJECTS_ONLY_MIGRATION_GUIDE.md)** - Complete guide to the new Projects Only system with hybrid classification
 - **[replit.md](replit.md)** - Project overview, architecture, and recent changes
 - **[Database Architecture Guide](DATABASE_ARCHITECTURE_GUIDE.md)** - Technical deep dive into AI-first database design
 - **[AI Optimization Guide](AI_DATABASE_OPTIMIZATION_GUIDE.md)** - ML/AI features and optimization patterns
@@ -186,6 +186,7 @@ Legacy DXF → Pattern Matching → Database Objects → Standard Layers → Cle
 **Last Updated:** November 15, 2025
 
 ### Recent Additions (November 2025)
+- DXF Test Generator for validating import workflows (PR #31)
 - Projects Only System with hybrid intelligent object classification
 - Object Reclassifier Tool for reviewing unclassified DXF entities
 - CAD Layer Vocabulary and Reference Data Hub with clean separation

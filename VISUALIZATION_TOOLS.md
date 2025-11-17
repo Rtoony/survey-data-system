@@ -491,7 +491,7 @@ Potential improvements for future releases:
 - [README.md](README.md) - Project overview and quick start
 - [replit.md](replit.md) - Architecture and technical details
 - [CAD_STANDARDS_GUIDE.md](CAD_STANDARDS_GUIDE.md) - Layer naming conventions
-- [PROJECTS_ONLY_MIGRATION_GUIDE.md](PROJECTS_ONLY_MIGRATION_GUIDE.md) - Project-centric architecture
+- [PROJECTS_ONLY_MIGRATION_GUIDE.md](archive/completed-migrations/PROJECTS_ONLY_MIGRATION_GUIDE.md) - Project-centric architecture
 
 ---
 

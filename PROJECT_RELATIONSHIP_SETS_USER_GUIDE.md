@@ -4,6 +4,18 @@
 
 ---
 
+## **How to Access**
+
+Navigate to your project, then access Relationship Sets using either method:
+
+- **Option 1:** Project Command Center → Sidebar → **Relationship Sets** tool
+- **Option 2:** Direct URL: `/projects/{project_id}/relationship-sets`
+- **Option 3:** From any project page, use the "Project Tools" navigation menu
+
+Once in the Relationship Sets manager, you'll see three main tabs: **Members**, **Rules**, and **Violations**.
+
+---
+
 ## **What Problem Does This Solve?**
 
 ### **The AutoCAD Problem**

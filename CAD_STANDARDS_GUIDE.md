@@ -412,11 +412,12 @@ A: Future feature! The Export Template Manager will let you create reverse mappi
 
 ### Where to Go
 
+- **Standards Library Hub:** `/standards-library` (central navigation for all standards tools)
 - **Manage Vocabulary:** `/standards/layer-vocabulary`
 - **Create Patterns:** `/standards/import-manager`
-- **Filter Layers:** `/map-viewer`
+- **Filter Layers:** `/map-viewer-v2`
 - **Import/Export:** `/dxf-tools`
-- **View All Standards:** `/cad-standards`
+- **View All Standards:** `/standards`
 
 ## Summary
 
