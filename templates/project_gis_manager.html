@@ -1,0 +1,529 @@
+{% extends "base.html" %}
+
+{% block title %}Project GIS Manager{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --mc-primary: #00ffff;
+        --mc-accent: #00ff88;
+        --mc-bg-dark: rgba(0, 20, 40, 0.95);
+        --mc-bg-section: rgba(0, 40, 80, 0.6);
+        --mc-text: #e0f0ff;
+    }
+
+    .gis-manager-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .gis-manager-header {
+        background: linear-gradient(135deg, #1a2332 0%, #0d1117 100%);
+        border: 2px solid var(--mc-primary);
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 50px rgba(0,255,255,0.3);
+    }
+
+    .gis-manager-header h1 {
+        color: var(--mc-primary);
+        font-family: 'Orbitron', monospace;
+        margin: 0 0 10px 0;
+        font-size: 28px;
+    }
+
+    .gis-manager-header p {
+        color: var(--mc-text);
+        margin: 0;
+        opacity: 0.8;
+    }
+
+    .mc-tabs {
+        background: linear-gradient(135deg, #1a2332 0%, #0d1117 100%);
+        border: 2px solid var(--mc-primary);
+        border-radius: 12px;
+        box-shadow: 0 10px 50px rgba(0,255,255,0.3);
+    }
+
+    .mc-tab-header {
+        display: flex;
+        border-bottom: 2px solid rgba(0,255,255,0.2);
+        overflow-x: auto;
+    }
+
+    .mc-tab-button {
+        padding: 15px 25px;
+        background: transparent;
+        border: none;
+        color: var(--text-dim);
+        cursor: pointer;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.3s;
+        white-space: nowrap;
+        position: relative;
+    }
+
+    .mc-tab-button:hover {
+        color: var(--mc-primary);
+        background: rgba(0,255,255,0.1);
+    }
+
+    .mc-tab-button.active {
+        color: var(--mc-primary);
+        background: rgba(0,255,255,0.15);
+    }
+
+    .mc-tab-button.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--mc-primary);
+    }
+
+    .mc-tab-content {
+        padding: 30px;
+        display: none;
+    }
+
+    .mc-tab-content.active {
+        display: block;
+    }
+
+    .snapshot-list, .layer-list {
+        display: grid;
+        gap: 15px;
+    }
+
+    .snapshot-card, .layer-card {
+        background: rgba(0, 30, 60, 0.4);
+        border: 1px solid rgba(0, 255, 255, 0.3);
+        border-radius: 8px;
+        padding: 20px;
+        transition: all 0.3s;
+    }
+
+    .snapshot-card:hover, .layer-card:hover {
+        border-color: var(--mc-accent);
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+    }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 15px;
+    }
+
+    .card-title {
+        color: var(--mc-primary);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .card-meta {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+
+    .meta-item {
+        color: var(--mc-text);
+        font-size: 13px;
+    }
+
+    .meta-label {
+        color: var(--mc-accent);
+        font-weight: 600;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-pending {
+        background: rgba(255, 193, 7, 0.2);
+        border: 1px solid #ffc107;
+        color: #ffc107;
+    }
+
+    .status-processing {
+        background: rgba(33, 150, 243, 0.2);
+        border: 1px solid #2196f3;
+        color: #2196f3;
+    }
+
+    .status-completed {
+        background: rgba(0, 255, 136, 0.2);
+        border: 1px solid var(--mc-accent);
+        color: var(--mc-accent);
+    }
+
+    .status-failed {
+        background: rgba(244, 67, 54, 0.2);
+        border: 1px solid #f44336;
+        color: #f44336;
+    }
+
+    .card-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        border: 1px solid;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary {
+        background: rgba(0, 255, 255, 0.1);
+        border-color: var(--mc-primary);
+        color: var(--mc-primary);
+    }
+
+    .btn-primary:hover {
+        background: rgba(0, 255, 255, 0.2);
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+    }
+
+    .btn-success {
+        background: rgba(0, 255, 136, 0.1);
+        border-color: var(--mc-accent);
+        color: var(--mc-accent);
+    }
+
+    .btn-success:hover {
+        background: rgba(0, 255, 136, 0.2);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+    }
+
+    .btn-danger {
+        background: rgba(244, 67, 54, 0.1);
+        border-color: #f44336;
+        color: #f44336;
+    }
+
+    .btn-danger:hover {
+        background: rgba(244, 67, 54, 0.2);
+        box-shadow: 0 0 10px rgba(244, 67, 54, 0.4);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-dim);
+    }
+
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+
+    .loading-spinner {
+        text-align: center;
+        padding: 40px;
+        color: var(--mc-primary);
+    }
+
+    .error-message {
+        background: rgba(244, 67, 54, 0.1);
+        border: 1px solid #f44336;
+        border-radius: 8px;
+        padding: 15px;
+        color: #f44336;
+        margin-bottom: 20px;
+    }
+</style>
+
+<div class="gis-manager-container">
+    <div class="gis-manager-header">
+        <h1><i class="fas fa-layer-group"></i> Project GIS Manager</h1>
+        <p>Manage external GIS data snapshots for this project. Import parcels, utilities, and other GIS layers from external services.</p>
+    </div>
+
+    <div class="mc-tabs">
+        <div class="mc-tab-header">
+            <button class="mc-tab-button active" onclick="switchTab('snapshots')">
+                <i class="fas fa-camera"></i> Project Snapshots
+            </button>
+            <button class="mc-tab-button" onclick="switchTab('layers')">
+                <i class="fas fa-database"></i> Available Layers
+            </button>
+        </div>
+
+        <!-- Tab 1: Project Snapshots -->
+        <div class="mc-tab-content active" id="tab-snapshots">
+            <div id="snapshots-loading" class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i> Loading snapshots...
+            </div>
+            <div id="snapshots-error" class="error-message" style="display: none;"></div>
+            <div id="snapshots-list" class="snapshot-list"></div>
+        </div>
+
+        <!-- Tab 2: Available Layers -->
+        <div class="mc-tab-content" id="tab-layers">
+            <div id="layers-loading" class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i> Loading available layers...
+            </div>
+            <div id="layers-error" class="error-message" style="display: none;"></div>
+            <div id="layers-list" class="layer-list"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const PROJECT_ID = '{{ project_id }}';
+
+// Tab switching
+function switchTab(tabName) {
+    // Update buttons
+    document.querySelectorAll('.mc-tab-button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    // Update content
+    document.querySelectorAll('.mc-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+}
+
+// Load project snapshots
+async function loadSnapshots() {
+    try {
+        const response = await fetch(`/api/projects/${PROJECT_ID}/gis-snapshots`);
+        const data = await response.json();
+
+        document.getElementById('snapshots-loading').style.display = 'none';
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        const container = document.getElementById('snapshots-list');
+
+        if (data.snapshots.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-layer-group"></i>
+                    <h3>No GIS Snapshots Yet</h3>
+                    <p>Switch to "Available Layers" tab to assign GIS data layers to this project.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = data.snapshots.map(snapshot => {
+            const statusClass = `status-${snapshot.snapshot_status}`;
+            const lastUpdate = snapshot.last_snapshot_at
+                ? new Date(snapshot.last_snapshot_at).toLocaleString()
+                : 'Never';
+
+            return `
+                <div class="snapshot-card">
+                    <div class="card-header">
+                        <h3 class="card-title">${snapshot.layer_name}</h3>
+                        <span class="status-badge ${statusClass}">${snapshot.snapshot_status}</span>
+                    </div>
+                    <div class="card-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Type:</span> ${snapshot.target_entity_type}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Table:</span> ${snapshot.target_table_name}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Entities:</span> ${snapshot.entity_count}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Last Updated:</span> ${lastUpdate}
+                        </div>
+                    </div>
+                    ${snapshot.layer_description ? `<p style="color: var(--mc-text); margin: 10px 0;">${snapshot.layer_description}</p>` : ''}
+                    ${snapshot.error_message ? `<div class="error-message">${snapshot.error_message}</div>` : ''}
+                    <div class="card-actions">
+                        <button class="btn btn-success" onclick="executeSnapshot('${snapshot.snapshot_id}')">
+                            <i class="fas fa-sync"></i> Update Snapshot
+                        </button>
+                        <button class="btn btn-danger" onclick="removeSnapshot('${snapshot.snapshot_id}')">
+                            <i class="fas fa-trash"></i> Remove
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        document.getElementById('snapshots-loading').style.display = 'none';
+        const errorDiv = document.getElementById('snapshots-error');
+        errorDiv.textContent = `Error loading snapshots: ${error.message}`;
+        errorDiv.style.display = 'block';
+    }
+}
+
+// Load available layers
+async function loadAvailableLayers() {
+    try {
+        const response = await fetch('/api/reference-data/gis-layers');
+        const data = await response.json();
+
+        document.getElementById('layers-loading').style.display = 'none';
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        const container = document.getElementById('layers-list');
+
+        if (data.layers.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-database"></i>
+                    <h3>No GIS Layers Available</h3>
+                    <p>Contact your administrator to configure external GIS data sources.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = data.layers.map(layer => {
+            return `
+                <div class="layer-card">
+                    <div class="card-header">
+                        <h3 class="card-title">${layer.layer_name}</h3>
+                    </div>
+                    <div class="card-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Type:</span> ${layer.target_entity_type}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Service:</span> ${layer.service_type}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Target Table:</span> ${layer.target_table_name}
+                        </div>
+                    </div>
+                    ${layer.layer_description ? `<p style="color: var(--mc-text); margin: 10px 0;">${layer.layer_description}</p>` : ''}
+                    <div style="font-size: 12px; color: var(--mc-text); opacity: 0.7; margin-top: 10px;">
+                        <strong>URL:</strong> ${layer.service_url}
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-primary" onclick="assignLayer('${layer.layer_id}', '${layer.layer_name}')">
+                            <i class="fas fa-plus"></i> Assign to Project
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        document.getElementById('layers-loading').style.display = 'none';
+        const errorDiv = document.getElementById('layers-error');
+        errorDiv.textContent = `Error loading layers: ${error.message}`;
+        errorDiv.style.display = 'block';
+    }
+}
+
+// Assign layer to project
+async function assignLayer(layerId, layerName) {
+    if (!confirm(`Assign "${layerName}" to this project?`)) return;
+
+    try {
+        const response = await fetch(`/api/projects/${PROJECT_ID}/gis-snapshots/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gis_data_layer_id: layerId })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        alert(`Layer "${layerName}" assigned successfully! Switch to "Project Snapshots" tab to update the snapshot.`);
+        loadSnapshots();
+
+    } catch (error) {
+        alert(`Error assigning layer: ${error.message}`);
+    }
+}
+
+// Execute snapshot
+async function executeSnapshot(snapshotId) {
+    if (!confirm('Update this snapshot? This will fetch fresh data from the external GIS service.')) return;
+
+    try {
+        const response = await fetch(`/api/projects/${PROJECT_ID}/gis-snapshots/${snapshotId}/execute`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        alert('Snapshot update initiated! Refresh the page to see the updated status.');
+        loadSnapshots();
+
+    } catch (error) {
+        alert(`Error executing snapshot: ${error.message}`);
+    }
+}
+
+// Remove snapshot
+async function removeSnapshot(snapshotId) {
+    if (!confirm('Remove this snapshot? This will delete all imported entities from this GIS layer.')) return;
+
+    try {
+        const response = await fetch(`/api/projects/${PROJECT_ID}/gis-snapshots/${snapshotId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        alert(`Snapshot removed successfully. Deleted ${data.deleted_entities} entities.`);
+        loadSnapshots();
+
+    } catch (error) {
+        alert(`Error removing snapshot: ${error.message}`);
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadSnapshots();
+    loadAvailableLayers();
+});
+</script>
+{% endblock %}
