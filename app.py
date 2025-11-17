@@ -39,14 +39,14 @@ load_dotenv()
 
 # Custom JSON provider for datetime, date, Decimal, and UUID objects (Flask 2.2+)
 class CustomJSONProvider(DefaultJSONProvider):
-    def default(self, obj):
-        if isinstance(obj, (datetime, date)):
-            return obj.isoformat()
-        if isinstance(obj, Decimal):
-            return float(obj)
-        if isinstance(obj, uuid.UUID):
-            return str(obj)
-        return super().default(obj)
+    def default(self, o):
+        if isinstance(o, (datetime, date)):
+            return o.isoformat()
+        if isinstance(o, Decimal):
+            return float(o)
+        if isinstance(o, uuid.UUID):
+            return str(o)
+        return super().default(o)
 
 app = Flask(__name__)
 app.json = CustomJSONProvider(app)
@@ -3317,11 +3317,14 @@ def create_attribute_code():
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING attribute_id, code, full_name, attribute_category, attribute_type, description, pattern, is_locked, sort_order, is_active
         """
+        code = data['code']
+        full_name = data['full_name']
+        attribute_type = data.get('attribute_type', '')
         result = execute_query(query, (
-            data['code'].strip().upper(),
-            data['full_name'].strip(),
+            code.strip().upper() if code else None,
+            full_name.strip() if full_name else None,
             data.get('attribute_category', 'other'),
-            data.get('attribute_type', '').strip() or None,
+            attribute_type.strip() if attribute_type else None,
             data.get('description', ''),
             data.get('pattern', ''),
             data.get('is_locked', False),
@@ -3354,11 +3357,14 @@ def update_attribute_code(attribute_id):
             WHERE attribute_id = %s
             RETURNING attribute_id, code, full_name, attribute_category, attribute_type, description, pattern, is_locked, sort_order, is_active
         """
+        code = data['code']
+        full_name = data['full_name']
+        attribute_type = data.get('attribute_type', '')
         result = execute_query(query, (
-            data['code'].strip().upper(),
-            data['full_name'].strip(),
+            code.strip().upper() if code else None,
+            full_name.strip() if full_name else None,
             data.get('attribute_category', 'other'),
-            data.get('attribute_type', '').strip() or None,
+            attribute_type.strip() if attribute_type else None,
             data.get('description', ''),
             data.get('pattern', ''),
             data.get('is_locked', False),
@@ -3725,22 +3731,24 @@ def create_category():
         
         with get_db() as conn:
             with conn.cursor() as cur:
+                category_code = data.get('category_code')
                 cur.execute("""
-                    INSERT INTO standard_categories 
+                    INSERT INTO standard_categories
                     (category_code, category_name, description, sort_order)
                     VALUES (%s, %s, %s, %s)
                     RETURNING category_id
                 """, (
-                    data.get('category_code').upper(),
+                    category_code.upper() if category_code else None,
                     data.get('category_name'),
                     data.get('description'),
                     data.get('sort_order', 0)
                 ))
                 category_id = cur.fetchone()[0]
-                
+
                 # Add standard type applications if provided
-                if data.get('standard_types'):
-                    for std_type in data.get('standard_types'):
+                standard_types = data.get('standard_types')
+                if standard_types:
+                    for std_type in standard_types:
                         cur.execute("""
                             INSERT INTO standard_category_applications (category_id, standard_type)
                             VALUES (%s, %s)
@@ -3761,26 +3769,28 @@ def update_category(category_id):
         
         with get_db() as conn:
             with conn.cursor() as cur:
+                category_code = data.get('category_code')
                 cur.execute("""
                     UPDATE standard_categories
-                    SET category_code = %s, category_name = %s, description = %s, 
+                    SET category_code = %s, category_name = %s, description = %s,
                         sort_order = %s, is_active = %s
                     WHERE category_id = %s
                 """, (
-                    data.get('category_code').upper(),
+                    category_code.upper() if category_code else None,
                     data.get('category_name'),
                     data.get('description'),
                     data.get('sort_order', 0),
                     data.get('is_active', True),
                     category_id
                 ))
-                
+
                 # Update standard type applications if provided
                 if 'standard_types' in data:
                     # Delete existing applications
                     cur.execute("DELETE FROM standard_category_applications WHERE category_id = %s", (category_id,))
                     # Add new applications
-                    for std_type in data.get('standard_types'):
+                    standard_types = data.get('standard_types')
+                    for std_type in (standard_types or []):
                         cur.execute("""
                             INSERT INTO standard_category_applications (category_id, standard_type)
                             VALUES (%s, %s)
@@ -3855,22 +3865,24 @@ def create_discipline():
         
         with get_db() as conn:
             with conn.cursor() as cur:
+                discipline_code = data.get('discipline_code')
                 cur.execute("""
-                    INSERT INTO standard_disciplines 
+                    INSERT INTO standard_disciplines
                     (discipline_code, discipline_name, description, sort_order)
                     VALUES (%s, %s, %s, %s)
                     RETURNING discipline_id
                 """, (
-                    data.get('discipline_code').upper(),
+                    discipline_code.upper() if discipline_code else None,
                     data.get('discipline_name'),
                     data.get('description'),
                     data.get('sort_order', 0)
                 ))
                 discipline_id = cur.fetchone()[0]
-                
+
                 # Add standard type applications if provided
-                if data.get('standard_types'):
-                    for std_type in data.get('standard_types'):
+                standard_types = data.get('standard_types')
+                if standard_types:
+                    for std_type in standard_types:
                         cur.execute("""
                             INSERT INTO standard_discipline_applications (discipline_id, standard_type)
                             VALUES (%s, %s)
@@ -3891,26 +3903,28 @@ def update_discipline(discipline_id):
         
         with get_db() as conn:
             with conn.cursor() as cur:
+                discipline_code = data.get('discipline_code')
                 cur.execute("""
                     UPDATE standard_disciplines
-                    SET discipline_code = %s, discipline_name = %s, description = %s, 
+                    SET discipline_code = %s, discipline_name = %s, description = %s,
                         sort_order = %s, is_active = %s
                     WHERE discipline_id = %s
                 """, (
-                    data.get('discipline_code').upper(),
+                    discipline_code.upper() if discipline_code else None,
                     data.get('discipline_name'),
                     data.get('description'),
                     data.get('sort_order', 0),
                     data.get('is_active', True),
                     discipline_id
                 ))
-                
+
                 # Update standard type applications if provided
                 if 'standard_types' in data:
                     # Delete existing applications
                     cur.execute("DELETE FROM standard_discipline_applications WHERE discipline_id = %s", (discipline_id,))
                     # Add new applications
-                    for std_type in data.get('standard_types'):
+                    standard_types = data.get('standard_types')
+                    for std_type in (standard_types or []):
                         cur.execute("""
                             INSERT INTO standard_discipline_applications (discipline_id, standard_type)
                             VALUES (%s, %s)
@@ -8823,8 +8837,8 @@ def get_network_viewer_entities(network_id):
             ORDER BY ul.line_number
         """
         pipes = execute_query(pipes_query, (network_id,))
-        
-        for pipe in pipes:
+
+        for pipe in (pipes or []):
             all_entities.append({
                 'entity_id': pipe['entity_id'],
                 'entity_type': 'pipe',
@@ -8863,8 +8877,8 @@ def get_network_viewer_entities(network_id):
             ORDER BY us.structure_number
         """
         structures = execute_query(structures_query, (network_id,))
-        
-        for struct in structures:
+
+        for struct in (structures or []):
             all_entities.append({
                 'entity_id': struct['entity_id'],
                 'entity_type': 'structure',
@@ -10312,8 +10326,8 @@ def get_pressure_network_viewer_entities(network_id):
             ORDER BY ul.line_number
         """
         pipes = execute_query(pipes_query, (network_id,))
-        
-        for pipe in pipes:
+
+        for pipe in (pipes or []):
             utility_system = (pipe['utility_system'] or 'unknown').lower()
             if utility_system == 'potable':
                 color = '#0096ff'
@@ -10372,8 +10386,8 @@ def get_pressure_network_viewer_entities(network_id):
             ORDER BY us.structure_number
         """
         structures = execute_query(structures_query, (network_id,))
-        
-        for struct in structures:
+
+        for struct in (structures or []):
             entity_type = struct['entity_type']
             if entity_type == 'valve':
                 color = '#f39c12'
@@ -12155,13 +12169,14 @@ def create_sheet_note_set():
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    INSERT INTO sheet_note_sets 
+                    INSERT INTO sheet_note_sets
                     (set_id, project_id, set_name, description, discipline, created_at, updated_at)
                     VALUES (%s::uuid, %s::uuid, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     RETURNING *
                 """, (set_id, project_id, set_name, description, discipline))
-                
-                new_set = dict(cur.fetchone())
+
+                result = cur.fetchone()
+                new_set = dict(result) if result else {}
                 conn.commit()
                 cache.clear()
                 return jsonify({'set': new_set}), 201
@@ -13149,10 +13164,10 @@ def get_project_extent(project_id):
                 'bounds': None,  # Can't display on geographic map
                 'entity_count': result['entity_count'],
                 'native_bounds': {
-                    'xmin': float(result['xmin']),
-                    'ymin': float(result['ymin']),
-                    'xmax': float(result['xmax']),
-                    'ymax': float(result['ymax']),
+                    'xmin': float(result['xmin']) if result['xmin'] is not None else 0,
+                    'ymin': float(result['ymin']) if result['ymin'] is not None else 0,
+                    'xmax': float(result['xmax']) if result['xmax'] is not None else 0,
+                    'ymax': float(result['ymax']) if result['ymax'] is not None else 0,
                     'srid': 0
                 },
                 'is_local_coordinates': True
@@ -13160,19 +13175,23 @@ def get_project_extent(project_id):
         
         # Transform from geographic SRID to WGS84 for map display
         transformer = Transformer.from_crs(f"EPSG:{srid}", "EPSG:4326", always_xy=True)
-        
+
         # Transform the bounding box corners
-        sw_lon, sw_lat = transformer.transform(result['xmin'], result['ymin'])
-        ne_lon, ne_lat = transformer.transform(result['xmax'], result['ymax'])
+        xmin = result['xmin'] if result['xmin'] is not None else 0
+        ymin = result['ymin'] if result['ymin'] is not None else 0
+        xmax = result['xmax'] if result['xmax'] is not None else 0
+        ymax = result['ymax'] if result['ymax'] is not None else 0
+        sw_lon, sw_lat = transformer.transform(xmin, ymin)
+        ne_lon, ne_lat = transformer.transform(xmax, ymax)
         
         return jsonify({
             'bounds': [[sw_lat, sw_lon], [ne_lat, ne_lon]],
             'entity_count': result['entity_count'],
             'native_bounds': {
-                'xmin': float(result['xmin']),
-                'ymin': float(result['ymin']),
-                'xmax': float(result['xmax']),
-                'ymax': float(result['ymax']),
+                'xmin': float(xmin),
+                'ymin': float(ymin),
+                'xmax': float(xmax),
+                'ymax': float(ymax),
                 'srid': srid
             },
             'is_local_coordinates': False
@@ -13288,13 +13307,16 @@ def create_simple_export():
                 
                 if len(features) == 0:
                     continue
-                
+
                 # Determine geometry type from first feature
-                first_geom = shape(features[0]['geometry'])
+                first_feature = features[0]
+                if not first_feature or not first_feature.get('geometry'):
+                    continue
+                first_geom = shape(first_feature['geometry'])
                 geom_type = first_geom.geom_type
-                
+
                 # Create schema based on first feature properties
-                sample_props = features[0]['properties']
+                sample_props = first_feature.get('properties') or {}
                 schema_props = {}
                 for key, value in sample_props.items():
                     if value is None:
@@ -16292,46 +16314,46 @@ def export_all_layer_combinations():
             WHERE is_active = TRUE 
             ORDER BY display_order, discipline_name
         """
-        disciplines = execute_query(disciplines_query)
-        
+        disciplines = execute_query(disciplines_query) or []
+
         categories_query = """
-            SELECT category_code, category_name 
-            FROM layer_categories 
-            WHERE is_active = TRUE 
+            SELECT category_code, category_name
+            FROM layer_categories
+            WHERE is_active = TRUE
             ORDER BY display_order, category_name
         """
-        categories = execute_query(categories_query)
-        
+        categories = execute_query(categories_query) or []
+
         objects_query = """
-            SELECT object_code, object_name, valid_for_categories 
-            FROM layer_objects 
-            WHERE is_active = TRUE 
+            SELECT object_code, object_name, valid_for_categories
+            FROM layer_objects
+            WHERE is_active = TRUE
             ORDER BY display_order, object_name
         """
-        objects = execute_query(objects_query)
-        
+        objects = execute_query(objects_query) or []
+
         phases_query = """
-            SELECT phase_code, phase_name 
-            FROM layer_phases 
-            WHERE is_active = TRUE 
+            SELECT phase_code, phase_name
+            FROM layer_phases
+            WHERE is_active = TRUE
             ORDER BY display_order, phase_name
         """
-        phases = execute_query(phases_query)
-        
+        phases = execute_query(phases_query) or []
+
         geometries_query = """
-            SELECT geom_code, geom_name 
-            FROM layer_geometries 
-            WHERE is_active = TRUE 
+            SELECT geom_code, geom_name
+            FROM layer_geometries
+            WHERE is_active = TRUE
             ORDER BY display_order, geom_name
         """
-        geometries = execute_query(geometries_query)
-        
+        geometries = execute_query(geometries_query) or []
+
         aliases_query = """
-            SELECT canonical_pattern, alias, notes 
-            FROM layer_aliases 
+            SELECT canonical_pattern, alias, notes
+            FROM layer_aliases
             WHERE is_active = TRUE
         """
-        aliases_data = execute_query(aliases_query)
+        aliases_data = execute_query(aliases_query) or []
         aliases_map = {row['canonical_pattern']: row for row in aliases_data}
         
         output = io.StringIO()
@@ -16452,9 +16474,9 @@ def get_block_schemas():
                 ORDER BY block_family
             """
             families = execute_query(query)
-            return jsonify(families)
-        
-        return jsonify(schemas)
+            return jsonify(families if families else [])
+
+        return jsonify(schemas if schemas else [])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -16480,7 +16502,7 @@ def layer_generator_system_overview():
             WHERE is_active = TRUE
         """
         tools_result = execute_query(tools_query)
-        tool_count = tools_result[0]['tool_count'] if tools_result else 0
+        tool_count = tools_result[0]['tool_count'] if tools_result and len(tools_result) > 0 else 0
         
         overview = {
             'system_architecture': {
@@ -17069,8 +17091,8 @@ def create_municipality():
     """Create a new municipality"""
     try:
         data = request.get_json()
-        
-        if not data.get('municipality_name') or not data.get('state'):
+
+        if not data or not data.get('municipality_name') or not data.get('state'):
             return jsonify({'error': 'municipality_name and state are required'}), 400
         
         query = """
@@ -19274,12 +19296,12 @@ def get_entity_viewer_entities():
             
             try:
                 col_check = execute_query(f"""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name='{config['table']}' 
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name='{config['table']}'
                     AND column_name IN ('project_id', 'drawing_id', 'layer_name')
                 """)
-                col_names = [c['column_name'] for c in col_check]
+                col_names = [c['column_name'] for c in (col_check or [])]
                 has_project_id = 'project_id' in col_names
                 has_drawing_id = 'drawing_id' in col_names
                 has_layer_name = 'layer_name' in col_names
@@ -19518,8 +19540,8 @@ def get_filterable_columns(entity_type):
         columns = cursor.fetchall()
         cursor.close()
         conn.close()
-        
-        return jsonify({'columns': columns})
+
+        return jsonify({'columns': columns if columns else []})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
