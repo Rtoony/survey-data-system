@@ -192,62 +192,39 @@ class PNEZDParser:
             cur.close()
             conn.close()
     
-    def get_projects_and_drawings(self) -> Dict:
+    def get_projects(self) -> Dict:
         """
-        Get list of projects and their drawings for selection
-        
+        Get list of projects for selection
+
         Returns:
             Dict with 'projects' key containing list of project dictionaries
-        
+
         Raises:
             Exception: If database query fails
         """
         conn = psycopg2.connect(**self.db_config)
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         try:
-            # Get all projects with their drawings
+            # Get all projects
             cur.execute("""
-                SELECT 
+                SELECT
                     p.project_id,
                     p.project_name,
                     p.project_number,
-                    d.drawing_id,
-                    d.drawing_name,
-                    d.drawing_number
+                    p.client_name,
+                    p.created_at
                 FROM projects p
-                LEFT JOIN drawings d ON p.project_id = d.project_id
-                ORDER BY p.project_name, d.drawing_name
+                ORDER BY p.project_name
             """)
-            
-            rows = cur.fetchall()
-            
-            # Organize by project
-            projects = {}
-            for row in rows:
-                project_id = row['project_id']
-                
-                if project_id not in projects:
-                    projects[project_id] = {
-                        'project_id': project_id,
-                        'project_name': row['project_name'],
-                        'project_number': row['project_number'],
-                        'drawings': []
-                    }
-                
-                # Add drawing if it exists
-                if row['drawing_id']:
-                    projects[project_id]['drawings'].append({
-                        'drawing_id': row['drawing_id'],
-                        'drawing_name': row['drawing_name'],
-                        'drawing_number': row['drawing_number']
-                    })
-            
-            # Only return projects that have at least one drawing
-            projects_with_drawings = [p for p in projects.values() if p['drawings']]
-            
-            return {'projects': projects_with_drawings}
-            
+
+            projects = cur.fetchall()
+
+            # Convert to list of dicts
+            project_list = [dict(row) for row in projects]
+
+            return {'projects': project_list}
+
         finally:
             cur.close()
             conn.close()

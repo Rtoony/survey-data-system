@@ -220,23 +220,24 @@ def run_roundtrip_test():
         
         # Step 2: Import to database
         print("\nImporting to database...")
+        import uuid
+        test_project_id = str(uuid.uuid4())  # Generate test project ID
         importer = DXFImporter(db_config)
         try:
-            import_result = importer.import_dxf(original_dxf, "Z-Preservation Test Drawing")
-            drawing_id = import_result['drawing_id']
-            print(f"Import successful. Drawing ID: {drawing_id}")
-            print(f"Imported: {import_result['stats']}")
+            import_result = importer.import_dxf(original_dxf, test_project_id)
+            print(f"Import successful. Project ID: {test_project_id}")
+            print(f"Imported entities: {import_result.get('entities', 0)}")
         except Exception as e:
             print(f"Import failed: {e}")
             return False
-        
+
         # Step 3: Export from database
         print("\nExporting from database...")
         exported_dxf = os.path.join(tmpdir, 'test_3d_exported.dxf')
         exporter = DXFExporter(db_config, use_standards=False)
         try:
             export_result = exporter.export_dxf(
-                drawing_id=drawing_id,
+                project_id=test_project_id,
                 output_path=exported_dxf,
                 dxf_version='R2018'
             )
