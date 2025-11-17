@@ -7,6 +7,13 @@
 
 This document tracks the progress of migrating from "Projects → Drawings → Entities" architecture to "Projects → Entities" architecture, removing all paper space and legacy drawing references.
 
+## STATUS OVERVIEW
+
+**Last Updated:** 2025-11-17 (Session 2)
+**Current Phase:** Phase 3 (In Progress - ~70% Complete)
+
+---
+
 ## ✅ COMPLETED - Phase 1: Paper Space Removal
 
 ### Code Changes Completed
@@ -37,7 +44,7 @@ This document tracks the progress of migrating from "Projects → Drawings → E
   - Drops `drawing_linetype_usage` table (unused)
   - Includes data validation and verification steps
 
-## ✅ PREPARED - Phase 2: space_type Column Removal
+## ✅ COMPLETED - Phase 2: space_type Column Removal
 
 ### SQL Migrations Created
 - ✅ **Migration 010**: `database/migrations/010_remove_space_type_columns.sql`
@@ -48,71 +55,73 @@ This document tracks the progress of migrating from "Projects → Drawings → E
   - Removes `space_type` column from `drawing_hatches`
   - Drops indexes `idx_drawingent_space` and `idx_drawingtext_space`
 
-### Code Changes Needed (NOT YET COMPLETED)
-The following files still reference `space_type` and need updates:
+### Code Changes COMPLETED ✅
+All code has been updated to remove space_type references:
 
-#### dxf_importer.py
-- [ ] Line 96-98: Remove `space` parameter from `_import_entities()` call
-- [ ] Line 163: Remove `de.space_type` from SELECT query
-- [ ] Line 190: Remove `'space_type': entity['space_type']` from entity data
-- [ ] Line 237-238: Remove `space: str` parameter from `_import_entities()` function
-- [ ] Lines 321, 494, 541, 601, 733, 790, 833, 883, 935: Remove `space_type` from INSERT statements
-- [ ] All helper functions (`_import_entity`, `_import_text`, `_import_dimension`, etc.): Remove `space` parameter
+#### dxf_importer.py ✅
+- ✅ Removed `space` parameter from `_import_entities()` call
+- ✅ Removed `de.space_type` from SELECT query
+- ✅ Removed `'space_type': entity['space_type']` from entity data
+- ✅ Removed `space: str` parameter from all import functions
+- ✅ Removed `space_type` from all INSERT statements (9 locations)
 
-#### dxf_exporter.py
-- [ ] Lines 239, 515, 558, 601, 641: Remove `AND de.space_type = %s` / `AND dt.space_type = %s` filters
-- [ ] Remove corresponding `%s` parameter values (currently 'MODEL')
+#### dxf_exporter.py ✅
+- ✅ Removed `AND de.space_type = %s` filters from 5 queries
+- ✅ Removed corresponding parameter values
 
-**Note:** After removing space_type from code, run Migration 010 to drop the columns.
+**Status:** Code ready! Run Migration 010 to complete Phase 2.
 
-## 🚧 TODO - Phase 3: drawing_id Cleanup
+## 🚧 IN PROGRESS - Phase 3: drawing_id Cleanup (~70% Complete)
 
-### Files Requiring drawing_id Removal
+### ✅ SQL Migration Created
+- ✅ **Migration 011**: `database/migrations/011_remove_drawing_id_from_layers.sql`
+  - Sets all drawing_id values to NULL
+  - Drops drawing_id column from layers table
+  - Recreates unique index on (project_id, layer_name) only
 
-#### High Priority
-1. **dxf_lookup_service.py**
-   - Remove `drawing_id` parameter from `get_or_create_layer()` (line 41)
-   - Simplify cache key logic (lines 56-89)
-   - Remove `drawing_id` from `track_layer_usage()` (line 311)
-   - Remove `drawing_id` from `track_linetype_usage()` (line 349)
+### ✅ Files COMPLETED (Code Updated)
 
-2. **intelligent_object_creator.py**
-   - Remove `drawing_id` parameter from `create_from_entity()` (line 41)
-   - Remove `drawing_id` parameter from `_create_entity_link()` (line 890)
-   - Simplify logic in lines 916-936 to project-level only
+1. **dxf_lookup_service.py** ✅
+   - ✅ Removed `drawing_id` parameter from `get_or_create_layer()`
+   - ✅ Simplified cache key to project_id + layer_name
+   - ✅ Removed drawing_id logic from layer lookups
+   - ✅ Deprecated `record_layer_usage()` and `record_linetype_usage()` (tables removed in Migration 009)
 
-3. **dxf_change_detector.py**
-   - Remove `drawing_id` parameter from `detect_changes()` (line 22)
-   - Remove `drawing_id` parameter from `_get_existing_links()` (line 106)
-   - Keep only project-level query logic (lines 134-147)
+2. **intelligent_object_creator.py** ✅
+   - ✅ Removed `drawing_id` parameter from `create_from_entity()`
+   - ✅ Simplified `_create_entity_link()` to project-only mode
+   - ✅ Removed drawing_id from get_or_create_layer() calls
+   - ✅ Updated all entity link creation to use NULL drawing_id
 
-4. **survey_import_service.py**
+3. **dxf_change_detector.py** ✅
+   - ✅ Removed `drawing_id` parameter from `detect_changes()`
+   - ✅ Simplified `_get_existing_links()` to project-only query
+   - ✅ Updated create_from_entity() calls
+
+### ⚠️ Files Requiring drawing_id Removal (TODO)
+
+#### High Priority (Still TODO)
+1. **survey_import_service.py**
    - Remove `drawing_id` parameter from all functions (lines 22, 282, 298)
    - Remove all drawing_id references throughout file
 
-5. **app.py**
+2. **app.py**
    - Refactor drawing-related endpoints (lines 11068-11070, 11162-11164)
    - Change to use `project_id` instead of `drawing_id`
    - Refactor drawing statistics endpoint (lines 12764-12895)
 
-#### Medium Priority
-6. **batch_pnezd_parser.py**
+#### Medium Priority (Still TODO)
+3. **batch_pnezd_parser.py**
    - Change `check_existing_points()` to use `project_id` instead of `drawing_id`
 
-7. **retroactive_structure_creation.py**
+4. **retroactive_structure_creation.py**
    - Simplify query on line 168 to filter by `project_id` directly
 
-#### Test Files
-8. **test_dxf_import.py** - Update assertions about drawing_id IS NULL
-9. **test_coordinate_preservation.py** - Remove drawing_id references
-10. **test_map_viewer.py** - Remove drawing_id IS NULL checks
-11. **test_z_preservation.py** - Update to not reference drawing_id
-
-### SQL Migration Needed
-- [ ] Create Migration 011: Remove `drawing_id` column from `layers` table
-  - Drop existing unique index `idx_layers_project_layer_unique`
-  - Recreate index without WHERE clause
-  - Drop `drawing_id` column
+#### Test Files (Still TODO)
+5. **test_dxf_import.py** - Update assertions about drawing_id IS NULL
+6. **test_coordinate_preservation.py** - Remove drawing_id references
+7. **test_map_viewer.py** - Remove drawing_id IS NULL checks
+8. **test_z_preservation.py** - Update to not reference drawing_id
 
 ## 🤔 DECISION NEEDED - Phase 4: drawings Table
 

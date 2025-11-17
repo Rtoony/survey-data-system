@@ -38,15 +38,14 @@ class IntelligentObjectCreator:
         # Initialize lookup service for layer management
         self.lookup_service = DXFLookupService(db_config, conn=conn)
     
-    def create_from_entity(self, entity_data: Dict, project_id: str, drawing_id: Optional[str] = None) -> Optional[Tuple[str, str, str]]:
+    def create_from_entity(self, entity_data: Dict, project_id: str) -> Optional[Tuple[str, str, str]]:
         """
         Create intelligent object from DXF entity data.
-        
+
         Args:
             entity_data: Dict with entity info (type, layer, geometry, handle, etc.)
             project_id: UUID of project
-            drawing_id: Optional UUID of drawing (None for project-level entities)
-            
+
         Returns:
             Tuple of (object_type, object_id, table_name) or None
         """
@@ -80,7 +79,7 @@ class IntelligentObjectCreator:
                 
                 if dxf_handle and geometry_wkt:
                     self._create_entity_link(
-                        project_id, drawing_id, dxf_handle, entity_type,
+                        project_id, dxf_handle, entity_type,
                         layer_name, geometry_wkt,
                         object_type, object_id, table_name
                     )
@@ -152,7 +151,7 @@ class IntelligentObjectCreator:
                 # Create entity link for project-level imports (drawing_id can be None)
                 if dxf_handle and geometry_wkt:
                     self._create_entity_link(
-                        project_id, drawing_id, dxf_handle, entity_type,
+                        project_id, dxf_handle, entity_type,
                         layer_name, geometry_wkt,
                         object_type, object_id, table_name
                     )
@@ -853,8 +852,7 @@ class IntelligentObjectCreator:
             # This will create both layers record (project-specific) and link to layer_standards
             layer_id, layer_standard_id = self.lookup_service.get_or_create_layer(
                 layer_name=layer_name,
-                project_id=project_id,
-                drawing_id=None  # Project-level layers
+                project_id=project_id
             )
             
             # Prepare entity data for drawing_entities
@@ -887,16 +885,14 @@ class IntelligentObjectCreator:
             traceback.print_exc()
             cur.close()
     
-    def _create_entity_link(self, project_id: str, drawing_id: Optional[str], dxf_handle: str, entity_type: str,
+    def _create_entity_link(self, project_id: str, dxf_handle: str, entity_type: str,
                            layer_name: str, geometry_wkt: str,
                            object_type: str, object_id: str, table_name: str):
         """
-        Create link between DXF entity and intelligent object.
-        Supports both drawing-level and project-level imports (drawing_id can be None).
-        
+        Create link between DXF entity and intelligent object (project-level only).
+
         Args:
             project_id: UUID of the project
-            drawing_id: Optional UUID of the drawing (None for project-level imports)
             dxf_handle: DXF entity handle
             entity_type: Type of DXF entity
             layer_name: Layer name
@@ -911,49 +907,28 @@ class IntelligentObjectCreator:
         cur = self.conn.cursor()
         
         geometry_hash = hashlib.sha256(geometry_wkt.encode()).hexdigest() if geometry_wkt else None
-        
-        # For project-level imports (drawing_id = None), use project_id + dxf_handle as unique key
-        if drawing_id:
-            # Legacy drawing-based import
-            cur.execute("""
-                INSERT INTO dxf_entity_links (
-                    drawing_id, project_id, dxf_handle, entity_type, layer_name, 
-                    entity_geom_hash, object_table_name, object_id, sync_state
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'active')
-                ON CONFLICT (drawing_id, dxf_handle) DO UPDATE SET
-                    object_table_name = EXCLUDED.object_table_name,
-                    object_id = EXCLUDED.object_id,
-                    entity_geom_hash = EXCLUDED.entity_geom_hash,
-                    sync_state = 'active',
-                    last_seen_at = CURRENT_TIMESTAMP,
-                    updated_at = CURRENT_TIMESTAMP
-            """, (
+
+        # Project-level import only (drawing_id = NULL)
+        # Use project_id + dxf_handle combination to track entity links
+        cur.execute("""
+            INSERT INTO dxf_entity_links (
                 drawing_id, project_id, dxf_handle, entity_type, layer_name,
-                geometry_hash, table_name, object_id
-            ))
-        else:
-            # Project-level import (no drawing_id)
-            # Use project_id + dxf_handle combination to track entity links
-            cur.execute("""
-                INSERT INTO dxf_entity_links (
-                    drawing_id, project_id, dxf_handle, entity_type, layer_name, 
-                    entity_geom_hash, object_table_name, object_id, sync_state
-                )
-                VALUES (NULL, %s, %s, %s, %s, %s, %s, %s, 'active')
-                ON CONFLICT (project_id, dxf_handle) 
-                WHERE drawing_id IS NULL
-                DO UPDATE SET
-                    object_table_name = EXCLUDED.object_table_name,
-                    object_id = EXCLUDED.object_id,
-                    entity_geom_hash = EXCLUDED.entity_geom_hash,
-                    sync_state = 'active',
-                    last_seen_at = CURRENT_TIMESTAMP,
-                    updated_at = CURRENT_TIMESTAMP
-            """, (
-                project_id, dxf_handle, entity_type, layer_name,
-                geometry_hash, table_name, object_id
-            ))
+                entity_geom_hash, object_table_name, object_id, sync_state
+            )
+            VALUES (NULL, %s, %s, %s, %s, %s, %s, %s, 'active')
+            ON CONFLICT (project_id, dxf_handle)
+            WHERE drawing_id IS NULL
+            DO UPDATE SET
+                object_table_name = EXCLUDED.object_table_name,
+                object_id = EXCLUDED.object_id,
+                entity_geom_hash = EXCLUDED.entity_geom_hash,
+                sync_state = 'active',
+                last_seen_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+        """, (
+            project_id, dxf_handle, entity_type, layer_name,
+            geometry_hash, table_name, object_id
+        ))
         
         cur.close()
     
