@@ -1,0 +1,547 @@
+{% extends "base.html" %}
+{% block title %}Classification Review{% endblock %}
+{% block content %}
+<div class="mc-page-header">
+    <h1><i class="fas fa-tasks"></i> Classification Review</h1>
+    <p>Review and classify entities with uncertain or low-confidence classifications</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 300px 1fr; gap: 2rem;">
+    <!-- LEFT PANEL: Filters -->
+    <div class="mc-card">
+        <div class="mc-card-header">
+            <h2><i class="fas fa-filter"></i> Filters</h2>
+        </div>
+        <div class="mc-card-content">
+            <!-- Project Selection -->
+            <div class="mc-form-group">
+                <label for="projectFilter">Project:</label>
+                <select id="projectFilter" class="mc-select" onchange="loadReviewQueue()">
+                    <option value="">All Projects</option>
+                </select>
+            </div>
+
+            <!-- Confidence Range -->
+            <div class="mc-form-group">
+                <label>Confidence Range:</label>
+                <input type="range" id="minConfidence" min="0" max="1" step="0.1" value="0"
+                       oninput="updateConfidenceLabel(); loadReviewQueue()">
+                <input type="range" id="maxConfidence" min="0" max="1" step="0.1" value="1"
+                       oninput="updateConfidenceLabel(); loadReviewQueue()">
+                <div id="confidenceLabel" class="text-dim" style="font-size: 0.85rem; margin-top: 0.5rem;">
+                    0.0 - 1.0
+                </div>
+            </div>
+
+            <!-- Geometry Type -->
+            <div class="mc-form-group">
+                <label>Geometry:</label>
+                <div class="mc-checkbox-group">
+                    <label><input type="checkbox" checked onchange="loadReviewQueue()"> Points</label>
+                    <label><input type="checkbox" checked onchange="loadReviewQueue()"> Lines</label>
+                    <label><input type="checkbox" checked onchange="loadReviewQueue()"> Polygons</label>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-box" style="margin-top: 2rem; padding: 1rem; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 4px;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem;">Queue Stats</h4>
+                <div class="stat-row">
+                    <span>Total:</span>
+                    <strong id="statTotal">0</strong>
+                </div>
+                <div class="stat-row">
+                    <span>Selected:</span>
+                    <strong id="statSelected">0</strong>
+                </div>
+            </div>
+
+            <!-- Bulk Actions -->
+            <div class="mc-form-group" style="margin-top: 2rem;">
+                <button id="bulkReclassifyBtn" class="btn btn-primary" style="width: 100%;" onclick="showBulkReclassifyModal()" disabled>
+                    <i class="fas fa-tasks"></i> Bulk Reclassify
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: Entity List & Context -->
+    <div class="mc-card">
+        <div class="mc-card-header">
+            <h2><i class="fas fa-list"></i> Entities Needing Review</h2>
+            <span id="entityCount" class="mc-badge">0 entities</span>
+        </div>
+        <div class="mc-card-content">
+            <!-- Entity Table -->
+            <div style="overflow-x: auto;">
+                <table class="mc-table" id="entityTable">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                            <th>Layer</th>
+                            <th>Geometry</th>
+                            <th>Confidence</th>
+                            <th>Top Suggestion</th>
+                            <th>Spatial Context</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="entityTableBody">
+                        <tr>
+                            <td colspan="7" class="text-center text-dim">
+                                Click "Load Review Queue" to begin
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reclassification Modal -->
+<div id="reclassifyModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-exchange-alt"></i> Reclassify Entity</h3>
+            <button class="modal-close" onclick="closeReclassifyModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Entity Context -->
+            <div class="entity-context" style="padding: 1rem; background: rgba(0,255,255,0.05); border-radius: 4px; margin-bottom: 1.5rem;">
+                <div class="context-row">
+                    <span class="label">Layer:</span>
+                    <span id="modalLayer" class="value"></span>
+                </div>
+                <div class="context-row">
+                    <span class="label">Current Type:</span>
+                    <span id="modalCurrentType" class="value"></span>
+                </div>
+                <div class="context-row">
+                    <span class="label">Confidence:</span>
+                    <span id="modalConfidence" class="value"></span>
+                </div>
+            </div>
+
+            <!-- ML Suggestions -->
+            <div id="suggestionsSection" style="margin-bottom: 1.5rem;">
+                <h4 style="margin-bottom: 0.75rem;">
+                    <i class="fas fa-lightbulb"></i> Suggestions
+                </h4>
+                <div id="suggestionsList"></div>
+            </div>
+
+            <!-- Manual Selection -->
+            <div class="mc-form-group">
+                <label for="newTypeSelect">Or Choose Type Manually:</label>
+                <select id="newTypeSelect" class="mc-select">
+                    <option value="">Select type...</option>
+                </select>
+            </div>
+
+            <!-- Notes -->
+            <div class="mc-form-group">
+                <label for="reclassifyNotes">Notes (optional):</label>
+                <textarea id="reclassifyNotes" class="mc-textarea" rows="3" placeholder="Add notes about this classification..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeReclassifyModal()" class="btn btn-secondary">Cancel</button>
+            <button id="submitReclassifyBtn" onclick="submitReclassification()" class="btn btn-primary">
+                <i class="fas fa-check"></i> Reclassify
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    font-size: 0.85rem;
+}
+
+.context-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(0,255,255,0.1);
+}
+
+.context-row:last-child {
+    border-bottom: none;
+}
+
+.context-row .label {
+    font-weight: 600;
+    color: var(--text-dim);
+}
+
+.context-row .value {
+    font-family: 'Courier New', monospace;
+}
+
+.suggestion-card {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: rgba(0,255,255,0.05);
+    border: 2px solid rgba(0,255,255,0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.suggestion-card:hover {
+    background: rgba(0,255,255,0.1);
+    border-color: rgba(0,255,255,0.4);
+}
+
+.suggestion-card.selected {
+    background: rgba(0,255,255,0.15);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(0,255,255,0.3);
+}
+
+.confidence-bar-container {
+    width: 100px;
+    height: 6px;
+    background: rgba(0,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.confidence-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff4444, #ffaa00, #00ff00);
+    transition: width 0.3s;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.modal-content {
+    background: var(--card-bg);
+    border-radius: 8px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(0,255,255,0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-color);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid rgba(0,255,255,0.2);
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+</style>
+
+<script>
+let currentEntities = [];
+let selectedEntity = null;
+let selectedEntityIds = new Set();
+
+// Load projects for filter
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/projects');
+        const data = await response.json();
+
+        const select = document.getElementById('projectFilter');
+        data.projects.forEach(proj => {
+            const option = document.createElement('option');
+            option.value = proj.project_id;
+            option.textContent = proj.project_name;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to load projects:', error);
+    }
+}
+
+// Load review queue
+async function loadReviewQueue() {
+    try {
+        const projectId = document.getElementById('projectFilter').value;
+        const minConf = document.getElementById('minConfidence').value;
+        const maxConf = document.getElementById('maxConfidence').value;
+
+        const params = new URLSearchParams({
+            min_confidence: minConf,
+            max_confidence: maxConf,
+            limit: 200
+        });
+
+        if (projectId) {
+            params.append('project_id', projectId);
+        }
+
+        const response = await fetch(`/api/classification/review-queue?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+            currentEntities = data.entities;
+            renderEntityTable(data.entities);
+            updateStats();
+        }
+    } catch (error) {
+        console.error('Failed to load review queue:', error);
+    }
+}
+
+// Render entity table
+function renderEntityTable(entities) {
+    const tbody = document.getElementById('entityTableBody');
+    tbody.innerHTML = '';
+
+    if (entities.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-dim">No entities need review</td></tr>';
+        return;
+    }
+
+    entities.forEach(entity => {
+        const metadata = JSON.parse(entity.classification_metadata || '{}');
+        const topSuggestion = metadata.suggestions?.[0];
+        const spatialCtx = metadata.spatial_context || {};
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><input type="checkbox" class="entity-checkbox" data-id="${entity.entity_id}" onchange="updateSelection()"></td>
+            <td><code>${entity.layer_name || 'N/A'}</code></td>
+            <td>${entity.geometry_type?.replace('ST_', '') || 'Unknown'}</td>
+            <td>
+                <div class="confidence-bar-container">
+                    <div class="confidence-bar-fill" style="width: ${(entity.classification_confidence || 0) * 100}%"></div>
+                </div>
+                <small>${(entity.classification_confidence || 0).toFixed(2)}</small>
+            </td>
+            <td>
+                ${topSuggestion ?
+                    `<strong>${topSuggestion.type}</strong> (${(topSuggestion.confidence).toFixed(2)})` :
+                    '<span class="text-dim">No suggestion</span>'
+                }
+            </td>
+            <td>
+                <small>
+                    ${spatialCtx.nearby_utility_lines || 0} pipes,
+                    ${spatialCtx.nearby_structures || 0} structures
+                </small>
+            </td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="openReclassifyModal('${entity.entity_id}')">
+                    <i class="fas fa-edit"></i> Review
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Update stats
+function updateStats() {
+    document.getElementById('statTotal').textContent = currentEntities.length;
+    document.getElementById('statSelected').textContent = selectedEntityIds.size;
+    document.getElementById('entityCount').textContent = `${currentEntities.length} entities`;
+
+    document.getElementById('bulkReclassifyBtn').disabled = selectedEntityIds.size === 0;
+}
+
+// Selection handling
+function toggleSelectAll() {
+    const checked = document.getElementById('selectAll').checked;
+    document.querySelectorAll('.entity-checkbox').forEach(cb => {
+        cb.checked = checked;
+        if (checked) {
+            selectedEntityIds.add(cb.dataset.id);
+        } else {
+            selectedEntityIds.delete(cb.dataset.id);
+        }
+    });
+    updateStats();
+}
+
+function updateSelection() {
+    selectedEntityIds.clear();
+    document.querySelectorAll('.entity-checkbox:checked').forEach(cb => {
+        selectedEntityIds.add(cb.dataset.id);
+    });
+    updateStats();
+}
+
+// Open reclassify modal
+async function openReclassifyModal(entityId) {
+    selectedEntity = currentEntities.find(e => e.entity_id === entityId);
+    if (!selectedEntity) return;
+
+    const metadata = JSON.parse(selectedEntity.classification_metadata || '{}');
+
+    // Populate context
+    document.getElementById('modalLayer').textContent = selectedEntity.layer_name || 'N/A';
+    document.getElementById('modalCurrentType').textContent = selectedEntity.entity_type || 'Unknown';
+    document.getElementById('modalConfidence').textContent = (selectedEntity.classification_confidence || 0).toFixed(2);
+
+    // Render suggestions
+    const suggestionsList = document.getElementById('suggestionsList');
+    suggestionsList.innerHTML = '';
+
+    if (metadata.suggestions && metadata.suggestions.length > 0) {
+        metadata.suggestions.forEach((sug, idx) => {
+            const card = document.createElement('div');
+            card.className = 'suggestion-card';
+            card.onclick = () => selectSuggestion(sug.type, card);
+            card.innerHTML = `
+                <div>
+                    <strong>${sug.type}</strong>
+                    <div class="text-dim" style="font-size: 0.85rem;">${sug.reason}</div>
+                </div>
+                <div>
+                    <div class="confidence-bar-container">
+                        <div class="confidence-bar-fill" style="width: ${sug.confidence * 100}%"></div>
+                    </div>
+                    <small>${sug.confidence.toFixed(2)}</small>
+                </div>
+            `;
+            suggestionsList.appendChild(card);
+        });
+    } else {
+        suggestionsList.innerHTML = '<p class="text-dim">No suggestions available</p>';
+    }
+
+    // Load vocabulary for manual selection
+    await loadVocabulary();
+
+    // Show modal
+    document.getElementById('reclassifyModal').style.display = 'flex';
+}
+
+function closeReclassifyModal() {
+    document.getElementById('reclassifyModal').style.display = 'none';
+    selectedEntity = null;
+}
+
+// Load vocabulary for dropdown
+async function loadVocabulary() {
+    try {
+        const response = await fetch('/api/classification/vocabulary');
+        const data = await response.json();
+
+        if (data.success) {
+            const select = document.getElementById('newTypeSelect');
+            select.innerHTML = '<option value="">Select type...</option>';
+
+            // Flatten vocabulary into options
+            Object.values(data.vocabulary).forEach(discipline => {
+                Object.values(discipline.categories).forEach(category => {
+                    category.types.forEach(type => {
+                        const option = document.createElement('option');
+                        option.value = type.code;
+                        option.textContent = `${type.name} (${type.code})`;
+                        select.appendChild(option);
+                    });
+                });
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load vocabulary:', error);
+    }
+}
+
+// Select suggestion
+function selectSuggestion(type, cardElement) {
+    // Deselect all
+    document.querySelectorAll('.suggestion-card').forEach(c => c.classList.remove('selected'));
+    // Select this one
+    cardElement.classList.add('selected');
+    // Set dropdown
+    document.getElementById('newTypeSelect').value = type;
+}
+
+// Submit reclassification
+async function submitReclassification() {
+    if (!selectedEntity) return;
+
+    const newType = document.getElementById('newTypeSelect').value;
+    const notes = document.getElementById('reclassifyNotes').value;
+
+    if (!newType) {
+        alert('Please select a type');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/classification/reclassify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                entity_id: selectedEntity.entity_id,
+                new_type: newType,
+                notes: notes
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('Entity reclassified successfully!');
+            closeReclassifyModal();
+            loadReviewQueue(); // Refresh
+        } else {
+            alert('Reclassification failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Reclassification error:', error);
+        alert('Failed to reclassify entity');
+    }
+}
+
+// Update confidence label
+function updateConfidenceLabel() {
+    const min = document.getElementById('minConfidence').value;
+    const max = document.getElementById('maxConfidence').value;
+    document.getElementById('confidenceLabel').textContent = `${parseFloat(min).toFixed(1)} - ${parseFloat(max).toFixed(1)}`;
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    loadProjects();
+    loadReviewQueue();
+});
+</script>
+{% endblock %}
