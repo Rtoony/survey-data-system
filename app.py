@@ -289,6 +289,79 @@ def dxf_test_generator_tool():
     """DXF Test Generator - Generate comprehensive test DXF files with random entities"""
     return render_template('tools/dxf_test_generator.html')
 
+@app.route('/api/tools/dxf-test-generator/object-types', methods=['GET'])
+def get_test_generator_object_types():
+    """Get all object types with their associated information for the DXF test generator"""
+    try:
+        from services.dxf_test_generator_service import DXFTestGeneratorService
+
+        generator = DXFTestGeneratorService()
+        object_types = generator.get_available_object_types()
+
+        return jsonify({
+            'success': True,
+            'object_types': object_types
+        })
+
+    except Exception as e:
+        print(f"Error getting object types: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tools/dxf-test-generator/generate', methods=['POST'])
+def generate_test_dxf():
+    """Generate test DXF file with random entities based on current vocabulary"""
+    try:
+        from services.dxf_test_generator_service import DXFTestGeneratorService
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body required'}), 400
+
+        generator = DXFTestGeneratorService()
+        file_path = generator.generate_test_dxf(data)
+
+        # Return download link
+        filename = os.path.basename(file_path)
+
+        # Get statistics about the generated file
+        stats = generator.get_stats_summary(file_path)
+
+        return jsonify({
+            'success': True,
+            'file_path': file_path,
+            'filename': filename,
+            'download_url': f'/api/files/download/{filename}',
+            'message': f'Generated {filename}',
+            'stats': stats
+        })
+
+    except Exception as e:
+        print(f"Error generating DXF: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/files/download/<filename>', methods=['GET'])
+def download_dxf_file(filename):
+    """Download a generated DXF file"""
+    try:
+        file_path = os.path.join('/tmp/dxf_uploads', filename)
+
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found or expired'}), 404
+
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/dxf'
+        )
+    except Exception as e:
+        print(f"Error downloading file: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/tools/street-light-analyzer')
 def street_light_analyzer_tool():
     """Street Light Analyzer - Analyze street light spacing, coverage, and electrical infrastructure"""
