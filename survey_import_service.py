@@ -1,15 +1,23 @@
 """
 Survey Import Service
 Processes PNEZD data with survey codes and generates connectivity (polylines, blocks)
+
+Enhanced with dynamic coordinate system support based on project settings.
 """
 
 import uuid
+import os
+import sys
 from typing import List, Dict, Any, Optional, Tuple
 from decimal import Decimal
 import psycopg2
 import psycopg2.extras
 from psycopg2.extras import RealDictCursor
 from survey_code_parser import SurveyCodeParser
+
+# Import coordinate system service for dynamic CRS support
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from services.coordinate_system_service import CoordinateSystemService
 
 
 class ConnectivityProcessor:
@@ -184,12 +192,13 @@ class ConnectivityProcessor:
 
 
 class SurveyImportService:
-    """Main service for importing survey data with code processing"""
-    
+    """Main service for importing survey data with code processing and dynamic CRS support"""
+
     def __init__(self, db_config):
         self.db_config = db_config
         self.parser = SurveyCodeParser(db_config)
         self.connectivity_processor = ConnectivityProcessor(db_config)
+        self.crs_service = CoordinateSystemService(db_config)
     
     def parse_pnezd_with_codes(self, file_content: str, coordinate_system: str = 'SRID_2226', 
                                 delimiter: str = None) -> Tuple[List[Dict[str, Any]], List[str]]:
@@ -289,7 +298,9 @@ class SurveyImportService:
     
     def commit_import(self, preview_data: Dict[str, Any], project_id: str) -> Dict[str, Any]:
         """
-        Commit import to database (transactional)
+        Commit import to database (transactional).
+
+        Coordinates are now automatically transformed to the project's coordinate system.
 
         Args:
             preview_data: Preview data from generate_preview
@@ -300,11 +311,20 @@ class SurveyImportService:
         """
         conn = None
         cursor = None
-        
+
         try:
             conn = psycopg2.connect(**self.db_config)
             cursor = conn.cursor(cursor_factory=RealDictCursor)
-            
+
+            # Get project's coordinate system for dynamic SRID
+            try:
+                project_crs = self.crs_service.get_project_crs(project_id, conn)
+                target_srid = int(project_crs['epsg_code'].split(':')[1])
+                print(f"Using project CRS for survey import: {project_crs['epsg_code']} ({project_crs['system_name']})")
+            except Exception as e:
+                print(f"Warning: Could not get project CRS: {e}. Defaulting to EPSG:2226")
+                target_srid = 2226
+
             import_batch_id = str(uuid.uuid4())
             
             # Step 1: Insert sequences FIRST (before points can reference them)
@@ -347,15 +367,16 @@ class SurveyImportService:
                         parsed_attributes, is_active, created_at
                     ) VALUES (
                         %s, %s, %s, %s,
-                        ST_SetSRID(ST_MakePoint(%s, %s, %s), 2226), %s, %s, %s, %s,
+                        ST_SetSRID(ST_MakePoint(%s, %s, %s), %s), %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
-                        %s, TRUE, CURRENT_TIMESTAMP
+                        TRUE, CURRENT_TIMESTAMP
                     )
                     RETURNING point_id
                 """, (
                     point['point_id'], project_id, point['point_number'], point.get('display_name'),
-                    point['easting'], point['northing'], point['elevation'], point['northing'], point['easting'], point['elevation'], point.get('coordinate_system'),
+                    point['easting'], point['northing'], point['elevation'], target_srid,
+                    point['northing'], point['easting'], point['elevation'], point.get('coordinate_system'),
                     point['code'], point.get('code_id'), point.get('discipline_code'), point.get('category_code'), point.get('feature_type'),
                     point.get('connectivity_type'), point.get('layer_name'), point.get('phase'), point.get('auto_connected'), point.get('sequence_id'),
                     psycopg2.extras.Json(point.get('parsed_attributes', {}))
@@ -375,14 +396,14 @@ class SurveyImportService:
                         attributes, created_at
                     ) VALUES (
                         %s, %s, %s, %s,
-                        %s, %s, ST_GeomFromText(%s, 2226), %s::uuid[], %s,
+                        %s, %s, ST_GeomFromText(%s, %s), %s::uuid[], %s,
                         %s, CURRENT_TIMESTAMP
                     )
                     RETURNING segment_id
                 """, (
                     segment['segment_id'], project_id, segment.get('feature_type'), segment.get('layer_name'),
                     segment.get('connectivity_type'), segment.get('is_closed', False),
-                    segment['geometry_wkt'], segment.get('point_ids', []), segment.get('point_count'),
+                    segment['geometry_wkt'], target_srid, segment.get('point_ids', []), segment.get('point_count'),
                     psycopg2.extras.Json({
                         'code': segment.get('code'),
                         'discipline_code': segment.get('discipline_code'),

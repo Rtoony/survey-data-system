@@ -23,63 +23,76 @@ from PIL import Image, ImageDraw, ImageFont
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+# Import coordinate system service for dynamic CRS support
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from services.coordinate_system_service import CoordinateSystemService
+
 
 class MapExportService:
-    """Service for exporting map data in various formats"""
-    
-    def __init__(self, export_dir: str = "/tmp/exports", db_conn=None):
+    """Service for exporting map data in various formats with dynamic coordinate system support"""
+
+    def __init__(self, export_dir: str = "/tmp/exports", db_conn=None, db_config=None):
+        """
+        Initialize map export service.
+
+        Args:
+            export_dir: Directory for export files
+            db_conn: Database connection (optional)
+            db_config: Database config dict for coordinate system service (required for dynamic CRS)
+        """
         self.export_dir = export_dir
         self.db_conn = db_conn
         os.makedirs(export_dir, exist_ok=True)
-        
-        # Transformer from Web Mercator (EPSG:3857) to CA State Plane Zone 2 (EPSG:2226)
-        self.transformer_3857_to_2226 = Transformer.from_crs(
-            "EPSG:3857", "EPSG:2226", always_xy=True
-        )
-        
-        # Transformer from WGS84 (EPSG:4326) to CA State Plane Zone 2 (EPSG:2226)
-        self.transformer_4326_to_2226 = Transformer.from_crs(
-            "EPSG:4326", "EPSG:2226", always_xy=True
-        )
-        
-        # Transformer from CA State Plane Zone 2 (EPSG:2226) to WGS84 (EPSG:4326) for KML export
-        self.transformer_2226_to_4326 = Transformer.from_crs(
-            "EPSG:2226", "EPSG:4326", always_xy=True
-        )
-    
-    def transform_bbox(self, bbox: Dict, source_crs: str = "EPSG:3857") -> Tuple[float, float, float, float]:
-        """Transform bounding box to EPSG:2226"""
-        minx, miny, maxx, maxy = bbox['minx'], bbox['miny'], bbox['maxx'], bbox['maxy']
-        
-        if source_crs == "EPSG:3857":
-            transformer = self.transformer_3857_to_2226
-        elif source_crs == "EPSG:4326":
-            transformer = self.transformer_4326_to_2226
+
+        # Initialize coordinate system service for dynamic CRS support
+        if db_config:
+            self.crs_service = CoordinateSystemService(db_config)
         else:
-            raise ValueError(f"Unsupported source CRS: {source_crs}")
-        
-        minx_ft, miny_ft = transformer.transform(minx, miny)
-        maxx_ft, maxy_ft = transformer.transform(maxx, maxy)
-        
-        return (minx_ft, miny_ft, maxx_ft, maxy_ft)
+            self.crs_service = None
+            print("Warning: Map export service initialized without db_config - dynamic CRS not available")
     
-    def fetch_drawing_entities_by_layer(self, bbox_2226: Tuple, project_id: str = None) -> Dict[str, List[Dict]]:
+    def transform_bbox(self, bbox: Dict, source_crs: str, target_crs: str) -> Tuple[float, float, float, float]:
+        """
+        Transform bounding box between any two coordinate systems.
+
+        Args:
+            bbox: Dict with minx, miny, maxx, maxy keys
+            source_crs: Source EPSG code (e.g., 'EPSG:3857')
+            target_crs: Target EPSG code (e.g., 'EPSG:2226')
+
+        Returns:
+            Tuple of (minx, miny, maxx, maxy) in target CRS
+        """
+        minx, miny, maxx, maxy = bbox['minx'], bbox['miny'], bbox['maxx'], bbox['maxy']
+
+        if not self.crs_service:
+            raise ValueError("Coordinate system service not initialized - cannot transform coordinates")
+
+        transformer = self.crs_service.get_transformer(source_crs, target_crs)
+        minx_transformed, miny_transformed = transformer.transform(minx, miny)
+        maxx_transformed, maxy_transformed = transformer.transform(maxx, maxy)
+
+        return (minx_transformed, miny_transformed, maxx_transformed, maxy_transformed)
+    
+    def fetch_drawing_entities_by_layer(self, bbox: Tuple, project_id: str = None, srid: int = 2226) -> Dict[str, List[Dict]]:
         """
         Fetch all drawing entities within bounding box, grouped by layer name.
         Optionally filter by project_id.
-        
+
         Args:
-            bbox_2226: Bounding box in EPSG:2226 coordinates (minx, miny, maxx, maxy)
+            bbox: Bounding box coordinates (minx, miny, maxx, maxy) in the specified SRID
             project_id: Optional UUID of the project to filter entities
-            
-        Returns: 
+            srid: SRID of the bounding box coordinates (default: 2226 for backward compatibility)
+
+        Returns:
             Dict with layer names as keys, lists of GeoJSON features as values
         """
         if not self.db_conn:
             print("No database connection provided, skipping drawing entities")
             return {}
-        
-        minx, miny, maxx, maxy = bbox_2226
+
+        minx, miny, maxx, maxy = bbox
         
         try:
             with self.db_conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -101,12 +114,12 @@ class MapExportService:
                         WHERE e.project_id = %s
                         AND ST_Intersects(
                             e.geometry,
-                            ST_MakeEnvelope(%s, %s, %s, %s, 2226)
+                            ST_MakeEnvelope(%s, %s, %s, %s, %s)
                         )
                         AND e.entity_type NOT IN ('TEXT', 'MTEXT', 'HATCH', 'ATTDEF', 'ATTRIB')
                         ORDER BY l.layer_name, e.entity_type
                     """
-                    cur.execute(query, (project_id, minx, miny, maxx, maxy))
+                    cur.execute(query, (project_id, minx, miny, maxx, maxy, srid))
                 else:
                     # No project filter - get all entities in bbox
                     query = """
@@ -123,12 +136,12 @@ class MapExportService:
                         LEFT JOIN layers l ON e.layer_id = l.layer_id
                         WHERE ST_Intersects(
                             e.geometry,
-                            ST_MakeEnvelope(%s, %s, %s, %s, 2226)
+                            ST_MakeEnvelope(%s, %s, %s, %s, %s)
                         )
                         AND e.entity_type NOT IN ('TEXT', 'MTEXT', 'HATCH', 'ATTDEF', 'ATTRIB')
                         ORDER BY l.layer_name, e.entity_type
                     """
-                    cur.execute(query, (minx, miny, maxx, maxy))
+                    cur.execute(query, (minx, miny, maxx, maxy, srid))
                 
                 entities = cur.fetchall()
                 
@@ -171,15 +184,25 @@ class MapExportService:
             traceback.print_exc()
             return {}
     
-    def fetch_wfs_data(self, layer_config: Dict, bbox_2226: Tuple) -> Dict:
-        """Fetch data from WFS service"""
+    def fetch_wfs_data(self, layer_config: Dict, bbox: Tuple, epsg_code: str = 'EPSG:2226') -> Dict:
+        """
+        Fetch data from WFS service.
+
+        Args:
+            layer_config: WFS layer configuration
+            bbox: Bounding box tuple (minx, miny, maxx, maxy)
+            epsg_code: EPSG code for the WFS request (default: EPSG:2226 for backward compatibility)
+
+        Returns:
+            GeoJSON dict
+        """
         try:
             wfs = WebFeatureService(url=layer_config['url'], version='2.0.0', timeout=30)
-            
+
             response = wfs.getfeature(
                 typename=layer_config['layer_name'],
-                bbox=bbox_2226,
-                srsname='EPSG:2226',
+                bbox=bbox,
+                srsname=epsg_code,
                 outputFormat='application/json'
             )
             
@@ -190,9 +213,18 @@ class MapExportService:
             print(f"Error fetching WFS data for {layer_config['name']}: {e}")
             return {"type": "FeatureCollection", "features": []}
     
-    def clip_features(self, geojson: Dict, bbox_2226: Tuple) -> List[Dict]:
-        """Clip features to bounding box"""
-        bbox_poly = box(*bbox_2226)
+    def clip_features(self, geojson: Dict, bbox: Tuple) -> List[Dict]:
+        """
+        Clip features to bounding box.
+
+        Args:
+            geojson: GeoJSON feature collection
+            bbox: Bounding box tuple (minx, miny, maxx, maxy)
+
+        Returns:
+            List of clipped features
+        """
+        bbox_poly = box(*bbox)
         clipped_features = []
         
         for feature in geojson.get('features', []):
@@ -209,17 +241,28 @@ class MapExportService:
         
         return clipped_features
     
-    def export_to_shapefile(self, features: List[Dict], layer_name: str, output_path: str) -> bool:
-        """Export features to Shapefile format"""
+    def export_to_shapefile(self, features: List[Dict], layer_name: str, output_path: str, epsg_code: int = 2226) -> bool:
+        """
+        Export features to Shapefile format.
+
+        Args:
+            features: List of GeoJSON features
+            layer_name: Name of the layer
+            output_path: Path to save shapefile
+            epsg_code: EPSG code as integer (default: 2226 for backward compatibility)
+
+        Returns:
+            True if successful, False otherwise
+        """
         if not features:
             print(f"No features to export for {layer_name}")
             return False
-        
+
         try:
             # Determine geometry type from first feature
             first_geom = shape(features[0]['geometry'])
             geom_type = first_geom.geom_type
-            
+
             # Build schema from first feature properties
             properties = features[0].get('properties', {})
             schema_props = {}
@@ -230,28 +273,25 @@ class MapExportService:
                     schema_props[key] = 'float'
                 else:
                     schema_props[key] = 'str'
-            
+
             schema = {
                 'geometry': geom_type,
                 'properties': schema_props if schema_props else {'id': 'str'}
             }
-            
+
             # Write shapefile
             with fiona.open(
                 output_path,
                 'w',
                 driver='ESRI Shapefile',
-                crs=from_epsg(2226),
+                crs=from_epsg(epsg_code),
                 schema=schema
             ) as shp:
                 for feature in features:
                     shp.write(feature)
-            
-            # Write .prj file manually for better compatibility
-            prj_path = output_path.replace('.shp', '.prj')
-            with open(prj_path, 'w') as prj:
-                # WKT for EPSG:2226
-                prj.write('PROJCS["NAD83 / California zone 2 (ftUS)",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4269"]],PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["standard_parallel_1",39.83333333333334],PARAMETER["standard_parallel_2",38.33333333333334],PARAMETER["latitude_of_origin",37.66666666666666],PARAMETER["central_meridian",-122],PARAMETER["false_easting",6561666.667],PARAMETER["false_northing",1640416.667],UNIT["US survey foot",0.3048006096012192,AUTHORITY["EPSG","9003"]],AXIS["X",EAST],AXIS["Y",NORTH],AUTHORITY["EPSG","2226"]]')
+
+            # Note: Fiona automatically writes the .prj file with the CRS from the from_epsg() call
+            # No need to manually write .prj file anymore as fiona handles it correctly
             
             return True
             
@@ -342,33 +382,49 @@ class MapExportService:
             print(f"Error exporting DXF: {e}")
             return False
     
-    def export_to_kml(self, layers_data: Dict[str, List[Dict]], output_path: str) -> bool:
-        """Export features to KML format (Google Earth/Maps compatible)"""
+    def export_to_kml(self, layers_data: Dict[str, List[Dict]], output_path: str, source_epsg: str = 'EPSG:2226') -> bool:
+        """
+        Export features to KML format (Google Earth/Maps compatible).
+
+        Args:
+            layers_data: Dict of layer names to feature lists
+            output_path: Path to save KML file
+            source_epsg: Source EPSG code of the data (default: EPSG:2226 for backward compatibility)
+
+        Returns:
+            True if successful, False otherwise
+        """
         try:
             import xml.etree.ElementTree as ET
-            
+
             # Create KML root
             kml = ET.Element('kml', xmlns='http://www.opengis.net/kml/2.2')
             document = ET.SubElement(kml, 'Document')
             ET.SubElement(document, 'name').text = 'Map Export'
-            
-            # Transform features from EPSG:2226 to WGS84 (EPSG:4326) for KML
+
+            # Get transformer from source CRS to WGS84 (EPSG:4326) for KML
+            if self.crs_service:
+                transformer = self.crs_service.get_transformer(source_epsg, 'EPSG:4326')
+            else:
+                # Fallback if CRS service not available
+                transformer = Transformer.from_crs(source_epsg, 'EPSG:4326', always_xy=True)
+
             feature_count = 0
-            
+
             for layer_name, features in layers_data.items():
                 # Create a folder for each layer
                 folder = ET.SubElement(document, 'Folder')
                 ET.SubElement(folder, 'name').text = layer_name
-                
+
                 for feature in features:
                     try:
                         # Transform geometry to WGS84
                         geom = shape(feature['geometry'])
-                        
+
                         def transform_coords(x, y, z=None):
-                            lon, lat = self.transformer_2226_to_4326.transform(x, y)
+                            lon, lat = transformer.transform(x, y)
                             return (lon, lat) if z is None else (lon, lat, z)
-                        
+
                         transformed_geom = transform(transform_coords, geom)
                         
                         # Create placemark
@@ -627,30 +683,58 @@ class MapExportService:
         draw.text((x + bar_length_px//2, y+bar_height//2+12), label, 
                  fill='#000000', font=scale_font, anchor='mm')
     
-    def create_export_package(self, job_id: str, params: Dict) -> Dict:
+    def create_export_package(self, job_id: str, params: Dict, project_id: str = None) -> Dict:
         """
-        Main export function - creates export package with selected formats
-        Returns: dict with status, download_url, file_size_mb, or error
+        Main export function - creates export package with selected formats.
+
+        Args:
+            job_id: Unique job identifier
+            params: Export parameters including bbox, layers, formats, etc.
+            project_id: Optional project ID to determine target CRS (if None, defaults to EPSG:2226)
+
+        Returns:
+            dict with status, download_url, file_size_mb, or error
         """
         try:
             # Create job directory
             job_dir = os.path.join(self.export_dir, str(job_id))
             os.makedirs(job_dir, exist_ok=True)
-            
-            # Transform bounding box to EPSG:2226
+
+            # Determine target CRS from project or use default
+            if project_id and self.crs_service:
+                try:
+                    project_crs = self.crs_service.get_project_crs(project_id, self.db_conn)
+                    target_epsg = project_crs['epsg_code']
+                    target_srid = int(target_epsg.split(':')[1])  # Extract numeric SRID
+                    print(f"Using project CRS: {target_epsg} ({project_crs['system_name']})")
+                except Exception as e:
+                    print(f"Warning: Could not get project CRS: {e}. Defaulting to EPSG:2226")
+                    target_epsg = 'EPSG:2226'
+                    target_srid = 2226
+            else:
+                # Default to EPSG:2226 for backward compatibility
+                target_epsg = 'EPSG:2226'
+                target_srid = 2226
+                print("No project_id provided or CRS service unavailable, defaulting to EPSG:2226")
+
+            # Transform bounding box to target CRS
             source_crs = params['bbox'].get('crs', 'EPSG:3857')
-            bbox_2226 = self.transform_bbox(params['bbox'], source_crs)
-            
+            bbox_transformed = self.transform_bbox(params['bbox'], source_crs, target_epsg)
+
             # Storage for all layer data
             all_layers_data = {}
-            
+
             # PRIORITY 1: Fetch drawing entities from database (DXF-imported layers)
             print("Fetching drawing entities from database...")
-            drawing_layers = self.fetch_drawing_entities_by_layer(bbox_2226)
+            drawing_layers = self.fetch_drawing_entities_by_layer(
+                bbox_transformed,
+                project_id=project_id,
+                srid=target_srid
+            )
             if drawing_layers:
                 print(f"Found {len(drawing_layers)} drawing layers: {list(drawing_layers.keys())}")
                 all_layers_data.update(drawing_layers)
-            
+
             # PRIORITY 2: Fetch external WFS layers if requested
             for layer_id in params.get('layers', []):
                 if layer_id not in all_layers_data:  # Don't override drawing layers
@@ -660,17 +744,17 @@ class MapExportService:
                         'url': 'https://gis.sonomacounty.ca.gov/geoserver/wfs',
                         'layer_name': layer_id
                     }
-                    
+
                     # For MVP, create sample data for external layers
-                    all_layers_data[layer_id] = self._create_sample_features(bbox_2226, layer_id)
-            
+                    all_layers_data[layer_id] = self._create_sample_features(bbox_transformed, layer_id)
+
             # Export to requested formats
             exported_files = []
-            
+
             if 'shp' in params.get('formats', []):
                 for layer_id, features in all_layers_data.items():
                     shp_path = os.path.join(job_dir, f"{layer_id}.shp")
-                    if self.export_to_shapefile(features, layer_id, shp_path):
+                    if self.export_to_shapefile(features, layer_id, shp_path, epsg_code=target_srid):
                         exported_files.extend([
                             f"{layer_id}.shp",
                             f"{layer_id}.shx",
@@ -682,7 +766,12 @@ class MapExportService:
                 dxf_path = os.path.join(job_dir, "export.dxf")
                 if self.export_to_dxf(all_layers_data, dxf_path):
                     exported_files.append("export.dxf")
-            
+
+            if 'kml' in params.get('formats', []):
+                kml_path = os.path.join(job_dir, "export.kml")
+                if self.export_to_kml(all_layers_data, kml_path, source_epsg=target_epsg):
+                    exported_files.append("export.kml")
+
             if 'png' in params.get('formats', []):
                 png_opts = params.get('png_options', {})
                 png_path = self.create_map_image(
@@ -721,9 +810,18 @@ class MapExportService:
                 'error_message': str(e)
             }
     
-    def _create_sample_features(self, bbox_2226: Tuple, layer_type: str) -> List[Dict]:
-        """Create sample features for MVP demonstration"""
-        minx, miny, maxx, maxy = bbox_2226
+    def _create_sample_features(self, bbox: Tuple, layer_type: str) -> List[Dict]:
+        """
+        Create sample features for MVP demonstration.
+
+        Args:
+            bbox: Bounding box tuple (minx, miny, maxx, maxy)
+            layer_type: Type of layer to create sample features for
+
+        Returns:
+            List of sample GeoJSON features
+        """
+        minx, miny, maxx, maxy = bbox
         
         features = []
         

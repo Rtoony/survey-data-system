@@ -576,6 +576,17 @@ def get_schema():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/coordinate-systems')
+def get_coordinate_systems():
+    """Get all active coordinate systems for dropdown selection"""
+    try:
+        from services.coordinate_system_service import CoordinateSystemService
+        crs_service = CoordinateSystemService(DB_CONFIG)
+        systems = crs_service.get_all_california_systems()
+        return jsonify({'systems': systems})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/projects')
 def get_projects():
     """Get all projects"""
@@ -592,19 +603,28 @@ def get_projects():
 
 @app.route('/api/projects', methods=['POST'])
 def create_project():
-    """Create a new project"""
+    """Create a new project with coordinate system support"""
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'Invalid request body'}), 400
-            
+
         project_name = data.get('project_name')
         client_name = data.get('client_name')
         project_number = data.get('project_number')
         description = data.get('description')
+        default_coordinate_system_id = data.get('default_coordinate_system_id')
 
         if not project_name:
             return jsonify({'error': 'project_name is required'}), 400
+
+        # If no coordinate system specified, get the default (EPSG:2226)
+        if not default_coordinate_system_id:
+            from services.coordinate_system_service import CoordinateSystemService
+            crs_service = CoordinateSystemService(DB_CONFIG)
+            default_cs = crs_service.get_coordinate_system_by_epsg('EPSG:2226')
+            if default_cs:
+                default_coordinate_system_id = default_cs['system_id']
 
         with get_db() as conn:
             with conn.cursor() as cur:
@@ -612,22 +632,24 @@ def create_project():
                     """
                     INSERT INTO projects (
                         project_name, client_name, project_number, description,
-                        quality_score, tags, attributes
+                        default_coordinate_system_id, quality_score, tags, attributes
                     )
-                    VALUES (%s, %s, %s, %s, 0.5, '{}', '{}')
-                    RETURNING project_id, project_name, client_name, project_number, created_at
+                    VALUES (%s, %s, %s, %s, %s, 0.5, '{}', '{}')
+                    RETURNING project_id, project_name, client_name, project_number,
+                              default_coordinate_system_id, created_at
                     """,
-                    (project_name, client_name, project_number, description)
+                    (project_name, client_name, project_number, description, default_coordinate_system_id)
                 )
                 result = cur.fetchone()
                 conn.commit()
-                
+
                 return jsonify({
                     'project_id': str(result[0]),
                     'project_name': result[1],
                     'client_name': result[2],
                     'project_number': result[3],
-                    'created_at': result[4].isoformat() if result[4] else None
+                    'default_coordinate_system_id': str(result[4]) if result[4] else None,
+                    'created_at': result[5].isoformat() if result[5] else None
                 })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -768,17 +790,18 @@ def delete_survey_points(project_id):
 
 @app.route('/api/projects/<project_id>', methods=['PUT'])
 def update_project(project_id):
-    """Update an existing project"""
+    """Update an existing project with coordinate system support"""
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'Invalid request body'}), 400
-            
+
         project_name = data.get('project_name')
         client_id = data.get('client_id')
         client_name = data.get('client_name')
         project_number = data.get('project_number')
         description = data.get('description')
+        default_coordinate_system_id = data.get('default_coordinate_system_id')
 
         if not project_name:
             return jsonify({'error': 'project_name is required'}), 400
@@ -793,20 +816,23 @@ def update_project(project_id):
                     client_result = cur.fetchone()
                     if client_result:
                         client_name = client_result[0]
-                
+
                 cur.execute(
                     """
-                    UPDATE projects 
-                    SET project_name = %s, 
+                    UPDATE projects
+                    SET project_name = %s,
                         client_id = %s,
-                        client_name = %s, 
-                        project_number = %s, 
+                        client_name = %s,
+                        project_number = %s,
                         description = %s,
+                        default_coordinate_system_id = %s,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE project_id = %s
-                    RETURNING project_id, project_name, client_id, client_name, project_number, updated_at
+                    RETURNING project_id, project_name, client_id, client_name, project_number,
+                              default_coordinate_system_id, updated_at
                     """,
-                    (project_name, client_id, client_name, project_number, description, project_id)
+                    (project_name, client_id, client_name, project_number, description,
+                     default_coordinate_system_id, project_id)
                 )
                 result = cur.fetchone()
                 if not result:
@@ -819,7 +845,8 @@ def update_project(project_id):
                     'client_id': result[2],
                     'client_name': result[3],
                     'project_number': result[4],
-                    'updated_at': result[5].isoformat() if result[5] else None
+                    'default_coordinate_system_id': str(result[5]) if result[5] else None,
+                    'updated_at': result[6].isoformat() if result[6] else None
                 })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

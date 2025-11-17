@@ -57,6 +57,15 @@
                 <label for="client_name">Client Name</label>
                 <input type="text" id="client_name" name="client_name" placeholder="e.g., ACME Corporation">
             </div>
+            <div class="form-group">
+                <label for="coordinate_system">Coordinate System <span style="color: #ff6b6b;">*</span></label>
+                <select id="coordinate_system" name="default_coordinate_system_id" required class="form-control">
+                    <option value="">Loading coordinate systems...</option>
+                </select>
+                <small class="form-text" style="color: var(--text-secondary); margin-top: 5px; display: block;">
+                    Select the primary coordinate system for this project. Default: NAD83 California Zone 2 (EPSG:2226).
+                </small>
+            </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
                 <button type="submit" class="btn btn-primary">
@@ -90,6 +99,15 @@
             <div class="form-group">
                 <label for="edit_description">Description</label>
                 <textarea id="edit_description" name="description" rows="3" placeholder="Project description"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="edit_coordinate_system">Coordinate System <span style="color: #ff6b6b;">*</span></label>
+                <select id="edit_coordinate_system" name="default_coordinate_system_id" required class="form-control">
+                    <option value="">Loading coordinate systems...</option>
+                </select>
+                <small class="form-text" style="color: var(--text-secondary); margin-top: 5px; display: block;">
+                    Primary coordinate system for this project.
+                </small>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
@@ -237,6 +255,48 @@ table input[type="checkbox"] {
 <script>
 let allProjects = [];
 let selectedProjects = new Set();
+let coordinateSystems = [];
+
+// Load coordinate systems from API
+async function loadCoordinateSystems() {
+    try {
+        const response = await fetch('/api/coordinate-systems');
+        const data = await response.json();
+        if (data.systems) {
+            coordinateSystems = data.systems;
+        }
+    } catch (error) {
+        console.error('Error loading coordinate systems:', error);
+        // Set default if API fails
+        coordinateSystems = [{
+            system_id: null,
+            system_name: 'NAD83 / California zone 2 (ftUS)',
+            epsg_code: 'EPSG:2226',
+            units: 'US survey foot'
+        }];
+    }
+}
+
+// Populate coordinate system dropdown
+function populateCoordinateSystemDropdown(selectId, selectedValue = null) {
+    const select = document.getElementById(selectId);
+    select.innerHTML = '<option value="">Select Coordinate System...</option>';
+
+    coordinateSystems.forEach(cs => {
+        const option = document.createElement('option');
+        option.value = cs.system_id;
+        option.textContent = `${cs.system_name} (${cs.epsg_code}) - ${cs.units}`;
+
+        // Set default to EPSG:2226 for new projects
+        if (!selectedValue && cs.epsg_code === 'EPSG:2226') {
+            option.selected = true;
+        } else if (selectedValue && cs.system_id === selectedValue) {
+            option.selected = true;
+        }
+
+        select.appendChild(option);
+    });
+}
 
 async function loadProjects() {
     try {
@@ -427,7 +487,15 @@ async function bulkDelete() {
     }
 }
 
-function openCreateModal() {
+async function openCreateModal() {
+    // Load coordinate systems if not already loaded
+    if (coordinateSystems.length === 0) {
+        await loadCoordinateSystems();
+    }
+
+    // Populate dropdown with default selection (EPSG:2226)
+    populateCoordinateSystemDropdown('coordinate_system');
+
     document.getElementById('createModal').style.display = 'block';
     document.getElementById('project_name').focus();
 }
@@ -439,11 +507,12 @@ function closeCreateModal() {
 
 async function createProject(event) {
     event.preventDefault();
-    
+
     const formData = new FormData(event.target);
     const data = {
         project_name: formData.get('project_name'),
-        client_name: formData.get('client_name') || null
+        client_name: formData.get('client_name') || null,
+        default_coordinate_system_id: formData.get('default_coordinate_system_id')
     };
 
     try {
@@ -467,7 +536,15 @@ async function createProject(event) {
     }
 }
 
-function openEditModal(project) {
+async function openEditModal(project) {
+    // Load coordinate systems if not already loaded
+    if (coordinateSystems.length === 0) {
+        await loadCoordinateSystems();
+    }
+
+    // Populate dropdown with project's current coordinate system selected
+    populateCoordinateSystemDropdown('edit_coordinate_system', project.default_coordinate_system_id);
+
     document.getElementById('editModal').style.display = 'block';
     document.getElementById('edit_project_id').value = project.project_id;
     document.getElementById('edit_project_name').value = project.project_name || '';
@@ -484,14 +561,15 @@ function closeEditModal() {
 
 async function updateProject(event) {
     event.preventDefault();
-    
+
     const formData = new FormData(event.target);
     const projectId = formData.get('project_id');
     const data = {
         project_name: formData.get('project_name'),
         client_name: formData.get('client_name') || null,
         project_number: formData.get('project_number') || null,
-        description: formData.get('description') || null
+        description: formData.get('description') || null,
+        default_coordinate_system_id: formData.get('default_coordinate_system_id')
     };
 
     try {
@@ -525,6 +603,8 @@ window.onclick = function(event) {
     }
 }
 
+// Load data on page load
 loadProjects();
+loadCoordinateSystems();
 </script>
 {% endblock %}

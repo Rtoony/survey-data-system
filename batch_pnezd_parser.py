@@ -1,19 +1,28 @@
 """
 Batch PNEZD Parser - Parse survey point files in PNEZD format
 Point Number, Northing, Easting, Elevation, Description
+
+Enhanced with dynamic coordinate system support.
 """
 
 import re
+import os
+import sys
 from typing import List, Dict, Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+# Import coordinate system service for dynamic CRS support
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from services.coordinate_system_service import CoordinateSystemService
+
 
 class PNEZDParser:
-    """Parse PNEZD format survey point files"""
-    
+    """Parse PNEZD format survey point files with dynamic coordinate system support"""
+
     def __init__(self, db_config: Dict):
         self.db_config = db_config
+        self.crs_service = CoordinateSystemService(db_config)
     
     def parse_file(self, file_content: str, source_filename: str) -> Dict:
         """
@@ -157,40 +166,30 @@ class PNEZDParser:
     
     def get_coordinate_systems(self) -> List[Dict]:
         """
-        Get list of available coordinate systems from database
-        
+        Get list of available coordinate systems from database.
+
+        This method now uses the CoordinateSystemService for consistency.
+
         Returns:
-            List of coordinate system dictionaries
-        
+            List of coordinate system dictionaries with keys:
+            - system_id (as coord_system_id for backward compatibility)
+            - system_name
+            - epsg_code
+            - units
+
         Raises:
             Exception: If database query fails or no coordinate systems found
         """
-        conn = psycopg2.connect(**self.db_config)
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        try:
-            cur.execute("""
-                SELECT 
-                    system_id as coord_system_id,
-                    system_name,
-                    epsg_code,
-                    notes as description,
-                    units
-                FROM coordinate_systems 
-                WHERE is_active = true 
-                ORDER BY system_name
-            """)
-            
-            systems = [dict(row) for row in cur.fetchall()]
-            
-            if not systems:
-                raise Exception("No active coordinate systems found in database")
-            
-            return systems
-            
-        finally:
-            cur.close()
-            conn.close()
+        systems = self.crs_service.get_all_active_systems()
+
+        if not systems:
+            raise Exception("No active coordinate systems found in database")
+
+        # Rename system_id to coord_system_id for backward compatibility
+        for system in systems:
+            system['coord_system_id'] = system['system_id']
+
+        return systems
     
     def get_projects(self) -> Dict:
         """
