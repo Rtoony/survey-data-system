@@ -18,6 +18,8 @@
         <div class="tab" data-tab="naming-templates">Naming Templates</div>
         <div class="tab" data-tab="tool-mappings">Tool Object Mappings</div>
         <div class="tab" data-tab="cad-standards">CAD Standards</div>
+        <div class="tab" data-tab="spec-standards">Spec Standards</div>
+        <div class="tab" data-tab="spec-library">Spec Library</div>
     </div>
     
     <div class="tab-content active" id="clients">
@@ -219,6 +221,53 @@
                     <iframe id="cad-abbreviations-content" class="cad-sub-content cad-iframe" data-src="/data-manager/abbreviations?embedded=true" frameborder="0"></iframe>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- SPEC STANDARDS TAB -->
+    <div class="tab-content" id="spec-standards">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-book-open"></i> Specification Standards</h2>
+                <button class="btn btn-add" onclick="openAddSpecStandardModal()">
+                    <i class="fas fa-plus"></i> Add New Standard
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Manage governing bodies and standards organizations (Caltrans, DSA, AWWA, etc.). These define the "WHO" in your spec system.
+            </p>
+            <div id="specStandardsContainer"></div>
+        </div>
+    </div>
+
+    <!-- SPEC LIBRARY TAB -->
+    <div class="tab-content" id="spec-library">
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fas fa-file-contract"></i> Specification Library</h2>
+                <button class="btn btn-add" onclick="openAddSpecLibraryModal()">
+                    <i class="fas fa-plus"></i> Add New Spec
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Master library of specification sections. Each spec links to a governing standard and contains the official requirements.
+            </p>
+
+            <!-- Filter controls -->
+            <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                <select id="specStandardFilter" onchange="filterSpecLibrary()" style="padding: 10px; background: rgba(0,20,40,0.5); border: 1px solid rgba(0,255,255,0.3); color: var(--text-color); border-radius: 6px; flex: 1;">
+                    <option value="">All Standards</option>
+                </select>
+                <input
+                    type="text"
+                    id="specLibrarySearch"
+                    placeholder="🔍 Search specs by number or title..."
+                    oninput="searchSpecLibrary(this.value)"
+                    style="padding: 10px; background: rgba(0,20,40,0.5); border: 1px solid rgba(0,255,255,0.3); color: var(--text-color); border-radius: 6px; flex: 2;"
+                />
+            </div>
+
+            <div id="specLibraryContainer"></div>
         </div>
     </div>
 </div>
@@ -2789,5 +2838,506 @@
         };
         openConfirmModal();
     }
+
+    // ============================================================================
+    // SPEC STANDARDS JAVASCRIPT
+    // ============================================================================
+    let specStandardsData = [];
+
+    function loadSpecStandards() {
+        fetch('/api/spec-standards')
+            .then(r => r.json())
+            .then(data => {
+                specStandardsData = data;
+                displaySpecStandards(data);
+                populateSpecStandardDropdowns();
+            })
+            .catch(err => {
+                console.error('Error loading spec standards:', err);
+                showToast('Error loading spec standards', 'error');
+            });
+    }
+
+    function displaySpecStandards(standards) {
+        const container = document.getElementById('specStandardsContainer');
+        if (!standards || standards.length === 0) {
+            container.innerHTML = '<p style="color: var(--muted); text-align: center; padding: 40px;">No spec standards defined. Add your first one!</p>';
+            return;
+        }
+
+        let html = '<table class="data-table"><thead><tr>';
+        html += '<th>Standard Name</th><th>Abbreviation</th><th>Governing Body</th><th>Description</th><th>Actions</th>';
+        html += '</tr></thead><tbody>';
+
+        standards.forEach(std => {
+            html += '<tr>';
+            html += `<td><strong>${std.standard_name}</strong></td>`;
+            html += `<td>${std.abbreviation || '-'}</td>`;
+            html += `<td>${std.governing_body || '-'}</td>`;
+            html += `<td>${std.description || '-'}</td>`;
+            html += `<td>
+                <button class="btn btn-sm" onclick='editSpecStandard(${JSON.stringify(std)})' title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteSpecStandard('${std.spec_standard_id}')" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>`;
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function openAddSpecStandardModal() {
+        document.getElementById('addSpecStandardForm').reset();
+        openModal('addSpecStandardModal');
+    }
+
+    function submitSpecStandard(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('/api/spec-standards', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(() => {
+            showToast('Spec standard created successfully', 'success');
+            closeModal('addSpecStandardModal');
+            loadSpecStandards();
+        })
+        .catch(err => {
+            showToast('Error creating spec standard', 'error');
+            console.error(err);
+        });
+    }
+
+    function editSpecStandard(std) {
+        const form = document.getElementById('editSpecStandardForm');
+        form.spec_standard_id.value = std.spec_standard_id;
+        form.standard_name.value = std.standard_name;
+        form.governing_body.value = std.governing_body || '';
+        form.abbreviation.value = std.abbreviation || '';
+        form.description.value = std.description || '';
+        form.website_url.value = std.website_url || '';
+        openModal('editSpecStandardModal');
+    }
+
+    function updateSpecStandard(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+        const id = data.spec_standard_id;
+        delete data.spec_standard_id;
+
+        fetch(`/api/spec-standards/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(() => {
+            showToast('Spec standard updated successfully', 'success');
+            closeModal('editSpecStandardModal');
+            loadSpecStandards();
+        })
+        .catch(err => {
+            showToast('Error updating spec standard', 'error');
+            console.error(err);
+        });
+    }
+
+    function deleteSpecStandard(id) {
+        if (!confirm('Delete this spec standard? This will fail if any specs reference it.')) return;
+
+        fetch(`/api/spec-standards/${id}`, {method: 'DELETE'})
+            .then(r => r.json())
+            .then(result => {
+                if (result.error) {
+                    showToast(result.error, 'error');
+                } else {
+                    showToast('Spec standard deleted', 'success');
+                    loadSpecStandards();
+                }
+            })
+            .catch(err => {
+                showToast('Error deleting spec standard', 'error');
+                console.error(err);
+            });
+    }
+
+    function populateSpecStandardDropdowns() {
+        const selects = [
+            document.getElementById('addSpecStandardSelect'),
+            document.getElementById('editSpecStandardSelect'),
+            document.getElementById('specStandardFilter')
+        ];
+
+        selects.forEach(select => {
+            if (!select) return;
+            const currentValue = select.value;
+            let html = select.id === 'specStandardFilter' ? '<option value="">All Standards</option>' : '<option value="">Select Standard...</option>';
+
+            specStandardsData.forEach(std => {
+                html += `<option value="${std.spec_standard_id}">${std.standard_name} (${std.abbreviation || 'N/A'})</option>`;
+            });
+
+            select.innerHTML = html;
+            if (currentValue) select.value = currentValue;
+        });
+    }
+
+    // ============================================================================
+    // SPEC LIBRARY JAVASCRIPT
+    // ============================================================================
+    let specLibraryData = [];
+
+    function loadSpecLibrary() {
+        const standardId = document.getElementById('specStandardFilter')?.value || '';
+        const url = standardId ? `/api/spec-library?spec_standard_id=${standardId}` : '/api/spec-library';
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                specLibraryData = data;
+                displaySpecLibrary(data);
+            })
+            .catch(err => {
+                console.error('Error loading spec library:', err);
+                showToast('Error loading spec library', 'error');
+            });
+    }
+
+    function displaySpecLibrary(specs) {
+        const container = document.getElementById('specLibraryContainer');
+        if (!specs || specs.length === 0) {
+            container.innerHTML = '<p style="color: var(--muted); text-align: center; padding: 40px;">No specs found. Add your first specification!</p>';
+            return;
+        }
+
+        let html = '<table class="data-table"><thead><tr>';
+        html += '<th>Standard</th><th>Number</th><th>Title</th><th>Source</th><th>Structure</th><th>Actions</th>';
+        html += '</tr></thead><tbody>';
+
+        specs.forEach(spec => {
+            html += '<tr>';
+            html += `<td><span class="badge">${spec.abbreviation || spec.standard_name}</span></td>`;
+            html += `<td><strong>${spec.spec_number}</strong></td>`;
+            html += `<td>${spec.spec_title}</td>`;
+            html += `<td>${spec.source_document || '-'}</td>`;
+            html += `<td>${spec.content_structure || 'narrative'}</td>`;
+            html += `<td>
+                <button class="btn btn-sm" onclick='viewSpecContent("${spec.spec_library_id}")' title="View Content">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm" onclick='editSpecLibrary(${JSON.stringify(spec).replace(/'/g, "\\'")} )' title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteSpecLibrary('${spec.spec_library_id}')" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>`;
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function filterSpecLibrary() {
+        loadSpecLibrary();
+    }
+
+    function searchSpecLibrary(searchTerm) {
+        if (!searchTerm || searchTerm.length < 2) {
+            displaySpecLibrary(specLibraryData);
+            return;
+        }
+
+        fetch(`/api/spec-library/search?q=${encodeURIComponent(searchTerm)}`)
+            .then(r => r.json())
+            .then(data => {
+                displaySpecLibrary(data);
+            })
+            .catch(err => {
+                console.error('Error searching:', err);
+            });
+    }
+
+    function openAddSpecLibraryModal() {
+        document.getElementById('addSpecLibraryForm').reset();
+        populateSpecStandardDropdowns();
+        openModal('addSpecLibraryModal');
+    }
+
+    function submitSpecLibrary(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('/api/spec-library', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(() => {
+            showToast('Spec created successfully', 'success');
+            closeModal('addSpecLibraryModal');
+            loadSpecLibrary();
+        })
+        .catch(err => {
+            showToast('Error creating spec', 'error');
+            console.error(err);
+        });
+    }
+
+    function editSpecLibrary(spec) {
+        const form = document.getElementById('editSpecLibraryForm');
+        form.spec_library_id.value = spec.spec_library_id;
+        form.spec_standard_id.value = spec.spec_standard_id;
+        form.spec_number.value = spec.spec_number;
+        form.spec_title.value = spec.spec_title;
+        form.source_document.value = spec.source_document || '';
+        form.content_structure.value = spec.content_structure || 'narrative';
+        form.content_text.value = spec.content_text || '';
+
+        populateSpecStandardDropdowns();
+        form.spec_standard_id.value = spec.spec_standard_id;
+        openModal('editSpecLibraryModal');
+    }
+
+    function updateSpecLibrary(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+        const id = data.spec_library_id;
+        delete data.spec_library_id;
+
+        fetch(`/api/spec-library/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(() => {
+            showToast('Spec updated successfully', 'success');
+            closeModal('editSpecLibraryModal');
+            loadSpecLibrary();
+        })
+        .catch(err => {
+            showToast('Error updating spec', 'error');
+            console.error(err);
+        });
+    }
+
+    function deleteSpecLibrary(id) {
+        if (!confirm('Delete this spec? This will fail if any projects reference it.')) return;
+
+        fetch(`/api/spec-library/${id}`, {method: 'DELETE'})
+            .then(r => r.json())
+            .then(result => {
+                if (result.error) {
+                    showToast(result.error, 'error');
+                } else {
+                    showToast('Spec deleted', 'success');
+                    loadSpecLibrary();
+                }
+            })
+            .catch(err => {
+                showToast('Error deleting spec', 'error');
+                console.error(err);
+            });
+    }
+
+    function viewSpecContent(specId) {
+        fetch(`/api/spec-library/${specId}`)
+            .then(r => r.json())
+            .then(spec => {
+                alert(`${spec.standard_name} ${spec.spec_number}: ${spec.spec_title}\n\n${spec.content_text || 'No content text'}`);
+            })
+            .catch(err => console.error(err));
+    }
+
+    // Initialize when tab is activated
+    document.addEventListener('DOMContentLoaded', function() {
+        // Hook into existing tab system
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabName = this.dataset.tab;
+                if (tabName === 'spec-standards') {
+                    loadSpecStandards();
+                } else if (tabName === 'spec-library') {
+                    loadSpecStandards(); // Load standards for dropdown
+                    loadSpecLibrary();
+                }
+            });
+        });
+    });
 </script>
+
+<!-- SPEC STANDARDS MODALS -->
+<div id="addSpecStandardModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('addSpecStandardModal')">&times;</span>
+        <h2><i class="fas fa-book-open"></i> Add Specification Standard</h2>
+        <form id="addSpecStandardForm" onsubmit="submitSpecStandard(event)">
+            <div class="form-group">
+                <label>Standard Name *</label>
+                <input type="text" name="standard_name" required placeholder="e.g., Caltrans, DSA, AWWA">
+            </div>
+            <div class="form-group">
+                <label>Governing Body</label>
+                <input type="text" name="governing_body" placeholder="e.g., California Department of Transportation">
+            </div>
+            <div class="form-group">
+                <label>Abbreviation</label>
+                <input type="text" name="abbreviation" placeholder="e.g., CT, DSA, AWWA" maxlength="20">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Website URL</label>
+                <input type="url" name="website_url" placeholder="https://example.com">
+            </div>
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addSpecStandardModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Standard</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editSpecStandardModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('editSpecStandardModal')">&times;</span>
+        <h2><i class="fas fa-edit"></i> Edit Specification Standard</h2>
+        <form id="editSpecStandardForm" onsubmit="updateSpecStandard(event)">
+            <input type="hidden" name="spec_standard_id">
+            <div class="form-group">
+                <label>Standard Name *</label>
+                <input type="text" name="standard_name" required>
+            </div>
+            <div class="form-group">
+                <label>Governing Body</label>
+                <input type="text" name="governing_body">
+            </div>
+            <div class="form-group">
+                <label>Abbreviation</label>
+                <input type="text" name="abbreviation" maxlength="20">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Website URL</label>
+                <input type="url" name="website_url">
+            </div>
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editSpecStandardModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Standard</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- SPEC LIBRARY MODALS -->
+<div id="addSpecLibraryModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <span class="close" onclick="closeModal('addSpecLibraryModal')">&times;</span>
+        <h2><i class="fas fa-file-contract"></i> Add Specification</h2>
+        <form id="addSpecLibraryForm" onsubmit="submitSpecLibrary(event)">
+            <div class="form-group">
+                <label>Standard *</label>
+                <select name="spec_standard_id" required id="addSpecStandardSelect">
+                    <option value="">Select Standard...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Spec Number *</label>
+                <input type="text" name="spec_number" required placeholder="e.g., 19-3.03, C110, 32 12 16">
+            </div>
+            <div class="form-group">
+                <label>Spec Title *</label>
+                <input type="text" name="spec_title" required placeholder="e.g., Storm Drain Pipe Installation">
+            </div>
+            <div class="form-group">
+                <label>Source Document</label>
+                <input type="text" name="source_document" placeholder="e.g., Caltrans 2023 Standard Specifications">
+            </div>
+            <div class="form-group">
+                <label>Content Structure</label>
+                <select name="content_structure">
+                    <option value="narrative">Narrative (default)</option>
+                    <option value="3-part">3-Part Spec (CSI format)</option>
+                    <option value="tabular">Tabular</option>
+                    <option value="reference">Reference/Drawing</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Content Text *</label>
+                <textarea name="content_text" rows="8" required placeholder="Enter spec text content..."></textarea>
+                <small style="color: var(--muted);">This is the main searchable content. For structured 3-part specs, you can add JSON structure later.</small>
+            </div>
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addSpecLibraryModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Spec</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editSpecLibraryModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <span class="close" onclick="closeModal('editSpecLibraryModal')">&times;</span>
+        <h2><i class="fas fa-edit"></i> Edit Specification</h2>
+        <form id="editSpecLibraryForm" onsubmit="updateSpecLibrary(event)">
+            <input type="hidden" name="spec_library_id">
+            <div class="form-group">
+                <label>Standard *</label>
+                <select name="spec_standard_id" required id="editSpecStandardSelect">
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Spec Number *</label>
+                <input type="text" name="spec_number" required>
+            </div>
+            <div class="form-group">
+                <label>Spec Title *</label>
+                <input type="text" name="spec_title" required>
+            </div>
+            <div class="form-group">
+                <label>Source Document</label>
+                <input type="text" name="source_document">
+            </div>
+            <div class="form-group">
+                <label>Content Structure</label>
+                <select name="content_structure">
+                    <option value="narrative">Narrative (default)</option>
+                    <option value="3-part">3-Part Spec (CSI format)</option>
+                    <option value="tabular">Tabular</option>
+                    <option value="reference">Reference/Drawing</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Content Text *</label>
+                <textarea name="content_text" rows="8" required></textarea>
+            </div>
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editSpecLibraryModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Spec</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
