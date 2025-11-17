@@ -9,8 +9,8 @@ This document tracks the progress of migrating from "Projects → Drawings → E
 
 ## STATUS OVERVIEW
 
-**Last Updated:** 2025-11-17 (Session 2)
-**Current Phase:** Phase 3 (In Progress - ~70% Complete)
+**Last Updated:** 2025-11-17 (Session 3)
+**Current Phase:** Phase 3 (COMPLETE ✅) | Phase 4 Ready
 
 ---
 
@@ -71,57 +71,78 @@ All code has been updated to remove space_type references:
 
 **Status:** Code ready! Run Migration 010 to complete Phase 2.
 
-## 🚧 IN PROGRESS - Phase 3: drawing_id Cleanup (~70% Complete)
+## ✅ COMPLETED - Phase 3: drawing_id Cleanup (100% Complete)
 
 ### ✅ SQL Migration Created
 - ✅ **Migration 011**: `database/migrations/011_remove_drawing_id_from_layers.sql`
-  - Sets all drawing_id values to NULL
+  - Sets all drawing_id values to NULL in layers table
   - Drops drawing_id column from layers table
   - Recreates unique index on (project_id, layer_name) only
 
-### ✅ Files COMPLETED (Code Updated)
+### ✅ All Files COMPLETED (Code Updated)
 
 1. **dxf_lookup_service.py** ✅
-   - ✅ Removed `drawing_id` parameter from `get_or_create_layer()`
-   - ✅ Simplified cache key to project_id + layer_name
-   - ✅ Removed drawing_id logic from layer lookups
-   - ✅ Deprecated `record_layer_usage()` and `record_linetype_usage()` (tables removed in Migration 009)
+   - Removed `drawing_id` parameter from `get_or_create_layer()`
+   - Simplified cache key to project_id + layer_name
+   - Removed drawing_id logic from layer lookups
+   - Deprecated `record_layer_usage()` and `record_linetype_usage()` (tables removed in Migration 009)
 
 2. **intelligent_object_creator.py** ✅
-   - ✅ Removed `drawing_id` parameter from `create_from_entity()`
-   - ✅ Simplified `_create_entity_link()` to project-only mode
-   - ✅ Removed drawing_id from get_or_create_layer() calls
-   - ✅ Updated all entity link creation to use NULL drawing_id
+   - Removed `drawing_id` parameter from `create_from_entity()`
+   - Simplified `_create_entity_link()` to project-only mode
+   - Removed drawing_id from get_or_create_layer() calls
+   - Updated all entity link creation to use NULL drawing_id
 
 3. **dxf_change_detector.py** ✅
-   - ✅ Removed `drawing_id` parameter from `detect_changes()`
-   - ✅ Simplified `_get_existing_links()` to project-only query
-   - ✅ Updated create_from_entity() calls
+   - Removed `drawing_id` parameter from `detect_changes()`
+   - Simplified `_get_existing_links()` to project-only query
+   - Updated create_from_entity() calls
 
-### ⚠️ Files Requiring drawing_id Removal (TODO)
+4. **survey_import_service.py** ✅
+   - Removed `drawing_id` parameter from all functions
+   - Removed all drawing_id references from INSERT statements
+   - Changed to project-level only imports
 
-#### High Priority (Still TODO)
-1. **survey_import_service.py**
-   - Remove `drawing_id` parameter from all functions (lines 22, 282, 298)
-   - Remove all drawing_id references throughout file
+5. **batch_pnezd_parser.py** ✅
+   - Changed `check_existing_points()` to use `project_id` instead of `drawing_id`
+   - Updated to query with project_id AND drawing_id IS NULL filter
+   - Deprecated drawings list in get_projects_and_drawings()
 
-2. **app.py**
-   - Refactor drawing-related endpoints (lines 11068-11070, 11162-11164)
-   - Change to use `project_id` instead of `drawing_id`
-   - Refactor drawing statistics endpoint (lines 12764-12895)
+6. **retroactive_structure_creation.py** ✅
+   - Simplified query to filter by `project_id` directly
+   - Removed complex JOIN through drawings table
 
-#### Medium Priority (Still TODO)
-3. **batch_pnezd_parser.py**
-   - Change `check_existing_points()` to use `project_id` instead of `drawing_id`
+7. **app.py** ✅
+   - Updated `/api/dxf/import-intelligent` endpoint to use `project_id`
+   - Updated `/api/dxf/reimport` endpoint to use `project_id`
+   - Changed SQL queries to filter by `project_id` with `drawing_id IS NULL`
+   - Map viewer endpoints deferred to Phase 4 (require drawings table removal)
 
-4. **retroactive_structure_creation.py**
-   - Simplify query on line 168 to filter by `project_id` directly
+### ✅ Test Files Updated
 
-#### Test Files (Still TODO)
-5. **test_dxf_import.py** - Update assertions about drawing_id IS NULL
-6. **test_coordinate_preservation.py** - Remove drawing_id references
-7. **test_map_viewer.py** - Remove drawing_id IS NULL checks
-8. **test_z_preservation.py** - Update to not reference drawing_id
+8. **test_dxf_import.py** ✅
+   - Updated layer query to use `project_id` instead of `drawing_id IS NULL`
+   - Kept drawing_id IS NULL checks for entities (correct for Phase 3)
+
+9. **test_coordinate_preservation.py** ✅
+   - Completely refactored to create project first
+   - Updated import_dxf call to use project_id
+   - Updated export_dxf call to use project_id
+   - Returns project_id instead of drawing_id
+
+10. **test_map_viewer.py** ✅
+    - Updated cleanup queries to use project_id for layers
+    - Kept drawing_id IS NULL checks for entities (correct for Phase 3)
+
+11. **test_z_preservation.py** ✅
+    - Completely refactored to create project first
+    - Updated import_dxf and export_dxf calls to use project_id
+
+### Summary
+- **11 Python files** updated with drawing_id removal
+- **Migration 011** created and ready to execute
+- **All core functionality** migrated to project-level
+- **Drawing statistics endpoints** deferred to Phase 4 (require drawings table removal)
 
 ## 🤔 DECISION NEEDED - Phase 4: drawings Table
 
@@ -180,41 +201,50 @@ psql -h localhost -U postgres -d survey_data -f database/migrations/012_remove_d
 
 ## Summary Statistics
 
-### Completed
-- ✅ **Code files modified:** 6 files (dxf_importer.py, dxf_exporter.py, app.py, 2 test files, 1 script)
+### Completed (Phases 1-3)
+- ✅ **Code files modified:** 17 files
+  - Phase 1: 6 files (dxf_importer.py, dxf_exporter.py, app.py, 2 test files, 1 script)
+  - Phase 2: 2 files (dxf_importer.py, dxf_exporter.py - space_type removal)
+  - Phase 3: 11 files (7 core files + 4 test files - drawing_id removal)
 - ✅ **Functions deleted:** 2 (`_import_viewports`, `_export_layouts`)
-- ✅ **SQL migrations created:** 2 (009, 010)
+- ✅ **SQL migrations created:** 3 (009, 010, 011)
 - ✅ **Tables to be dropped:** 3 (layout_viewports, drawing_layer_usage, drawing_linetype_usage)
+- ✅ **Columns removed from code:** 6+ (space_type x4, drawing_id in layers + usage in code)
 
-### Remaining
-- 🚧 **Code files pending:** ~10+ files need space_type and drawing_id removal
-- 🚧 **SQL migrations needed:** 2 more (011, possibly 012)
-- 🚧 **Columns to be removed:** 6 (space_type x4, drawing_id x2+)
+### Remaining (Phase 4)
+- 🚧 **SQL migrations needed:** 1 more (012 - remove drawings table)
+- 🚧 **Code files to update:** 2-3 files (app.py map viewer endpoints, entity_registry.py)
+- 🚧 **Tables to be dropped:** 1 (drawings table)
+- 🚧 **Columns to be removed:** 3+ (drawing_id from drawing_entities, drawing_text, dxf_entity_links, export_jobs)
 
 ## Next Steps
 
-1. **Immediate:** Deploy Phase 1 changes (paper space removal)
-   - Migrations 009 is ready to run
-   - Code changes are complete and committed
+1. **Ready to Deploy:** Phases 1-3 Complete
+   - ✅ Migration 009 ready (paper space removal)
+   - ✅ Migration 010 ready (space_type column removal)
+   - ✅ Migration 011 ready (drawing_id from layers)
+   - ✅ All code changes complete and committed
 
-2. **Next Sprint:** Complete Phase 2 (space_type removal)
-   - Update Python code to remove all space_type references
-   - Run Migration 010
+2. **Execution Order:**
+   ```bash
+   # Run migrations in sequence
+   psql ... -f database/migrations/009_remove_paperspace_tables.sql
+   psql ... -f database/migrations/010_remove_space_type_columns.sql
+   psql ... -f database/migrations/011_remove_drawing_id_from_layers.sql
+   ```
 
-3. **Following Sprint:** Complete Phase 3 (drawing_id cleanup)
-   - Update all function signatures
-   - Run Migration 011
-
-4. **Final Sprint:** Decide on and execute Phase 4 (drawings table)
-   - Make architectural decision
-   - Execute final migration
+3. **Next Session:** Execute Phase 4 (drawings table removal)
+   - Use PHASE_4_COPYPASTA_GUIDE.md for step-by-step instructions
+   - Create Migration 012
+   - Update remaining code references
+   - Final testing and verification
 
 ## Risk Assessment
 
-- **Phase 1 (Paper Space):** ✅ ZERO RISK - Paper space is completely unused
-- **Phase 2 (space_type):** ⚠️ LOW RISK - All data is MODEL space
-- **Phase 3 (drawing_id):** ⚠️ MEDIUM RISK - Requires careful query updates
-- **Phase 4 (drawings table):** 🔴 HIGH RISK - Needs business decision
+- **Phase 1 (Paper Space):** ✅ ZERO RISK - Complete and tested
+- **Phase 2 (space_type):** ✅ LOW RISK - Complete, all data is MODEL space
+- **Phase 3 (drawing_id):** ✅ LOW RISK - Complete, all code updated to project-level
+- **Phase 4 (drawings table):** ⚠️ MEDIUM RISK - Map viewer endpoints need refactoring
 
 ## Testing Checklist
 
@@ -228,6 +258,9 @@ Before deploying each phase:
 
 ---
 
-**Last Updated:** 2025-11-17
+**Last Updated:** 2025-11-17 (Session 3)
 **Author:** Claude (Anthropic AI)
-**Status:** Phase 1 Complete, Phase 2 Prepared
+**Status:** Phases 1-3 Complete ✅ | Phase 4 Ready
+**Branch:** claude/verify-tool-update-01ADh2zBBxdahvZJFXCMSVPd
+**Files Modified:** 17 Python files, 3 SQL migrations created
+**Next:** Execute Phase 4 using PHASE_4_COPYPASTA_GUIDE.md

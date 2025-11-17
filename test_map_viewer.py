@@ -109,11 +109,11 @@ def main():
         os.remove(filename)
         
     finally:
-        # Clean up project-level entities (drawing_id IS NULL)
+        # Clean up project-level entities
         if project_id:
-            cur.execute("DELETE FROM drawing_entities WHERE drawing_id IS NULL")
-            cur.execute("DELETE FROM drawing_text WHERE drawing_id IS NULL")
-            cur.execute("DELETE FROM layers WHERE drawing_id IS NULL")
+            cur.execute("DELETE FROM drawing_entities WHERE project_id = %s AND drawing_id IS NULL", (project_id,))
+            cur.execute("DELETE FROM drawing_text WHERE project_id = %s AND drawing_id IS NULL", (project_id,))
+            cur.execute("DELETE FROM layers WHERE project_id = %s", (project_id,))
             cur.execute("DELETE FROM projects WHERE project_id = %s", (project_id,))
         
         conn.commit()

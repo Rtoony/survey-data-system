@@ -116,30 +116,30 @@ class PNEZDParser:
             'error_count': len(errors)
         }
     
-    def check_existing_points(self, points: List[Dict], drawing_id: str) -> List[Dict]:
+    def check_existing_points(self, points: List[Dict], project_id: str) -> List[Dict]:
         """
-        Check which points already exist in the database for this drawing
-        
+        Check which points already exist in the database for this project
+
         Args:
             points: List of point dictionaries
-            drawing_id: UUID of the drawing to check against
-        
+            project_id: UUID of the project to check against
+
         Returns:
             Updated points list with 'exists' flag set
-        
+
         Raises:
             Exception: If database query fails
         """
         conn = psycopg2.connect(**self.db_config)
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         try:
-            # Get existing point numbers for this drawing
+            # Get existing point numbers for this project (drawing_id IS NULL for project-level)
             cur.execute("""
-                SELECT point_number 
-                FROM survey_points 
-                WHERE drawing_id = %s
-            """, (drawing_id,))
+                SELECT point_number
+                FROM survey_points
+                WHERE project_id = %s AND drawing_id IS NULL
+            """, (project_id,))
             
             existing_points = {row['point_number'] for row in cur.fetchall()}
             
@@ -207,46 +207,29 @@ class PNEZDParser:
         
         try:
             # Get all projects with their drawings
+            # DEPRECATED: drawings table removed - now returns projects only
             cur.execute("""
-                SELECT 
+                SELECT
                     p.project_id,
                     p.project_name,
-                    p.project_number,
-                    d.drawing_id,
-                    d.drawing_name,
-                    d.drawing_number
+                    p.project_number
                 FROM projects p
-                LEFT JOIN drawings d ON p.project_id = d.project_id
-                ORDER BY p.project_name, d.drawing_name
+                ORDER BY p.project_name
             """)
-            
+
             rows = cur.fetchall()
-            
-            # Organize by project
-            projects = {}
-            for row in rows:
-                project_id = row['project_id']
-                
-                if project_id not in projects:
-                    projects[project_id] = {
-                        'project_id': project_id,
-                        'project_name': row['project_name'],
-                        'project_number': row['project_number'],
-                        'drawings': []
-                    }
-                
-                # Add drawing if it exists
-                if row['drawing_id']:
-                    projects[project_id]['drawings'].append({
-                        'drawing_id': row['drawing_id'],
-                        'drawing_name': row['drawing_name'],
-                        'drawing_number': row['drawing_number']
-                    })
-            
-            # Only return projects that have at least one drawing
-            projects_with_drawings = [p for p in projects.values() if p['drawings']]
-            
-            return {'projects': projects_with_drawings}
+
+            projects = [
+                {
+                    'project_id': row['project_id'],
+                    'project_name': row['project_name'],
+                    'project_number': row['project_number'],
+                    'drawings': []  # Empty for backward compatibility
+                }
+                for row in rows
+            ]
+
+            return {'projects': projects}
             
         finally:
             cur.close()

@@ -11061,9 +11061,9 @@ def import_intelligent_dxf():
             return jsonify({'error': 'File must be a DXF file'}), 400
         
         # Get parameters
-        drawing_id = request.form.get('drawing_id')
-        if not drawing_id:
-            return jsonify({'error': 'drawing_id is required'}), 400
+        project_id = request.form.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
 
         import_modelspace = request.form.get('import_modelspace', 'true') == 'true'
 
@@ -11077,7 +11077,7 @@ def import_intelligent_dxf():
             importer = DXFImporter(DB_CONFIG, create_intelligent_objects=True)
             stats = importer.import_dxf(
                 temp_path,
-                drawing_id,
+                project_id,
                 import_modelspace=import_modelspace
             )
             
@@ -11153,29 +11153,29 @@ def reimport_dxf_with_changes():
             return jsonify({'error': 'File must be a DXF file'}), 400
         
         # Get parameters
-        drawing_id = request.form.get('drawing_id')
-        if not drawing_id:
-            return jsonify({'error': 'drawing_id is required'}), 400
-        
+        project_id = request.form.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+
         # Save uploaded file temporarily
         filename = secure_filename(file.filename)
         temp_path = os.path.join('/tmp', f'{uuid.uuid4()}_{filename}')
         file.save(temp_path)
-        
+
         try:
             # Step 1: Import DXF entities (without creating new intelligent objects yet)
             importer = DXFImporter(DB_CONFIG, create_intelligent_objects=False)
             import_stats = importer.import_dxf(
                 temp_path,
-                drawing_id,
+                project_id,
                 import_modelspace=True
             )
-            
+
             # Step 2: Get the reimported entities from database
             with get_db() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute("""
-                        SELECT 
+                        SELECT
                             entity_id,
                             entity_type,
                             layer_name,
@@ -11183,14 +11183,14 @@ def reimport_dxf_with_changes():
                             ST_GeometryType(geometry) as geometry_type,
                             dxf_handle
                         FROM drawing_entities
-                        WHERE drawing_id = %s
-                    """, (drawing_id,))
-                    
+                        WHERE project_id = %s AND drawing_id IS NULL
+                    """, (project_id,))
+
                     reimported_entities = [dict(row) for row in cur.fetchall()]
-            
+
             # Step 3: Detect changes
             detector = DXFChangeDetector(DB_CONFIG)
-            change_stats = detector.detect_changes(drawing_id, reimported_entities)
+            change_stats = detector.detect_changes(project_id, reimported_entities)
             
             return jsonify({
                 'success': len(import_stats['errors']) == 0 and len(change_stats['errors']) == 0,

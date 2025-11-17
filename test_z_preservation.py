@@ -210,33 +210,53 @@ def run_roundtrip_test():
     }
     
     with tempfile.TemporaryDirectory() as tmpdir:
+        # Step 0: Create test project
+        print("\nCreating test project...")
+        import psycopg2
+        import uuid
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+        project_id = str(uuid.uuid4())
+        cur.execute("""
+            INSERT INTO projects (project_id, project_name, project_number)
+            VALUES (%s, %s, %s)
+        """, (project_id, "Z-Preservation Test Project", "TEST-Z-PRES"))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"Test project created: {project_id}")
+
         # Step 1: Create test DXF
         original_dxf = os.path.join(tmpdir, 'test_3d_original.dxf')
         expected_coords = create_test_dxf_with_elevations(original_dxf)
-        
+
         # Extract coordinates from original
         print("\nExtracting coordinates from original DXF...")
         original_extracted = extract_coords_from_dxf(original_dxf)
-        
+
         # Step 2: Import to database
         print("\nImporting to database...")
         importer = DXFImporter(db_config)
         try:
-            import_result = importer.import_dxf(original_dxf, "Z-Preservation Test Drawing")
-            drawing_id = import_result['drawing_id']
-            print(f"Import successful. Drawing ID: {drawing_id}")
-            print(f"Imported: {import_result['stats']}")
+            import_result = importer.import_dxf(
+                file_path=original_dxf,
+                project_id=project_id,
+                coordinate_system='LOCAL',
+                import_modelspace=True
+            )
+            print(f"Import successful. Project ID: {project_id}")
+            print(f"Imported: {import_result.get('entities', 0)} entities")
         except Exception as e:
             print(f"Import failed: {e}")
             return False
-        
+
         # Step 3: Export from database
         print("\nExporting from database...")
         exported_dxf = os.path.join(tmpdir, 'test_3d_exported.dxf')
         exporter = DXFExporter(db_config, use_standards=False)
         try:
             export_result = exporter.export_dxf(
-                drawing_id=drawing_id,
+                project_id=project_id,
                 output_path=exported_dxf,
                 dxf_version='R2018'
             )

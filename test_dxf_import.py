@@ -115,14 +115,14 @@ def verify_data(conn, project_id):
     print(f"✓ Found {entities['count']} project-level entities across {entities['layers']} layers")
     print(f"✓ Verified {entities['project_level_count']} entities have drawing_id IS NULL")
     
-    # Check layers - project-level layers have drawing_id IS NULL
+    # Check layers - project-level layers (drawing_id removed in Migration 011)
     cur.execute("""
         SELECT layer_name, color, quality_score
         FROM layers
-        WHERE drawing_id IS NULL
+        WHERE project_id = %s::uuid
         ORDER BY layer_name
         LIMIT 10
-    """)
+    """, (project_id,))
     
     layers = cur.fetchall()
     print(f"✓ Project-level layers created:")
