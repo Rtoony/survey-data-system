@@ -314,6 +314,16 @@ def lateral_analyzer_tool():
     """Lateral Analyzer - Analyze sewer and water lateral connections"""
     return render_template('lateral_analyzer.html')
 
+@app.route('/tools/pipe-network-editor')
+def pipe_network_editor_tool():
+    """Pipe Network Editor - Manage gravity and pressure pipe networks"""
+    return render_template('tools/pipe_network_editor.html')
+
+@app.route('/tools/utility-structure-manager')
+def utility_structure_manager_tool():
+    """Utility Structure Manager - Manage manholes, inlets, and other structures"""
+    return render_template('tools/utility_structure_manager.html')
+
 @app.route('/tools/assign-standards')
 def assign_standards_tool():
     """Assign Standards - Assign layer and block standards to project"""
@@ -9181,6 +9191,520 @@ def get_network_viewer_entities(network_id):
             'layer_counts': layer_counts,
             'total_count': len(all_entities)
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pipes')
+def get_pipes():
+    """Get all pipes for the active project with optional filters"""
+    try:
+        project_id = session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No active project', 'pipes': []}), 200
+
+        # Get filter parameters
+        line_type = request.args.get('line_type')
+        material = request.args.get('material')
+        min_diameter = request.args.get('min_diameter', type=float)
+        max_diameter = request.args.get('max_diameter', type=float)
+
+        # Build query
+        query = """
+            SELECT
+                ul.line_id,
+                ul.line_type,
+                ul.material,
+                ul.diameter,
+                ul.slope,
+                ul.length_ft,
+                ul.pipe_class,
+                ul.install_date,
+                ul.condition_rating,
+                ul.upstream_structure_id,
+                ul.downstream_structure_id,
+                ST_AsGeoJSON(ST_Transform(ul.geometry, 4326))::json as geometry
+            FROM utility_lines ul
+            WHERE ul.project_id = %s
+        """
+        params = [project_id]
+
+        # Apply filters
+        if line_type:
+            query += " AND ul.line_type = %s"
+            params.append(line_type)
+
+        if material:
+            query += " AND ul.material = %s"
+            params.append(material)
+
+        if min_diameter is not None:
+            query += " AND ul.diameter >= %s"
+            params.append(min_diameter)
+
+        if max_diameter is not None:
+            query += " AND ul.diameter <= %s"
+            params.append(max_diameter)
+
+        query += " ORDER BY ul.created_at DESC"
+
+        pipes = execute_query(query, tuple(params))
+        return jsonify({'pipes': pipes or []})
+
+    except Exception as e:
+        return jsonify({'error': str(e), 'pipes': []}), 500
+
+@app.route('/api/pipes/<pipe_id>', methods=['GET'])
+def get_pipe(pipe_id):
+    """Get detailed information about a specific pipe"""
+    try:
+        query = """
+            SELECT
+                ul.*,
+                ST_AsGeoJSON(ST_Transform(ul.geometry, 4326))::json as geometry,
+                us1.structure_number as upstream_structure_number,
+                us2.structure_number as downstream_structure_number
+            FROM utility_lines ul
+            LEFT JOIN utility_structures us1 ON ul.upstream_structure_id = us1.structure_id
+            LEFT JOIN utility_structures us2 ON ul.downstream_structure_id = us2.structure_id
+            WHERE ul.line_id = %s
+        """
+        result = execute_query(query, (pipe_id,))
+
+        if not result or len(result) == 0:
+            return jsonify({'error': 'Pipe not found'}), 404
+
+        return jsonify({'pipe': result[0]})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pipes', methods=['POST'])
+def create_pipe():
+    """Create a new pipe"""
+    try:
+        project_id = session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No active project'}), 400
+
+        data = request.get_json()
+
+        # Validate required fields
+        required = ['line_type', 'diameter', 'material', 'geometry']
+        missing = [f for f in required if f not in data]
+        if missing:
+            return jsonify({'error': f'Missing required fields: {", ".join(missing)}'}), 400
+
+        # Insert pipe
+        query = """
+            INSERT INTO utility_lines (
+                project_id, line_type, material, diameter,
+                slope, pipe_class, geometry
+            ) VALUES (%s, %s, %s, %s, %s, %s, ST_Transform(ST_GeomFromGeoJSON(%s), 2226))
+            RETURNING line_id
+        """
+
+        result = execute_query(query, (
+            project_id,
+            data['line_type'],
+            data['material'],
+            data['diameter'],
+            data.get('slope', 0.005),
+            data.get('pipe_class', 'Standard'),
+            json.dumps(data['geometry'])
+        ))
+
+        if result and len(result) > 0:
+            return jsonify({'line_id': str(result[0]['line_id'])}), 201
+        else:
+            return jsonify({'error': 'Failed to create pipe'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pipes/<pipe_id>', methods=['PUT'])
+def update_pipe(pipe_id):
+    """Update a pipe"""
+    try:
+        data = request.get_json()
+
+        allowed_fields = [
+            'line_type', 'material', 'diameter', 'slope',
+            'pipe_class', 'install_date', 'condition_rating',
+            'upstream_structure_id', 'downstream_structure_id'
+        ]
+
+        updates = []
+        params = []
+        for field in allowed_fields:
+            if field in data:
+                updates.append(f"{field} = %s")
+                params.append(data[field])
+
+        if not updates:
+            return jsonify({'error': 'No valid fields to update'}), 400
+
+        params.append(pipe_id)
+
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                query = f"""
+                    UPDATE utility_lines
+                    SET {', '.join(updates)}, updated_at = CURRENT_TIMESTAMP
+                    WHERE line_id = %s
+                    RETURNING line_id
+                """
+                cur.execute(query, tuple(params))
+                result = cur.fetchone()
+                conn.commit()
+
+                if not result:
+                    return jsonify({'error': 'Pipe not found'}), 404
+
+                return jsonify({'success': True, 'line_id': str(result[0])})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pipes/<pipe_id>', methods=['DELETE'])
+def delete_pipe(pipe_id):
+    """Delete a pipe (soft delete)"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Check if pipe exists
+                cur.execute("SELECT line_id FROM utility_lines WHERE line_id = %s", (pipe_id,))
+                if not cur.fetchone():
+                    return jsonify({'error': 'Pipe not found'}), 404
+
+                # Soft delete by updating a deleted_at timestamp
+                # If deleted_at column doesn't exist, we'll do hard delete
+                cur.execute("""
+                    DELETE FROM utility_lines WHERE line_id = %s
+                    RETURNING line_id
+                """, (pipe_id,))
+                result = cur.fetchone()
+                conn.commit()
+
+                return jsonify({'success': True, 'line_id': str(result[0])})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pipes/validate')
+def validate_pipes():
+    """Validate pipe network connectivity and hydraulics"""
+    try:
+        project_id = session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No active project'}), 400
+
+        issues = []
+
+        # Check for disconnected pipes (no upstream or downstream structure)
+        query1 = """
+            SELECT line_id, line_type
+            FROM utility_lines
+            WHERE project_id = %s
+            AND (upstream_structure_id IS NULL OR downstream_structure_id IS NULL)
+        """
+        disconnected = execute_query(query1, (project_id,))
+
+        for pipe in (disconnected or []):
+            issues.append({
+                'type': 'Disconnected Pipe',
+                'severity': 'error',
+                'message': f'Pipe {pipe["line_id"]} ({pipe["line_type"]}) is not connected to structures'
+            })
+
+        # Check for pipes with negative slope (flowing uphill for gravity systems)
+        query2 = """
+            SELECT line_id, line_type, slope
+            FROM utility_lines
+            WHERE project_id = %s
+            AND line_type IN ('gravity_main', 'storm_drain', 'sanitary_sewer')
+            AND slope < 0
+        """
+        uphill = execute_query(query2, (project_id,))
+
+        for pipe in (uphill or []):
+            issues.append({
+                'type': 'Negative Slope',
+                'severity': 'error',
+                'message': f'Gravity pipe {pipe["line_id"]} has negative slope ({pipe["slope"]})'
+            })
+
+        # Check for pipes with very low slope (< 0.1%)
+        query3 = """
+            SELECT line_id, line_type, slope
+            FROM utility_lines
+            WHERE project_id = %s
+            AND line_type IN ('gravity_main', 'storm_drain', 'sanitary_sewer')
+            AND slope < 0.001
+            AND slope >= 0
+        """
+        low_slope = execute_query(query3, (project_id,))
+
+        for pipe in (low_slope or []):
+            issues.append({
+                'type': 'Low Slope Warning',
+                'severity': 'warning',
+                'message': f'Pipe {pipe["line_id"]} has very low slope ({(pipe["slope"] * 100):.3f}%) - may have flow issues'
+            })
+
+        return jsonify({'issues': issues})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structures')
+def get_structures():
+    """Get all structures for the active project with optional filters"""
+    try:
+        project_id = session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No active project', 'structures': []}), 200
+
+        # Get filter parameters
+        structure_type = request.args.get('structure_type')
+        condition = request.args.get('condition', type=int)
+
+        # Build query
+        query = """
+            SELECT
+                us.structure_id,
+                us.structure_number,
+                us.structure_type,
+                us.rim_elevation,
+                us.invert_elevation,
+                us.depth_ft,
+                us.diameter,
+                us.material,
+                us.condition_rating,
+                us.install_date,
+                ST_AsGeoJSON(ST_Transform(us.geometry, 4326))::json as geometry
+            FROM utility_structures us
+            WHERE us.project_id = %s
+        """
+        params = [project_id]
+
+        # Apply filters
+        if structure_type:
+            query += " AND us.structure_type = %s"
+            params.append(structure_type)
+
+        if condition is not None:
+            query += " AND us.condition_rating = %s"
+            params.append(condition)
+
+        query += " ORDER BY us.structure_number, us.created_at DESC"
+
+        structures = execute_query(query, tuple(params))
+        return jsonify({'structures': structures or []})
+
+    except Exception as e:
+        return jsonify({'error': str(e), 'structures': []}), 500
+
+@app.route('/api/structures/<structure_id>', methods=['GET'])
+def get_structure(structure_id):
+    """Get detailed information about a specific structure"""
+    try:
+        query = """
+            SELECT
+                us.*,
+                ST_AsGeoJSON(ST_Transform(us.geometry, 4326))::json as geometry
+            FROM utility_structures us
+            WHERE us.structure_id = %s
+        """
+        result = execute_query(query, (structure_id,))
+
+        if not result or len(result) == 0:
+            return jsonify({'error': 'Structure not found'}), 404
+
+        return jsonify({'structure': result[0]})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structures', methods=['POST'])
+def create_structure():
+    """Create a new structure"""
+    try:
+        project_id = session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No active project'}), 400
+
+        data = request.get_json()
+
+        # Validate required fields
+        required = ['structure_type', 'geometry']
+        missing = [f for f in required if f not in data]
+        if missing:
+            return jsonify({'error': f'Missing required fields: {", ".join(missing)}'}), 400
+
+        # Insert structure
+        query = """
+            INSERT INTO utility_structures (
+                project_id, structure_type, structure_number,
+                rim_elevation, invert_elevation, depth_ft,
+                diameter, material, condition_rating, geometry
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, ST_Transform(ST_GeomFromGeoJSON(%s), 2226))
+            RETURNING structure_id
+        """
+
+        result = execute_query(query, (
+            project_id,
+            data['structure_type'],
+            data.get('structure_number'),
+            data.get('rim_elevation'),
+            data.get('invert_elevation'),
+            data.get('depth_ft'),
+            data.get('diameter'),
+            data.get('material'),
+            data.get('condition_rating', 3),
+            json.dumps(data['geometry'])
+        ))
+
+        if result and len(result) > 0:
+            return jsonify({'structure_id': str(result[0]['structure_id'])}), 201
+        else:
+            return jsonify({'error': 'Failed to create structure'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structures/<structure_id>', methods=['PUT'])
+def update_structure(structure_id):
+    """Update a structure"""
+    try:
+        data = request.get_json()
+
+        allowed_fields = [
+            'structure_type', 'structure_number', 'rim_elevation',
+            'invert_elevation', 'depth_ft', 'diameter', 'material',
+            'condition_rating', 'install_date'
+        ]
+
+        updates = []
+        params = []
+        for field in allowed_fields:
+            if field in data:
+                updates.append(f"{field} = %s")
+                params.append(data[field])
+
+        if not updates:
+            return jsonify({'error': 'No valid fields to update'}), 400
+
+        params.append(structure_id)
+
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                query = f"""
+                    UPDATE utility_structures
+                    SET {', '.join(updates)}, updated_at = CURRENT_TIMESTAMP
+                    WHERE structure_id = %s
+                    RETURNING structure_id
+                """
+                cur.execute(query, tuple(params))
+                result = cur.fetchone()
+                conn.commit()
+
+                if not result:
+                    return jsonify({'error': 'Structure not found'}), 404
+
+                return jsonify({'success': True, 'structure_id': str(result[0])})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structures/<structure_id>', methods=['DELETE'])
+def delete_structure(structure_id):
+    """Delete a structure"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Check if structure exists
+                cur.execute("SELECT structure_id FROM utility_structures WHERE structure_id = %s", (structure_id,))
+                if not cur.fetchone():
+                    return jsonify({'error': 'Structure not found'}), 404
+
+                # Delete
+                cur.execute("""
+                    DELETE FROM utility_structures WHERE structure_id = %s
+                    RETURNING structure_id
+                """, (structure_id,))
+                result = cur.fetchone()
+                conn.commit()
+
+                return jsonify({'success': True, 'structure_id': str(result[0])})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/structures/validate')
+def validate_structures():
+    """Validate structure elevations and depths"""
+    try:
+        project_id = session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No active project'}), 400
+
+        issues = []
+
+        # Check for structures with rim < invert (impossible)
+        query1 = """
+            SELECT structure_id, structure_number, structure_type, rim_elevation, invert_elevation
+            FROM utility_structures
+            WHERE project_id = %s
+            AND rim_elevation IS NOT NULL
+            AND invert_elevation IS NOT NULL
+            AND rim_elevation < invert_elevation
+        """
+        invalid_elevations = execute_query(query1, (project_id,))
+
+        for structure in (invalid_elevations or []):
+            issues.append({
+                'type': 'Invalid Elevations',
+                'severity': 'error',
+                'message': f'Structure {structure["structure_number"]} ({structure["structure_type"]}) has rim elevation ({structure["rim_elevation"]}) lower than invert elevation ({structure["invert_elevation"]})'
+            })
+
+        # Check for structures missing elevation data
+        query2 = """
+            SELECT structure_id, structure_number, structure_type
+            FROM utility_structures
+            WHERE project_id = %s
+            AND (rim_elevation IS NULL OR invert_elevation IS NULL)
+        """
+        missing_elevations = execute_query(query2, (project_id,))
+
+        for structure in (missing_elevations or []):
+            issues.append({
+                'type': 'Missing Elevation Data',
+                'severity': 'warning',
+                'message': f'Structure {structure["structure_number"]} ({structure["structure_type"]}) is missing rim or invert elevation'
+            })
+
+        # Check for very deep structures (> 30 feet)
+        query3 = """
+            SELECT structure_id, structure_number, structure_type, rim_elevation, invert_elevation
+            FROM utility_structures
+            WHERE project_id = %s
+            AND rim_elevation IS NOT NULL
+            AND invert_elevation IS NOT NULL
+            AND (rim_elevation - invert_elevation) > 30
+        """
+        deep_structures = execute_query(query3, (project_id,))
+
+        for structure in (deep_structures or []):
+            depth = structure['rim_elevation'] - structure['invert_elevation']
+            issues.append({
+                'type': 'Unusually Deep Structure',
+                'severity': 'warning',
+                'message': f'Structure {structure["structure_number"]} ({structure["structure_type"]}) is very deep ({depth:.2f} ft) - verify elevations'
+            })
+
+        return jsonify({'issues': issues})
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
