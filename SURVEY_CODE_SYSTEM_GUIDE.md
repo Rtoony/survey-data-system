@@ -1,5 +1,18 @@
 # ACAD-GIS Survey Point Code System - User Guide
 
+## Quick Start
+
+**Access the Survey Code Library Manager at:** `/tools/survey-codes`
+
+**What You Can Do:**
+- View and manage 62 pre-configured survey point codes
+- Create custom codes for your project-specific needs
+- Test code parsing and CAD generation in the Testing tab
+- Export codes to CSV for distribution to field data collectors
+- See real-world field crew workflow examples
+
+---
+
 ## Overview
 
 The **Survey Point Code System** transforms traditional field data collection by replacing arbitrary text descriptions with **structured, machine-parsable codes** that automatically generate CAD entities, create polylines, and apply proper layer naming standards.
