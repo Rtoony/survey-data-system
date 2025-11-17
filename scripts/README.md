@@ -24,6 +24,16 @@ This directory contains production-ready scripts for implementing AI embeddings 
 | `PHASE2_INTEGRATION_GUIDE.md` | Detailed integration instructions | - | - |
 | `PHASE2_IMPLEMENTATION_SUMMARY.md` | Phase 2 summary and architecture | - | - |
 
+### **Phase 3: User-Facing Features** (Weeks 4-5)
+
+| Script | Purpose | Duration | Cost |
+|--------|---------|----------|------|
+| `phase3_nl_query_interface.py` | Natural language query (ChatGPT-style) | - | $0 |
+| `phase3_smart_autocomplete.py` | AI-powered autocomplete system | - | $0 |
+| `phase3_find_similar.py` | Find similar entities feature | - | $0 |
+| `PHASE3_QUICKSTART.md` | Complete step-by-step guide | - | - |
+| `PHASE3_IMPLEMENTATION_SUMMARY.md` | Phase 3 summary and UX patterns | - | - |
+
 ### **Supporting Files**
 
 | File | Purpose |
@@ -70,6 +80,32 @@ python3 scripts/phase2_verify.py
 
 **Total time**: ~30 minutes
 **Total cost**: Ongoing (~$0.01-5.00/day)
+
+### **Phase 3: User-Facing Features** (~2-3 hours)
+
+```bash
+# 1. Add Natural Language Query
+# Copy API endpoint from scripts/phase3_nl_query_interface.py to app.py
+# Create templates/ai_query.html with provided HTML
+
+# 2. Add Smart Autocomplete
+# Copy API endpoints from scripts/phase3_smart_autocomplete.py to app.py
+# Create static/js/autocomplete.js with provided JavaScript
+# Integrate into forms
+
+# 3. Add Find Similar Feature
+# Copy API endpoints from scripts/phase3_find_similar.py to app.py
+# Add modal to templates/base.html
+# Add "Find Similar" buttons to entity views
+
+# 4. Test features
+# Navigate to /ai/query and try natural language search
+# Type in autocomplete-enabled fields
+# Click "Find Similar" on entities
+```
+
+**Total time**: ~2-3 hours
+**Total cost**: $0 (uses existing embeddings)
 
 ## 📖 **Detailed Guide**
 
