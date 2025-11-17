@@ -39,7 +39,7 @@ load_dotenv()
 
 # Custom JSON provider for datetime, date, Decimal, and UUID objects (Flask 2.2+)
 class CustomJSONProvider(DefaultJSONProvider):
-    def default(self, o):
+    def default(self, o):  # type: ignore[override]
         if isinstance(o, (datetime, date)):
             return o.isoformat()
         if isinstance(o, Decimal):
@@ -2533,10 +2533,9 @@ def universal_reclassify():
             elif target_type == 'site_tree':
                 result = creator._create_site_tree(entity_data, classification, obj['project_id'])
                 expected_geom = 'POINT'
-            elif target_type == 'generic':
-                result = creator._create_generic_object(entity_data, classification, obj['project_id'])
-                expected_geom = 'ANY'
-            
+            else:
+                return jsonify({'error': f'Invalid target type: {target_type}'}), 400
+
             if not result:
                 actual_geom = entity_data['geometry_type']
                 return jsonify({
@@ -2777,6 +2776,8 @@ def reclassify_entity():
     """Reclassify a single entity"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         entity_id = data.get('entity_id')
         new_type = data.get('new_type')
         user_notes = data.get('notes')
@@ -2801,6 +2802,8 @@ def bulk_reclassify():
     """Reclassify multiple entities at once"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         entity_ids = data.get('entity_ids', [])
         new_type = data.get('new_type')
         user_notes = data.get('notes')
@@ -2912,6 +2915,8 @@ def create_spec_standard():
     """Create new spec standard"""
     try:
         data = request.json
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         result = spec_standards_service.create(data)
         return jsonify(result), 201
     except Exception as e:
@@ -2922,6 +2927,8 @@ def update_spec_standard(spec_standard_id):
     """Update spec standard"""
     try:
         data = request.json
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         success = spec_standards_service.update(spec_standard_id, data)
         if success:
             return jsonify({'success': True})
@@ -2977,6 +2984,8 @@ def create_spec_library_item():
     """Create new spec library entry"""
     try:
         data = request.json
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         result = spec_library_service.create(data)
         return jsonify(result), 201
     except Exception as e:
@@ -2987,6 +2996,8 @@ def update_spec_library_item(spec_library_id):
     """Update spec library entry"""
     try:
         data = request.json
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         success = spec_library_service.update(spec_library_id, data)
         if success:
             return jsonify({'success': True})
@@ -3020,6 +3031,8 @@ def add_standard_to_project(project_id):
     """Add a library spec to project as standard (unmodified)"""
     try:
         data = request.json
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         spec_library_id = data.get('spec_library_id')
         result = project_spec_service.add_standard_to_project(project_id, spec_library_id)
         return jsonify(result), 201
@@ -3031,6 +3044,8 @@ def create_custom_project_spec(project_id):
     """Create a custom spec for this project"""
     try:
         data = request.json
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         result = project_spec_service.create_custom_spec(project_id, data)
         return jsonify(result), 201
     except Exception as e:
@@ -3052,6 +3067,8 @@ def modify_project_spec(project_spec_id):
     """Modify a project spec (converts to 'modified_standard')"""
     try:
         data = request.json
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         success = project_spec_service.modify_standard_in_project(
             project_spec_id,
             data.get('content'),
@@ -13885,7 +13902,7 @@ def create_multi_format_export():
                 export_service = MapExportService()
                 
                 # Transform bbox to EPSG:2226 for scale calculations
-                bbox_2226 = export_service.transform_bbox(bbox, 'EPSG:4326')
+                bbox_2226 = export_service.transform_bbox(bbox, 'EPSG:4326', 'EPSG:2226')
                 bbox_dict = {
                     'minx': bbox_2226[0],
                     'miny': bbox_2226[1],
@@ -16777,7 +16794,14 @@ def get_layer_complete_info(layer_name):
         properties = builder.extract_properties(layer_name)
         entity_info = builder.get_entity_info(layer_name)
         tools = builder.get_tools_for_layer(layer_name)
-        
+
+        if not components:
+            return jsonify({
+                'layer_name': layer_name,
+                'is_valid': False,
+                'error': 'Failed to parse layer components'
+            }), 400
+
         return jsonify({
             'layer_name': layer_name,
             'is_valid': True,
@@ -17567,126 +17591,6 @@ def get_available_object_types():
         """
         object_types = execute_query(query)
         return jsonify({'object_types': object_types})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# ===== COORDINATE SYSTEMS API =====
-
-@app.route('/api/coordinate-systems')
-def get_coordinate_systems():
-    """Get all coordinate systems"""
-    try:
-        query = """
-            SELECT system_id, epsg_code, system_name, region, datum, units, zone_number, notes,
-                   is_active, tags, attributes
-            FROM coordinate_systems
-            WHERE is_active = TRUE
-            ORDER BY region, system_name
-        """
-        systems = execute_query(query)
-        return jsonify({'coordinate_systems': systems})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/coordinate-systems/<uuid:system_id>')
-def get_coordinate_system_detail(system_id):
-    """Get a specific coordinate system"""
-    try:
-        query = """
-            SELECT system_id, epsg_code, system_name, region, datum, units, zone_number, notes,
-                   is_active, tags, attributes
-            FROM coordinate_systems
-            WHERE system_id = %s
-        """
-        result = execute_query(query, (str(system_id),))
-        
-        if not result:
-            return jsonify({'error': 'Coordinate system not found'}), 404
-        
-        return jsonify(result[0])
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/coordinate-systems', methods=['POST'])
-def create_coordinate_system():
-    """Create a new coordinate system"""
-    try:
-        data = request.get_json()
-        
-        if not data.get('system_name') or not data.get('epsg_code'):
-            return jsonify({'error': 'system_name and epsg_code are required'}), 400
-        
-        query = """
-            INSERT INTO coordinate_systems (epsg_code, system_name, region, datum, units, zone_number, notes, tags, attributes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING system_id
-        """
-        result = execute_query(query, (
-            data['epsg_code'].strip(),
-            data['system_name'].strip(),
-            data.get('region', '').strip() or None,
-            data.get('datum', '').strip() or None,
-            data.get('units', '').strip() or None,
-            data.get('zone_number'),
-            data.get('notes', '').strip() or None,
-            data.get('tags', []),
-            data.get('attributes')
-        ))
-        
-        return jsonify({
-            'system_id': result[0]['system_id'],
-            'message': f'Coordinate system {data["system_name"]} created successfully'
-        }), 201
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/coordinate-systems/<uuid:system_id>', methods=['PUT'])
-def update_coordinate_system(system_id):
-    """Update a coordinate system"""
-    try:
-        data = request.get_json()
-        
-        if not data.get('system_name') or not data.get('epsg_code'):
-            return jsonify({'error': 'system_name and epsg_code are required'}), 400
-        
-        query = """
-            UPDATE coordinate_systems 
-            SET epsg_code = %s, system_name = %s, region = %s, datum = %s, units = %s, zone_number = %s,
-                notes = %s, tags = %s, attributes = %s, updated_at = CURRENT_TIMESTAMP
-            WHERE system_id = %s
-            RETURNING system_id
-        """
-        result = execute_query(query, (
-            data['epsg_code'].strip(),
-            data['system_name'].strip(),
-            data.get('region', '').strip() or None,
-            data.get('datum', '').strip() or None,
-            data.get('units', '').strip() or None,
-            data.get('zone_number'),
-            data.get('notes', '').strip() or None,
-            data.get('tags', []),
-            data.get('attributes'),
-            str(system_id)
-        ))
-        
-        if not result:
-            return jsonify({'error': 'Coordinate system not found'}), 404
-        
-        return jsonify({'message': f'Coordinate system updated successfully'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/coordinate-systems/<uuid:system_id>', methods=['DELETE'])
-def delete_coordinate_system(system_id):
-    """Delete a coordinate system (soft delete)"""
-    try:
-        query = "UPDATE coordinate_systems SET is_active = FALSE WHERE system_id = %s RETURNING system_id"
-        result = execute_query(query, (str(system_id),))
-        
-        if not result:
-            return jsonify({'error': 'Coordinate system not found'}), 404
-        
-        return jsonify({'message': 'Coordinate system deactivated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -22669,7 +22573,7 @@ def track_curbs():
 
 # ===== GIS DATA LAYERS (Reference Data Hub) =====
 @app.route('/api/reference-data/gis-layers', methods=['GET'])
-def get_gis_data_layers():
+def get_reference_gis_data_layers():
     """Get all GIS data layers from Reference Data Hub"""
     try:
         query = """
@@ -22687,7 +22591,7 @@ def get_gis_data_layers():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/reference-data/gis-layers', methods=['POST'])
-def create_gis_data_layer():
+def create_reference_gis_data_layer():
     """Create a new GIS data layer in Reference Data Hub"""
     try:
         data = request.get_json()
@@ -22711,7 +22615,7 @@ def create_gis_data_layer():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/reference-data/gis-layers/<layer_id>', methods=['PUT'])
-def update_gis_data_layer(layer_id):
+def update_reference_gis_data_layer(layer_id):
     """Update an existing GIS data layer"""
     try:
         data = request.get_json()
@@ -22745,7 +22649,7 @@ def update_gis_data_layer(layer_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/reference-data/gis-layers/<layer_id>', methods=['DELETE'])
-def delete_gis_data_layer(layer_id):
+def delete_reference_gis_data_layer(layer_id):
     """Soft delete a GIS data layer (set is_active to false)"""
     try:
         query = """
