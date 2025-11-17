@@ -166,6 +166,11 @@ def project_relationship_sets_page(project_id):
     """Relationship Sets Manager - manage project dependencies and compliance tracking"""
     return render_template('project_relationship_sets.html', project_id=project_id)
 
+@app.route('/projects/<project_id>/gis-manager')
+def project_gis_manager(project_id):
+    """Project GIS Manager tool"""
+    return render_template('project_gis_manager.html', project_id=project_id)
+
 @app.route('/standards-library')
 def standards_library():
     """Standards Library landing page"""
@@ -22510,6 +22515,205 @@ def track_curbs():
         import traceback
         return jsonify({
             'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+# ============================================
+# GIS SNAPSHOT INTEGRATOR API ENDPOINTS
+# ============================================
+
+# ===== GIS DATA LAYERS (Reference Data Hub) =====
+@app.route('/api/reference-data/gis-layers', methods=['GET'])
+def get_gis_data_layers():
+    """Get all GIS data layers from Reference Data Hub"""
+    try:
+        query = """
+            SELECT
+                layer_id, layer_name, layer_description, service_url,
+                service_type, target_entity_type, target_table_name,
+                attribute_mapping, is_active, created_at, updated_at
+            FROM gis_data_layers
+            WHERE is_active = true
+            ORDER BY layer_name
+        """
+        layers = execute_query(query)
+        return jsonify({'layers': layers})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reference-data/gis-layers', methods=['POST'])
+def create_gis_data_layer():
+    """Create a new GIS data layer in Reference Data Hub"""
+    try:
+        data = request.get_json()
+        query = """
+            INSERT INTO gis_data_layers
+            (layer_name, layer_description, service_url, service_type,
+             target_entity_type, target_table_name, attribute_mapping, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING layer_id
+        """
+        params = (
+            data['layer_name'], data.get('layer_description'),
+            data['service_url'], data['service_type'],
+            data['target_entity_type'], data['target_table_name'],
+            json.dumps(data.get('attribute_mapping', {})),
+            data.get('is_active', True)
+        )
+        result = execute_query(query, params)
+        return jsonify({'layer_id': result[0]['layer_id']}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reference-data/gis-layers/<layer_id>', methods=['PUT'])
+def update_gis_data_layer(layer_id):
+    """Update an existing GIS data layer"""
+    try:
+        data = request.get_json()
+        query = """
+            UPDATE gis_data_layers
+            SET layer_name = %s,
+                layer_description = %s,
+                service_url = %s,
+                service_type = %s,
+                target_entity_type = %s,
+                target_table_name = %s,
+                attribute_mapping = %s,
+                is_active = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE layer_id = %s
+            RETURNING layer_id
+        """
+        params = (
+            data['layer_name'], data.get('layer_description'),
+            data['service_url'], data['service_type'],
+            data['target_entity_type'], data['target_table_name'],
+            json.dumps(data.get('attribute_mapping', {})),
+            data.get('is_active', True),
+            layer_id
+        )
+        result = execute_query(query, params)
+        if result:
+            return jsonify({'success': True, 'layer_id': result[0]['layer_id']})
+        return jsonify({'error': 'Layer not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reference-data/gis-layers/<layer_id>', methods=['DELETE'])
+def delete_gis_data_layer(layer_id):
+    """Soft delete a GIS data layer (set is_active to false)"""
+    try:
+        query = """
+            UPDATE gis_data_layers
+            SET is_active = false, updated_at = CURRENT_TIMESTAMP
+            WHERE layer_id = %s
+            RETURNING layer_id
+        """
+        result = execute_query(query, (layer_id,))
+        if result:
+            return jsonify({'success': True})
+        return jsonify({'error': 'Layer not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== PROJECT GIS SNAPSHOTS =====
+@app.route('/api/projects/<project_id>/gis-snapshots', methods=['GET'])
+def get_project_gis_snapshots(project_id):
+    """Get all GIS snapshots assigned to this project"""
+    try:
+        query = """
+            SELECT
+                pgs.snapshot_id, pgs.snapshot_status, pgs.last_snapshot_at,
+                pgs.entity_count, pgs.error_message, pgs.created_at, pgs.updated_at,
+                gdl.layer_id, gdl.layer_name, gdl.layer_description,
+                gdl.service_type, gdl.target_entity_type, gdl.target_table_name
+            FROM project_gis_snapshots pgs
+            JOIN gis_data_layers gdl ON pgs.gis_data_layer_id = gdl.layer_id
+            WHERE pgs.project_id = %s
+            ORDER BY gdl.layer_name
+        """
+        snapshots = execute_query(query, (project_id,))
+        return jsonify({'snapshots': snapshots})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/gis-snapshots/assign', methods=['POST'])
+def assign_gis_layer_to_project(project_id):
+    """Assign a GIS layer to a project (creates snapshot record)"""
+    try:
+        data = request.get_json()
+        gis_data_layer_id = data['gis_data_layer_id']
+
+        # Create snapshot record
+        query = """
+            INSERT INTO project_gis_snapshots (project_id, gis_data_layer_id, snapshot_status)
+            VALUES (%s, %s, 'pending')
+            ON CONFLICT (project_id, gis_data_layer_id)
+            DO UPDATE SET snapshot_status = 'pending', updated_at = CURRENT_TIMESTAMP
+            RETURNING snapshot_id
+        """
+        result = execute_query(query, (project_id, gis_data_layer_id))
+        snapshot_id = result[0]['snapshot_id']
+
+        return jsonify({'snapshot_id': snapshot_id, 'status': 'pending'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/gis-snapshots/<snapshot_id>', methods=['DELETE'])
+def remove_gis_snapshot(project_id, snapshot_id):
+    """Remove a GIS snapshot and delete all imported entities"""
+    try:
+        # 1. Get snapshot info to know which table to clean
+        query = """
+            SELECT gdl.target_table_name
+            FROM project_gis_snapshots pgs
+            JOIN gis_data_layers gdl ON pgs.gis_data_layer_id = gdl.layer_id
+            WHERE pgs.snapshot_id = %s AND pgs.project_id = %s
+        """
+        result = execute_query(query, (snapshot_id, project_id))
+        if not result:
+            return jsonify({'error': 'Snapshot not found'}), 404
+
+        target_table = result[0]['target_table_name']
+
+        # 2. Delete entities imported by this snapshot
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Use parameterized table name safely
+                # Note: We trust target_table_name from our own database
+                delete_query = f"""
+                    DELETE FROM {target_table}
+                    WHERE project_id = %s
+                      AND snapshot_metadata->>'snapshot_id' = %s
+                """
+                cur.execute(delete_query, (project_id, snapshot_id))
+                deleted_count = cur.rowcount
+
+                # 3. Delete snapshot record
+                cur.execute(
+                    "DELETE FROM project_gis_snapshots WHERE snapshot_id = %s",
+                    (snapshot_id,)
+                )
+
+        return jsonify({'deleted_entities': deleted_count}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/gis-snapshots/<snapshot_id>/execute', methods=['POST'])
+def execute_gis_snapshot(project_id, snapshot_id):
+    """Manually trigger snapshot execution"""
+    try:
+        from services.gis_snapshot_service import GISSnapshotService
+        from database import DB_CONFIG
+
+        service = GISSnapshotService(DB_CONFIG)
+        result = service.execute_snapshot(snapshot_id, project_id)
+
+        return jsonify(result), 200
+    except Exception as e:
+        import traceback
+        return jsonify({
             'error': str(e),
             'traceback': traceback.format_exc()
         }), 500
