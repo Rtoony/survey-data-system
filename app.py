@@ -2021,7 +2021,9 @@ def reclassify_generic_object(project_id, object_id):
     """Vocabulary-driven reclassification of generic object with layer name construction"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         # Validate required vocabulary selections
         required_fields = ['discipline_id', 'category_id', 'type_id', 'phase_id', 'geometry_id']
         missing_fields = [f for f in required_fields if f not in data or not data[f]]
@@ -2533,6 +2535,12 @@ def universal_reclassify():
             elif target_type == 'site_tree':
                 result = creator._create_site_tree(entity_data, classification, obj['project_id'])
                 expected_geom = 'POINT'
+            elif target_type == 'generic':
+                return jsonify({
+                    'success': False,
+                    'error': f'Cannot create generic objects - target type {target_type} is not supported',
+                    'entity_id': entity_data.get('dxf_handle')
+                }), 400
             else:
                 return jsonify({'error': f'Invalid target type: {target_type}'}), 400
 
@@ -3920,7 +3928,9 @@ def create_category():
     """Create a new category"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 category_code = data.get('category_code')
@@ -3958,7 +3968,9 @@ def update_category(category_id):
     """Update an existing category"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 category_code = data.get('category_code')
@@ -4054,7 +4066,9 @@ def create_discipline():
     """Create a new discipline"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 discipline_code = data.get('discipline_code')
@@ -4092,7 +4106,9 @@ def update_discipline(discipline_id):
     """Update an existing discipline"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 discipline_code = data.get('discipline_code')
@@ -4154,7 +4170,9 @@ def create_abbreviation():
     """Create a new abbreviation"""
     try:
         data = request.json
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -4176,7 +4194,9 @@ def update_abbreviation(abbreviation_id):
     """Update an existing abbreviation"""
     try:
         data = request.json
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -4341,7 +4361,9 @@ def create_block():
     """Create a new block"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -4368,7 +4390,9 @@ def update_block(block_id):
     """Update an existing block"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -4564,6 +4588,9 @@ def save_extracted_blocks():
     """Save extracted blocks to the database"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         blocks = data.get('blocks', [])
         
         if not blocks:
@@ -4689,6 +4716,9 @@ def save_cad_elements():
     """Save extracted CAD elements to appropriate database tables"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         import_type = data.get('import_type', 'blocks')
         elements = data.get('elements', [])
         
@@ -5027,6 +5057,9 @@ def save_survey_points():
     """Save parsed survey points to database"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         points = data.get('points', [])
         project_id = data.get('project_id')
         source_epsg = data.get('source_epsg')
@@ -5276,7 +5309,9 @@ def create_detail():
     """Create a new detail"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -5470,7 +5505,9 @@ def create_standard_note():
     """Create a new standard note"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -5560,7 +5597,9 @@ def create_material():
     """Create a new material"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -7880,7 +7919,7 @@ def generate_excel_export(data, title, description):
     wb = openpyxl.Workbook()
 
     # Remove default sheet
-    if wb.active is not None and wb.active.title in [sheet.title for sheet in wb.worksheets]:
+    if wb.active is not None and wb.active.title in [sheet.title for sheet in wb.worksheets]:  # type: ignore[attr-defined]
         wb.remove(wb.active)
     
     # Create Overview sheet
@@ -20518,9 +20557,9 @@ def export_search_results():
         elif export_format == 'excel':
             # Create Excel workbook
             wb = openpyxl.Workbook()
-            ws = wb.active
+            ws = wb.active  # type: ignore[attr-defined]
             if ws is None:
-                ws = wb.create_sheet("Search Results")
+                ws = wb.create_sheet("Search Results")  # type: ignore[attr-defined]
             else:
                 ws.title = "Search Results"
 
