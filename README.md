@@ -51,7 +51,7 @@ Streamlined project management dashboard:
 - **Full-Screen Mode:** Click button or press `ESC` to maximize workspace
 
 ### 🔧 Civil Engineering Tools
-- **Gravity Pipe Network Editor:** Interactive SVG diagrams with auto-connection and classification
+- **Gravity Pipe Network Manager:** Interactive SVG diagrams with auto-connection and classification
 - **Sheet Note Manager:** Construction sheet notes database
 - **Sheet Set Manager:** Deliverables tracking
 - **Survey & Civil Schema:** Comprehensive database for civil/survey workflows
