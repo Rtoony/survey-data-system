@@ -205,10 +205,9 @@ class DXFImporter:
             linetype = layer.dxf.linetype if hasattr(layer.dxf, 'linetype') else 'Continuous'
             
             layer_id, layer_standard_id = resolver.get_or_create_layer(
-                layer_name, 
-                project_id=project_id, 
-                drawing_id=None,
-                color_aci=color_aci, 
+                layer_name,
+                project_id=project_id,
+                color_aci=color_aci,
                 linetype=linetype
             )
     
@@ -282,7 +281,6 @@ class DXFImporter:
         layer_id, _ = resolver.get_or_create_layer(
             layer_name,
             project_id=project_id,
-            drawing_id=None,
             color_aci=color_aci,
             linetype=linetype
         )
@@ -443,8 +441,7 @@ class DXFImporter:
         # Resolve layer to get layer_id (no drawing association)
         layer_id, _ = resolver.get_or_create_layer(
             layer_name,
-            project_id=project_id,
-            drawing_id=None
+            project_id=project_id
         )
 
         # Get text properties
@@ -506,8 +503,7 @@ class DXFImporter:
         # Resolve layer to get layer_id (no drawing association)
         layer_id, _ = resolver.get_or_create_layer(
             layer_name,
-            project_id=project_id,
-            drawing_id=None
+            project_id=project_id
         )
 
         # Get measurement and text
@@ -552,8 +548,7 @@ class DXFImporter:
         # Resolve layer to get layer_id (no drawing association)
         layer_id, _ = resolver.get_or_create_layer(
             layer_name,
-            project_id=project_id,
-            drawing_id=None
+            project_id=project_id
         )
 
         # Get hatch boundary
@@ -616,9 +611,8 @@ class DXFImporter:
         
         # Resolve layer to get layer_id (no drawing association)
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None
+            layer_name,
+            project_id=project_id
         )
         
         # Get transformation
@@ -668,10 +662,9 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
         
@@ -704,10 +697,9 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
         
@@ -761,10 +753,9 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
         
@@ -807,10 +798,9 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
         
@@ -857,10 +847,9 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
         
