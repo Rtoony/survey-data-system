@@ -325,39 +325,40 @@ class DXFExporter:
         
         elif entity_type == '3DFACE' and len(coords) >= 3:
             # Export 3D faces with full vertex elevations
-            # Civil 3D exports triangular faces as POLYGON Z: [v0,v1,v2,v2,v0] (duplicate v2 + closing v0)
-            # Quadrilateral faces as POLYGON Z: [v0,v1,v2,v3,v0] (just closing v0)
-            
-            # Remove closing point if present (first == last)
+            # PostGIS stores POLYGON Z with closing point: Triangle=[v0,v1,v2,v0], Quad=[v0,v1,v2,v3,v0]
+            # DXF 3DFACE needs exactly 4 vertices (triangles duplicate last vertex)
+
+            print(f"[EXPORT] 3DFACE from DB: {len(coords)} coords")
+
+            # Step 1: Remove closing point (POLYGON Z always closes: first == last)
             if len(coords) >= 4:
                 first, last = coords[0], coords[-1]
-                is_closed = (abs(first[0] - last[0]) < 1e-9 and 
-                            abs(first[1] - last[1]) < 1e-9 and 
+                is_closed = (abs(first[0] - last[0]) < 1e-9 and
+                            abs(first[1] - last[1]) < 1e-9 and
                             abs(first[2] - last[2]) < 1e-9)
                 if is_closed:
-                    print(f"[EXPORT] Removing closing point (first==last)")
+                    print(f"[EXPORT] Removing closing point")
                     coords = coords[:-1]  # Drop closing point
-            
-            # Remove duplicate vertices (Civil 3D duplicates last vertex for triangles)
-            # Check if we have 4 vertices but v3 == v2 (triangle stored as quad)
-            if len(coords) == 4:
-                v2, v3 = coords[2], coords[3]
-                is_duplicate = (abs(v2[0] - v3[0]) < 1e-9 and 
-                               abs(v2[1] - v3[1]) < 1e-9 and 
-                               abs(v2[2] - v3[2]) < 1e-9)
-                if is_duplicate:
-                    print(f"[EXPORT] Removing duplicate v2==v3 (triangle)")
-                    coords = coords[:3]  # Remove duplicate, now a true triangle
-            
-            # Ensure we have exactly 4 points for DXF 3DFACE (duplicate last if triangle)
+                    # After removing: Triangle=3 coords, Quad=4 coords
+
+            # Step 2: Convert to DXF 3DFACE format (always 4 vertices)
             if len(coords) == 3:
-                points = coords + [coords[-1]]  # Triangle -> Quad by duplicating last vertex
-                print(f"[EXPORT] Triangle: duplicating last vertex")
+                # Triangle: duplicate last vertex for DXF format
+                points = coords + [coords[-1]]  # [v0,v1,v2] → [v0,v1,v2,v2]
+                print(f"[EXPORT] Triangle (3 vertices) → duplicating v2 for DXF")
+            elif len(coords) >= 4:
+                # Quad: use first 4 vertices
+                points = coords[:4]  # [v0,v1,v2,v3] → [v0,v1,v2,v3]
+                print(f"[EXPORT] Quad (4 vertices) → using as-is")
             else:
-                points = coords[:4]  # True quad, take first 4
-                print(f"[EXPORT] Quad: using first 4 vertices")
-            
-            print(f"[EXPORT] Final points to ezdxf: {points}")
+                # Fallback for degenerate cases (shouldn't happen)
+                print(f"[EXPORT] WARNING: Invalid 3DFACE with {len(coords)} coords, padding")
+                points = coords + [coords[-1]] * (4 - len(coords))
+
+            print(f"[EXPORT] Final 3DFACE vertices:")
+            for i, pt in enumerate(points):
+                print(f"[EXPORT]   v{i}: ({pt[0]:.6f}, {pt[1]:.6f}, {pt[2]:.6f})")
+
             layout.add_3dface(
                 points=points,
                 dxfattribs={'layer': layer}

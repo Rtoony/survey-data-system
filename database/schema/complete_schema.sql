@@ -2363,6 +2363,7 @@ CREATE TABLE public.projects (
     project_number character varying(100),
     client_name character varying(255),
     description text,
+    default_coordinate_system_id uuid NOT NULL,
     entity_id uuid,
     quality_score numeric(4,3),
     tags text[],
@@ -6189,6 +6190,13 @@ CREATE INDEX idx_projects_client ON public.projects USING btree (client_name);
 
 
 --
+-- Name: idx_projects_coordinate_system; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_projects_coordinate_system ON public.projects USING btree (default_coordinate_system_id);
+
+
+--
 -- Name: idx_projects_created; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8808,6 +8816,14 @@ ALTER TABLE ONLY public.project_sheet_notes
 
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.standards_entities(entity_id) ON DELETE SET NULL;
+
+
+--
+-- Name: projects projects_default_coordinate_system_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.projects
+    ADD CONSTRAINT projects_default_coordinate_system_id_fkey FOREIGN KEY (default_coordinate_system_id) REFERENCES public.coordinate_systems(system_id);
 
 
 --
