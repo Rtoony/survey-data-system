@@ -33,7 +33,7 @@ ACAD-GIS replaces traditional file-based CAD workflows with a PostgreSQL/PostGIS
 
 #### Enhanced Map Viewer
 Full-featured spatial workbench for CAD/GIS analysis:
-- **Interactive Leaflet Map:** View all spatial data with coordinate transformation (SRID 0 ↔ SRID 2226 ↔ SRID 4326)
+- **Interactive Leaflet Map:** View all spatial data with coordinate transformation (SRID 2226 ↔ SRID 4326 for web display)
 - **Layer Controls:** Toggle individual layers, expand groups, view feature counts
 - **Basemap Selection:** Streets, Satellite, Topo, Dark basemap options
 - **Multi-Format Export:** DXF, Shapefile, PNG, KML with bounding box selection
@@ -69,7 +69,7 @@ Streamlined project management dashboard:
 - **Database:** PostgreSQL 12+ with PostGIS 3.3+ and pgvector 0.8+
 - **Backend:** Flask (Python) with server-rendered Jinja2 templates
 - **Frontend:** Vanilla JavaScript, Leaflet.js, Mission Control theme
-- **Spatial:** SRID 2226 (CA State Plane) for GIS, SRID 0 for CAD
+- **Spatial:** PostGIS with SRID 2226 (CA State Plane Zone 3) for all geometry storage
 - **AI/ML:** OpenAI embeddings, semantic search, GraphRAG
 
 ## Quick Start
@@ -128,7 +128,7 @@ Access at `http://localhost:5000`
 - **[AI Optimization Guide](AI_DATABASE_OPTIMIZATION_GUIDE.md)** - ML/AI features and optimization patterns
 
 ### Developer Resources
-- **[Database Schema](database/SCHEMA_VERIFICATION.md)** - Complete schema reference (81 tables)
+- **[Database Schema](database/SCHEMA_VERIFICATION.md)** - Complete schema reference (69 tables implemented)
 - **[AI Toolkit](tools/README.md)** - Python modules for embeddings, relationships, validation
 - **[Example Scripts](examples/README.md)** - Sample workflows for data ingestion and processing
 

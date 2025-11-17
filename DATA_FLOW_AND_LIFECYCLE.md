@@ -431,56 +431,38 @@ def build_semantic_relationships(entity_id, similarity_threshold=0.80):
 
 **Automated Function:**
 
+**AUTHORITATIVE IMPLEMENTATION** (from complete_schema.sql):
+
 ```sql
-CREATE OR REPLACE FUNCTION compute_quality_score(p_entity_id UUID)
-RETURNS NUMERIC AS $$
+CREATE FUNCTION compute_quality_score(
+    required_fields_filled INTEGER,
+    total_required_fields INTEGER,
+    has_embedding BOOLEAN DEFAULT false,
+    has_relationships BOOLEAN DEFAULT false
+) RETURNS NUMERIC AS $$
 DECLARE
-    score NUMERIC := 0.0;
-    has_embedding BOOLEAN;
-    has_geometry BOOLEAN;
-    relationship_count INTEGER;
-    usage_count INTEGER;
+    completeness_score NUMERIC(4, 3);
+    bonus_score NUMERIC(4, 3);
 BEGIN
-    -- Check for embedding (0.3 points)
-    SELECT EXISTS(
-        SELECT 1 FROM entity_embeddings 
-        WHERE entity_id = p_entity_id
-    ) INTO has_embedding;
-    
-    IF has_embedding THEN
-        score := score + 0.3;
+    -- Base score from completeness (70% weight)
+    IF total_required_fields > 0 THEN
+        completeness_score := (required_fields_filled::NUMERIC / total_required_fields::NUMERIC) * 0.7;
+    ELSE
+        completeness_score := 0.7;
     END IF;
-    
-    -- Check for geometry (0.2 points)
-    SELECT COUNT(*) INTO has_geometry
-    FROM information_schema.columns
-    WHERE table_schema = 'public' 
-      AND column_name = 'geometry';
-    
-    -- Count relationships (0.3 points max)
-    SELECT COUNT(*) INTO relationship_count
-    FROM entity_relationships
-    WHERE source_entity_id = p_entity_id 
-       OR target_entity_id = p_entity_id;
-    
-    score := score + LEAST(0.3, relationship_count * 0.05);
-    
-    -- Usage frequency (0.2 points max)
-    SELECT COALESCE(usage_frequency, 0) INTO usage_count
-    FROM standards_entities
-    WHERE entity_id = p_entity_id;
-    
-    score := score + LEAST(0.2, usage_count * 0.02);
-    
-    -- Update the entity
-    UPDATE standards_entities
-    SET quality_score = score,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE entity_id = p_entity_id;
-    
-    RETURN score;
+
+    -- Bonus for having embeddings and relationships (15% each)
+    bonus_score := 0.0;
+    IF has_embedding THEN
+        bonus_score := bonus_score + 0.15;  -- Embedding bonus: 15%
+    END IF;
+    IF has_relationships THEN
+        bonus_score := bonus_score + 0.15;  -- Relationships bonus: 15%
+    END IF;
+
+    RETURN LEAST(1.0, completeness_score + bonus_score);
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql IMMUTABLE;
 ```
 
 ---

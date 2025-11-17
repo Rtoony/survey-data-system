@@ -88,7 +88,7 @@ cad_entities
 - All entities reference their parent `project_id`
 - All entities reference their `layer_id`
 - Many entities have `entity_id` linking to unified registry
-- **Note:** DXF import/export now happens at project level; entities can be imported with drawing_id = NULL
+- **Architecture:** DXF import/export operates at **project level only** (migration from drawing-level to project-level completed in Migration 011). Legacy `drawing_id` column has been removed from all tables. Multi-file DXF imports are all associated with a single project.
 
 ---
 

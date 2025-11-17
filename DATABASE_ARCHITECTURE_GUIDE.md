@@ -96,11 +96,18 @@ You can now search for "water collection structures" and find storm drains, catc
 
 **Technical implementation:**
 ```sql
--- Store embeddings as vectors
+-- Store embeddings as vectors with versioning
 CREATE TABLE entity_embeddings (
-    entity_id UUID,
+    embedding_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    entity_id UUID NOT NULL,
+    model_id UUID NOT NULL,
     embedding vector(1536),  -- PostgreSQL pgvector extension
-    model_id UUID
+    embedding_text TEXT,      -- Source text for embedding
+    embedding_context JSONB,  -- Additional context
+    is_current BOOLEAN DEFAULT true,  -- Active version flag
+    version INTEGER DEFAULT 1,         -- Version number
+    quality_metrics JSONB,            -- Embedding quality data
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Find similar entities using cosine similarity
@@ -146,27 +153,28 @@ water_main_789 --connects_to--> fire_hydrant_101 --serves--> building_456
 **Technical implementation:**
 ```sql
 CREATE TABLE entity_relationships (
-    source_entity_id UUID,
-    target_entity_id UUID,
-    relationship_type VARCHAR(100),  -- 'contains', 'connects_to', 'serves'
-    relationship_category VARCHAR(50), -- 'spatial', 'engineering', 'semantic'
-    strength NUMERIC,
+    relationship_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    subject_entity_id UUID NOT NULL,  -- Source entity
+    predicate VARCHAR(100) NOT NULL,  -- Relationship verb
+    object_entity_id UUID NOT NULL,    -- Target entity
+    relationship_type VARCHAR(50) NOT NULL,  -- Category: 'spatial', 'engineering', 'semantic'
+    confidence_score NUMERIC(4,3) DEFAULT 1.0 CHECK (confidence_score >= 0.0 AND confidence_score <= 1.0),
     metadata JSONB
 );
 
 -- Multi-hop traversal (find everything within 2 hops)
 WITH RECURSIVE graph_traverse AS (
     -- Start node
-    SELECT source_entity_id, target_entity_id, 1 AS hop
+    SELECT subject_entity_id, object_entity_id, 1 AS hop
     FROM entity_relationships
-    WHERE source_entity_id = 'start-uuid'
+    WHERE subject_entity_id = 'start-uuid'
     
     UNION ALL
     
     -- Follow edges
-    SELECT r.source_entity_id, r.target_entity_id, gt.hop + 1
+    SELECT r.subject_entity_id, r.object_entity_id, gt.hop + 1
     FROM entity_relationships r
-    JOIN graph_traverse gt ON r.source_entity_id = gt.target_entity_id
+    JOIN graph_traverse gt ON r.subject_entity_id = gt.object_entity_id
     WHERE gt.hop < 2
 )
 SELECT * FROM graph_traverse;
@@ -441,59 +449,48 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY mv_survey_points_enriched;
 ### Helper Functions (Graph Operations)
 
 #### 1. Quality Score Calculation
+
+**AUTHORITATIVE IMPLEMENTATION** (from complete_schema.sql):
+
 ```sql
-CREATE FUNCTION calculate_quality_score(
-    p_entity_id UUID,
-    p_table_name VARCHAR
+CREATE FUNCTION compute_quality_score(
+    required_fields_filled INTEGER,
+    total_required_fields INTEGER,
+    has_embedding BOOLEAN DEFAULT false,
+    has_relationships BOOLEAN DEFAULT false
 ) RETURNS NUMERIC AS $$
 DECLARE
-    v_score NUMERIC := 0.0;
-    v_has_embedding BOOLEAN;
-    v_relationship_count INTEGER;
-    v_completeness NUMERIC;
+    completeness_score NUMERIC(4, 3);
+    bonus_score NUMERIC(4, 3);
 BEGIN
-    -- Check for embedding (40% weight)
-    SELECT EXISTS(
-        SELECT 1 FROM entity_embeddings 
-        WHERE entity_id = p_entity_id AND is_current = true
-    ) INTO v_has_embedding;
-    
-    IF v_has_embedding THEN
-        v_score := v_score + 0.40;
+    -- Base score from completeness (70% weight)
+    IF total_required_fields > 0 THEN
+        completeness_score := (required_fields_filled::NUMERIC / total_required_fields::NUMERIC) * 0.7;
+    ELSE
+        completeness_score := 0.7;
     END IF;
-    
-    -- Count relationships (30% weight)
-    SELECT COUNT(*) INTO v_relationship_count
-    FROM entity_relationships
-    WHERE source_entity_id = p_entity_id OR target_entity_id = p_entity_id;
-    
-    v_score := v_score + LEAST(v_relationship_count * 0.05, 0.30);
-    
-    -- Check field completeness (30% weight)
-    -- (Simplified: check if required fields are non-null)
-    EXECUTE format(
-        'SELECT 
-            CASE 
-                WHEN name IS NOT NULL AND description IS NOT NULL THEN 0.30
-                WHEN name IS NOT NULL THEN 0.15
-                ELSE 0.0
-            END
-         FROM %I WHERE entity_id = $1',
-        p_table_name
-    ) USING p_entity_id INTO v_completeness;
-    
-    v_score := v_score + COALESCE(v_completeness, 0.0);
-    
-    RETURN LEAST(v_score, 1.0);
+
+    -- Bonus for having embeddings and relationships (15% each)
+    bonus_score := 0.0;
+    IF has_embedding THEN
+        bonus_score := bonus_score + 0.15;  -- Embedding bonus: 15%
+    END IF;
+    IF has_relationships THEN
+        bonus_score := bonus_score + 0.15;  -- Relationships bonus: 15%
+    END IF;
+
+    RETURN LEAST(1.0, completeness_score + bonus_score);
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql IMMUTABLE;
 ```
 
 **What it does:**
 Computes a data quality score based on:
-- Has embedding? (+40%)
-- Number of relationships (+5% each, max 30%)
-- Field completeness (+30%)
+- **Field completeness (70%)**: Base score from ratio of filled required fields
+- **Has embedding (+15%)**: Bonus for AI vector embeddings
+- **Has relationships (+15%)**: Bonus for entity connections
+
+**Formula:** `score = min(1.0, completeness*0.7 + embedding_bonus*0.15 + relationships_bonus*0.15)`
 
 **Why it matters:**
 AI models work better with high-quality data. This score helps prioritize which entities need improvement.
