@@ -128,7 +128,7 @@ Access at `http://localhost:5000`
 - **[AI Optimization Guide](AI_DATABASE_OPTIMIZATION_GUIDE.md)** - ML/AI features and optimization patterns
 
 ### Developer Resources
-- **[Database Schema](database/SCHEMA_VERIFICATION.md)** - Complete schema reference (81 tables)
+- **[Database Schema](database/SCHEMA_VERIFICATION.md)** - Complete schema reference (69 tables implemented)
 - **[AI Toolkit](tools/README.md)** - Python modules for embeddings, relationships, validation
 - **[Example Scripts](examples/README.md)** - Sample workflows for data ingestion and processing
 

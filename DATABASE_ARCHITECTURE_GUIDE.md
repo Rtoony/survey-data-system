@@ -96,11 +96,18 @@ You can now search for "water collection structures" and find storm drains, catc
 
 **Technical implementation:**
 ```sql
--- Store embeddings as vectors
+-- Store embeddings as vectors with versioning
 CREATE TABLE entity_embeddings (
-    entity_id UUID,
+    embedding_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    entity_id UUID NOT NULL,
+    model_id UUID NOT NULL,
     embedding vector(1536),  -- PostgreSQL pgvector extension
-    model_id UUID
+    embedding_text TEXT,      -- Source text for embedding
+    embedding_context JSONB,  -- Additional context
+    is_current BOOLEAN DEFAULT true,  -- Active version flag
+    version INTEGER DEFAULT 1,         -- Version number
+    quality_metrics JSONB,            -- Embedding quality data
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Find similar entities using cosine similarity
