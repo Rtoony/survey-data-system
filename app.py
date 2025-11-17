@@ -13854,7 +13854,8 @@ def create_multi_format_export():
         from map_export_service import MapExportService
         with get_db() as conn:
             export_service = MapExportService(db_conn=conn)
-            drawing_layers = export_service.fetch_drawing_entities_by_layer(bbox_2226)
+            project_id = params.get('project_id')
+            drawing_layers = export_service.fetch_drawing_entities_by_layer(bbox_2226, project_id=project_id, srid=2226)
             
             if drawing_layers:
                 print(f"Found {len(drawing_layers)} DXF-imported layers")
@@ -14081,7 +14082,14 @@ def create_multi_format_export():
         if 'shp' in formats:
             print("Creating Shapefile...")
             from map_export_service import MapExportService
-            export_service = MapExportService()
+            db_config = {
+                'dbname': os.environ.get('PGDATABASE'),
+                'user': os.environ.get('PGUSER'),
+                'password': os.environ.get('PGPASSWORD'),
+                'host': os.environ.get('PGHOST'),
+                'port': os.environ.get('PGPORT')
+            }
+            export_service = MapExportService(db_config=db_config)
             
             for layer_id, features_2226 in all_layers_2226.items():
                 if not features_2226:
@@ -14099,7 +14107,14 @@ def create_multi_format_export():
             print("Creating DXF...")
             try:
                 from map_export_service import MapExportService
-                export_service = MapExportService()
+                db_config = {
+                    'dbname': os.environ.get('PGDATABASE'),
+                    'user': os.environ.get('PGUSER'),
+                    'password': os.environ.get('PGPASSWORD'),
+                    'host': os.environ.get('PGHOST'),
+                    'port': os.environ.get('PGPORT')
+                }
+                export_service = MapExportService(db_config=db_config)
                 
                 dxf_path = os.path.join(export_dir, 'export.dxf')
                 if export_service.export_to_dxf(all_layers_2226, dxf_path):
@@ -14112,7 +14127,14 @@ def create_multi_format_export():
             print("Creating KML...")
             try:
                 from map_export_service import MapExportService
-                export_service = MapExportService()
+                db_config = {
+                    'dbname': os.environ.get('PGDATABASE'),
+                    'user': os.environ.get('PGUSER'),
+                    'password': os.environ.get('PGPASSWORD'),
+                    'host': os.environ.get('PGHOST'),
+                    'port': os.environ.get('PGPORT')
+                }
+                export_service = MapExportService(db_config=db_config)
                 
                 # KML export expects EPSG:2226 data and transforms to WGS84 internally
                 kml_path = os.path.join(export_dir, 'export.kml')
@@ -14126,8 +14148,15 @@ def create_multi_format_export():
             print("Creating PNG...")
             try:
                 from map_export_service import MapExportService
-                export_service = MapExportService()
-                
+                db_config = {
+                    'dbname': os.environ.get('PGDATABASE'),
+                    'user': os.environ.get('PGUSER'),
+                    'password': os.environ.get('PGPASSWORD'),
+                    'host': os.environ.get('PGHOST'),
+                    'port': os.environ.get('PGPORT')
+                }
+                export_service = MapExportService(db_config=db_config)
+
                 # Transform bbox to EPSG:2226 for scale calculations
                 bbox_2226 = export_service.transform_bbox(bbox, 'EPSG:4326', 'EPSG:2226')
                 bbox_dict = {
@@ -14139,6 +14168,7 @@ def create_multi_format_export():
                 
                 png_path = export_service.create_map_image(
                     bbox_dict,
+                    layers_data=all_layers_2226,
                     north_arrow=png_options.get('north_arrow', True),
                     scale_bar=png_options.get('scale_bar', True)
                 )
