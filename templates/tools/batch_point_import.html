@@ -943,29 +943,14 @@ function switchMode(mode) {
     }
 }
 
-// Load projects for survey mode
+// Initialize survey mode with active project
 async function loadSurveyDrawings() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        
-        if (data.error) {
-            alert('Error loading projects: ' + data.error);
-            return;
-        }
-        
-        const projectSelect = document.getElementById('surveyProjectSelect');
-        projectSelect.innerHTML = '<option value="">-- Select Project --</option>';
-        
-        (data.projects || []).forEach(project => {
-            const option = document.createElement('option');
-            option.value = project.project_id;
-            option.textContent = `${project.project_number} - ${project.project_name}`;
-            projectSelect.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading projects:', error);
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header before using Survey Mode');
+        return;
     }
+    // Survey mode will use the active project - no need for project selector
 }
 
 // Survey file upload handlers
