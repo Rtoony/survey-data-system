@@ -280,6 +280,11 @@ def street_light_analyzer_tool():
     """Street Light Analyzer - Analyze street light spacing, coverage, and electrical infrastructure"""
     return render_template('street_light_analyzer.html')
 
+@app.route('/tools/project-spec-assembler/<project_id>')
+def project_spec_assembler(project_id):
+    """Project Spec Assembler Tool - Manage project specifications with variance tracking"""
+    return render_template('tools/project_spec_assembler.html', project_id=project_id)
+
 @app.route('/tools/pavement-zone-analyzer')
 def pavement_zone_analyzer_tool():
     """Pavement Zone Analyzer - Analyze pavement zones with area calculations"""
@@ -2690,6 +2695,219 @@ def get_recent_activity():
             'recent_projects': recent_projects,
             'stats': stats[0] if stats else {}
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# SPECIFICATION MANAGEMENT API ENDPOINTS
+# ============================================
+
+from services.spec_standards_service import SpecStandardsService
+from services.spec_library_service import SpecLibraryService
+from services.project_spec_service import ProjectSpecService
+
+# Initialize services
+spec_standards_service = SpecStandardsService()
+spec_library_service = SpecLibraryService()
+project_spec_service = ProjectSpecService()
+
+# Spec Standards Registry Endpoints
+@app.route('/api/spec-standards', methods=['GET'])
+def get_spec_standards():
+    """Get all spec standards"""
+    try:
+        standards = spec_standards_service.get_all()
+        return jsonify(standards)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spec-standards/<spec_standard_id>', methods=['GET'])
+def get_spec_standard(spec_standard_id):
+    """Get single spec standard"""
+    try:
+        standard = spec_standards_service.get_by_id(spec_standard_id)
+        if standard:
+            return jsonify(standard)
+        return jsonify({'error': 'Standard not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spec-standards', methods=['POST'])
+def create_spec_standard():
+    """Create new spec standard"""
+    try:
+        data = request.json
+        result = spec_standards_service.create(data)
+        return jsonify(result), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spec-standards/<spec_standard_id>', methods=['PUT'])
+def update_spec_standard(spec_standard_id):
+    """Update spec standard"""
+    try:
+        data = request.json
+        success = spec_standards_service.update(spec_standard_id, data)
+        if success:
+            return jsonify({'success': True})
+        return jsonify({'error': 'Update failed'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spec-standards/<spec_standard_id>', methods=['DELETE'])
+def delete_spec_standard(spec_standard_id):
+    """Delete spec standard"""
+    try:
+        success = spec_standards_service.delete(spec_standard_id)
+        if success:
+            return jsonify({'success': True})
+        return jsonify({'error': 'Cannot delete standard (specs reference it)'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Spec Library Endpoints
+@app.route('/api/spec-library', methods=['GET'])
+def get_spec_library():
+    """Get all spec library entries, optionally filtered by standard"""
+    try:
+        spec_standard_id = request.args.get('spec_standard_id')
+        specs = spec_library_service.get_all(spec_standard_id)
+        return jsonify(specs)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spec-library/search', methods=['GET'])
+def search_spec_library():
+    """Search spec library"""
+    try:
+        search_term = request.args.get('q', '')
+        results = spec_library_service.search(search_term)
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spec-library/<spec_library_id>', methods=['GET'])
+def get_spec_library_item(spec_library_id):
+    """Get single spec library entry"""
+    try:
+        spec = spec_library_service.get_by_id(spec_library_id)
+        if spec:
+            return jsonify(spec)
+        return jsonify({'error': 'Spec not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spec-library', methods=['POST'])
+def create_spec_library_item():
+    """Create new spec library entry"""
+    try:
+        data = request.json
+        result = spec_library_service.create(data)
+        return jsonify(result), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spec-library/<spec_library_id>', methods=['PUT'])
+def update_spec_library_item(spec_library_id):
+    """Update spec library entry"""
+    try:
+        data = request.json
+        success = spec_library_service.update(spec_library_id, data)
+        if success:
+            return jsonify({'success': True})
+        return jsonify({'error': 'Update failed'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/spec-library/<spec_library_id>', methods=['DELETE'])
+def delete_spec_library_item(spec_library_id):
+    """Delete spec library entry"""
+    try:
+        success = spec_library_service.delete(spec_library_id)
+        if success:
+            return jsonify({'success': True})
+        return jsonify({'error': 'Cannot delete spec (projects reference it)'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Project Spec Endpoints
+@app.route('/api/projects/<project_id>/specs', methods=['GET'])
+def get_project_specs(project_id):
+    """Get all specs for a project"""
+    try:
+        specs = project_spec_service.get_project_specs(project_id)
+        return jsonify(specs)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/specs/add-standard', methods=['POST'])
+def add_standard_to_project(project_id):
+    """Add a library spec to project as standard (unmodified)"""
+    try:
+        data = request.json
+        spec_library_id = data.get('spec_library_id')
+        result = project_spec_service.add_standard_to_project(project_id, spec_library_id)
+        return jsonify(result), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<project_id>/specs/custom', methods=['POST'])
+def create_custom_project_spec(project_id):
+    """Create a custom spec for this project"""
+    try:
+        data = request.json
+        result = project_spec_service.create_custom_spec(project_id, data)
+        return jsonify(result), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-specs/<project_spec_id>', methods=['GET'])
+def get_project_spec(project_spec_id):
+    """Get single project spec"""
+    try:
+        spec = project_spec_service.get_by_id(project_spec_id)
+        if spec:
+            return jsonify(spec)
+        return jsonify({'error': 'Project spec not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-specs/<project_spec_id>/modify', methods=['PUT'])
+def modify_project_spec(project_spec_id):
+    """Modify a project spec (converts to 'modified_standard')"""
+    try:
+        data = request.json
+        success = project_spec_service.modify_standard_in_project(
+            project_spec_id,
+            data.get('content'),
+            data.get('deviation_reason'),
+            data.get('modified_by')
+        )
+        if success:
+            return jsonify({'success': True})
+        return jsonify({'error': 'Modification failed'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-specs/<project_spec_id>/revert', methods=['PUT'])
+def revert_project_spec(project_spec_id):
+    """Revert a modified spec back to standard"""
+    try:
+        success = project_spec_service.revert_to_standard(project_spec_id)
+        if success:
+            return jsonify({'success': True})
+        return jsonify({'error': 'Revert failed (may be custom spec)'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/project-specs/<project_spec_id>', methods=['DELETE'])
+def delete_project_spec(project_spec_id):
+    """Delete a project spec"""
+    try:
+        success = project_spec_service.delete(project_spec_id)
+        if success:
+            return jsonify({'success': True})
+        return jsonify({'error': 'Delete failed'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

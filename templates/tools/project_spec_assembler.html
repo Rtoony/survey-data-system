@@ -1,0 +1,603 @@
+{% extends 'base_specialized_tool.html' %}
+
+{% block title %}Project Spec Assembler{% endblock %}
+
+{% block specialized_tool_content %}
+<div class="tool-container">
+    <div class="tool-header">
+        <h1><i class="fas fa-file-signature"></i> Project Spec Assembler</h1>
+        <p class="subtitle">Manage project specifications with variance tracking</p>
+    </div>
+
+    <!-- Two-Panel Layout -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: calc(100vh - 250px);">
+
+        <!-- LEFT PANEL: Spec Library (Search & Add) -->
+        <div class="card" style="display: flex; flex-direction: column; overflow: hidden;">
+            <div class="section-header">
+                <h2><i class="fas fa-book"></i> Spec Library</h2>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 15px;">
+                Search and add standard specs to your project
+            </p>
+
+            <!-- Search Controls -->
+            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <select id="libraryStandardFilter" onchange="filterLibraryByStandard()" style="padding: 10px; background: rgba(0,20,40,0.5); border: 1px solid rgba(0,255,255,0.3); color: var(--text-color); border-radius: 6px; flex: 1;">
+                    <option value="">All Standards</option>
+                </select>
+                <input
+                    type="text"
+                    id="librarySearchBox"
+                    placeholder="🔍 Search by number or title..."
+                    oninput="searchLibrary(this.value)"
+                    style="padding: 10px; background: rgba(0,20,40,0.5); border: 1px solid rgba(0,255,255,0.3); color: var(--text-color); border-radius: 6px; flex: 2;"
+                />
+            </div>
+
+            <!-- Library Specs List -->
+            <div id="librarySpecsContainer" style="flex: 1; overflow-y: auto; border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; padding: 10px; background: rgba(0,0,0,0.2);"></div>
+        </div>
+
+        <!-- RIGHT PANEL: Project Spec Book (Current Project) -->
+        <div class="card" style="display: flex; flex-direction: column; overflow: hidden;">
+            <div class="section-header">
+                <h2><i class="fas fa-folder-open"></i> Project Spec Book</h2>
+                <button class="btn btn-add" onclick="openCreateCustomSpecModal()">
+                    <i class="fas fa-plus"></i> New Custom Spec
+                </button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 15px;">
+                Specs applied to this project ({{ project_id }})
+            </p>
+
+            <!-- Stats Summary -->
+            <div id="projectSpecStats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px;"></div>
+
+            <!-- Project Specs List -->
+            <div id="projectSpecsContainer" style="flex: 1; overflow-y: auto; border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; padding: 10px; background: rgba(0,0,0,0.2);"></div>
+        </div>
+
+    </div>
+</div>
+
+<!-- MODAL: Create Custom Spec -->
+<div id="createCustomSpecModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <span class="close" onclick="closeModal('createCustomSpecModal')">&times;</span>
+        <h2><i class="fas fa-file-medical"></i> Create Custom Specification</h2>
+        <p style="color: var(--muted); margin-bottom: 20px;">
+            Create a project-specific spec not based on any library standard
+        </p>
+        <form id="createCustomSpecForm" onsubmit="submitCustomSpec(event)">
+            <div class="form-group">
+                <label>Spec Number *</label>
+                <input type="text" name="spec_number" required placeholder="e.g., PROJ-001">
+            </div>
+            <div class="form-group">
+                <label>Spec Title *</label>
+                <input type="text" name="spec_title" required placeholder="e.g., Site-Specific Storm Water Management">
+            </div>
+            <div class="form-group">
+                <label>Content *</label>
+                <textarea name="content_text" rows="8" required placeholder="Enter spec content..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Reason for Custom Spec</label>
+                <textarea name="deviation_reason" rows="3" placeholder="Why is this custom spec needed?"></textarea>
+            </div>
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createCustomSpecModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Custom Spec</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: Modify Spec -->
+<div id="modifySpecModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <span class="close" onclick="closeModal('modifySpecModal')">&times;</span>
+        <h2><i class="fas fa-edit"></i> Modify Specification</h2>
+        <p style="color: var(--muted); margin-bottom: 20px;">
+            This will create a project-specific version of this spec
+        </p>
+        <form id="modifySpecForm" onsubmit="submitModifySpec(event)">
+            <input type="hidden" name="project_spec_id">
+            <div class="form-group">
+                <label>Original Spec</label>
+                <input type="text" id="modifyOriginalSpec" readonly style="background: rgba(0,0,0,0.5); color: var(--muted);">
+            </div>
+            <div class="form-group">
+                <label>Modified Content *</label>
+                <textarea name="content_text" rows="10" required></textarea>
+            </div>
+            <div class="form-group">
+                <label>Reason for Modification *</label>
+                <textarea name="deviation_reason" rows="3" required placeholder="Explain why this modification is needed..."></textarea>
+            </div>
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modifySpecModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Modification</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: View Spec Content -->
+<div id="viewSpecContentModal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <span class="close" onclick="closeModal('viewSpecContentModal')">&times;</span>
+        <h2 id="viewSpecTitle"></h2>
+        <div id="viewSpecMeta" style="margin-bottom: 20px; padding: 15px; background: rgba(0,20,40,0.5); border-radius: 6px;"></div>
+        <div id="viewSpecContent" style="padding: 20px; background: rgba(0,0,0,0.3); border-radius: 6px; max-height: 500px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; line-height: 1.6;"></div>
+    </div>
+</div>
+
+<style>
+.spec-card {
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 6px;
+    background: rgba(0,20,40,0.3);
+    transition: all 0.2s;
+}
+
+.spec-card:hover {
+    border-color: rgba(0,255,255,0.5);
+    background: rgba(0,40,80,0.4);
+}
+
+.spec-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 10px;
+}
+
+.spec-number {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.spec-title {
+    font-size: 0.95rem;
+    color: var(--text-color);
+    margin-top: 5px;
+}
+
+.spec-meta {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 8px;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+.badge-standard {
+    background: rgba(0,255,0,0.2);
+    color: #00ff00;
+    border: 1px solid rgba(0,255,0,0.5);
+}
+
+.badge-modified {
+    background: rgba(255,165,0,0.2);
+    color: #ffa500;
+    border: 1px solid rgba(255,165,0,0.5);
+}
+
+.badge-custom {
+    background: rgba(138,43,226,0.2);
+    color: #8a2be2;
+    border: 1px solid rgba(138,43,226,0.5);
+}
+
+.stat-box {
+    padding: 15px;
+    background: rgba(0,20,40,0.5);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 6px;
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 5px;
+}
+</style>
+
+<script>
+const PROJECT_ID = '{{ project_id }}';
+let librarySpecs = [];
+let projectSpecs = [];
+let specStandards = [];
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadSpecStandards();
+    loadLibrarySpecs();
+    loadProjectSpecs();
+});
+
+function loadSpecStandards() {
+    fetch('/api/spec-standards')
+        .then(r => r.json())
+        .then(data => {
+            specStandards = data;
+            populateStandardFilter();
+        })
+        .catch(err => console.error('Error loading standards:', err));
+}
+
+function populateStandardFilter() {
+    const select = document.getElementById('libraryStandardFilter');
+    let html = '<option value="">All Standards</option>';
+    specStandards.forEach(std => {
+        html += `<option value="${std.spec_standard_id}">${std.standard_name} (${std.abbreviation || 'N/A'})</option>`;
+    });
+    select.innerHTML = html;
+}
+
+// ============================================================================
+// LIBRARY PANEL (LEFT)
+// ============================================================================
+function loadLibrarySpecs() {
+    const standardId = document.getElementById('libraryStandardFilter')?.value || '';
+    const url = standardId ? `/api/spec-library?spec_standard_id=${standardId}` : '/api/spec-library';
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            librarySpecs = data;
+            displayLibrarySpecs(data);
+        })
+        .catch(err => {
+            console.error('Error loading library specs:', err);
+            showNotification('Error loading library specs', 'error');
+        });
+}
+
+function filterLibraryByStandard() {
+    loadLibrarySpecs();
+}
+
+function searchLibrary(searchTerm) {
+    if (!searchTerm || searchTerm.length < 2) {
+        displayLibrarySpecs(librarySpecs);
+        return;
+    }
+
+    fetch(`/api/spec-library/search?q=${encodeURIComponent(searchTerm)}`)
+        .then(r => r.json())
+        .then(data => {
+            displayLibrarySpecs(data);
+        })
+        .catch(err => console.error('Error searching:', err));
+}
+
+function displayLibrarySpecs(specs) {
+    const container = document.getElementById('librarySpecsContainer');
+
+    if (!specs || specs.length === 0) {
+        container.innerHTML = '<p style="color: var(--muted); text-align: center; padding: 40px;">No specs found</p>';
+        return;
+    }
+
+    let html = '';
+    specs.forEach(spec => {
+        html += `
+            <div class="spec-card">
+                <div class="spec-card-header">
+                    <div>
+                        <div class="spec-number">${spec.abbreviation || spec.standard_name} ${spec.spec_number}</div>
+                        <div class="spec-title">${spec.spec_title}</div>
+                        <div class="spec-meta">${spec.source_document || 'No source'}</div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn btn-sm" onclick="viewLibrarySpec('${spec.spec_library_id}')" title="View Content">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="addSpecToProject('${spec.spec_library_id}')" title="Add to Project">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function viewLibrarySpec(specId) {
+    fetch(`/api/spec-library/${specId}`)
+        .then(r => r.json())
+        .then(spec => {
+            document.getElementById('viewSpecTitle').innerHTML = `<i class="fas fa-file-contract"></i> ${spec.standard_name} ${spec.spec_number}`;
+            document.getElementById('viewSpecMeta').innerHTML = `
+                <strong>Title:</strong> ${spec.spec_title}<br>
+                <strong>Standard:</strong> ${spec.standard_name} (${spec.abbreviation})<br>
+                <strong>Source:</strong> ${spec.source_document || 'Not specified'}<br>
+                <strong>Structure:</strong> ${spec.content_structure || 'narrative'}
+            `;
+            document.getElementById('viewSpecContent').textContent = spec.content_text || 'No content available';
+            openModal('viewSpecContentModal');
+        })
+        .catch(err => console.error(err));
+}
+
+function addSpecToProject(specLibraryId) {
+    fetch(`/api/projects/${PROJECT_ID}/specs/add-standard`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({spec_library_id: specLibraryId})
+    })
+    .then(r => r.json())
+    .then(() => {
+        showNotification('Spec added to project', 'success');
+        loadProjectSpecs();
+    })
+    .catch(err => {
+        showNotification('Error adding spec', 'error');
+        console.error(err);
+    });
+}
+
+// ============================================================================
+// PROJECT PANEL (RIGHT)
+// ============================================================================
+function loadProjectSpecs() {
+    fetch(`/api/projects/${PROJECT_ID}/specs`)
+        .then(r => r.json())
+        .then(data => {
+            projectSpecs = data;
+            displayProjectSpecs(data);
+            displayProjectStats(data);
+        })
+        .catch(err => {
+            console.error('Error loading project specs:', err);
+            showNotification('Error loading project specs', 'error');
+        });
+}
+
+function displayProjectStats(specs) {
+    const container = document.getElementById('projectSpecStats');
+
+    const standardCount = specs.filter(s => s.source_type === 'standard').length;
+    const modifiedCount = specs.filter(s => s.source_type === 'modified_standard').length;
+    const customCount = specs.filter(s => s.source_type === 'custom').length;
+
+    container.innerHTML = `
+        <div class="stat-box">
+            <div class="stat-number">${standardCount}</div>
+            <div class="stat-label">Standard</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">${modifiedCount}</div>
+            <div class="stat-label">Modified</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">${customCount}</div>
+            <div class="stat-label">Custom</div>
+        </div>
+    `;
+}
+
+function displayProjectSpecs(specs) {
+    const container = document.getElementById('projectSpecsContainer');
+
+    if (!specs || specs.length === 0) {
+        container.innerHTML = '<p style="color: var(--muted); text-align: center; padding: 40px;">No specs in this project. Add some from the library!</p>';
+        return;
+    }
+
+    let html = '';
+    specs.forEach(spec => {
+        const badgeClass = spec.source_type === 'standard' ? 'badge-standard' :
+                          spec.source_type === 'modified_standard' ? 'badge-modified' : 'badge-custom';
+        const badgeText = spec.source_type === 'standard' ? 'STANDARD' :
+                         spec.source_type === 'modified_standard' ? 'MODIFIED' : 'CUSTOM';
+
+        html += `
+            <div class="spec-card">
+                <div class="spec-card-header">
+                    <div>
+                        <div class="spec-number">
+                            ${spec.standard_abbreviation || ''} ${spec.effective_spec_number}
+                            <span class="badge ${badgeClass}">${badgeText}</span>
+                        </div>
+                        <div class="spec-title">${spec.effective_spec_title}</div>
+                        <div class="spec-meta">${spec.standard_name || 'Custom Spec'}</div>
+                        ${spec.deviation_reason ? `<div class="spec-meta" style="color: #ffa500; margin-top: 5px;"><i class="fas fa-exclamation-triangle"></i> ${spec.deviation_reason}</div>` : ''}
+                    </div>
+                    <div style="display: flex; gap: 5px; flex-direction: column;">
+                        <button class="btn btn-sm" onclick="viewProjectSpec('${spec.project_spec_id}')" title="View">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${spec.source_type === 'standard' ? `
+                            <button class="btn btn-sm" onclick="openModifySpecModal('${spec.project_spec_id}')" title="Modify">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        ` : ''}
+                        ${spec.source_type === 'modified_standard' ? `
+                            <button class="btn btn-sm" onclick="revertSpec('${spec.project_spec_id}')" title="Revert to Standard">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-sm btn-danger" onclick="deleteProjectSpec('${spec.project_spec_id}')" title="Remove">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function viewProjectSpec(projectSpecId) {
+    fetch(`/api/project-specs/${projectSpecId}`)
+        .then(r => r.json())
+        .then(spec => {
+            document.getElementById('viewSpecTitle').innerHTML = `
+                <i class="fas fa-file-contract"></i> ${spec.effective_spec_number}: ${spec.effective_spec_title}
+                ${spec.source_type === 'modified_standard' ? '<span class="badge badge-modified">MODIFIED</span>' : ''}
+                ${spec.source_type === 'custom' ? '<span class="badge badge-custom">CUSTOM</span>' : ''}
+            `;
+            document.getElementById('viewSpecMeta').innerHTML = `
+                <strong>Standard:</strong> ${spec.standard_name || 'Custom'}<br>
+                <strong>Source Type:</strong> ${spec.source_type}<br>
+                ${spec.deviation_reason ? `<strong>Deviation Reason:</strong> ${spec.deviation_reason}<br>` : ''}
+                ${spec.modified_by ? `<strong>Modified By:</strong> ${spec.modified_by}<br>` : ''}
+            `;
+            document.getElementById('viewSpecContent').textContent = spec.effective_content_text || 'No content available';
+            openModal('viewSpecContentModal');
+        })
+        .catch(err => console.error(err));
+}
+
+function openModifySpecModal(projectSpecId) {
+    fetch(`/api/project-specs/${projectSpecId}`)
+        .then(r => r.json())
+        .then(spec => {
+            const form = document.getElementById('modifySpecForm');
+            form.project_spec_id.value = projectSpecId;
+            document.getElementById('modifyOriginalSpec').value = `${spec.standard_name} ${spec.effective_spec_number}: ${spec.effective_spec_title}`;
+            form.content_text.value = spec.effective_content_text || '';
+            form.deviation_reason.value = '';
+            openModal('modifySpecModal');
+        })
+        .catch(err => console.error(err));
+}
+
+function submitModifySpec(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const projectSpecId = formData.get('project_spec_id');
+
+    const data = {
+        content: {text: formData.get('content_text')},
+        deviation_reason: formData.get('deviation_reason'),
+        modified_by: 'User' // TODO: Get from session
+    };
+
+    fetch(`/api/project-specs/${projectSpecId}/modify`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(() => {
+        showNotification('Spec modified successfully', 'success');
+        closeModal('modifySpecModal');
+        loadProjectSpecs();
+    })
+    .catch(err => {
+        showNotification('Error modifying spec', 'error');
+        console.error(err);
+    });
+}
+
+function revertSpec(projectSpecId) {
+    if (!confirm('Revert this spec back to the library standard? Your modifications will be lost.')) return;
+
+    fetch(`/api/project-specs/${projectSpecId}/revert`, {
+        method: 'PUT'
+    })
+    .then(r => r.json())
+    .then(() => {
+        showNotification('Spec reverted to standard', 'success');
+        loadProjectSpecs();
+    })
+    .catch(err => {
+        showNotification('Error reverting spec', 'error');
+        console.error(err);
+    });
+}
+
+function deleteProjectSpec(projectSpecId) {
+    if (!confirm('Remove this spec from the project?')) return;
+
+    fetch(`/api/project-specs/${projectSpecId}`, {
+        method: 'DELETE'
+    })
+    .then(r => r.json())
+    .then(() => {
+        showNotification('Spec removed from project', 'success');
+        loadProjectSpecs();
+    })
+    .catch(err => {
+        showNotification('Error removing spec', 'error');
+        console.error(err);
+    });
+}
+
+function openCreateCustomSpecModal() {
+    document.getElementById('createCustomSpecForm').reset();
+    openModal('createCustomSpecModal');
+}
+
+function submitCustomSpec(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+
+    const data = {
+        spec_number: formData.get('spec_number'),
+        spec_title: formData.get('spec_title'),
+        content_json: {text: formData.get('content_text')},
+        deviation_reason: formData.get('deviation_reason'),
+        modified_by: 'User' // TODO: Get from session
+    };
+
+    fetch(`/api/projects/${PROJECT_ID}/specs/custom`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(() => {
+        showNotification('Custom spec created', 'success');
+        closeModal('createCustomSpecModal');
+        loadProjectSpecs();
+    })
+    .catch(err => {
+        showNotification('Error creating custom spec', 'error');
+        console.error(err);
+    });
+}
+
+// Modal helpers (assuming these exist in base template)
+function openModal(modalId) {
+    document.getElementById(modalId).style.display = 'block';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function showNotification(message, type) {
+    // Assuming this exists in base template
+    console.log(`${type.toUpperCase()}: ${message}`);
+    alert(message); // Fallback if notification system doesn't exist
+}
+</script>
+{% endblock %}
