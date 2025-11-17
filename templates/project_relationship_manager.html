@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Project Context Manager{% endblock %}
+{% block title %}Project Relationship Manager - ACAD-GIS{% endblock %}
 
 {% block content %}
 <style>
@@ -228,14 +228,14 @@
 </style>
 
 <div class="container">
-    <h1><i class="fas fa-project-diagram"></i> Project Context Manager</h1>
-    <p class="subtitle">Project-Specific Entity Assignments & Relationship Definitions</p>
-    
+    <h1><i class="fas fa-network-wired"></i> Project Relationship Manager</h1>
+    <p class="subtitle">Manage project-specific entity relationships and semantic connections</p>
+
     <div class="info-box">
-        <h3><i class="fas fa-info-circle"></i> What is the Project Context Manager?</h3>
+        <h3><i class="fas fa-info-circle"></i> What is the Project Relationship Manager?</h3>
         <p>
-            The <strong>Project Context Manager</strong> assigns contextual entities and defines semantic relationships 
-            <em>within a specific project</em>. Unlike the Name Mapping Dashboard (which translates external CAD names to your standards), 
+            The <strong>Project Relationship Manager</strong> assigns contextual entities and defines semantic relationships
+            <em>within a specific project</em>. Unlike the DXF Name Translator (which translates external CAD names to your standards),
             this tool manages <strong>internal database relationships</strong> between elements that should remain synchronized.
         </p>
         <p style="margin-bottom: 0;">
@@ -249,7 +249,7 @@
         <h3><i class="fas fa-question-circle"></i> How This Differs From Other Tools</h3>
         <div class="comparison-grid">
             <div class="comparison-item">
-                <h4><i class="fas fa-chart-bar"></i> Name Mapping Dashboard</h4>
+                <h4><i class="fas fa-language"></i> DXF Name Translator</h4>
                 <p>
                     <strong>Purpose:</strong> DXF translation layer<br>
                     <strong>Example:</strong> Client's "WM-8-PVC" → Your "CIV-UTIL-WATER-8IN-PROP-LN"<br>
@@ -257,7 +257,7 @@
                 </p>
             </div>
             <div class="comparison-item">
-                <h4><i class="fas fa-project-diagram"></i> Project Context Manager</h4>
+                <h4><i class="fas fa-network-wired"></i> Project Relationship Manager</h4>
                 <p>
                     <strong>Purpose:</strong> Internal relationship definitions<br>
                     <strong>Example:</strong> Keynote N-8 links to Detail D-12 and Block BLK-CURB<br>
@@ -449,5 +449,5 @@
     </div>
 </div>
 
-<script src="/static/js/project_context_manager.js"></script>
+<script src="/static/js/project_relationship_manager.js"></script>
 {% endblock %}

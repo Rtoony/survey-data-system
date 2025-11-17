@@ -170,7 +170,7 @@ These database tables enable:
 
 1. **Standards Visualization Dashboard** - Interactive web UI showing all mapping relationships
 2. **CRUD Managers** - Data entry interfaces for all 11 mapping types
-3. **Project Context Manager** - UI for assigning keynotes to blocks, hatches to materials, etc.
+3. **Project Relationship Manager** - UI for assigning keynotes to blocks, hatches to materials, etc.
 4. **Export/Documentation Generator** - Create PDFs, Excel files, or web pages for client handoffs and training
 
 ## Documentation References
