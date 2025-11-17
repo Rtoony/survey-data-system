@@ -6332,13 +6332,13 @@ def get_top_projects():
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================
-# STANDARDS MAPPING DASHBOARD & API ENDPOINTS
+# DXF NAME TRANSLATOR & API ENDPOINTS
 # ============================================================================
 
-@app.route('/standards-mapping-dashboard')
-def standards_mapping_dashboard():
-    """Render the Standards Mapping Dashboard page"""
-    return render_template('standards_mapping_dashboard.html')
+@app.route('/dxf-name-translator')
+def dxf_name_translator():
+    """DXF Name Translator - view name translation statistics"""
+    return render_template('dxf_name_translator.html')
 
 @app.route('/api/standards-mapping/stats')
 def get_mapping_stats():
@@ -6908,13 +6908,13 @@ def delete_note_mapping(mapping_id):
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================
-# PROJECT CONTEXT MAPPING MANAGER
+# PROJECT RELATIONSHIP MANAGER
 # ============================================================================
 
-@app.route('/project-context-manager')
-def project_context_manager():
-    """Project Context Mapping Manager page"""
-    return render_template('project_context_manager.html')
+@app.route('/project-relationship-manager')
+def project_relationship_manager():
+    """Project Relationship Manager - manage project-specific entity relationships"""
+    return render_template('project_relationship_manager.html')
 
 @app.route('/api/project-context/keynote-blocks', methods=['GET'])
 def get_keynote_blocks():

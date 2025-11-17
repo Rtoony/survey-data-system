@@ -1,4 +1,4 @@
-// Standards Mapping Dashboard JavaScript
+// DXF Name Translator JavaScript
 let allMappings = {
     blocks: [],
     details: [],

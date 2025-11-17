@@ -91,20 +91,20 @@
                 </div>
             </div>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-mapping-dashboard', '/project-context-manager', '/standards-export'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/dxf-name-translator', '/project-relationship-manager', '/standards-export'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-map-signs"></i>
                     <span>Mapping</span>
                     <i class="fas fa-chevron-down mc-dropdown-icon"></i>
                 </button>
                 <div class="mc-dropdown">
-                    <a href="/standards-mapping-dashboard" class="mc-dropdown-item {% if request.path == '/standards-mapping-dashboard' %}active{% endif %}">
-                        <i class="fas fa-chart-bar"></i>
-                        Mapping Dashboard
+                    <a href="/dxf-name-translator" class="mc-dropdown-item {% if request.path == '/dxf-name-translator' %}active{% endif %}">
+                        <i class="fas fa-language"></i>
+                        DXF Name Translator
                     </a>
-                    <a href="/project-context-manager" class="mc-dropdown-item {% if request.path == '/project-context-manager' %}active{% endif %}">
-                        <i class="fas fa-project-diagram"></i>
-                        Project Context Manager
+                    <a href="/project-relationship-manager" class="mc-dropdown-item {% if request.path == '/project-relationship-manager' %}active{% endif %}">
+                        <i class="fas fa-network-wired"></i>
+                        Project Relationship Manager
                     </a>
                     <div class="mc-dropdown-divider"></div>
                     <a href="/standards-export" class="mc-dropdown-item {% if request.path == '/standards-export' %}active{% endif %}">
