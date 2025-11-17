@@ -37,9 +37,26 @@ This document tracks the progress of migrating from "Projects → Drawings → E
   - Drops `drawing_linetype_usage` table (unused)
   - Includes data validation and verification steps
 
-## ✅ PREPARED - Phase 2: space_type Column Removal
+## ✅ COMPLETED - Phase 2: space_type Column Removal
 
-### SQL Migrations Created
+### Code Changes Completed
+- ✅ **dxf_importer.py**: Removed all `space_type` references
+  - Removed `space` parameter from `_import_entities()` function signature
+  - Removed `space` parameter from ALL helper functions (_import_entity, _import_text, _import_dimension, _import_hatch, _import_point, _import_3dface, _import_3dsolid, _import_mesh, _import_leader, _import_block_insert)
+  - Removed `space_type` from ALL INSERT statements (drawing_entities, drawing_text, drawing_dimensions, drawing_hatches)
+  - Removed `de.space_type` from _create_intelligent_objects SELECT query
+  - Removed `'space_type': entity['space_type']` from entity_data dictionary
+
+- ✅ **dxf_exporter.py**: Removed all `space_type` filters
+  - Removed `space` parameter from _export_entities() function signature
+  - Removed `space` parameter from _export_text() function signature
+  - Removed `space` parameter from _export_dimensions() function signature
+  - Removed `space` parameter from _export_hatches() function signature
+  - Removed `space` parameter from _export_block_inserts() function signature
+  - Removed `AND space_type = %s` filters from ALL queries (5 occurrences)
+  - Updated ALL function calls to not pass the 'MODEL' parameter
+
+### SQL Migration Ready
 - ✅ **Migration 010**: `database/migrations/010_remove_space_type_columns.sql`
   - Validates no PAPER space data exists
   - Removes `space_type` column from `drawing_entities`
@@ -47,23 +64,9 @@ This document tracks the progress of migrating from "Projects → Drawings → E
   - Removes `space_type` column from `drawing_dimensions`
   - Removes `space_type` column from `drawing_hatches`
   - Drops indexes `idx_drawingent_space` and `idx_drawingtext_space`
+  - **STATUS**: Ready to run when database is available
 
-### Code Changes Needed (NOT YET COMPLETED)
-The following files still reference `space_type` and need updates:
-
-#### dxf_importer.py
-- [ ] Line 96-98: Remove `space` parameter from `_import_entities()` call
-- [ ] Line 163: Remove `de.space_type` from SELECT query
-- [ ] Line 190: Remove `'space_type': entity['space_type']` from entity data
-- [ ] Line 237-238: Remove `space: str` parameter from `_import_entities()` function
-- [ ] Lines 321, 494, 541, 601, 733, 790, 833, 883, 935: Remove `space_type` from INSERT statements
-- [ ] All helper functions (`_import_entity`, `_import_text`, `_import_dimension`, etc.): Remove `space` parameter
-
-#### dxf_exporter.py
-- [ ] Lines 239, 515, 558, 601, 641: Remove `AND de.space_type = %s` / `AND dt.space_type = %s` filters
-- [ ] Remove corresponding `%s` parameter values (currently 'MODEL')
-
-**Note:** After removing space_type from code, run Migration 010 to drop the columns.
+**Note:** Migration 010 should be run after deploying the code changes.
 
 ## 🚧 TODO - Phase 3: drawing_id Cleanup
 
@@ -172,38 +175,40 @@ psql -h localhost -U postgres -d survey_data -f database/migrations/012_remove_d
 ## Summary Statistics
 
 ### Completed
-- ✅ **Code files modified:** 6 files (dxf_importer.py, dxf_exporter.py, app.py, 2 test files, 1 script)
+- ✅ **Phase 1 & 2 Code files modified:** 8 files (dxf_importer.py x2, dxf_exporter.py x2, app.py, 2 test files, 1 script)
 - ✅ **Functions deleted:** 2 (`_import_viewports`, `_export_layouts`)
+- ✅ **Function signatures updated:** 15+ functions (removed space/space_type parameters)
 - ✅ **SQL migrations created:** 2 (009, 010)
 - ✅ **Tables to be dropped:** 3 (layout_viewports, drawing_layer_usage, drawing_linetype_usage)
+- ✅ **Columns to be removed:** 4 (space_type from drawing_entities, drawing_text, drawing_dimensions, drawing_hatches)
 
 ### Remaining
-- 🚧 **Code files pending:** ~10+ files need space_type and drawing_id removal
+- 🚧 **Code files pending:** ~10+ files need drawing_id removal
 - 🚧 **SQL migrations needed:** 2 more (011, possibly 012)
-- 🚧 **Columns to be removed:** 6 (space_type x4, drawing_id x2+)
+- 🚧 **Columns still to remove:** 2+ (drawing_id from layers table, possibly others)
 
 ## Next Steps
 
-1. **Immediate:** Deploy Phase 1 changes (paper space removal)
-   - Migrations 009 is ready to run
-   - Code changes are complete and committed
+1. **Immediate:** Deploy Phase 1 & 2 changes
+   - Run Migration 009 (paper space tables removal)
+   - Deploy code changes (already committed)
+   - Run Migration 010 (space_type columns removal)
+   - Test DXF import/export functionality
 
-2. **Next Sprint:** Complete Phase 2 (space_type removal)
-   - Update Python code to remove all space_type references
-   - Run Migration 010
+2. **Next Sprint:** Complete Phase 3 (drawing_id cleanup)
+   - Update ~10+ Python files to remove drawing_id parameters
+   - Create and run Migration 011 (remove drawing_id from layers)
+   - Update all function signatures and queries
 
-3. **Following Sprint:** Complete Phase 3 (drawing_id cleanup)
-   - Update all function signatures
-   - Run Migration 011
-
-4. **Final Sprint:** Decide on and execute Phase 4 (drawings table)
-   - Make architectural decision
-   - Execute final migration
+3. **Following Sprint:** Decide on and execute Phase 4 (drawings table)
+   - Make architectural decision on multi-file support
+   - Execute final migration (if removing drawings table)
+   - Comprehensive integration testing
 
 ## Risk Assessment
 
-- **Phase 1 (Paper Space):** ✅ ZERO RISK - Paper space is completely unused
-- **Phase 2 (space_type):** ⚠️ LOW RISK - All data is MODEL space
+- **Phase 1 (Paper Space):** ✅ COMPLETE - ZERO RISK - Paper space is completely unused
+- **Phase 2 (space_type):** ✅ COMPLETE - LOW RISK - All data is MODEL space
 - **Phase 3 (drawing_id):** ⚠️ MEDIUM RISK - Requires careful query updates
 - **Phase 4 (drawings table):** 🔴 HIGH RISK - Needs business decision
 
@@ -221,4 +226,4 @@ Before deploying each phase:
 
 **Last Updated:** 2025-11-17
 **Author:** Claude (Anthropic AI)
-**Status:** Phase 1 Complete, Phase 2 Prepared
+**Status:** Phase 1 & 2 Complete - Ready for Deployment
