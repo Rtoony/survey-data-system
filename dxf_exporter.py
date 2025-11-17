@@ -59,21 +59,19 @@ class DXFExporter:
     def export_dxf(self, project_id: str, output_path: str,
                    dxf_version: str = 'AC1027',
                    include_modelspace: bool = True,
-                   include_paperspace: bool = False,
                    layer_filter: Optional[List[str]] = None,
                    external_conn=None) -> Dict:
         """
         Export a project to DXF file.
-        
+
         Args:
             project_id: ID of the project to export
             output_path: Path to save DXF file
             dxf_version: DXF version (AC1027 = AutoCAD 2013)
             include_modelspace: Whether to export model space entities
-            include_paperspace: Whether to export paper space entities (deprecated for project exports)
             layer_filter: Optional list of layer names to include
             external_conn: Optional external database connection (will not be closed)
-            
+
         Returns:
             Dictionary with export statistics
         """
@@ -110,11 +108,7 @@ class DXFExporter:
                     self._export_dimensions(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
                     self._export_hatches(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
                     self._export_block_inserts(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
-                
-                # Export paper space (layouts) - deprecated for project exports
-                if include_paperspace:
-                    self._export_layouts(project_id, doc, cur, stats, layer_filter)
-                
+
                 # Save DXF file
                 doc.saveas(output_path)
                 
@@ -646,11 +640,6 @@ class DXFExporter:
             
         except Exception:
             pass
-    
-    def _export_layouts(self, project_id: str, doc: ezdxf.document.Drawing,
-                        cur, stats: Dict, layer_filter: Optional[List[str]]):
-        """Export paper space layouts with viewports (deprecated for project exports)."""
-        pass
     
     def _record_export_job(self, project_id: str, output_path: str,
                            dxf_version: str, stats: Dict, cur, conn):

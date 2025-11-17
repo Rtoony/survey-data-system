@@ -10906,28 +10906,26 @@ def import_dxf():
         project_id = request.form.get('project_id')
         if not project_id:
             return jsonify({'error': 'project_id is required'}), 400
-        
+
         import_modelspace = request.form.get('import_modelspace', 'true') == 'true'
-        import_paperspace = request.form.get('import_paperspace', 'true') == 'true'
         pattern_id = request.form.get('pattern_id')  # Optional import pattern
-        
+
         # Save uploaded file temporarily
         filename = secure_filename(file.filename)
         temp_path = os.path.join('/tmp', f'{uuid.uuid4()}_{filename}')
         file.save(temp_path)
-        
+
         try:
             # Enable intelligent object creation when pattern_id is provided
             # or by default to enable automatic layer-based classification
             use_intelligent = True  # Enable by default for automatic classification
-            
+
             # Import DXF with intelligent object creation enabled
             importer = DXFImporter(DB_CONFIG, create_intelligent_objects=use_intelligent)
             stats = importer.import_dxf(
                 temp_path,
                 project_id,
-                import_modelspace=import_modelspace,
-                import_paperspace=import_paperspace
+                import_modelspace=import_modelspace
             )
             
             # Add pattern matching info if pattern was selected
@@ -10978,16 +10976,15 @@ def export_dxf():
         project_id = data.get('project_id')
         if not project_id:
             return jsonify({'error': 'project_id is required'}), 400
-        
+
         dxf_version = data.get('dxf_version', 'AC1027')
         include_modelspace = data.get('include_modelspace', True)
-        include_paperspace = data.get('include_paperspace', True)
         layer_filter = data.get('layer_filter')
-        
+
         # Generate output file
         output_filename = f'project_{project_id}_{uuid.uuid4().hex[:8]}.dxf'
         output_path = os.path.join('/tmp', output_filename)
-        
+
         # Export DXF
         exporter = DXFExporter(DB_CONFIG)
         stats = exporter.export_dxf(
@@ -10995,7 +10992,6 @@ def export_dxf():
             output_path,
             dxf_version=dxf_version,
             include_modelspace=include_modelspace,
-            include_paperspace=include_paperspace,
             layer_filter=layer_filter
         )
         
@@ -11068,23 +11064,21 @@ def import_intelligent_dxf():
         drawing_id = request.form.get('drawing_id')
         if not drawing_id:
             return jsonify({'error': 'drawing_id is required'}), 400
-        
+
         import_modelspace = request.form.get('import_modelspace', 'true') == 'true'
-        import_paperspace = request.form.get('import_paperspace', 'true') == 'true'
-        
+
         # Save uploaded file temporarily
         filename = secure_filename(file.filename)
         temp_path = os.path.join('/tmp', f'{uuid.uuid4()}_{filename}')
         file.save(temp_path)
-        
+
         try:
             # Import DXF with intelligent object creation enabled
             importer = DXFImporter(DB_CONFIG, create_intelligent_objects=True)
             stats = importer.import_dxf(
                 temp_path,
                 drawing_id,
-                import_modelspace=import_modelspace,
-                import_paperspace=import_paperspace
+                import_modelspace=import_modelspace
             )
             
             return jsonify({
@@ -11174,8 +11168,7 @@ def reimport_dxf_with_changes():
             import_stats = importer.import_dxf(
                 temp_path,
                 drawing_id,
-                import_modelspace=True,
-                import_paperspace=True
+                import_modelspace=True
             )
             
             # Step 2: Get the reimported entities from database
