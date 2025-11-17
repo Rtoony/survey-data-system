@@ -165,7 +165,7 @@ def main():
             bi.scale_z
         FROM block_inserts bi
         LEFT JOIN layers l ON bi.layer_id = l.layer_id
-        WHERE bi.drawing_id IN (SELECT drawing_id FROM drawings WHERE project_id = %s)
+        WHERE bi.project_id = %s
         ORDER BY l.layer_name, bi.block_name
     """, (project_id,))
     

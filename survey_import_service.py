@@ -19,14 +19,13 @@ class ConnectivityProcessor:
         self.db_config = db_config
         self.parser = SurveyCodeParser(db_config)
     
-    def process_points(self, points: List[Dict[str, Any]], drawing_id: Optional[str] = None) -> Dict[str, Any]:
+    def process_points(self, points: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Process points and generate connectivity
-        
+
         Args:
             points: List of point dictionaries with parsed code data
-            drawing_id: Optional drawing ID for context
-            
+
         Returns:
             Dictionary with processed points, sequences, line segments, warnings
         """
@@ -64,8 +63,7 @@ class ConnectivityProcessor:
                         'phase': point.get('phase'),
                         'layer_name': point.get('layer_name'),
                         'points': [],
-                        'is_closed': False,
-                        'drawing_id': drawing_id
+                        'is_closed': False
                     }
                 
                 current_sequence['points'].append(point)
@@ -89,8 +87,7 @@ class ConnectivityProcessor:
                         'phase': point.get('phase'),
                         'layer_name': point.get('layer_name'),
                         'points': [],
-                        'is_closed': False,
-                        'drawing_id': drawing_id
+                        'is_closed': False
                     }
                 
                 current_sequence['points'].append(point)
@@ -168,9 +165,7 @@ class ConnectivityProcessor:
         
         wkt_coords = ', '.join([f'{e} {n} {z}' for e, n, z in coordinates])
         wkt = f'LINESTRING Z ({wkt_coords})'
-        
-        drawing_id = sequence.get('drawing_id')
-        
+
         return {
             'segment_id': str(uuid.uuid4()),
             'sequence_id': sequence.get('sequence_id'),
@@ -184,8 +179,7 @@ class ConnectivityProcessor:
             'is_closed': sequence.get('is_closed', False),
             'geometry_wkt': wkt,
             'point_ids': [p.get('point_id', str(uuid.uuid4())) for p in points],
-            'point_count': len(points),
-            'drawing_id': drawing_id if drawing_id else None
+            'point_count': len(points)
         }
 
 
@@ -279,31 +273,28 @@ class SurveyImportService:
         
         return points, errors
     
-    def generate_preview(self, points: List[Dict[str, Any]], drawing_id: Optional[str] = None) -> Dict[str, Any]:
+    def generate_preview(self, points: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Generate preview of connectivity without saving to database
-        
+
         Args:
             points: List of parsed points with code data
-            drawing_id: Optional drawing ID
-            
+
         Returns:
             Preview data with points, sequences, line segments, warnings
         """
-        result = self.connectivity_processor.process_points(points, drawing_id)
+        result = self.connectivity_processor.process_points(points)
         
         return result
     
-    def commit_import(self, preview_data: Dict[str, Any], project_id: str, 
-                     drawing_id: Optional[str] = None) -> Dict[str, Any]:
+    def commit_import(self, preview_data: Dict[str, Any], project_id: str) -> Dict[str, Any]:
         """
         Commit import to database (transactional)
-        
+
         Args:
             preview_data: Preview data from generate_preview
             project_id: Project ID
-            drawing_id: Optional drawing ID
-            
+
         Returns:
             Import summary with counts and IDs
         """
@@ -321,22 +312,22 @@ class SurveyImportService:
             for sequence in preview_data.get('sequences', []):
                 cursor.execute("""
                     INSERT INTO survey_sequences (
-                        sequence_id, project_id, drawing_id, code, discipline_code,
+                        sequence_id, project_id, code, discipline_code,
                         category_code, feature_type, connectivity_type, phase, layer_name,
                         point_count, is_closed, sequence_number, import_batch_id, is_active,
                         created_at
                     ) VALUES (
-                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, TRUE,
                         CURRENT_TIMESTAMP
                     )
                     RETURNING sequence_id
                 """, (
-                    sequence['sequence_id'], project_id, drawing_id, sequence['code'], sequence.get('discipline_code'),
-                    sequence.get('category_code'), sequence.get('feature_type'), sequence.get('connectivity_type'), 
+                    sequence['sequence_id'], project_id, sequence['code'], sequence.get('discipline_code'),
+                    sequence.get('category_code'), sequence.get('feature_type'), sequence.get('connectivity_type'),
                     sequence.get('phase'), sequence.get('layer_name'),
-                    len(sequence.get('points', [])), sequence.get('is_closed', False), 
+                    len(sequence.get('points', [])), sequence.get('is_closed', False),
                     sequence.get('sequence_number'), import_batch_id
                 ))
                 
@@ -349,13 +340,13 @@ class SurveyImportService:
             for point in preview_data.get('points', []):
                 cursor.execute("""
                     INSERT INTO survey_points (
-                        point_id, project_id, drawing_id, point_number, point_description,
+                        point_id, project_id, point_number, point_description,
                         geometry, northing, easting, elevation, coordinate_system,
                         code, code_id, discipline_code, category_code, feature_type,
                         connectivity_type, layer_name, phase, auto_connected, sequence_id,
                         parsed_attributes, is_active, created_at
                     ) VALUES (
-                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s,
                         ST_SetSRID(ST_MakePoint(%s, %s, %s), 2226), %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
@@ -363,7 +354,7 @@ class SurveyImportService:
                     )
                     RETURNING point_id
                 """, (
-                    point['point_id'], project_id, drawing_id, point['point_number'], point.get('display_name'),
+                    point['point_id'], project_id, point['point_number'], point.get('display_name'),
                     point['easting'], point['northing'], point['elevation'], point['northing'], point['easting'], point['elevation'], point.get('coordinate_system'),
                     point['code'], point.get('code_id'), point.get('discipline_code'), point.get('category_code'), point.get('feature_type'),
                     point.get('connectivity_type'), point.get('layer_name'), point.get('phase'), point.get('auto_connected'), point.get('sequence_id'),
@@ -379,18 +370,18 @@ class SurveyImportService:
             for segment in preview_data.get('line_segments', []):
                 cursor.execute("""
                     INSERT INTO survey_line_segments (
-                        segment_id, project_id, drawing_id, feature_type, layer_name,
+                        segment_id, project_id, feature_type, layer_name,
                         connectivity_type, is_closed, geometry, point_ids, point_count,
                         attributes, created_at
                     ) VALUES (
-                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s,
                         %s, %s, ST_GeomFromText(%s, 2226), %s::uuid[], %s,
                         %s, CURRENT_TIMESTAMP
                     )
                     RETURNING segment_id
                 """, (
-                    segment['segment_id'], project_id, drawing_id, segment.get('feature_type'), segment.get('layer_name'),
-                    segment.get('connectivity_type'), segment.get('is_closed', False), 
+                    segment['segment_id'], project_id, segment.get('feature_type'), segment.get('layer_name'),
+                    segment.get('connectivity_type'), segment.get('is_closed', False),
                     segment['geometry_wkt'], segment.get('point_ids', []), segment.get('point_count'),
                     psycopg2.extras.Json({
                         'code': segment.get('code'),

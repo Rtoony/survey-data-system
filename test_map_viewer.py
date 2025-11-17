@@ -58,17 +58,15 @@ def main():
         print(f"  - Errors: {len(stats['errors'])}")
         
         cur.execute("""
-            SELECT 
+            SELECT
                 de.entity_type,
                 l.layer_name,
                 de.color_aci,
                 ST_AsText(de.geometry) as geometry_wkt,
                 ST_GeometryType(de.geometry) as geom_type,
-                ST_Transform(de.geometry, 4326) as wgs84_geom,
-                de.drawing_id
+                ST_Transform(de.geometry, 4326) as wgs84_geom
             FROM drawing_entities de
             LEFT JOIN layers l ON de.layer_id = l.layer_id
-            WHERE de.drawing_id IS NULL
             ORDER BY de.entity_type
         """)
         
@@ -76,31 +74,29 @@ def main():
         
         print(f"\n✓ Map Viewer API would return {len(entities)} project-level entities:")
         for entity in entities:
-            print(f"  - {entity['entity_type']}: {entity['layer_name']} (color: {entity['color_aci']}, type: {entity['geom_type']}, drawing_id: {entity['drawing_id']})")
+            print(f"  - {entity['entity_type']}: {entity['layer_name']} (color: {entity['color_aci']}, type: {entity['geom_type']})")
         
         cur.execute("""
-            SELECT 
+            SELECT
                 dt.text_content,
                 l.layer_name,
                 ST_AsText(dt.insertion_point) as position_wkt,
-                ST_Transform(dt.insertion_point, 4326) as wgs84_pos,
-                dt.drawing_id
+                ST_Transform(dt.insertion_point, 4326) as wgs84_pos
             FROM drawing_text dt
             LEFT JOIN layers l ON dt.layer_id = l.layer_id
-            WHERE dt.drawing_id IS NULL
         """)
         
         texts = cur.fetchall()
         
         print(f"\n✓ Map Viewer API would return {len(texts)} project-level text entities:")
         for text in texts:
-            print(f"  - '{text['text_content']}' on layer {text['layer_name']} (drawing_id: {text['drawing_id']})")
+            print(f"  - '{text['text_content']}' on layer {text['layer_name']}")
         
         print("\n" + "=" * 60)
         print("✓ MAP VIEWER TEST PASSED!")
         print("=" * 60)
         print("\nThe imported DXF entities:")
-        print("  1. Are stored at project level with drawing_id IS NULL")
+        print("  1. Are stored at project level")
         print("  2. Are stored with SRID 2226 (California State Plane)")
         print("  3. Can be transformed to WGS84 (EPSG:4326) for map display")
         print("  4. Include proper layer names and styling information")
@@ -109,11 +105,11 @@ def main():
         os.remove(filename)
         
     finally:
-        # Clean up project-level entities (drawing_id IS NULL)
+        # Clean up project-level entities
         if project_id:
-            cur.execute("DELETE FROM drawing_entities WHERE drawing_id IS NULL")
-            cur.execute("DELETE FROM drawing_text WHERE drawing_id IS NULL")
-            cur.execute("DELETE FROM layers WHERE drawing_id IS NULL")
+            cur.execute("DELETE FROM drawing_entities")
+            cur.execute("DELETE FROM drawing_text")
+            cur.execute("DELETE FROM layers")
             cur.execute("DELETE FROM projects WHERE project_id = %s", (project_id,))
         
         conn.commit()

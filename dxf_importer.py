@@ -93,7 +93,7 @@ class DXFImporter:
                 # Import model space
                 if import_modelspace:
                     modelspace = doc.modelspace()
-                    self._import_entities(modelspace, project_id, 'MODEL', conn, stats, resolver)
+                    self._import_entities(modelspace, project_id, conn, stats, resolver)
 
                 # Create intelligent objects from imported entities
                 if self.create_intelligent_objects:
@@ -141,7 +141,7 @@ class DXFImporter:
         # Query recently imported entities from this project (last 10 minutes)
         # Since entities are no longer tied to drawings, we query by project and recent timestamp
         cur.execute(f"""
-            SELECT 
+            SELECT
                 de.entity_id,
                 de.entity_type,
                 l.layer_name,
@@ -149,8 +149,7 @@ class DXFImporter:
                 ST_GeometryType(de.geometry) as geometry_type,
                 de.dxf_handle,
                 de.color_aci,
-                de.linetype,
-                de.space_type
+                de.linetype
             FROM drawing_entities de
             LEFT JOIN layers l ON de.layer_id = l.layer_id
             WHERE de.created_at >= NOW() - INTERVAL '10 minutes'
@@ -176,12 +175,11 @@ class DXFImporter:
                     'geometry_type': entity['geometry_type'].replace('ST_', ''),  # ST_LineString -> LineString
                     'dxf_handle': entity['dxf_handle'],
                     'color_aci': entity['color_aci'],
-                    'linetype': entity['linetype'],
-                    'space_type': entity['space_type']
+                    'linetype': entity['linetype']
                 }
                 
-                # Attempt to create intelligent object (no drawing_id needed)
-                result = creator.create_from_entity(entity_data, project_id, None)
+                # Attempt to create intelligent object
+                result = creator.create_from_entity(entity_data, project_id)
                 
                 if result:
                     created_count += 1
@@ -207,10 +205,9 @@ class DXFImporter:
             linetype = layer.dxf.linetype if hasattr(layer.dxf, 'linetype') else 'Continuous'
             
             layer_id, layer_standard_id = resolver.get_or_create_layer(
-                layer_name, 
-                project_id=project_id, 
-                drawing_id=None,
-                color_aci=color_aci, 
+                layer_name,
+                project_id=project_id,
+                color_aci=color_aci,
                 linetype=linetype
             )
     
@@ -224,54 +221,54 @@ class DXFImporter:
             # Get linetype standard ID (no drawing-level usage tracking)
             linetype_standard_id = resolver.get_or_create_linetype(linetype_name)
     
-    def _import_entities(self, layout, project_id: str, space: str, 
+    def _import_entities(self, layout, project_id: str,
                          conn, stats: Dict, resolver: DXFLookupService):
         """Import entities from a layout at project level."""
         for entity in layout:
             entity_type = entity.dxftype()
-            
+
             try:
-                if entity_type in ['LINE', 'POLYLINE', 'LWPOLYLINE', 'ARC', 
+                if entity_type in ['LINE', 'POLYLINE', 'LWPOLYLINE', 'ARC',
                                    'CIRCLE', 'ELLIPSE', 'SPLINE']:
-                    self._import_entity(entity, project_id, space, conn, stats, resolver)
-                
+                    self._import_entity(entity, project_id, conn, stats, resolver)
+
                 elif entity_type == 'POINT':
-                    self._import_point(entity, project_id, space, conn, stats, resolver)
-                
+                    self._import_point(entity, project_id, conn, stats, resolver)
+
                 elif entity_type == '3DFACE':
-                    self._import_3dface(entity, project_id, space, conn, stats, resolver)
-                
+                    self._import_3dface(entity, project_id, conn, stats, resolver)
+
                 elif entity_type in ['3DSOLID', 'BODY']:
-                    self._import_3dsolid(entity, project_id, space, conn, stats, resolver)
-                
+                    self._import_3dsolid(entity, project_id, conn, stats, resolver)
+
                 elif entity_type in ['MESH', 'POLYMESH', 'POLYFACE']:
-                    self._import_mesh(entity, project_id, space, conn, stats, resolver)
-                
+                    self._import_mesh(entity, project_id, conn, stats, resolver)
+
                 elif entity_type in ['LEADER', 'MULTILEADER']:
-                    self._import_leader(entity, project_id, space, conn, stats, resolver)
-                
+                    self._import_leader(entity, project_id, conn, stats, resolver)
+
                 elif entity_type in ['TEXT', 'MTEXT']:
-                    self._import_text(entity, project_id, space, conn, stats, resolver)
-                
+                    self._import_text(entity, project_id, conn, stats, resolver)
+
                 elif entity_type.startswith('DIMENSION'):
-                    self._import_dimension(entity, project_id, space, conn, stats, resolver)
-                
+                    self._import_dimension(entity, project_id, conn, stats, resolver)
+
                 elif entity_type == 'HATCH':
-                    self._import_hatch(entity, project_id, space, conn, stats, resolver)
-                
+                    self._import_hatch(entity, project_id, conn, stats, resolver)
+
                 elif entity_type == 'INSERT':
-                    self._import_block_insert(entity, project_id, space, conn, stats, resolver)
-                    
+                    self._import_block_insert(entity, project_id, conn, stats, resolver)
+
             except Exception as e:
                 stats['errors'].append(
                     f"Failed to import {entity_type}: {str(e)}"
                 )
     
-    def _import_entity(self, entity, project_id: str, space: str, 
+    def _import_entity(self, entity, project_id: str,
                        conn, stats: Dict, resolver: DXFLookupService):
         """Import generic drawing entity at project level (line, arc, circle, etc.)."""
         cur = conn.cursor()
-        
+
         entity_type = entity.dxftype()
         layer_name = entity.dxf.layer
         color_aci = entity.dxf.color if hasattr(entity.dxf, 'color') else 256
@@ -279,19 +276,18 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
         transparency = entity.dxf.transparency if hasattr(entity.dxf, 'transparency') else 0
-        
+
         # Resolve layer to get layer_id (no drawing association)
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
-        
+
         # Convert entity to WKT geometry
         geometry_wkt = self._entity_to_wkt(entity)
-        
+
         if geometry_wkt:
             try:
                 # Store DXF-specific properties in attributes
@@ -300,21 +296,21 @@ class DXFImporter:
                     'linetype': linetype,
                     'entity_type': entity_type
                 }
-                
+
                 # Insert geometry using ST_GeomFromText
                 # The POLYGON Z WKT format should preserve the polygon type
                 geom_cast = f"ST_GeomFromText(%s, {self.srid})"
-                
+
                 # Insert entity with NULL drawing_id (project-level import)
                 cur.execute(f"""
                     INSERT INTO drawing_entities (
-                        drawing_id, entity_type, layer_id, space_type,
-                        geometry, dxf_handle, color_aci, lineweight, linetype, 
+                        drawing_id, entity_type, layer_id,
+                        geometry, dxf_handle, color_aci, lineweight, linetype,
                         transparency, quality_score, tags, attributes
                     )
-                    VALUES (NULL, %s, %s, %s, {geom_cast}, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
+                    VALUES (NULL, %s, %s, {geom_cast}, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
                 """, (
-                    entity_type, layer_id, space,
+                    entity_type, layer_id,
                     geometry_wkt, dxf_handle, color_aci, lineweight, linetype,
                     transparency, json.dumps(attributes)
                 ))
@@ -433,31 +429,30 @@ class DXFImporter:
         
         return None
     
-    def _import_text(self, entity, project_id: str, space: str, 
+    def _import_text(self, entity, project_id: str,
                      conn, stats: Dict, resolver: DXFLookupService):
         """Import text entity at project level."""
         cur = conn.cursor()
-        
+
         entity_type = entity.dxftype()
         layer_name = entity.dxf.layer
         dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
-        
+
         # Resolve layer to get layer_id (no drawing association)
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None
+            layer_name,
+            project_id=project_id
         )
-        
+
         # Get text properties
         text_content = entity.dxf.text if entity_type == 'TEXT' else entity.text
         insert_point = entity.dxf.insert
         height = entity.dxf.height if hasattr(entity.dxf, 'height') else 1.0
         rotation = entity.dxf.rotation if hasattr(entity.dxf, 'rotation') else 0.0
-        
+
         # Get text style
         style_name = entity.dxf.style if hasattr(entity.dxf, 'style') else 'Standard'
-        
+
         # Get alignment
         if entity_type == 'TEXT':
             halign = entity.dxf.halign if hasattr(entity.dxf, 'halign') else 0
@@ -468,96 +463,94 @@ class DXFImporter:
             attachment_point = entity.dxf.attachment_point if hasattr(entity.dxf, 'attachment_point') else 1
             h_just = 'LEFT'
             v_just = 'BASELINE'
-        
+
         # Create point geometry (SRID 2226 for California State Plane Zone 2)
         geometry_wkt = f'POINT Z ({insert_point.x} {insert_point.y} {insert_point.z})'
-        
+
         # Attributes for AI optimization
         attributes = {
             'layer_name': layer_name,
             'text_style': style_name,
             'entity_type': entity_type
         }
-        
+
         cur.execute(f"""
             INSERT INTO drawing_text (
-                drawing_id, layer_id, space_type, text_content,
+                drawing_id, layer_id, text_content,
                 insertion_point, text_height, rotation_angle,
                 text_style, horizontal_justification, vertical_justification,
                 dxf_handle, quality_score, tags, attributes
             )
-            VALUES (NULL, %s::uuid, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
+            VALUES (NULL, %s::uuid, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
         """, (
-            layer_id, space, text_content,
+            layer_id, text_content,
             geometry_wkt, height, rotation, style_name, h_just, v_just,
             dxf_handle, json.dumps(attributes)
         ))
-        
+
         stats['text'] += 1
         cur.close()
     
-    def _import_dimension(self, entity, project_id: str, space: str,
+    def _import_dimension(self, entity, project_id: str,
                           conn, stats: Dict, resolver: DXFLookupService):
         """Import dimension entity at project level."""
         cur = conn.cursor()
-        
+
         layer_name = entity.dxf.layer
         dim_type = entity.dxftype()
         dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
-        
+
         # Resolve layer to get layer_id (no drawing association)
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None
+            layer_name,
+            project_id=project_id
         )
-        
+
         # Get measurement and text
         dimension_text = entity.dxf.text if hasattr(entity.dxf, 'text') else ''
         measured_value = float(entity.get_measurement()) if hasattr(entity, 'get_measurement') else None
-        
+
         # Get dimension style
         dimstyle_name = entity.dxf.dimstyle if hasattr(entity.dxf, 'dimstyle') else 'Standard'
-        
+
         # Attributes for AI optimization
         attributes = {
             'layer_name': layer_name,
             'dimension_style': dimstyle_name,
             'entity_type': dim_type
         }
-        
+
         cur.execute(f"""
             INSERT INTO drawing_dimensions (
-                drawing_id, layer_id, space_type, dimension_type,
+                drawing_id, layer_id, dimension_type,
                 measured_value, dimension_text, dimension_style,
                 dxf_handle, quality_score, tags, attributes
             )
-            VALUES (NULL, %s::uuid, %s, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
+            VALUES (NULL, %s::uuid, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
         """, (
-            layer_id, space, dim_type,
+            layer_id, dim_type,
             measured_value, dimension_text, dimstyle_name,
             dxf_handle, json.dumps(attributes)
         ))
-        
+
         stats['dimensions'] += 1
         cur.close()
     
-    def _import_hatch(self, entity, project_id: str, space: str,
+    def _import_hatch(self, entity, project_id: str,
                       conn, stats: Dict, resolver: DXFLookupService):
         """Import hatch entity at project level."""
         cur = conn.cursor()
-        
+
         layer_name = entity.dxf.layer
         pattern_name = entity.dxf.pattern_name if hasattr(entity.dxf, 'pattern_name') else 'SOLID'
         dxf_handle = entity.dxf.handle if hasattr(entity.dxf, 'handle') else None
-        
+
         # Resolve layer to get layer_id (no drawing association)
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None
+            layer_name,
+            project_id=project_id
         )
-        
+
         # Get hatch boundary
         try:
             # Get boundary paths and convert to WKT polygon
@@ -571,42 +564,42 @@ class DXFImporter:
                             points.append(points[0])
                         point_str = ', '.join([f'{p[0]} {p[1]} 0' for p in points])
                         boundaries.append(f'(({point_str}))')
-            
+
             if boundaries:
                 geometry_wkt = f'POLYGON Z {boundaries[0]}'
-                
+
                 # Get pattern properties
                 scale = entity.dxf.pattern_scale if hasattr(entity.dxf, 'pattern_scale') else 1.0
                 angle = entity.dxf.pattern_angle if hasattr(entity.dxf, 'pattern_angle') else 0.0
-                
+
                 # Attributes for AI optimization
                 attributes = {
                     'layer_name': layer_name,
                     'pattern_name': pattern_name,
                     'is_solid': pattern_name.upper() == 'SOLID'
                 }
-                
+
                 cur.execute(f"""
                     INSERT INTO drawing_hatches (
-                        drawing_id, layer_id, space_type, hatch_pattern,
+                        drawing_id, layer_id, hatch_pattern,
                         boundary_geometry, hatch_scale, hatch_angle,
                         dxf_handle, quality_score, tags, attributes
                     )
-                    VALUES (NULL, %s::uuid, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, 0.5, '{{}}', %s)
+                    VALUES (NULL, %s::uuid, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, 0.5, '{{}}', %s)
                 """, (
-                    layer_id, space, pattern_name,
+                    layer_id, pattern_name,
                     geometry_wkt, scale, angle,
                     dxf_handle, json.dumps(attributes)
                 ))
-                
+
                 stats['hatches'] += 1
-                
+
         except Exception as e:
             stats['errors'].append(f"Failed to import hatch: {str(e)}")
-        
+
         cur.close()
     
-    def _import_block_insert(self, entity, project_id: str, space: str,
+    def _import_block_insert(self, entity, project_id: str,
                              conn, stats: Dict, resolver: DXFLookupService):
         """Import block insert at project level."""
         cur = conn.cursor()
@@ -618,9 +611,8 @@ class DXFImporter:
         
         # Resolve layer to get layer_id (no drawing association)
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None
+            layer_name,
+            project_id=project_id
         )
         
         # Get transformation
@@ -659,7 +651,7 @@ class DXFImporter:
         
         cur.close()
 
-    def _import_point(self, entity, project_id: str, space: str,
+    def _import_point(self, entity, project_id: str,
                       conn, stats: Dict, resolver: DXFLookupService):
         """Import POINT entity at project level."""
         cur = conn.cursor()
@@ -670,10 +662,9 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
         
@@ -681,13 +672,13 @@ class DXFImporter:
         
         cur.execute(f"""
             INSERT INTO drawing_entities (
-                drawing_id, entity_type, layer_id, space_type,
+                drawing_id, entity_type, layer_id,
                 geometry, color_aci, lineweight, linetype, attributes
             )
-            VALUES (NULL, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
+            VALUES (NULL, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
         """, (
-            'POINT', layer_id, space,
-            geometry_wkt, 
+            'POINT', layer_id,
+            geometry_wkt,
             entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
             -1, 'ByLayer',
             json.dumps({'layer_name': layer_name, 'dxf_handle': entity.dxf.handle})
@@ -696,7 +687,7 @@ class DXFImporter:
         stats['points'] += 1
         cur.close()
     
-    def _import_3dface(self, entity, project_id: str, space: str,
+    def _import_3dface(self, entity, project_id: str,
                        conn, stats: Dict, resolver: DXFLookupService):
         """Import 3DFACE entity at project level (triangular/quad surface faces for TIN surfaces)."""
         cur = conn.cursor()
@@ -706,10 +697,9 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
         
@@ -738,12 +728,12 @@ class DXFImporter:
         
         cur.execute(f"""
             INSERT INTO drawing_entities (
-                drawing_id, entity_type, layer_id, space_type,
+                drawing_id, entity_type, layer_id,
                 geometry, color_aci, lineweight, linetype, attributes
             )
-            VALUES (NULL, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
+            VALUES (NULL, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
         """, (
-            '3DFACE', layer_id, space,
+            '3DFACE', layer_id,
             geometry_wkt,
             entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
             -1, 'ByLayer',
@@ -753,7 +743,7 @@ class DXFImporter:
         stats['3dfaces'] += 1
         cur.close()
     
-    def _import_3dsolid(self, entity, project_id: str, space: str,
+    def _import_3dsolid(self, entity, project_id: str,
                         conn, stats: Dict, resolver: DXFLookupService):
         """Import 3DSOLID entity at project level (store as bounding box or centerpoint for now)."""
         cur = conn.cursor()
@@ -763,10 +753,9 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
         
@@ -781,12 +770,12 @@ class DXFImporter:
             
             cur.execute(f"""
                 INSERT INTO drawing_entities (
-                    drawing_id, entity_type, layer_id, space_type,
+                    drawing_id, entity_type, layer_id,
                     geometry, color_aci, lineweight, linetype, attributes
                 )
-                VALUES (NULL, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
+                VALUES (NULL, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
             """, (
-                '3DSOLID', layer_id, space,
+                '3DSOLID', layer_id,
                 geometry_wkt,
                 entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
                 -1, 'ByLayer',
@@ -799,7 +788,7 @@ class DXFImporter:
         
         cur.close()
     
-    def _import_mesh(self, entity, project_id: str, space: str,
+    def _import_mesh(self, entity, project_id: str,
                      conn, stats: Dict, resolver: DXFLookupService):
         """Import MESH/POLYMESH entity at project level (store vertices as multipoint or approximation)."""
         cur = conn.cursor()
@@ -809,10 +798,9 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
         
@@ -831,12 +819,12 @@ class DXFImporter:
             
             cur.execute(f"""
                 INSERT INTO drawing_entities (
-                    drawing_id, entity_type, layer_id, space_type,
+                    drawing_id, entity_type, layer_id,
                     geometry, color_aci, lineweight, linetype, attributes
                 )
-                VALUES (NULL, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
+                VALUES (NULL, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
             """, (
-                'MESH', layer_id, space,
+                'MESH', layer_id,
                 geometry_wkt,
                 entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
                 -1, 'ByLayer',
@@ -849,7 +837,7 @@ class DXFImporter:
         
         cur.close()
     
-    def _import_leader(self, entity, project_id: str, space: str,
+    def _import_leader(self, entity, project_id: str,
                        conn, stats: Dict, resolver: DXFLookupService):
         """Import LEADER/MULTILEADER entity at project level."""
         cur = conn.cursor()
@@ -859,10 +847,9 @@ class DXFImporter:
         linetype = entity.dxf.linetype if hasattr(entity.dxf, 'linetype') else 'ByLayer'
         
         layer_id, _ = resolver.get_or_create_layer(
-            layer_name, 
-            project_id=project_id, 
-            drawing_id=None,
-            color_aci=color_aci, 
+            layer_name,
+            project_id=project_id,
+            color_aci=color_aci,
             linetype=linetype
         )
         
@@ -883,12 +870,12 @@ class DXFImporter:
             
             cur.execute(f"""
                 INSERT INTO drawing_entities (
-                    drawing_id, entity_type, layer_id, space_type,
+                    drawing_id, entity_type, layer_id,
                     geometry, color_aci, lineweight, linetype, attributes
                 )
-                VALUES (NULL, %s, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
+                VALUES (NULL, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
             """, (
-                'LEADER', layer_id, space,
+                'LEADER', layer_id,
                 geometry_wkt,
                 entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
                 -1, 'ByLayer',

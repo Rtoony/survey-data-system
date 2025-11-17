@@ -103,11 +103,11 @@ class DXFExporter:
                 # Export model space
                 if include_modelspace:
                     msp = doc.modelspace()
-                    self._export_entities(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
-                    self._export_text(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
-                    self._export_dimensions(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
-                    self._export_hatches(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
-                    self._export_block_inserts(project_id, 'MODEL', msp, doc, cur, stats, layer_filter)
+                    self._export_entities(project_id, msp, doc, cur, stats, layer_filter)
+                    self._export_text(project_id, msp, doc, cur, stats, layer_filter)
+                    self._export_dimensions(project_id, msp, doc, cur, stats, layer_filter)
+                    self._export_hatches(project_id, msp, doc, cur, stats, layer_filter)
+                    self._export_block_inserts(project_id, msp, doc, cur, stats, layer_filter)
 
                 # Save DXF file
                 doc.saveas(output_path)
@@ -216,7 +216,7 @@ class DXFExporter:
         except Exception:
             pass
     
-    def _export_entities(self, project_id: str, space: str, layout, doc,
+    def _export_entities(self, project_id: str, layout, doc,
                          cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export generic entities to DXF layout."""
         query = """
@@ -230,14 +230,13 @@ class DXFExporter:
             LEFT JOIN layers l ON de.layer_id = l.layer_id
             LEFT JOIN standards_entities se ON de.standards_entity_id = se.entity_id
             WHERE de.project_id = %s::uuid
-            AND de.space_type = %s
         """
-        
+
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (project_id, space, layer_filter))
+            cur.execute(query, (project_id, layer_filter))
         else:
-            cur.execute(query, (project_id, space))
+            cur.execute(query, (project_id,))
         
         entities = cur.fetchall()
         
@@ -492,7 +491,7 @@ class DXFExporter:
         self._ensure_layer(layer_name, doc, stats)
         return layer_name
     
-    def _export_text(self, project_id: str, space: str, layout, doc,
+    def _export_text(self, project_id: str, layout, doc,
                      cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export text entities to DXF layout."""
         query = """
@@ -506,14 +505,13 @@ class DXFExporter:
             JOIN drawing_entities de ON dt.entity_id = de.entity_id
             LEFT JOIN layers l ON dt.layer_id = l.layer_id
             WHERE de.project_id = %s::uuid
-            AND dt.space_type = %s
         """
-        
+
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (project_id, space, layer_filter))
+            cur.execute(query, (project_id, layer_filter))
         else:
-            cur.execute(query, (project_id, space))
+            cur.execute(query, (project_id,))
         
         texts = cur.fetchall()
         
@@ -536,7 +534,7 @@ class DXFExporter:
             except Exception as e:
                 stats['errors'].append(f"Failed to export text: {str(e)}")
     
-    def _export_dimensions(self, project_id: str, space: str, layout, doc,
+    def _export_dimensions(self, project_id: str, layout, doc,
                            cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export dimension entities to DXF layout."""
         query = """
@@ -549,14 +547,13 @@ class DXFExporter:
             JOIN drawing_entities de ON dd.entity_id = de.entity_id
             LEFT JOIN layers l ON dd.layer_id = l.layer_id
             WHERE de.project_id = %s::uuid
-            AND dd.space_type = %s
         """
-        
+
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (project_id, space, layer_filter))
+            cur.execute(query, (project_id, layer_filter))
         else:
-            cur.execute(query, (project_id, space))
+            cur.execute(query, (project_id,))
         
         dimensions = cur.fetchall()
         
@@ -579,7 +576,7 @@ class DXFExporter:
             except Exception as e:
                 stats['errors'].append(f"Failed to export dimension: {str(e)}")
     
-    def _export_hatches(self, project_id: str, space: str, layout, doc,
+    def _export_hatches(self, project_id: str, layout, doc,
                         cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export hatch entities to DXF layout."""
         query = """
@@ -592,14 +589,13 @@ class DXFExporter:
             JOIN drawing_entities de ON dh.entity_id = de.entity_id
             LEFT JOIN layers l ON dh.layer_id = l.layer_id
             WHERE de.project_id = %s::uuid
-            AND dh.space_type = %s
         """
-        
+
         if layer_filter:
             query += " AND l.layer_name = ANY(%s)"
-            cur.execute(query, (project_id, space, layer_filter))
+            cur.execute(query, (project_id, layer_filter))
         else:
-            cur.execute(query, (project_id, space))
+            cur.execute(query, (project_id,))
         
         hatches = cur.fetchall()
         
@@ -619,7 +615,7 @@ class DXFExporter:
             except Exception as e:
                 stats['errors'].append(f"Failed to export hatch: {str(e)}")
     
-    def _export_block_inserts(self, project_id: str, space: str, layout, doc,
+    def _export_block_inserts(self, project_id: str, layout, doc,
                               cur, stats: Dict, layer_filter: Optional[List[str]]):
         """Export block inserts to DXF layout."""
         try:
@@ -632,12 +628,11 @@ class DXFExporter:
                 JOIN drawing_entities de ON bi.entity_id = de.entity_id
                 LEFT JOIN layers l ON bi.layer_id = l.layer_id
                 WHERE de.project_id = %s::uuid
-                AND bi.space_type = %s
                 LIMIT 0
             """
-            
-            cur.execute(query, (project_id, space))
-            
+
+            cur.execute(query, (project_id,))
+
         except Exception:
             pass
     

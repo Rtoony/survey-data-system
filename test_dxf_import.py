@@ -101,25 +101,21 @@ def verify_data(conn, project_id):
     print("\nVerifying imported data at project level...")
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
-    # Check drawing_entities - should have drawing_id IS NULL for project-level imports
+    # Check drawing_entities - all entities are now project-level
     cur.execute("""
         SELECT COUNT(*) as count,
                COUNT(DISTINCT layer_id) as layers,
-               COUNT(DISTINCT entity_type) as types,
-               COUNT(*) FILTER (WHERE drawing_id IS NULL) as project_level_count
+               COUNT(DISTINCT entity_type) as types
         FROM drawing_entities
-        WHERE drawing_id IS NULL
     """)
-    
+
     entities = cur.fetchone()
     print(f"✓ Found {entities['count']} project-level entities across {entities['layers']} layers")
-    print(f"✓ Verified {entities['project_level_count']} entities have drawing_id IS NULL")
     
-    # Check layers - project-level layers have drawing_id IS NULL
+    # Check layers - all layers are now project-level
     cur.execute("""
         SELECT layer_name, color, quality_score
         FROM layers
-        WHERE drawing_id IS NULL
         ORDER BY layer_name
         LIMIT 10
     """)
@@ -129,17 +125,14 @@ def verify_data(conn, project_id):
     for layer in layers:
         print(f"  - {layer['layer_name']} (color: {layer['color']}, quality: {layer['quality_score']})")
     
-    # Check text - should have drawing_id IS NULL
+    # Check text - all text entities are now project-level
     cur.execute("""
-        SELECT COUNT(*) as count,
-               COUNT(*) FILTER (WHERE drawing_id IS NULL) as project_level_count
+        SELECT COUNT(*) as count
         FROM drawing_text
-        WHERE drawing_id IS NULL
     """)
-    
+
     text_count = cur.fetchone()
     print(f"✓ Found {text_count['count']} project-level text entities")
-    print(f"✓ Verified {text_count['project_level_count']} text entities have drawing_id IS NULL")
     
     cur.close()
 
@@ -183,7 +176,7 @@ def main():
         
         print("\n" + "=" * 60)
         print("✓ ALL TESTS PASSED!")
-        print("✓ Entities imported at project level with drawing_id IS NULL")
+        print("✓ Entities imported at project level")
         print("=" * 60)
         
         # Cleanup

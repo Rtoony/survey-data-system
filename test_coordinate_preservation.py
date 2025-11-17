@@ -60,23 +60,18 @@ def test_coordinate_preservation(original_dxf_path: str, test_name: str, toleran
                 print(f"  ERROR: {error}")
             return {'passed': False, 'stage': 'import', 'errors': import_stats['errors']}
         
-        drawing_id = import_stats.get('drawing_id')
-        if not drawing_id:
-            print("❌ No drawing_id returned from import!")
-            return {'passed': False, 'stage': 'import', 'errors': ['No drawing_id returned']}
-        
         print(f"✅ Import successful!")
-        print(f"   Drawing ID: {drawing_id}")
+        print(f"   Project ID: {project_id}")
         print(f"   Entities: {import_stats.get('entities', 0)}")
         print(f"   Layers: {import_stats.get('layers', 0)}")
-        
+
         # Step 2: Export from database back to DXF
         print("\nSTEP 2: Exporting from database to DXF...")
         exporter = DXFExporter(db_config)
         exported_dxf_path = os.path.join(temp_dir, f"{test_name}_exported.dxf")
-        
+
         export_stats = exporter.export_dxf(
-            drawing_id=drawing_id,
+            project_id=project_id,
             output_path=exported_dxf_path,
             dxf_version='AC1027',
             include_modelspace=True
@@ -105,7 +100,7 @@ def test_coordinate_preservation(original_dxf_path: str, test_name: str, toleran
             return {
                 'passed': report['passed'],
                 'stage': 'complete',
-                'drawing_id': drawing_id,
+                'project_id': project_id,
                 'import_stats': import_stats,
                 'export_stats': export_stats,
                 'validation_report': report

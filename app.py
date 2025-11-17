@@ -2068,8 +2068,7 @@ def reclassify_generic_object(project_id, object_id):
         lookup_service = DXFLookupService(DB_CONFIG)
         layer_id = lookup_service.get_or_create_layer(
             layer_name=constructed_layer_name,
-            project_id=project_id,
-            drawing_id=None  # Project-level layer assignment
+            project_id=project_id
         )
         
         # Get the generic object
@@ -11061,9 +11060,9 @@ def import_intelligent_dxf():
             return jsonify({'error': 'File must be a DXF file'}), 400
         
         # Get parameters
-        drawing_id = request.form.get('drawing_id')
-        if not drawing_id:
-            return jsonify({'error': 'drawing_id is required'}), 400
+        project_id = request.form.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
 
         import_modelspace = request.form.get('import_modelspace', 'true') == 'true'
 
@@ -11077,7 +11076,7 @@ def import_intelligent_dxf():
             importer = DXFImporter(DB_CONFIG, create_intelligent_objects=True)
             stats = importer.import_dxf(
                 temp_path,
-                drawing_id,
+                project_id,
                 import_modelspace=import_modelspace
             )
             
@@ -11153,29 +11152,30 @@ def reimport_dxf_with_changes():
             return jsonify({'error': 'File must be a DXF file'}), 400
         
         # Get parameters
-        drawing_id = request.form.get('drawing_id')
-        if not drawing_id:
-            return jsonify({'error': 'drawing_id is required'}), 400
-        
+        project_id = request.form.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+
         # Save uploaded file temporarily
         filename = secure_filename(file.filename)
         temp_path = os.path.join('/tmp', f'{uuid.uuid4()}_{filename}')
         file.save(temp_path)
-        
+
         try:
             # Step 1: Import DXF entities (without creating new intelligent objects yet)
             importer = DXFImporter(DB_CONFIG, create_intelligent_objects=False)
             import_stats = importer.import_dxf(
                 temp_path,
-                drawing_id,
+                project_id,
                 import_modelspace=True
             )
-            
-            # Step 2: Get the reimported entities from database
+
+            # Step 2: Get the reimported entities from database (recent imports only)
+            # Use a 10-minute window to capture just the entities from this import
             with get_db() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute("""
-                        SELECT 
+                        SELECT
                             entity_id,
                             entity_type,
                             layer_name,
@@ -11183,14 +11183,15 @@ def reimport_dxf_with_changes():
                             ST_GeometryType(geometry) as geometry_type,
                             dxf_handle
                         FROM drawing_entities
-                        WHERE drawing_id = %s
-                    """, (drawing_id,))
-                    
+                        WHERE project_id = %s::uuid
+                          AND created_at >= NOW() - INTERVAL '10 minutes'
+                    """, (project_id,))
+
                     reimported_entities = [dict(row) for row in cur.fetchall()]
-            
+
             # Step 3: Detect changes
             detector = DXFChangeDetector(DB_CONFIG)
-            change_stats = detector.detect_changes(drawing_id, reimported_entities)
+            change_stats = detector.detect_changes(project_id, reimported_entities)
             
             return jsonify({
                 'success': len(import_stats['errors']) == 0 and len(change_stats['errors']) == 0,
@@ -12747,57 +12748,54 @@ def get_database_layer_data(layer_id):
 
 @app.route('/api/map-viewer/projects')
 def get_map_projects():
-    """Get all projects with spatial data for map display"""
+    """Get all projects with spatial data for map display (computed from entity bounding boxes)"""
     try:
         from pyproj import Transformer
-        
-        # Query all drawings with their projects and bbox
+
+        # Query all projects with computed bounding boxes from entities
         query = """
-            SELECT 
-                d.drawing_id,
-                d.drawing_name,
-                d.drawing_number,
-                d.bbox_min_x,
-                d.bbox_min_y,
-                d.bbox_max_x,
-                d.bbox_max_y,
-                d.created_at,
+            SELECT
                 p.project_id,
                 p.project_name,
-                p.client_name
-            FROM drawings d
-            JOIN projects p ON d.project_id = p.project_id
-            WHERE d.bbox_min_x IS NOT NULL 
-              AND d.bbox_min_y IS NOT NULL 
-              AND d.bbox_max_x IS NOT NULL 
-              AND d.bbox_max_y IS NOT NULL
-            ORDER BY d.created_at DESC
+                p.project_number,
+                p.client_name,
+                p.created_at,
+                ST_XMin(ST_Extent(de.geometry)) as bbox_min_x,
+                ST_YMin(ST_Extent(de.geometry)) as bbox_min_y,
+                ST_XMax(ST_Extent(de.geometry)) as bbox_max_x,
+                ST_YMax(ST_Extent(de.geometry)) as bbox_max_y,
+                COUNT(de.entity_id) as entity_count
+            FROM projects p
+            LEFT JOIN drawing_entities de ON de.project_id = p.project_id
+            GROUP BY p.project_id, p.project_name, p.project_number, p.client_name, p.created_at
+            HAVING ST_XMin(ST_Extent(de.geometry)) IS NOT NULL
+            ORDER BY p.created_at DESC
         """
-        
+
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query)
-                drawings = cur.fetchall()
-        
+                projects = cur.fetchall()
+
         # Transformer to convert EPSG:2226 to WGS84 for map display
         transformer = Transformer.from_crs("EPSG:2226", "EPSG:4326", always_xy=True)
-        
+
         features = []
-        for drawing in drawings:
+        for project in projects:
             # Get bbox in EPSG:2226 (State Plane)
-            min_x_2226 = drawing['bbox_min_x']
-            min_y_2226 = drawing['bbox_min_y']
-            max_x_2226 = drawing['bbox_max_x']
-            max_y_2226 = drawing['bbox_max_y']
-            
+            min_x_2226 = project['bbox_min_x']
+            min_y_2226 = project['bbox_min_y']
+            max_x_2226 = project['bbox_max_x']
+            max_y_2226 = project['bbox_max_y']
+
             # Transform all 4 corners to WGS84
             min_lon, min_lat = transformer.transform(min_x_2226, min_y_2226)
             max_lon, max_lat = transformer.transform(max_x_2226, max_y_2226)
-            
+
             # Also transform the other two corners for accurate bbox
             top_left_lon, top_left_lat = transformer.transform(min_x_2226, max_y_2226)
             bottom_right_lon, bottom_right_lat = transformer.transform(max_x_2226, min_y_2226)
-            
+
             # Create GeoJSON polygon in WGS84 (lon, lat order for GeoJSON)
             feature = {
                 'type': 'Feature',
@@ -12812,18 +12810,17 @@ def get_map_projects():
                     ]]
                 },
                 'properties': {
-                    'drawing_id': str(drawing['drawing_id']),
-                    'drawing_name': drawing['drawing_name'],
-                    'drawing_number': drawing['drawing_number'],
-                    'project_id': str(drawing['project_id']),
-                    'project_name': drawing['project_name'],
-                    'client_name': drawing['client_name'],
+                    'project_id': str(project['project_id']),
+                    'project_name': project['project_name'],
+                    'project_number': project['project_number'],
+                    'client_name': project['client_name'],
+                    'entity_count': project['entity_count'],
                     'epsg_code': 'EPSG:2226',
-                    'created_at': drawing['created_at'].isoformat() if drawing['created_at'] else None
+                    'created_at': project['created_at'].isoformat() if project['created_at'] else None
                 }
             }
             features.append(feature)
-        
+
         return jsonify({
             'type': 'FeatureCollection',
             'features': features
