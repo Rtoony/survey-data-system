@@ -4,6 +4,7 @@ A companion tool for viewing and managing your Supabase database
 """
 
 from flask import Flask, render_template, jsonify, request, send_file, make_response, redirect, url_for, session
+from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 from flask_caching import Cache
 import psycopg2
@@ -36,8 +37,8 @@ from pyproj import Transformer
 # Load environment variables (works with both .env file and Replit secrets)
 load_dotenv()
 
-# Custom JSON encoder for datetime, date, and Decimal objects
-class CustomJSONEncoder(json.JSONEncoder):
+# Custom JSON provider for datetime, date, Decimal, and UUID objects (Flask 2.2+)
+class CustomJSONProvider(DefaultJSONProvider):
     def default(self, obj):
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
@@ -48,7 +49,7 @@ class CustomJSONEncoder(json.JSONEncoder):
         return super().default(obj)
 
 app = Flask(__name__)
-app.json_encoder = CustomJSONEncoder
+app.json = CustomJSONProvider(app)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 CORS(app)
 
@@ -2107,7 +2108,11 @@ def reclassify_generic_object(project_id, object_id):
         # Initialize creator with database connection and perform reclassification
         with get_db() as conn:
             creator = IntelligentObjectCreator(DB_CONFIG, conn=conn)
-            
+
+            # Initialize variables to prevent unbound errors
+            result = None
+            expected_geom = None
+
             # Call the appropriate creation method
             if target_type == 'utility_line':
                 result = creator._create_utility_line(entity_data, classification, project_id)
@@ -2248,7 +2253,7 @@ def ignore_generic_object(project_id, object_id):
                 updated_at = CURRENT_TIMESTAMP
             WHERE object_id = %s AND project_id = %s
         """
-        execute_update(update_query, (notes, object_id, project_id))
+        execute_query(update_query, (notes, object_id, project_id))
         
         return jsonify({
             'success': True,
@@ -2457,7 +2462,11 @@ def universal_reclassify():
         
         with get_db() as conn:
             creator = IntelligentObjectCreator(DB_CONFIG, conn=conn)
-            
+
+            # Initialize variables to prevent unbound errors
+            result = None
+            expected_geom = None
+
             if target_type == 'utility_line':
                 result = creator._create_utility_line(entity_data, classification, obj['project_id'])
                 expected_geom = 'LINESTRING'
@@ -3075,7 +3084,16 @@ def get_attribute_codes():
 def create_attribute_code():
     """Create a new attribute code"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body must be JSON'}), 400
+
+        # Validate required fields
+        if 'code' not in data:
+            return jsonify({'error': 'Missing required field: code'}), 400
+        if 'full_name' not in data:
+            return jsonify({'error': 'Missing required field: full_name'}), 400
+
         query = """
             INSERT INTO attribute_codes (code, full_name, attribute_category, attribute_type, description, pattern, is_locked, sort_order, is_active)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -3101,7 +3119,16 @@ def create_attribute_code():
 def update_attribute_code(attribute_id):
     """Update an attribute code"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body must be JSON'}), 400
+
+        # Validate required fields
+        if 'code' not in data:
+            return jsonify({'error': 'Missing required field: code'}), 400
+        if 'full_name' not in data:
+            return jsonify({'error': 'Missing required field: full_name'}), 400
+
         query = """
             UPDATE attribute_codes
             SET code = %s, full_name = %s, attribute_category = %s, attribute_type = %s,
@@ -3205,9 +3232,18 @@ def get_attribute_applicability():
 def create_attribute_applicability():
     """Create a new attribute applicability rule"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body must be JSON'}), 400
+
+        # Validate required fields
+        if 'category_id' not in data:
+            return jsonify({'error': 'Missing required field: category_id'}), 400
+        if 'attribute_id' not in data:
+            return jsonify({'error': 'Missing required field: attribute_id'}), 400
+
         query = """
-            INSERT INTO attribute_applicability 
+            INSERT INTO attribute_applicability
             (category_id, type_id, attribute_id, is_required, sort_order, notes, is_active)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING applicability_id
@@ -3230,8 +3266,10 @@ def create_attribute_applicability():
 def update_attribute_applicability(applicability_id):
     """Update an attribute applicability rule"""
     try:
-        data = request.json
-        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body must be JSON'}), 400
+
         if not data.get('category_id') or not data.get('attribute_id'):
             return jsonify({'error': 'category_id and attribute_id are required'}), 400
         
@@ -4064,13 +4102,16 @@ def extract_blocks_from_dxf():
         errors = []
         
         for file in files:
+            if not file or not file.filename:
+                continue
+
             if file.filename == '':
                 continue
-                
+
             if not file.filename.lower().endswith('.dxf'):
                 errors.append(f"{file.filename}: Not a DXF file")
                 continue
-            
+
             try:
                 temp_path = os.path.join(tempfile.gettempdir(), secure_filename(file.filename))
                 file.save(temp_path)
@@ -4183,13 +4224,16 @@ def extract_cad_elements():
         errors = []
         
         for file in files:
+            if not file or not file.filename:
+                continue
+
             if file.filename == '':
                 continue
-                
+
             if not file.filename.lower().endswith('.dxf'):
                 errors.append(f"{file.filename}: Not a DXF file")
                 continue
-            
+
             try:
                 temp_path = os.path.join(tempfile.gettempdir(), secure_filename(file.filename))
                 file.save(temp_path)
@@ -8738,13 +8782,16 @@ def run_z_stress_test():
         if 'file' in request.files:
             # File upload mode
             file = request.files['file']
-            
+
+            if not file or not file.filename:
+                return jsonify({'error': 'No file uploaded'}), 400
+
             if file.filename == '':
                 return jsonify({'error': 'No file selected'}), 400
-            
+
             if not file.filename.lower().endswith('.dxf'):
                 return jsonify({'error': 'File must be a DXF file'}), 400
-            
+
             # Save uploaded file to temp directory
             filename = secure_filename(file.filename)
             user_dxf_path = os.path.join(tempfile.gettempdir(), f'upload_{filename}')
@@ -10613,9 +10660,12 @@ def import_dxf():
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
+        if not file or not file.filename:
+            return jsonify({'error': 'No file uploaded'}), 400
+
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
-        
+
         if not file.filename.lower().endswith('.dxf'):
             return jsonify({'error': 'File must be a DXF file'}), 400
         
@@ -10772,9 +10822,12 @@ def import_intelligent_dxf():
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
+        if not file or not file.filename:
+            return jsonify({'error': 'No file uploaded'}), 400
+
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
-        
+
         if not file.filename.lower().endswith('.dxf'):
             return jsonify({'error': 'File must be a DXF file'}), 400
         
@@ -10863,9 +10916,12 @@ def reimport_dxf_with_changes():
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
+        if not file or not file.filename:
+            return jsonify({'error': 'No file uploaded'}), 400
+
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
-        
+
         if not file.filename.lower().endswith('.dxf'):
             return jsonify({'error': 'File must be a DXF file'}), 400
         
@@ -12006,12 +12062,18 @@ def get_project_details(project_id):
 def create_project_details():
     """Create project details"""
     try:
-        data = request.json
-        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body must be JSON'}), 400
+
+        # Validate required fields
+        if 'project_id' not in data:
+            return jsonify({'error': 'Missing required field: project_id'}), 400
+
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    INSERT INTO project_details 
+                    INSERT INTO project_details
                     (project_id, project_address, project_city, project_state, project_zip,
                      engineer_name, engineer_license, jurisdiction, permit_number,
                      contact_name, contact_phone, contact_email, notes)
@@ -12035,8 +12097,10 @@ def create_project_details():
 def update_project_details(project_id):
     """Update project details"""
     try:
-        data = request.json
-        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body must be JSON'}), 400
+
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
@@ -12109,13 +12173,11 @@ def create_sheet_category_standard():
 
 # Import and register toolkit blueprint
 try:
-    import sys
-    sys.path.append('tools')
-    from api.toolkit_routes import toolkit_bp
-    app.register_blueprint(toolkit_bp)
+    from tools.api.toolkit_routes import toolkit_bp
+    app.register_blueprint(toolkit_bp, url_prefix='/api/toolkit')
     print("✓ AI Toolkit API routes registered at /api/toolkit")
-except Exception as e:
-    print(f"✗ Failed to load AI Toolkit routes: {e}")
+except ImportError as e:
+    print(f"⚠ Could not register AI Toolkit routes: {e}")
 
 @app.route('/toolkit')
 def toolkit_page():
@@ -18201,10 +18263,13 @@ def batch_validate_upload():
             return jsonify({'error': 'No file uploaded'}), 400
         
         file = request.files['file']
-        
+
+        if not file or not file.filename:
+            return jsonify({'error': 'No file uploaded'}), 400
+
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
-        
+
         if not file.filename.endswith(('.csv', '.txt')):
             return jsonify({'error': 'File must be CSV or TXT format'}), 400
         
@@ -18310,10 +18375,13 @@ def survey_import_preview():
             return jsonify({'error': 'No file uploaded'}), 400
         
         file = request.files['file']
-        
+
+        if not file or not file.filename:
+            return jsonify({'error': 'No file uploaded'}), 400
+
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
-        
+
         coordinate_system = request.form.get('coordinate_system', 'SRID_2226')
         drawing_id = request.form.get('drawing_id')
         
