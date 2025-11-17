@@ -675,12 +675,76 @@ layers
 
 ---
 
+## Deferred Architectural Decisions
+
+The following architectural decisions have been **deferred pending domain expert input or codebase analysis**. These are documented here for future resolution.
+
+### Decision 1: Conformance vs Standardization Status Workflow
+
+**Issue:** Two parallel status systems exist without clear interaction rules
+
+**Background:**
+- **Conformance Status** tracks technical compliance: COMPLIANT → MINOR_DEVIATION → MAJOR_DEVIATION → NON_COMPLIANT
+- **Standardization Status** tracks approval workflow: NOT_NOMINATED → NOMINATED → UNDER_REVIEW → APPROVED → STANDARDIZED
+
+**Open Questions:**
+1. Can an item be MAJOR_DEVIATION but also STANDARDIZED? (appears contradictory but may be valid if organization explicitly approves the deviation)
+2. If an item reaches APPROVED status, does conformance_status become irrelevant?
+3. What are the valid state combinations across both systems?
+4. Does standardization automatically set conformance_status = COMPLIANT?
+
+**Why Deferred:**
+Requires domain expert input on business rules and organizational approval workflows. This is not a technical question but a policy decision.
+
+**Recommendation for Future Work:**
+1. Create workflow state machine diagram showing all valid state transitions
+2. Document valid state combinations (matrix of conformance × standardization)
+3. Add business rules to STANDARDS_CONFORMANCE_PATTERN.md
+4. Consider adding a CHECK constraint to enforce valid state combinations
+
+**Reference:** ARCHITECTURE_AUDIT_REPORT.md Issue #13, STANDARDS_CONFORMANCE_PATTERN.md
+
+---
+
+### Decision 2: Filterable Entity Columns Scope
+
+**Issue:** Unclear if `filterable_entity_columns` table is generic or feature-specific
+
+**Background:**
+- TRUTH_DRIVEN_ARCHITECTURE.md describes it as "Metadata field registry | Which fields are filterable per entity type" (generic interpretation)
+- replit.md describes it as serving "Project Relationship Sets" specifically (feature-specific interpretation)
+
+**Open Questions:**
+1. Is this table intended as a generic system-wide registry for any filterable field?
+2. Or is it specifically designed for Project Relationship Sets feature only?
+3. Can/should other features use this table for their filtering needs?
+4. If generic, should it be renamed to reflect broader scope?
+
+**Why Deferred:**
+Requires codebase analysis to determine actual current usage patterns and architectural intent.
+
+**Recommendation for Future Work:**
+1. Audit all code references to `filterable_entity_columns` table
+2. Determine if usage is isolated to Project Relationship Sets or used elsewhere
+3. Document intended scope clearly in TRUTH_DRIVEN_ARCHITECTURE.md
+4. If generic, update naming and documentation to reflect broader purpose
+5. If specific, update TRUTH_DRIVEN_ARCHITECTURE.md to clarify scope
+
+**Impact on API Design:**
+- If generic: Should be available via `/api/metadata/filterable-columns`
+- If specific: Should remain under Project Relationship Sets API scope
+
+**Reference:** ARCHITECTURE_AUDIT_REPORT.md Issue #14, TRUTH_DRIVEN_ARCHITECTURE.md line 102, replit.md lines 40, 64
+
+---
+
 ## Next Steps
 
 1. **Create an architecture review checklist** to prevent future inconsistencies
 2. **Establish a schema-documentation sync process** (update docs when schema changes)
 3. **Add automated validation** of code examples in documentation
 4. **Schedule quarterly architecture documentation audit**
+5. **Resolve deferred architectural decisions** with domain experts and codebase analysis
 
 ---
 

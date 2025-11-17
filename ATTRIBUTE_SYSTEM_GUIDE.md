@@ -280,11 +280,11 @@ SLOPE            Slope            SITE-GRAD • Calculate volume for slope gradi
 
 ### System-Critical (Locked) Attributes
 
-**16 locked attributes** are essential to core system functionality:
+**28 locked attributes** are essential to core system functionality and cannot be deleted:
 
-**Sizes:** 6IN, 8IN, 12IN, 18IN, 24IN  
-**Materials:** PVC, RCP, CONC  
-**Functions:** STORAGE, TREATMENT, DETENTION, INFILTRATION
+**Pipe Sizes (13):** 4IN, 6IN, 8IN, 10IN, 12IN, 15IN, 18IN, 21IN, 24IN, 30IN, 36IN, 42IN, 48IN
+**Materials (8):** PVC, HDPE, RCP, VCP, DI, STEEL, CONC, AC
+**Functions (7):** STORAGE, TREATMENT, DETENTION, RETENTION, INFILTRATION, TOPO, CONTROL
 
 **Characteristics:**
 - ✅ Can be edited (name, description, sort order)
@@ -295,7 +295,7 @@ SLOPE            Slope            SITE-GRAD • Calculate volume for slope gradi
 
 ### Custom (Editable) Attributes
 
-**14 custom attributes** can be fully managed:
+**14 custom attributes** can be fully managed (2FT-10FT sizes, PVMT, BIOTREAT, BNDY, type modifiers, surface types):
 
 **Characteristics:**
 - ✅ Can be edited
@@ -385,7 +385,7 @@ Tool Mappings:
 
 Retrieve all attributes.
 
-**Response:**
+**Success Response (200):**
 ```json
 {
   "success": true,
@@ -406,6 +406,14 @@ Retrieve all attributes.
 }
 ```
 
+**Error Response (500):**
+```json
+{
+  "error": "Database connection failed",
+  "status": 500
+}
+```
+
 ### POST /api/standards/attributes
 
 Create a new attribute.
@@ -423,12 +431,30 @@ Create a new attribute.
 }
 ```
 
-**Response:**
+**Success Response (201):**
 ```json
 {
   "success": true,
   "message": "Attribute created successfully",
   "attribute_code": "24IN"
+}
+```
+
+**Error Responses:**
+
+**400 - Validation Error:**
+```json
+{
+  "error": "Missing required field: code",
+  "status": 400
+}
+```
+
+**409 - Duplicate Code:**
+```json
+{
+  "error": "Attribute code '24IN' already exists",
+  "status": 409
 }
 ```
 
@@ -445,11 +471,49 @@ Update an existing attribute.
 }
 ```
 
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Attribute updated successfully",
+  "attribute_code": "24IN"
+}
+```
+
+**Error Responses:**
+
+**403 - Locked Attribute Code Change:**
+```json
+{
+  "error": "Cannot change code of locked attribute: STORAGE",
+  "status": 403
+}
+```
+
+**404 - Not Found:**
+```json
+{
+  "error": "Attribute not found: INVALID_CODE",
+  "status": 404
+}
+```
+
 ### DELETE /api/standards/attributes/{code}
 
 Delete an attribute (soft delete).
 
-**Response (locked attribute):**
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Attribute deleted successfully",
+  "attribute_code": "24IN"
+}
+```
+
+**Error Responses:**
+
+**403 - Locked Attribute:**
 ```json
 {
   "error": "Cannot delete locked attribute: STORAGE",
@@ -457,7 +521,23 @@ Delete an attribute (soft delete).
 }
 ```
 
-### GET /api/cad-standards/tool-layer-examples?tool_code={code}
+**404 - Not Found:**
+```json
+{
+  "error": "Attribute not found: INVALID_CODE",
+  "status": 404
+}
+```
+
+**409 - In Use:**
+```json
+{
+  "error": "Cannot delete attribute: currently in use by 15 entities",
+  "status": 409
+}
+```
+
+### GET /api/standards/tool-layer-examples?tool_code={code}
 
 Get tool information with attribute-aware mappings.
 

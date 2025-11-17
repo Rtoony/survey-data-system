@@ -337,23 +337,30 @@ The CSV export includes:
 
 ## Future Phases
 
-### Phase 2: Code Parser & Testing
+**Current Status:** Phase 1 (Survey Code Library) is **COMPLETE** and in production. Phases 2-4 below are **PLANNED** but not yet scheduled for implementation.
+
+### Phase 2: Code Parser & Testing (PLANNED - Not Yet Scheduled)
 - Web interface to test code parsing
 - Preview layer names, CAD output
 - Simulate field shots
 - Validate attribute prompts
+- **Status:** Design phase - implementation timeline TBD based on user demand
 
-### Phase 3: Import Tool with Auto-Connectivity
+### Phase 3: Import Tool with Auto-Connectivity (PLANNED - Not Yet Scheduled)
 - Import PNEZD files with codes
 - Automatically generate polylines
 - Create line segments from connected points
 - Insert blocks at NODE locations
+- **Status:** Planned feature - depends on Phase 2 completion
+- **Dependencies:** Requires Phase 2 code parser
 
-### Phase 4: DXF Export Integration
+### Phase 4: DXF Export Integration (PLANNED - Not Yet Scheduled)
 - Export complete CAD drawings
 - Auto-layered based on templates
 - Survey-grade 3D elevation preservation
 - Integration with existing DXF tools
+- **Status:** Future enhancement - depends on Phases 2 & 3
+- **Dependencies:** Requires Phase 3 auto-connectivity
 
 ---
 
