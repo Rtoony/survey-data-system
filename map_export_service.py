@@ -513,50 +513,170 @@ class MapExportService:
                 coords = ' '.join([f'{x},{y},0' for x, y in poly.exterior.coords])
                 ET.SubElement(linear_ring, 'coordinates').text = coords
     
-    def create_map_image(self, bbox: Dict, width: int = 1200, height: int = 900,
+    def create_map_image(self, bbox: Dict, layers_data: Dict[str, List[Dict]] = None,
+                        width: int = 1200, height: int = 900,
                         north_arrow: bool = True, scale_bar: bool = True) -> Optional[str]:
-        """Create a simple map placeholder image with annotations"""
+        """Create a map image with rendered features, legend, scale bar, and north arrow"""
         try:
-            # Create blank image
-            img = Image.new('RGB', (width, height), color='#f0f0f0')
+            # Create blank image with white background
+            img = Image.new('RGB', (width, height), color='#FFFFFF')
             draw = ImageDraw.Draw(img)
-            
-            # Draw border
-            draw.rectangle([(10, 10), (width-10, height-10)], outline='#333333', width=3)
-            
-            # Add title
+
+            # Load fonts
             try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
-                small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
+                title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+                legend_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
+                small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10)
             except:
-                font = ImageFont.load_default()
+                title_font = ImageFont.load_default()
+                legend_font = ImageFont.load_default()
                 small_font = ImageFont.load_default()
-            
-            draw.text((width//2, 40), "Map Export", fill='#333333', font=font, anchor='mm')
-            
-            # Add coordinates
-            coord_text = f"Bounds: {bbox['minx']:.2f}, {bbox['miny']:.2f} to {bbox['maxx']:.2f}, {bbox['maxy']:.2f}"
-            draw.text((width//2, 80), coord_text, fill='#666666', font=small_font, anchor='mm')
-            
+
+            # Define map area (leave space for legend on right)
+            legend_width = 250
+            map_left = 20
+            map_top = 60
+            map_right = width - legend_width - 30
+            map_bottom = height - 100
+            map_width = map_right - map_left
+            map_height = map_bottom - map_top
+
+            # Draw map area border
+            draw.rectangle([(map_left, map_top), (map_right, map_bottom)],
+                          outline='#333333', width=2, fill='#F8F8F8')
+
+            # Add title
+            draw.text((width//2, 25), "Map Export", fill='#000000', font=title_font, anchor='mm')
+
+            # Render features if provided
+            if layers_data and len(layers_data) > 0:
+                # Assign colors to layers (using a palette)
+                color_palette = [
+                    '#FF0000',  # Red
+                    '#0000FF',  # Blue
+                    '#00AA00',  # Green
+                    '#FF8800',  # Orange
+                    '#AA00AA',  # Purple
+                    '#00AAAA',  # Cyan
+                    '#AA5500',  # Brown
+                    '#FF00FF',  # Magenta
+                    '#808000',  # Olive
+                    '#008080',  # Teal
+                ]
+
+                layer_colors = {}
+                for idx, layer_name in enumerate(layers_data.keys()):
+                    layer_colors[layer_name] = color_palette[idx % len(color_palette)]
+
+                # Calculate coordinate transformation
+                bbox_width = bbox['maxx'] - bbox['minx']
+                bbox_height = bbox['maxy'] - bbox['miny']
+
+                if bbox_width == 0 or bbox_height == 0:
+                    print("Warning: Invalid bbox dimensions")
+                else:
+                    # Scale to fit map area (with padding)
+                    scale_x = map_width / bbox_width
+                    scale_y = map_height / bbox_height
+                    scale = min(scale_x, scale_y) * 0.95  # 95% to add padding
+
+                    # Center the content
+                    offset_x = map_left + (map_width - bbox_width * scale) / 2
+                    offset_y = map_top + (map_height - bbox_height * scale) / 2
+
+                    def transform_point(x, y):
+                        """Transform real-world coordinates to image pixels"""
+                        px = offset_x + (x - bbox['minx']) * scale
+                        # Flip Y axis (image Y increases downward, map Y increases upward)
+                        py = map_bottom - offset_y - (y - bbox['miny']) * scale
+                        return (int(px), int(py))
+
+                    # Draw features layer by layer
+                    for layer_name, features in layers_data.items():
+                        color = layer_colors.get(layer_name, '#000000')
+
+                        for feature in features:
+                            try:
+                                geom = shape(feature['geometry'])
+
+                                if geom.geom_type == 'Polygon':
+                                    coords = [transform_point(x, y) for x, y in geom.exterior.coords]
+                                    if len(coords) > 2:
+                                        draw.polygon(coords, outline=color, fill=None, width=2)
+
+                                elif geom.geom_type == 'MultiPolygon':
+                                    for poly in geom.geoms:
+                                        coords = [transform_point(x, y) for x, y in poly.exterior.coords]
+                                        if len(coords) > 2:
+                                            draw.polygon(coords, outline=color, fill=None, width=2)
+
+                                elif geom.geom_type == 'LineString':
+                                    coords = [transform_point(x, y) for x, y in geom.coords]
+                                    if len(coords) > 1:
+                                        draw.line(coords, fill=color, width=2)
+
+                                elif geom.geom_type == 'MultiLineString':
+                                    for line in geom.geoms:
+                                        coords = [transform_point(x, y) for x, y in line.coords]
+                                        if len(coords) > 1:
+                                            draw.line(coords, fill=color, width=2)
+
+                                elif geom.geom_type == 'Point':
+                                    px, py = transform_point(geom.x, geom.y)
+                                    # Draw point as small circle
+                                    r = 4
+                                    draw.ellipse([(px-r, py-r), (px+r, py+r)], fill=color, outline=color)
+
+                                elif geom.geom_type == 'MultiPoint':
+                                    for point in geom.geoms:
+                                        px, py = transform_point(point.x, point.y)
+                                        r = 4
+                                        draw.ellipse([(px-r, py-r), (px+r, py+r)], fill=color, outline=color)
+
+                            except Exception as e:
+                                print(f"Error rendering feature: {e}")
+                                continue
+
+                # Draw legend
+                legend_x = map_right + 20
+                legend_y = map_top
+                draw.rectangle([(legend_x, legend_y), (legend_x + legend_width - 10, legend_y + 40 + len(layer_colors) * 25)],
+                              outline='#333333', fill='#FFFFFF', width=2)
+
+                draw.text((legend_x + 10, legend_y + 10), "LEGEND", fill='#000000', font=title_font)
+
+                y_offset = legend_y + 40
+                for layer_name, color in layer_colors.items():
+                    # Draw color box
+                    draw.rectangle([(legend_x + 10, y_offset), (legend_x + 25, y_offset + 12)],
+                                  fill=color, outline='#000000', width=1)
+                    # Draw layer name (truncate if too long)
+                    display_name = layer_name[:25] + '...' if len(layer_name) > 25 else layer_name
+                    draw.text((legend_x + 30, y_offset), display_name, fill='#000000', font=legend_font)
+                    y_offset += 25
+
             # Add north arrow if requested
             if north_arrow:
-                self._draw_north_arrow(draw, width - 80, 120)
-            
+                self._draw_north_arrow(draw, width - 140, height - 150)
+
             # Add scale bar if requested
             if scale_bar:
-                self._draw_scale_bar(draw, 80, height - 80, bbox, width)
-            
+                self._draw_scale_bar(draw, map_left + 20, map_bottom + 30, bbox, map_width)
+
             # Add watermark
-            draw.text((width - 20, height - 20), "ACAD-GIS Map Viewer", 
+            draw.text((width - 20, height - 20), "ACAD-GIS Map Viewer",
                      fill='#999999', font=small_font, anchor='rb')
-            
+
             # Save to temp file
             temp_path = os.path.join(self.export_dir, f"map_{uuid.uuid4().hex}.png")
             img.save(temp_path, 'PNG')
+            print(f"PNG map image created: {temp_path}")
             return temp_path
-            
+
         except Exception as e:
             print(f"Error creating map image: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def _draw_north_arrow(self, draw, x: int, y: int):
