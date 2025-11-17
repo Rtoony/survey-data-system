@@ -1,7 +1,7 @@
 [project]
-name = "repl-nix-workspace"
+name = "acad-gis"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI-First CAD/GIS System - Database-centric platform for civil engineering and surveying with intelligent DXF import/export, semantic layer naming, and GraphRAG knowledge graphs"
 requires-python = ">=3.11"
 dependencies = [
     "flask-caching>=2.3.1",

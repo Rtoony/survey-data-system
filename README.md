@@ -74,15 +74,29 @@ Streamlined project management dashboard:
 
 ## Quick Start
 
-### 1. Database Setup
-Configure your PostgreSQL/PostGIS database connection in `.env`:
+### 1. Environment Setup
+Copy the example environment file and configure your settings:
 ```bash
+cp .env.example .env
+```
+
+Edit `.env` with your values:
+```bash
+# Database connection (required)
 DB_HOST=your-database-host
 DB_PORT=5432
 DB_NAME=postgres
 DB_USER=postgres
 DB_PASSWORD=your-password
+
+# Flask security (required for production)
+SECRET_KEY=your-secret-key-here
+
+# OpenAI API (optional - for AI/ML features)
+OPENAI_API_KEY=your-openai-api-key
 ```
+
+See `.env.example` for complete configuration options including PostgreSQL standard variables.
 
 ### 2. Run the Application
 ```bash

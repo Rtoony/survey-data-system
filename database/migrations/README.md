@@ -4,14 +4,34 @@
 
 **CRITICAL:** These migrations MUST be executed in the following order:
 
-1. **create_name_mapping_tables.sql** - Creates 5 name mapping tables with search_vector support
+### Schema Fix Migrations (Run First)
+
+1. **fix_service_connections_schema.sql** - Adds missing project_id column to utility_service_connections
+   - Fixes: "column project_id of relation utility_service_connections does not exist"
+   - Adds foreign key constraint to projects table
+   - Creates performance index on project_id
+   - Safe to run multiple times (idempotent)
+
+2. **fix_geometry_dimensions.sql** - Upgrades geometry columns to support Z dimension (3D CAD)
+   - Fixes: "Geometry has Z dimension but column does not"
+   - Upgrades utility_lines: LineString → LineStringZ
+   - Upgrades utility_structures: Point → PointZ
+   - Upgrades survey_points: Point → PointZ
+   - Upgrades utility_service_connections: LineString → LineStringZ
+   - Upgrades generic_objects: Geometry → GeometryZ
+   - Uses ST_Force3D() to preserve existing data
+   - Safe to run multiple times (idempotent)
+
+### CAD Standards Mapping Migrations (Run After Schema Fixes)
+
+3. **create_name_mapping_tables.sql** - Creates 5 name mapping tables with search_vector support
    - block_name_mappings
    - detail_name_mappings
    - hatch_pattern_name_mappings
    - material_name_mappings
    - note_name_mappings
 
-2. **create_project_context_mappings.sql** - Creates 6 project context mapping tables
+4. **create_project_context_mappings.sql** - Creates 6 project context mapping tables
    - project_keynote_block_mappings
    - project_keynote_detail_mappings
    - project_hatch_material_mappings
@@ -19,11 +39,30 @@
    - project_block_specification_mappings
    - project_element_cross_references
 
-3. **add_search_vectors_to_project_mappings.sql** - Adds AI search support to project context tables
+5. **add_search_vectors_to_project_mappings.sql** - Adds AI search support to project context tables
    - Adds search_vector columns
    - Creates GIN indexes
    - Adds automatic update triggers
    - Backfills existing data
+
+## Running Migrations
+
+```bash
+# Run schema fix migrations first (if needed)
+psql $DATABASE_URL -f database/migrations/fix_service_connections_schema.sql
+psql $DATABASE_URL -f database/migrations/fix_geometry_dimensions.sql
+
+# Then run CAD standards migrations
+psql $DATABASE_URL -f database/migrations/create_name_mapping_tables.sql
+psql $DATABASE_URL -f database/migrations/create_project_context_mappings.sql
+psql $DATABASE_URL -f database/migrations/add_search_vectors_to_project_mappings.sql
+
+# Or run all at once
+for file in database/migrations/*.sql; do
+  echo "Running $file..."
+  psql $DATABASE_URL -f "$file"
+done
+```
 
 ## Schema Overview
 
