@@ -78,10 +78,23 @@ DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY
 
 ## How to Use the System
 
+### Navigation Overview
+
+Access all CAD standards tools through the **Standards Library Hub** (`/standards-library`), which provides organized access to:
+- CAD Layer Vocabulary management
+- Import/Export template configuration
+- Name mapping managers
+- Reference data lookup
+
+**Main Menu Path:** Top navigation bar → **Standards** → Select specific tool
+
 ### Step 1: Set Up Your Vocabulary (One Time)
 
-Go to **Standards > CAD Layer Vocabulary** (`/standards/layer-vocabulary`)
+**Access:** Navigate to `/standards/layer-vocabulary`
+- **Via Menu:** Standards Library Hub → CAD Layer Vocabulary
+- **Or Direct URL:** `/standards/layer-vocabulary`
 
+**Vocabulary Setup Tasks:**
 1. **Add Disciplines** - If you need new ones beyond the defaults
 2. **Add Categories** - Must be linked to a discipline
 3. **Add Object Types** - Must be linked to a category
@@ -91,7 +104,9 @@ Go to **Standards > CAD Layer Vocabulary** (`/standards/layer-vocabulary`)
 
 ### Step 2: Create Import Patterns (For Each Client)
 
-Go to **Standards > Import Template Manager** (`/standards/import-manager`)
+**Access:** Navigate to `/standards/import-manager`
+- **Via Menu:** Standards Library Hub → Import Template Manager
+- **Or Direct URL:** `/standards/import-manager`
 
 #### Example: Client with layers like `S-UTIL-STORM-12`
 
@@ -158,17 +173,28 @@ Go to **DXF Tools** (`/dxf-tools`)
 5. **Click Import**
 
 **What Happens:**
-- If pattern selected → System analyzes layers, creates intelligent objects
-- See import statistics: entities imported, layers processed
-- See classification preview: matched/unmatched layers, confidence score
+- **UI displays** import progress modal with real-time status
+- System analyzes layers and applies selected pattern
+- **Results appear** in classification preview panel showing:
+  - Total entities imported
+  - Layers successfully matched
+  - Unmatched layers requiring review
+  - Overall confidence score
 
-**Example Results:**
+**Example Results (shown in UI panel):**
 ```
 Pattern Applied: Acme Engineering - ^([A-Z]+)-([A-Z]+)-([A-Z0-9]+)-([A-Z0-9]+)$
 Matched Layers: 45
 Unmatched Layers: 3
 Confidence: 87%
+
+[View Details] [Review Unmatched] [View in Map Viewer]
 ```
+
+**After Import:**
+- Access imported entities via Map Viewer (`/map-viewer-v2`)
+- Review layer classification in Project Command Center
+- Check intelligent object creation in Database Browser
 
 ## Creating Test Files
 
