@@ -21,6 +21,22 @@ OPTIONAL BLOCKS:
 - extra_css: Additional CSS specific to your tool
 - extra_js: Additional JavaScript specific to your tool
 - extra_head: Additional head content (libraries, etc.)
+- map_navigation_links: Optional navigation links to other map tools (displayed above map)
+
+MAP CONFIGURATION:
+------------------
+All specialized tools with map views MUST:
+1. Disable pan and zoom interactions (static viewport only)
+2. Include navigation links to Command Center and Map Viewer
+3. Auto-fit view to project extent on load
+
+FULLSCREEN MODE:
+----------------
+Fullscreen functionality is built-in:
+- Button: Top-right corner with "Fullscreen (F)" label
+- Keyboard: Press 'F' to enter, 'ESC' to exit
+- Behavior: Hides navbar and "About this specialized tool" section
+- The "About this specialized tool" section is automatically hidden via CSS
 
 LAYOUT OPTIONS:
 ---------------
@@ -50,6 +66,34 @@ EXAMPLE:
 
 {% block main_content %}
   <!-- Your main workspace here -->
+{% endblock %}
+
+EXAMPLE (Map-Based Tool):
+-------------------------
+{% extends "base_specialized_tool.html" %}
+{% block tool_title %}My Map Tool{% endblock %}
+{% block tool_icon %}fas fa-map{% endblock %}
+{% block tool_description %}Analyzes spatial data{% endblock %}
+{% block map_navigation_links %}
+<div class="map-navigation-panel">
+    <a href="/project-command-center" class="map-nav-link">
+        <i class="fas fa-control-panel"></i> Command Center
+    </a>
+    <a href="/map-viewer" class="map-nav-link">
+        <i class="fas fa-map-marked-alt"></i> Interactive Map
+    </a>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+// Disable map interactions for static viewport
+map.dragging.disable();
+map.touchZoom.disable();
+map.scrollWheelZoom.disable();
+map.doubleClickZoom.disable();
+map.boxZoom.disable();
+map.keyboard.disable();
+</script>
 {% endblock %}
 
 #}
@@ -729,6 +773,49 @@ EXAMPLE:
         transform: translateX(4px);
     }
 
+    /* ============================================
+       MAP NAVIGATION LINKS
+       ============================================ */
+    .map-navigation-panel {
+        position: absolute;
+        top: 60px;
+        right: 15px;
+        z-index: 999;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .map-nav-link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--mc-bg-dark);
+        border: 2px solid var(--mc-primary);
+        color: var(--mc-primary);
+        padding: 8px 14px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: all 0.3s;
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        white-space: nowrap;
+    }
+    .map-nav-link:hover {
+        background: var(--mc-primary);
+        color: var(--mc-bg-dark);
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+        transform: translateX(-4px);
+    }
+    .map-nav-link i {
+        font-size: 1rem;
+    }
+    /* Hide map navigation in fullscreen to avoid clutter */
+    body.fullscreen-mode .map-navigation-panel {
+        top: 70px;
+    }
+
     {% block extra_css %}{% endblock %}
 </style>
 
@@ -770,6 +857,11 @@ EXAMPLE:
         <i class="fas fa-expand"></i>
         <span id="fullscreenText">Fullscreen (F)</span>
     </button>
+
+    <!-- Map Navigation Links (for tools with static map views) -->
+    {% block map_navigation_links %}
+    <!-- Override this block in child templates that have maps to show navigation -->
+    {% endblock %}
 
     <!-- Main Content: Sidebar + Workspace -->
     <div class="tool-main">

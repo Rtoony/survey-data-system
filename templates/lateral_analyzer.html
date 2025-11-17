@@ -6,6 +6,17 @@
 
 {% block content_layout_class %}tool-complex-layout{% endblock %}
 
+{% block map_navigation_links %}
+<div class="map-navigation-panel">
+    <a href="/project-command-center" class="map-nav-link" title="View full project overview with interactive map">
+        <i class="fas fa-th-large"></i> Command Center
+    </a>
+    <a href="/map-viewer" class="map-nav-link" title="Access full interactive map with pan and zoom">
+        <i class="fas fa-map-marked-alt"></i> Map Viewer
+    </a>
+</div>
+{% endblock %}
+
 {% block sidebar_content %}
 <div class="tool-info-box">
     <div class="tool-name">

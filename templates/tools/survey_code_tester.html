@@ -8,6 +8,16 @@
     <p class="page-subtitle">Test code parsing, preview CAD output, and simulate field shot sequences</p>
 </div>
 
+<!-- Map Navigation Links -->
+<div class="map-navigation-panel" style="position: absolute; top: 60px; right: 15px; z-index: 999; display: flex; flex-direction: column; gap: 8px;">
+    <a href="/project-command-center" class="map-nav-link" title="View full project overview with interactive map" style="display: flex; align-items: center; gap: 8px; background: var(--mc-bg-dark); border: 2px solid var(--mc-primary); color: var(--mc-primary); padding: 8px 14px; border-radius: 4px; text-decoration: none; font-family: 'Rajdhani', sans-serif; font-size: 0.85rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 0 10px rgba(0, 255, 255, 0.3); white-space: nowrap;">
+        <i class="fas fa-th-large"></i> Command Center
+    </a>
+    <a href="/map-viewer" class="map-nav-link" title="Access full interactive map with pan and zoom" style="display: flex; align-items: center; gap: 8px; background: var(--mc-bg-dark); border: 2px solid var(--mc-primary); color: var(--mc-primary); padding: 8px 14px; border-radius: 4px; text-decoration: none; font-family: 'Rajdhani', sans-serif; font-size: 0.85rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 0 10px rgba(0, 255, 255, 0.3); white-space: nowrap;">
+        <i class="fas fa-map-marked-alt"></i> Map Viewer
+    </a>
+</div>
+
 <div class="tool-tabs">
     <button class="tab-btn active" data-tab="single">Single Code Test</button>
     <button class="tab-btn" data-tab="sequence">Field Shot Simulator</button>
@@ -148,6 +158,13 @@ SURV-TOPO-GROUND-SHOT
 </div>
 
 <style>
+.map-nav-link:hover {
+    background: var(--mc-primary) !important;
+    color: var(--mc-bg-dark) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.6) !important;
+    transform: translateX(-4px);
+}
+
 .tool-tabs {
     display: flex;
     gap: 0.5rem;

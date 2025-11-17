@@ -13,6 +13,17 @@
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 {% endblock %}
 
+{% block map_navigation_links %}
+<div class="map-navigation-panel">
+    <a href="/project-command-center" class="map-nav-link" title="View full project overview with interactive map">
+        <i class="fas fa-th-large"></i> Command Center
+    </a>
+    <a href="/map-viewer" class="map-nav-link" title="Access full interactive map with pan and zoom">
+        <i class="fas fa-map-marked-alt"></i> Map Viewer
+    </a>
+</div>
+{% endblock %}
+
 {% block sidebar_content %}
 <div class="tool-filter-section">
     <h4>Analysis Options</h4>
@@ -197,6 +208,20 @@ function initMap() {
             zoom: 18,
             zoomControl: true
         });
+
+        // ============================================
+        // STATIC MAP VIEWPORT CONFIGURATION
+        // ============================================
+        // This tool uses a fixed map view. Pan and zoom are disabled.
+        // Users should use the Map Viewer for interactive navigation.
+        // Navigation links are provided in the top-right corner.
+        map.dragging.disable();
+        map.touchZoom.disable();
+        map.scrollWheelZoom.disable();
+        map.doubleClickZoom.disable();
+        map.boxZoom.disable();
+        map.keyboard.disable();
+        if (map.tap) map.tap.disable(); // Disable tap for mobile
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
