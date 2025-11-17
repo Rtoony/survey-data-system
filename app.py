@@ -7454,9 +7454,10 @@ def generate_standards_export():
 def generate_excel_export(data, title, description):
     """Generate Excel workbook export"""
     wb = openpyxl.Workbook()
-    
+
     # Remove default sheet
-    wb.remove(wb.active)
+    if wb.active is not None and wb.active.title in [sheet.title for sheet in wb.worksheets]:
+        wb.remove(wb.active)
     
     # Create Overview sheet
     ws_overview = wb.create_sheet("Overview")
@@ -14090,7 +14091,7 @@ def update_import_template(mapping_id):
             mapping_id
         )
         
-        execute_query(query, params, fetch=False)
+        execute_query(query, params)
         return jsonify({'message': 'Pattern updated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -14100,7 +14101,7 @@ def delete_import_template(mapping_id):
     """Delete an import mapping pattern"""
     try:
         query = "DELETE FROM import_mapping_patterns WHERE mapping_id = %s"
-        execute_query(query, (mapping_id,), fetch=False)
+        execute_query(query, (mapping_id,))
         return jsonify({'message': 'Pattern deleted successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -14286,7 +14287,7 @@ def delete_vocabulary_discipline(discipline_id):
         if deps[0]['count'] > 0:
             return jsonify({'error': f'Cannot delete discipline: {deps[0]["count"]} categories depend on it'}), 409
         
-        execute_query("DELETE FROM discipline_codes WHERE discipline_id = %s", (discipline_id,), fetch=False)
+        execute_query("DELETE FROM discipline_codes WHERE discipline_id = %s", (discipline_id,))
         
         invalidate_classifier_cache()
         
@@ -14411,7 +14412,7 @@ def delete_vocabulary_category(category_id):
         if deps[0]['count'] > 0:
             return jsonify({'error': f'Cannot delete category: {deps[0]["count"]} object types depend on it'}), 409
         
-        execute_query("DELETE FROM category_codes WHERE category_id = %s", (category_id,), fetch=False)
+        execute_query("DELETE FROM category_codes WHERE category_id = %s", (category_id,))
         
         invalidate_classifier_cache()
         
@@ -18853,7 +18854,7 @@ def update_attribute(attribute_id):
             SET code = %s, full_name = %s, attribute_category = %s, description = %s, pattern = %s, is_active = %s
             WHERE attribute_id = %s
         """
-        execute_query(query, (data['code'], data['full_name'], data.get('attribute_category'), data.get('description'), data.get('pattern'), data.get('is_active', True), attribute_id), fetch=False)
+        execute_query(query, (data['code'], data['full_name'], data.get('attribute_category'), data.get('description'), data.get('pattern'), data.get('is_active', True), attribute_id))
         return jsonify({'message': 'Attribute updated'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -18862,7 +18863,7 @@ def update_attribute(attribute_id):
 def delete_attribute(attribute_id):
     """Delete an attribute code"""
     try:
-        execute_query("DELETE FROM attribute_codes WHERE attribute_id = %s", (attribute_id,), fetch=False)
+        execute_query("DELETE FROM attribute_codes WHERE attribute_id = %s", (attribute_id,))
         return jsonify({'message': 'Attribute deleted'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -19435,13 +19436,13 @@ Output: {
   "complexity": 0.6
 }"""
 
-        # Call OpenAI API
-        import openai
-        openai.api_key = openai_api_key
+        # Call OpenAI API (using SDK v1.0+)
+        from openai import OpenAI
+        client = OpenAI(api_key=openai_api_key)
 
         start_time = datetime.now()
 
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model=data.get('model', 'gpt-4'),
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -20208,7 +20209,10 @@ def export_search_results():
             # Create Excel workbook
             wb = openpyxl.Workbook()
             ws = wb.active
-            ws.title = "Search Results"
+            if ws is None:
+                ws = wb.create_sheet("Search Results")
+            else:
+                ws.title = "Search Results"
 
             if results:
                 # Headers
