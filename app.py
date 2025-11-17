@@ -329,6 +329,11 @@ def bmp_manager_tool():
     """BMP Manager - Manage stormwater Best Management Practices"""
     return render_template('tools/bmp_manager.html')
 
+@app.route('/tools/alignment-editor')
+def alignment_editor_tool():
+    """Alignment Editor - Create and edit horizontal/vertical alignments"""
+    return render_template('tools/alignment_editor.html')
+
 @app.route('/tools/assign-standards')
 def assign_standards_tool():
     """Assign Standards - Assign layer and block standards to project"""
@@ -9995,6 +10000,229 @@ def get_mannings_n(material):
     }
     # Default to PVC if material not found
     return n_values.get(material.upper() if material else 'PVC', 0.013)
+
+@app.route('/api/specialized-tools/pavement-zones')
+def get_pavement_zones():
+    """Get pavement zones/sections with area calculations"""
+    try:
+        project_id = request.args.get('project_id') or session.get('active_project_id')
+        if not project_id:
+            return jsonify({'success': False, 'error': 'No project specified'}), 400
+
+        # Query pavement sections (using CAD objects with pavement tags)
+        query = """
+            SELECT
+                co.object_id as zone_id,
+                co.layer_name,
+                COALESCE(co.attributes->>'pavement_type', 'AC') as pavement_type,
+                COALESCE(co.attributes->>'pavement_condition', 'Good') as condition,
+                COALESCE(co.attributes->>'thickness_in', '3') as thickness_in,
+                ST_Area(co.geometry) / 43560.0 as area_acres,
+                ST_Area(co.geometry) as area_sqft,
+                ST_AsGeoJSON(ST_Transform(co.geometry, 4326))::json as geometry,
+                co.created_at
+            FROM cad_objects co
+            WHERE co.project_id = %s
+            AND co.object_type = 'LWPOLYLINE'
+            AND (
+                co.layer_name ILIKE '%pavement%'
+                OR co.layer_name ILIKE '%pave%'
+                OR co.layer_name ILIKE '%AC%'
+                OR co.layer_name ILIKE '%PCC%'
+                OR co.tags @> ARRAY['pavement']
+            )
+            ORDER BY co.layer_name
+        """
+        zones = execute_query(query, (project_id,))
+
+        if not zones:
+            zones = []
+
+        # Calculate statistics
+        total_zones = len(zones)
+        total_area_sqft = sum(float(z.get('area_sqft', 0)) for z in zones)
+        total_area_acres = total_area_sqft / 43560.0
+
+        # Group by pavement type
+        by_type = {}
+        for zone in zones:
+            ptype = zone.get('pavement_type', 'Unknown')
+            if ptype not in by_type:
+                by_type[ptype] = {'count': 0, 'area_sqft': 0, 'area_acres': 0}
+            by_type[ptype]['count'] += 1
+            by_type[ptype]['area_sqft'] += float(zone.get('area_sqft', 0))
+            by_type[ptype]['area_acres'] = by_type[ptype]['area_sqft'] / 43560.0
+
+        # Group by condition
+        by_condition = {}
+        for zone in zones:
+            condition = zone.get('condition', 'Unknown')
+            if condition not in by_condition:
+                by_condition[condition] = {'count': 0, 'area_sqft': 0}
+            by_condition[condition]['count'] += 1
+            by_condition[condition]['area_sqft'] += float(zone.get('area_sqft', 0))
+
+        stats = {
+            'total_zones': total_zones,
+            'total_area_sqft': round(total_area_sqft, 2),
+            'total_area_acres': round(total_area_acres, 3),
+            'by_type': by_type,
+            'by_condition': by_condition
+        }
+
+        return jsonify({
+            'success': True,
+            'zones': zones,
+            'stats': stats
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/specialized-tools/laterals')
+def get_laterals():
+    """Get lateral connections (service lines from mains to properties)"""
+    try:
+        project_id = request.args.get('project_id') or session.get('active_project_id')
+        if not project_id:
+            return jsonify({'success': False, 'error': 'No project specified'}), 400
+
+        line_type = request.args.get('line_type')  # 'sewer' or 'water'
+
+        # Query lateral lines
+        query = """
+            SELECT
+                ul.line_id as lateral_id,
+                ul.line_type,
+                ul.material,
+                ul.diameter,
+                ul.length_ft,
+                ul.upstream_structure_id as connection_structure_id,
+                ul.downstream_structure_id as property_structure_id,
+                COALESCE(ul.attributes->>'service_address', 'Unknown') as service_address,
+                COALESCE(ul.attributes->>'property_id', 'Unknown') as property_id,
+                us1.structure_number as connection_point,
+                us2.structure_number as property_point,
+                ST_AsGeoJSON(ST_Transform(ul.geometry, 4326))::json as geometry
+            FROM utility_lines ul
+            LEFT JOIN utility_structures us1 ON ul.upstream_structure_id = us1.structure_id
+            LEFT JOIN utility_structures us2 ON ul.downstream_structure_id = us2.structure_id
+            WHERE ul.project_id = %s
+            AND (
+                ul.line_type ILIKE '%lateral%'
+                OR ul.line_type ILIKE '%service%'
+                OR ul.tags @> ARRAY['lateral']
+                OR ul.tags @> ARRAY['service_line']
+            )
+        """
+        params = [project_id]
+
+        if line_type:
+            query += " AND ul.line_type ILIKE %s"
+            params.append(f'%{line_type}%')
+
+        query += " ORDER BY ul.line_id"
+
+        laterals = execute_query(query, tuple(params))
+
+        if not laterals:
+            laterals = []
+
+        # Calculate statistics
+        total_laterals = len(laterals)
+        total_length = sum(float(lat.get('length_ft', 0)) for lat in laterals)
+        avg_length = total_length / total_laterals if total_laterals > 0 else 0
+
+        # Count disconnected laterals
+        disconnected = sum(1 for lat in laterals if not lat.get('connection_structure_id') or not lat.get('property_structure_id'))
+
+        # Group by type
+        by_type = {}
+        for lateral in laterals:
+            ltype = lateral.get('line_type', 'Unknown')
+            by_type[ltype] = by_type.get(ltype, 0) + 1
+
+        # Validation issues
+        issues = []
+        for lateral in laterals:
+            if not lateral.get('connection_structure_id'):
+                issues.append({
+                    'type': 'Disconnected Lateral',
+                    'severity': 'error',
+                    'lateral_id': lateral['lateral_id'],
+                    'message': f'Lateral {lateral["lateral_id"]} is not connected to main line'
+                })
+            if not lateral.get('property_structure_id'):
+                issues.append({
+                    'type': 'Missing Property Connection',
+                    'severity': 'warning',
+                    'lateral_id': lateral['lateral_id'],
+                    'message': f'Lateral {lateral["lateral_id"]} is not connected to property'
+                })
+
+        stats = {
+            'total_laterals': total_laterals,
+            'total_length_ft': round(total_length, 2),
+            'avg_length_ft': round(avg_length, 2),
+            'disconnected_count': disconnected,
+            'by_type': by_type,
+            'issues_count': len(issues)
+        }
+
+        return jsonify({
+            'success': True,
+            'laterals': laterals,
+            'stats': stats,
+            'issues': issues
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/alignments')
+def get_alignments():
+    """Get horizontal alignments for a project"""
+    try:
+        project_id = request.args.get('project_id') or session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No project specified', 'alignments': []}), 400
+
+        # Query alignments (using CAD objects that represent centerlines/alignments)
+        query = """
+            SELECT
+                co.object_id as alignment_id,
+                co.layer_name as alignment_name,
+                COALESCE(co.attributes->>'alignment_type', 'road') as alignment_type,
+                COALESCE(co.attributes->>'start_station', '0+00') as start_station,
+                COALESCE(co.attributes->>'end_station', '0+00') as end_station,
+                ST_Length(co.geometry) as length_ft,
+                ST_AsGeoJSON(ST_Transform(co.geometry, 4326))::json as geometry,
+                co.created_at
+            FROM cad_objects co
+            WHERE co.project_id = %s
+            AND co.object_type IN ('LINE', 'POLYLINE', 'LWPOLYLINE')
+            AND (
+                co.layer_name ILIKE '%centerline%'
+                OR co.layer_name ILIKE '%cntr%'
+                OR co.layer_name ILIKE '%alignment%'
+                OR co.layer_name ILIKE '%cl%'
+                OR co.tags @> ARRAY['alignment']
+                OR co.tags @> ARRAY['centerline']
+            )
+            ORDER BY co.layer_name
+        """
+        alignments = execute_query(query, (project_id,))
+
+        return jsonify({'alignments': alignments or []})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'alignments': []}), 500
 
 # ============================================================================
 # SCHEMA RELATIONSHIPS ROUTES
