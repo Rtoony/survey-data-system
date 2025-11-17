@@ -1,19 +1,56 @@
-# Phase 1 Implementation Scripts
+# AI Implementation Scripts
 
-This directory contains production-ready scripts for implementing AI embeddings and Graph RAG features (Phase 1).
+This directory contains production-ready scripts for implementing AI embeddings and Graph RAG features (Phases 1-3).
 
 ## 📁 **Files**
 
+### **Phase 1: Quick Wins** (Week 1)
+
 | Script | Purpose | Duration | Cost |
 |--------|---------|----------|------|
+| `phase1_00_fix_schema.py` | Fix database schema (add missing columns) | 5-10s | $0 |
 | `phase1_01_generate_embeddings.py` | Generate vector embeddings using OpenAI | 30-60s | ~$0.0015 |
 | `phase1_02_build_relationships.py` | Build semantic relationships from embeddings | 10-30s | $0 |
 | `phase1_03_verify.py` | Verify Phase 1 implementation | 5-10s | $0 |
 | `PHASE1_QUICKSTART.md` | Complete step-by-step guide | - | - |
+| `PHASE1_IMPLEMENTATION_SUMMARY.md` | Phase 1 summary and results | - | - |
+
+### **Phase 2: Auto-Integration** (Weeks 2-3)
+
+| Script | Purpose | Duration | Cost |
+|--------|---------|----------|------|
+| `phase2_integration_code.py` | Integration code snippets for app | - | - |
+| `phase2_verify.py` | Verify Phase 2 implementation | 10-20s | $0 |
+| `PHASE2_QUICKSTART.md` | Complete step-by-step guide | - | - |
+| `PHASE2_INTEGRATION_GUIDE.md` | Detailed integration instructions | - | - |
+| `PHASE2_IMPLEMENTATION_SUMMARY.md` | Phase 2 summary and architecture | - | - |
+
+### **Phase 3: User-Facing Features** (Weeks 4-5)
+
+| Script | Purpose | Duration | Cost |
+|--------|---------|----------|------|
+| `phase3_nl_query_interface.py` | Natural language query (ChatGPT-style) | - | $0 |
+| `phase3_smart_autocomplete.py` | AI-powered autocomplete system | - | $0 |
+| `phase3_find_similar.py` | Find similar entities feature | - | $0 |
+| `PHASE3_QUICKSTART.md` | Complete step-by-step guide | - | - |
+| `PHASE3_IMPLEMENTATION_SUMMARY.md` | Phase 3 summary and UX patterns | - | - |
+
+### **Supporting Files**
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/phase1_00_fix_embedding_models.sql` | Schema fix for embedding_models table |
+| `database/migrations/phase2_01_embedding_queue.sql` | Queue infrastructure |
+| `workers/embedding_worker.py` | Background embedding processor |
 
 ## 🚀 **Quick Start**
 
+### **Phase 1: Initial Setup** (~2 minutes)
+
 ```bash
+# 0. Fix database schema (REQUIRED - run first!)
+python3 scripts/phase1_00_fix_schema.py
+
 # 1. Estimate cost (no API calls)
 python3 scripts/phase1_01_generate_embeddings.py --dry-run
 
@@ -29,6 +66,51 @@ python3 scripts/phase1_03_verify.py
 
 **Total time**: ~2 minutes
 **Total cost**: ~$0.0015
+
+### **Phase 2: Auto-Integration** (~30 minutes)
+
+```bash
+# 1. Apply database migration
+psql "$DATABASE_URL" < database/migrations/phase2_01_embedding_queue.sql
+
+# 2. Start background worker (separate terminal)
+python3 workers/embedding_worker.py --batch-size 50
+
+# 3. Test auto-queueing
+psql "$DATABASE_URL" -c "INSERT INTO layer_standards (name, description) VALUES ('TEST', 'Auto queue test')"
+
+# 4. Verify Phase 2
+python3 scripts/phase2_verify.py
+```
+
+**Total time**: ~30 minutes
+**Total cost**: Ongoing (~$0.01-5.00/day)
+
+### **Phase 3: User-Facing Features** (~2-3 hours)
+
+```bash
+# 1. Add Natural Language Query
+# Copy API endpoint from scripts/phase3_nl_query_interface.py to app.py
+# Create templates/ai_query.html with provided HTML
+
+# 2. Add Smart Autocomplete
+# Copy API endpoints from scripts/phase3_smart_autocomplete.py to app.py
+# Create static/js/autocomplete.js with provided JavaScript
+# Integrate into forms
+
+# 3. Add Find Similar Feature
+# Copy API endpoints from scripts/phase3_find_similar.py to app.py
+# Add modal to templates/base.html
+# Add "Find Similar" buttons to entity views
+
+# 4. Test features
+# Navigate to /ai/query and try natural language search
+# Type in autocomplete-enabled fields
+# Click "Find Similar" on entities
+```
+
+**Total time**: ~2-3 hours
+**Total cost**: $0 (uses existing embeddings)
 
 ## 📖 **Detailed Guide**
 
@@ -163,14 +245,36 @@ Lower threshold: `--threshold 0.65`
 
 ## 📈 **Next Steps**
 
+### **After Phase 1**
 1. **Review results**: Check `phase1_03_verify.py` output
 2. **Test manually**: Run similarity searches in database
-3. **Add UI features**: See `AI_IMPLEMENTATION_GAME_PLAN.md` Phase 1 Task 1.4
-4. **Proceed to Phase 2**: Auto-integration and hybrid search
+3. **Proceed to Phase 2**: See `PHASE2_QUICKSTART.md`
+
+### **After Phase 2**
+1. **Integrate UI**: Follow `PHASE2_INTEGRATION_GUIDE.md`
+2. **Start worker**: Run as systemd service for production
+3. **Monitor queue**: Use `get_queue_stats()` function
+4. **Proceed to Phase 3**: User-facing AI features
+
+### **Phase 3 Preview** (Coming Next)
+- Natural language query interface
+- Smart autocomplete with AI
+- Graph visualization
+- "Find Similar" feature
+- AI context panel in Map Viewer
 
 ## 📚 **Documentation**
 
-- `PHASE1_QUICKSTART.md` - Step-by-step guide (this directory)
+### **Phase 1**
+- `PHASE1_QUICKSTART.md` - Step-by-step guide
+- `PHASE1_IMPLEMENTATION_SUMMARY.md` - Summary and results
+
+### **Phase 2**
+- `PHASE2_QUICKSTART.md` - Step-by-step guide
+- `PHASE2_INTEGRATION_GUIDE.md` - Integration instructions
+- `PHASE2_IMPLEMENTATION_SUMMARY.md` - Architecture and design
+
+### **General**
 - `AI_IMPLEMENTATION_GAME_PLAN.md` - Full roadmap (project root)
 - `AI_EMBEDDING_GRAPH_RAG_AUDIT.md` - Complete audit (project root)
 - `AI_QUERY_PATTERNS_AND_EXAMPLES.md` - Query examples (project root)
