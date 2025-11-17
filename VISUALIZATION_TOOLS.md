@@ -207,7 +207,7 @@ Displays current project details:
 
 ### Full-Screen Mode
 
-**Activate:** Click the Full Screen button (top-right of map) or press `ESC` to toggle  
+**Activate:** Press `F` key or click the Full Screen button (top-right of map)
 **Exit:** Press `ESC` key or click the Exit Full Screen button
 
 **Features in Full-Screen:**
@@ -332,10 +332,22 @@ Both tools follow the Mission Control design system:
 All visualization tools handle three coordinate systems:
 
 1. **SRID 0** - CAD native coordinates (no projection)
-2. **SRID 2226** - California State Plane Zone III (feet)
-3. **SRID 4326** - WGS84 (latitude/longitude for web maps)
+   - **Use for:** Raw DXF data, internal CAD work without geolocation
+   - **Note:** No real-world location, relative coordinates only
 
-Transformations happen automatically using PostGIS and Proj4js.
+2. **SRID 2226** - California State Plane Zone III (feet)
+   - **Use for:** Projects in California (Alameda, Contra Costa, San Francisco, San Mateo counties)
+   - **Units:** US Survey Feet
+   - **Regional limitation:** California-specific projection only
+   - **Accuracy:** High precision for local surveying and engineering
+
+3. **SRID 4326** - WGS84 (latitude/longitude for web maps)
+   - **Use for:** Web-based mapping, GPS coordinates, global positioning
+   - **Units:** Decimal degrees
+   - **Note:** Universal but less precise for local measurements
+   - **Required for:** Leaflet.js basemaps and online mapping services
+
+**Automatic Transformations:** PostGIS handles conversions between coordinate systems seamlessly. The Map Viewer displays in SRID 4326 for web compatibility while preserving accuracy from source data.
 
 ### Data Flow
 
