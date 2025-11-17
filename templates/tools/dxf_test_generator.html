@@ -5,7 +5,7 @@
 {% block content %}
 <div class="mc-page-header">
     <h1><i class="fas fa-file-code"></i> DXF Test Generator</h1>
-    <p>Generate test DXF files with sample geometries and network objects for testing</p>
+    <p>Generate randomized test DXF files with database-driven object types and proper layer classifications</p>
 </div>
 
 <!-- Map Navigation Links -->
@@ -18,522 +18,246 @@
     </a>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
-    <!-- Left Panel: Selection Options -->
+<div style="display: grid; grid-template-columns: 400px 1fr; gap: 2rem; margin-bottom: 2rem;">
+    <!-- Left Panel: Configuration -->
     <div class="mc-card">
         <div class="mc-card-header">
-            <h2><i class="fas fa-layer-group"></i> Select Object Types</h2>
+            <h2><i class="fas fa-sliders-h"></i> Configuration</h2>
         </div>
         <div class="mc-card-content">
-            
-            <!-- Geometry Types Section -->
+
+            <!-- Project Name -->
             <div class="section-group">
-                <h3><i class="fas fa-shapes"></i> Basic Geometry Types</h3>
-                <p class="mc-help-text">Select geometry entity types to include</p>
-                <div class="checkbox-grid">
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="geometry" value="AXIS" checked>
-                        <span>Lines/Centerlines</span>
+                <h3><i class="fas fa-project-diagram"></i> Project Settings</h3>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="projectName">
+                        <i class="fas fa-tag"></i> Project Name:
                     </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="geometry" value="PT" checked>
-                        <span>Points</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="geometry" value="AREA">
-                        <span>Areas/Polygons</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="geometry" value="TEXT" checked>
-                        <span>Text Labels</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="geometry" value="SYMB">
-                        <span>Blocks/Symbols</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="geometry" value="HATCH">
-                        <span>Hatches</span>
-                    </label>
+                    <input type="text" id="projectName" class="form-control" value="Test_Project" placeholder="Enter project name" style="width: 100%;">
+                    <small class="mc-help-text">Used in the generated filename</small>
                 </div>
             </div>
 
-            <!-- Network Objects Section -->
+            <!-- Coordinate System -->
             <div class="section-group">
-                <h3><i class="fas fa-network-wired"></i> Network Objects</h3>
-                <p class="mc-help-text">Select network types to generate</p>
-                <div class="checkbox-grid">
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="GRAV" checked>
-                        <span>Gravity Pipe System</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="PRES">
-                        <span>Pressure Pipe System</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="STORM">
-                        <span>Storm Drain Network</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="WATER">
-                        <span>Water Distribution</span>
-                    </label>
+                <h3><i class="fas fa-map"></i> Coordinate System</h3>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <select id="coordSystem" class="form-control" style="width: 100%;">
+                        <option value="LOCAL">LOCAL (SRID 0) - Local CAD Coordinates</option>
+                        <option value="STATE_PLANE">STATE_PLANE (SRID 2226) - CA State Plane Zone 2</option>
+                        <option value="WGS84">WGS84 (SRID 4326) - GPS Coordinates</option>
+                    </select>
+                    <small class="mc-help-text">
+                        <strong>LOCAL:</strong> X: 1000-10000, Y: 1000-10000, Z: 0-100<br>
+                        <strong>STATE_PLANE:</strong> X: 6M-6.1M, Y: 2M-2.1M, Z: 0-500<br>
+                        <strong>WGS84:</strong> X: -122.5 to -122.0, Y: 37.5 to 38.0
+                    </small>
                 </div>
             </div>
 
-            <!-- BMP Objects Section -->
+            <!-- Options -->
             <div class="section-group">
-                <h3><i class="fas fa-water"></i> BMP Features</h3>
-                <p class="mc-help-text">Select BMP types to generate</p>
-                <div class="checkbox-grid">
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="bmp" value="BIOR">
-                        <span>Bioretention</span>
+                <h3><i class="fas fa-cog"></i> Options</h3>
+
+                <div class="form-group" style="margin-bottom: 0.8rem;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="includeAttributes" checked style="margin-right: 0.5rem;">
+                        <span>Include Attributes (sizes, materials)</span>
                     </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="bmp" value="SWAL">
-                        <span>Bioswale</span>
+                    <small class="mc-help-text" style="margin-left: 1.5rem;">
+                        Add attributes like 12IN, PVC, STORAGE to layer names
+                    </small>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0.8rem;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="randomizePhases" checked style="margin-right: 0.5rem;">
+                        <span>Randomize Phases</span>
                     </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="bmp" value="POND">
-                        <span>Detention Pond</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="bmp" value="INFIL">
-                        <span>Infiltration Basin</span>
-                    </label>
+                    <small class="mc-help-text" style="margin-left: 1.5rem;">
+                        Mix NEW/EXIST/DEMO phases, otherwise all entities use NEW
+                    </small>
                 </div>
             </div>
 
-            <!-- Survey Points Section -->
+            <!-- Quick Presets -->
             <div class="section-group">
-                <h3><i class="fas fa-map-pin"></i> Survey Points</h3>
-                <p class="mc-help-text">Select survey point types with Z-values</p>
-                <div class="checkbox-grid">
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="survey" value="CTRL" checked>
-                        <span>Control Points</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="survey" value="BENCH">
-                        <span>Benchmarks</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="survey" value="TOPO">
-                        <span>Topo Shots</span>
-                    </label>
+                <h3><i class="fas fa-magic"></i> Quick Presets</h3>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" onclick="setPreset('light')" style="flex: 1; padding: 0.5rem;">
+                        Light (50)
+                    </button>
+                    <button class="btn btn-secondary" onclick="setPreset('medium')" style="flex: 1; padding: 0.5rem;">
+                        Medium (200)
+                    </button>
+                    <button class="btn btn-secondary" onclick="setPreset('heavy')" style="flex: 1; padding: 0.5rem;">
+                        Heavy (500)
+                    </button>
                 </div>
+                <small class="mc-help-text">Set all object types to the same quantity</small>
             </div>
 
-            <!-- Specialized Features Section -->
-            <div class="section-group">
-                <h3><i class="fas fa-tools"></i> Specialized Features</h3>
-                <p class="mc-help-text">Advanced civil/site features</p>
-                <div class="checkbox-grid">
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="specialized" value="TREE" checked>
-                        <span>Site Trees</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="specialized" value="LIGHT" checked>
-                        <span>Street Lights</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="specialized" value="PVMT" checked>
-                        <span>Pavement Zones</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="specialized" value="LATERAL" checked>
-                        <span>Service Laterals</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="specialized" value="ALIGN">
-                        <span>Alignments</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="specialized" value="CONTOUR">
-                        <span>Contours</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="specialized" value="SPOT">
-                        <span>Spot Elevations</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="specialized" value="PARCEL">
-                        <span>Parcels</span>
-                    </label>
-                </div>
-            </div>
+            <!-- Generate Button -->
+            <button id="generateBtn" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 1rem;">
+                <i class="fas fa-play"></i> Generate DXF File
+            </button>
 
-            <!-- Road Infrastructure Section -->
-            <div class="section-group">
-                <h3><i class="fas fa-road"></i> Road Infrastructure</h3>
-                <p class="mc-help-text">Road and street components</p>
-                <div class="checkbox-grid">
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="road" value="CURB">
-                        <span>Curbs</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="road" value="SIDEWALK">
-                        <span>Sidewalks</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="road" value="STRIPING">
-                        <span>Striping</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="road" value="RAMP">
-                        <span>ADA Ramps</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- Grading Features Section -->
-            <div class="section-group">
-                <h3><i class="fas fa-mountain"></i> Grading Features</h3>
-                <p class="mc-help-text">Earthwork and grading elements</p>
-                <div class="checkbox-grid">
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="grading" value="SWALE">
-                        <span>Swales</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="grading" value="BERM">
-                        <span>Berms</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="grading" value="PAD">
-                        <span>Building Pads</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- Additional Utilities Section -->
-            <div class="section-group">
-                <h3><i class="fas fa-network-wired"></i> Additional Utilities</h3>
-                <p class="mc-help-text">More utility systems and structures</p>
-                <div class="checkbox-grid">
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="SANITARY">
-                        <span>Sanitary Sewer</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="GAS">
-                        <span>Gas</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="ELECTRIC">
-                        <span>Electric</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="TELECOM">
-                        <span>Telecom</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="CLEANOUT">
-                        <span>Cleanouts</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="METER">
-                        <span>Meters</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="network" value="JBOX">
-                        <span>Junction Boxes</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- Generic/Problematic Data Section -->
-            <div class="section-group">
-                <h3><i class="fas fa-exclamation-triangle"></i> Generic/Test Data</h3>
-                <p class="mc-help-text">Intentionally problematic for Object Reclassifier</p>
-                <div class="checkbox-grid">
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="generic" value="PROBLEM" checked>
-                        <span>Malformed Layers</span>
-                    </label>
-                </div>
-            </div>
-
-            <button id="generateBtn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
-                <i class="fas fa-magic"></i> Generate Test DXF
+            <!-- Download Button (hidden initially) -->
+            <button id="downloadBtn" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem; display: none;">
+                <i class="fas fa-download"></i> Download DXF
             </button>
         </div>
     </div>
 
-    <!-- Right Panel: Settings & Preview -->
+    <!-- Right Panel: Object Types Selection -->
     <div class="mc-card">
         <div class="mc-card-header">
-            <h2><i class="fas fa-cog"></i> Settings & Preview</h2>
+            <h2><i class="fas fa-layer-group"></i> Select Object Types & Quantities</h2>
         </div>
         <div class="mc-card-content">
-            
-            <!-- Coordinate System Info -->
-            <div class="info-section">
-                <label><i class="fas fa-map-marker-alt"></i> Coordinate System:</label>
-                <div class="info-value">SRID 2226 - California State Plane Zone 2</div>
-                <small class="mc-help-text">NAD83, US Survey Feet</small>
-            </div>
 
-            <!-- Test Site Location -->
-            <div class="info-section">
-                <label><i class="fas fa-location-dot"></i> Test Site Location:</label>
-                <div class="info-value">Santa Rosa, California</div>
-                <small class="mc-help-text">Approximate coordinates near downtown area</small>
-            </div>
-
-            <!-- Layer Naming -->
-            <div class="mc-form-group">
-                <label for="layerMode">Layer Naming Convention:</label>
-                <select id="layerMode" class="mc-select">
-                    <option value="canonical">Canonical Format (DISC-CAT-OBJ-PHASE-GEOM)</option>
-                    <option value="simple">Simple Format (Object Type)</option>
-                </select>
-                <small class="mc-help-text">How layers should be named in the DXF</small>
-            </div>
-
-            <!-- Complexity -->
-            <div class="mc-form-group">
-                <label for="complexity">Sample Complexity:</label>
-                <select id="complexity" class="mc-select">
-                    <option value="minimal">Minimal (1-2 features per type)</option>
-                    <option value="basic" selected>Basic (3-5 features per type)</option>
-                    <option value="complex">Complex (5-10 features per type)</option>
-                </select>
-                <small class="mc-help-text">Number of sample features to generate</small>
-            </div>
-
-            <!-- Preview Area -->
-            <div id="previewArea" style="margin-top: 2rem; padding: 1rem; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 4px;">
-                <h4 style="margin: 0 0 0.5rem 0; color: var(--accent-color);"><i class="fas fa-eye"></i> What Will Be Generated:</h4>
-                <div id="previewContent" class="text-dim">
-                    Select options above to see what will be generated
+            <!-- Loading State -->
+            <div id="loadingState" class="placeholder-state">
+                <div style="text-align: center; padding: 4rem 2rem; color: var(--mc-text-dim);">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+                    <p style="font-size: 1.1rem;">Loading object types from database...</p>
                 </div>
             </div>
 
-            <!-- Generation Status -->
-            <div id="statusArea" style="display: none; margin-top: 1rem; padding: 1rem; background: rgba(0,255,0,0.1); border: 1px solid rgba(0,255,0,0.3); border-radius: 4px;">
-                <i class="fas fa-check-circle" style="color: var(--success-color);"></i>
-                <span id="statusMessage">Ready to generate</span>
+            <!-- Object Types Grid -->
+            <div id="objectTypesGrid" style="display: none;">
+                <p class="mc-help-text" style="margin-bottom: 1rem;">
+                    <i class="fas fa-info-circle"></i> Enter the quantity for each object type. Leave at 0 to exclude.
+                    Object types are loaded dynamically from the database.
+                </p>
+                <div id="objectTypesList" style="max-height: 600px; overflow-y: auto;">
+                    <!-- Will be populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Status Display -->
+            <div id="statusDisplay" style="display: none; margin-top: 1.5rem;">
+                <!-- Will show generation progress and results -->
             </div>
         </div>
     </div>
 </div>
 
 <style>
-.map-nav-link:hover {
-    background: var(--mc-primary) !important;
-    color: var(--mc-bg-dark) !important;
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.6) !important;
-    transform: translateX(-4px);
-}
-
-.section-group {
+.object-type-category {
     margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid rgba(0,255,255,0.1);
 }
 
-.section-group:last-child {
-    border-bottom: none;
-}
-
-.section-group h3 {
-    margin: 0 0 0.5rem 0;
+.object-type-category h3 {
     font-size: 1.1rem;
-    color: var(--accent-color);
+    color: var(--mc-primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--mc-dark-3);
 }
 
-.checkbox-grid {
+.object-type-item {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
+    grid-template-columns: 1fr 120px;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.8rem;
+    margin-bottom: 0.5rem;
+    background: var(--mc-dark-3);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.object-type-item:hover {
+    background: var(--mc-dark-2);
+}
+
+.object-type-info h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.95rem;
+    color: var(--mc-text);
+}
+
+.object-type-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--mc-text-dim);
+}
+
+.object-type-badge {
+    display: inline-block;
+    background: var(--mc-dark-1);
+    color: var(--mc-primary);
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    margin-right: 0.5rem;
+    font-family: 'Courier New', monospace;
+}
+
+.quantity-input {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--mc-dark-1);
+    border: 1px solid var(--mc-dark-3);
+    border-radius: 4px;
+    color: var(--mc-text);
+    text-align: center;
+    font-size: 1rem;
+}
+
+.quantity-input:focus {
+    outline: none;
+    border-color: var(--mc-primary);
+}
+
+.status-banner {
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.status-banner.success {
+    background: var(--mc-success-green);
+    color: var(--mc-dark-1);
+}
+
+.status-banner.error {
+    background: var(--mc-critical-red);
+    color: white;
+}
+
+.status-banner.info {
+    background: var(--mc-info-blue);
+    color: white;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
     margin-top: 1rem;
 }
 
-.checkbox-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    background: rgba(0,255,255,0.03);
-    border: 1px solid rgba(0,255,255,0.1);
+.stat-item {
+    background: var(--mc-dark-3);
+    padding: 1rem;
     border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
+    text-align: center;
 }
 
-.checkbox-item:hover {
-    background: rgba(0,255,255,0.08);
-    border-color: rgba(0,255,255,0.3);
+.stat-item .value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--mc-primary);
 }
 
-.checkbox-item input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-}
-
-.checkbox-item span {
-    font-size: 0.9rem;
-    color: var(--text-color);
-}
-
-.info-section {
-    margin-bottom: 1.5rem;
-}
-
-.info-section label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: var(--accent-color);
-}
-
-.info-value {
-    padding: 0.75rem;
-    background: rgba(0,255,255,0.05);
-    border: 1px solid rgba(0,255,255,0.2);
-    border-radius: 4px;
-    font-family: 'Courier New', monospace;
+.stat-item .label {
+    font-size: 0.85rem;
+    color: var(--mc-text-dim);
+    margin-top: 0.5rem;
 }
 </style>
 
-<script>
-// Update preview when selections change
-document.addEventListener('DOMContentLoaded', function() {
-    updatePreview();
-    
-    // Listen to all checkbox changes
-    document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-        checkbox.addEventListener('change', updatePreview);
-    });
-    
-    // Listen to select changes
-    document.querySelectorAll('select').forEach(select => {
-        select.addEventListener('change', updatePreview);
-    });
-});
-
-function updatePreview() {
-    const geometries = Array.from(document.querySelectorAll('input[name="geometry"]:checked')).map(cb => cb.nextElementSibling.textContent);
-    const networks = Array.from(document.querySelectorAll('input[name="network"]:checked')).map(cb => cb.nextElementSibling.textContent);
-    const bmps = Array.from(document.querySelectorAll('input[name="bmp"]:checked')).map(cb => cb.nextElementSibling.textContent);
-    const survey = Array.from(document.querySelectorAll('input[name="survey"]:checked')).map(cb => cb.nextElementSibling.textContent);
-    const specialized = Array.from(document.querySelectorAll('input[name="specialized"]:checked')).map(cb => cb.nextElementSibling.textContent);
-    const roads = Array.from(document.querySelectorAll('input[name="road"]:checked')).map(cb => cb.nextElementSibling.textContent);
-    const grading = Array.from(document.querySelectorAll('input[name="grading"]:checked')).map(cb => cb.nextElementSibling.textContent);
-    const generic = Array.from(document.querySelectorAll('input[name="generic"]:checked')).map(cb => cb.nextElementSibling.textContent);
-    const complexity = document.getElementById('complexity').value;
-    
-    let preview = '<ul style="margin: 0; padding-left: 1.5rem;">';
-    
-    if (geometries.length > 0) {
-        preview += '<li><strong>Geometry:</strong> ' + geometries.join(', ') + '</li>';
-    }
-    if (networks.length > 0) {
-        preview += '<li><strong>Networks/Utilities:</strong> ' + networks.join(', ') + '</li>';
-    }
-    if (bmps.length > 0) {
-        preview += '<li><strong>BMPs:</strong> ' + bmps.join(', ') + '</li>';
-    }
-    if (survey.length > 0) {
-        preview += '<li><strong>Survey:</strong> ' + survey.join(', ') + '</li>';
-    }
-    if (specialized.length > 0) {
-        preview += '<li><strong>Specialized:</strong> ' + specialized.join(', ') + '</li>';
-    }
-    if (roads.length > 0) {
-        preview += '<li><strong>Roads:</strong> ' + roads.join(', ') + '</li>';
-    }
-    if (grading.length > 0) {
-        preview += '<li><strong>Grading:</strong> ' + grading.join(', ') + '</li>';
-    }
-    if (generic.length > 0) {
-        preview += '<li><strong>Test Data:</strong> ' + generic.join(', ') + '</li>';
-    }
-    preview += '<li><strong>Complexity:</strong> ' + complexity.charAt(0).toUpperCase() + complexity.slice(1) + '</li>';
-    preview += '</ul>';
-    
-    document.getElementById('previewContent').innerHTML = preview;
-}
-
-document.getElementById('generateBtn').addEventListener('click', async function() {
-    const btn = this;
-    const originalText = btn.innerHTML;
-    
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating DXF...';
-    
-    // Collect selections
-    const data = {
-        geometries: Array.from(document.querySelectorAll('input[name="geometry"]:checked')).map(cb => cb.value),
-        networks: Array.from(document.querySelectorAll('input[name="network"]:checked')).map(cb => cb.value),
-        bmps: Array.from(document.querySelectorAll('input[name="bmp"]:checked')).map(cb => cb.value),
-        survey: Array.from(document.querySelectorAll('input[name="survey"]:checked')).map(cb => cb.value),
-        specialized: Array.from(document.querySelectorAll('input[name="specialized"]:checked')).map(cb => cb.value),
-        roads: Array.from(document.querySelectorAll('input[name="road"]:checked')).map(cb => cb.value),
-        grading: Array.from(document.querySelectorAll('input[name="grading"]:checked')).map(cb => cb.value),
-        generic: Array.from(document.querySelectorAll('input[name="generic"]:checked')).map(cb => cb.value),
-        layerMode: document.getElementById('layerMode').value,
-        complexity: document.getElementById('complexity').value
-    };
-    
-    try {
-        const response = await fetch('/api/tools/generate-test-dxf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        
-        if (!response.ok) {
-            const responseText = await response.text();
-            let errorMessage = 'Generation failed';
-            try {
-                const errorData = JSON.parse(responseText);
-                errorMessage = errorData.error || responseText || errorMessage;
-            } catch {
-                errorMessage = responseText || errorMessage;
-            }
-            throw new Error(errorMessage);
-        }
-        
-        // Get the blob and download
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `test-data-${new Date().toISOString().split('T')[0]}.dxf`;
-        a.click();
-        URL.revokeObjectURL(url);
-        
-        // Show success
-        const statusArea = document.getElementById('statusArea');
-        statusArea.style.display = 'block';
-        statusArea.style.background = 'rgba(0,255,0,0.1)';
-        statusArea.style.borderColor = 'rgba(0,255,0,0.3)';
-        document.getElementById('statusMessage').textContent = 'DXF file generated successfully!';
-        
-        setTimeout(() => {
-            statusArea.style.display = 'none';
-        }, 3000);
-        
-    } catch (error) {
-        console.error('Error:', error);
-        const statusArea = document.getElementById('statusArea');
-        statusArea.style.display = 'block';
-        statusArea.style.background = 'rgba(255,0,0,0.1)';
-        statusArea.style.borderColor = 'rgba(255,0,0,0.3)';
-        statusArea.querySelector('i').className = 'fas fa-exclamation-circle';
-        statusArea.querySelector('i').style.color = 'var(--error-color)';
-        document.getElementById('statusMessage').textContent = error.message || 'Error generating DXF file';
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    }
-});
-</script>
+<script src="/static/js/dxf_test_generator.js"></script>
 {% endblock %}
