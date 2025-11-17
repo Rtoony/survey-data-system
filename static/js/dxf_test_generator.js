@@ -186,9 +186,9 @@ function getExampleAttributes(objectType) {
  */
 function setPreset(preset) {
     const quantities = {
-        'light': 5,
-        'medium': 10,
-        'heavy': 20
+        'light': 50,
+        'medium': 200,
+        'heavy': 500
     };
 
     const value = quantities[preset] || 10;

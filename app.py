@@ -10168,11 +10168,6 @@ def layer_generator():
     """Render the CAD Layer Generator page"""
     return render_template('layer_generator.html')
 
-@app.route('/tools/dxf-test-generator')
-def dxf_test_generator():
-    """Render the DXF Test Generator page"""
-    return render_template('tools/dxf_test_generator.html')
-
 @app.route('/api/z-stress-test/run', methods=['POST'])
 def run_z_stress_test():
     """Run Z-value elevation preservation stress test"""

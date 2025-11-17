@@ -707,22 +707,40 @@ class DXFImporter:
         vtx1 = entity.dxf.vtx1
         vtx2 = entity.dxf.vtx2
         vtx3 = entity.dxf.vtx3 if hasattr(entity.dxf, 'vtx3') else vtx2
-        
+
         # COORDINATE TRACKING: Log what we read from ezdxf
         print(f"[IMPORT] 3DFACE read from ezdxf:")
         print(f"[IMPORT]   vtx0: ({vtx0.x}, {vtx0.y}, {vtx0.z})")
         print(f"[IMPORT]   vtx1: ({vtx1.x}, {vtx1.y}, {vtx1.z})")
         print(f"[IMPORT]   vtx2: ({vtx2.x}, {vtx2.y}, {vtx2.z})")
         print(f"[IMPORT]   vtx3: ({vtx3.x}, {vtx3.y}, {vtx3.z})")
-        
-        points = [
-            f'{vtx0.x} {vtx0.y} {vtx0.z}',
-            f'{vtx1.x} {vtx1.y} {vtx1.z}',
-            f'{vtx2.x} {vtx2.y} {vtx2.z}',
-            f'{vtx3.x} {vtx3.y} {vtx3.z}',
-            f'{vtx0.x} {vtx0.y} {vtx0.z}'
-        ]
-        
+
+        # Detect triangle vs quad: if vtx2 == vtx3, it's a triangle
+        # DXF 3DFACE duplicates the last vertex for triangles
+        is_triangle = (abs(vtx2.x - vtx3.x) < 1e-9 and
+                      abs(vtx2.y - vtx3.y) < 1e-9 and
+                      abs(vtx2.z - vtx3.z) < 1e-9)
+
+        if is_triangle:
+            # Triangle: only 3 unique vertices + closing point
+            points = [
+                f'{vtx0.x} {vtx0.y} {vtx0.z}',
+                f'{vtx1.x} {vtx1.y} {vtx1.z}',
+                f'{vtx2.x} {vtx2.y} {vtx2.z}',
+                f'{vtx0.x} {vtx0.y} {vtx0.z}'  # Closing point
+            ]
+            print(f"[IMPORT] Detected TRIANGLE (3 vertices)")
+        else:
+            # Quad: 4 unique vertices + closing point
+            points = [
+                f'{vtx0.x} {vtx0.y} {vtx0.z}',
+                f'{vtx1.x} {vtx1.y} {vtx1.z}',
+                f'{vtx2.x} {vtx2.y} {vtx2.z}',
+                f'{vtx3.x} {vtx3.y} {vtx3.z}',
+                f'{vtx0.x} {vtx0.y} {vtx0.z}'  # Closing point
+            ]
+            print(f"[IMPORT] Detected QUAD (4 vertices)")
+
         geometry_wkt = f'POLYGON Z (({", ".join(points)}))'
         print(f"[IMPORT] WKT to DB: {geometry_wkt}")
         
