@@ -2,6 +2,10 @@
 
 {% block title %}DXF Import/Export - ACAD-GIS Tools{% endblock %}
 
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <h1><i class="fas fa-file-export"></i> DXF Import/Export</h1>
@@ -17,14 +21,6 @@
         </div>
         
         <div class="tool-body">
-            <div class="form-group">
-                <label for="importProjectSelect">Select Project</label>
-                <select id="importProjectSelect" class="form-control">
-                    <option value="">Loading projects...</option>
-                </select>
-                <small>Choose which project to import entities into</small>
-            </div>
-
             <div class="form-group">
                 <label for="dxfFileInput">DXF File</label>
                 <input type="file" id="dxfFileInput" accept=".dxf" class="form-control">
@@ -81,14 +77,6 @@
         </div>
         
         <div class="tool-body">
-            <div class="form-group">
-                <label for="exportProjectSelect">Select Project</label>
-                <select id="exportProjectSelect" class="form-control">
-                    <option value="">Loading projects...</option>
-                </select>
-                <small>Choose which project to export</small>
-            </div>
-
             <div class="form-group">
                 <label for="dxfVersionSelect">DXF Version</label>
                 <select id="dxfVersionSelect" class="form-control">
@@ -434,7 +422,7 @@ tbody tr:hover {
 </style>
 
 <script>
-let projects = [];
+const projectContext = new ProjectContext();
 let jobs = [];
 
 // Load import patterns
@@ -476,37 +464,6 @@ function populateImportPatternSelect() {
         }).join('');
     
     select.innerHTML = '<option value="">Use Standard Format</option>' + options;
-}
-
-// Load projects on page load
-async function loadProjects() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        
-        if (data.error) {
-            console.error('Error loading projects:', data.error);
-            return;
-        }
-        
-        projects = data.projects;
-        populateProjectSelects();
-    } catch (error) {
-        console.error('Failed to load projects:', error);
-    }
-}
-
-function populateProjectSelects() {
-    const importSelect = document.getElementById('importProjectSelect');
-    const exportSelect = document.getElementById('exportProjectSelect');
-    
-    const options = projects.map(p => {
-        const projectNum = p.project_number ? ` (${p.project_number})` : '';
-        return `<option value="${p.project_id}">${p.project_name}${projectNum}</option>`;
-    }).join('');
-    
-    importSelect.innerHTML = '<option value="">Select a project...</option>' + options;
-    exportSelect.innerHTML = '<option value="">Select a project...</option>' + options;
 }
 
 // Load export jobs
@@ -559,26 +516,20 @@ function displayExportJobs() {
     }).join('');
 }
 
-// Enable/disable buttons based on selection
-document.getElementById('importProjectSelect').addEventListener('change', (e) => {
-    const fileInput = document.getElementById('dxfFileInput');
-    const importBtn = document.getElementById('importButton');
-    importBtn.disabled = !e.target.value || !fileInput.files.length;
-});
-
+// Enable/disable buttons based on file selection
 document.getElementById('dxfFileInput').addEventListener('change', (e) => {
-    const projectSelect = document.getElementById('importProjectSelect');
     const importBtn = document.getElementById('importButton');
-    importBtn.disabled = !e.target.files.length || !projectSelect.value;
-});
-
-document.getElementById('exportProjectSelect').addEventListener('change', (e) => {
-    document.getElementById('exportButton').disabled = !e.target.value;
+    importBtn.disabled = !e.target.files.length;
 });
 
 // Import DXF
 document.getElementById('importButton').addEventListener('click', async () => {
-    const projectId = document.getElementById('importProjectSelect').value;
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
+    }
+    const projectId = activeProject.project_id;
     const fileInput = document.getElementById('dxfFileInput');
     const importModelspace = document.getElementById('importModelspace').checked;
     const importPaperspace = document.getElementById('importPaperspace').checked;
@@ -634,11 +585,10 @@ document.getElementById('importButton').addEventListener('click', async () => {
             `;
             document.getElementById('importPreview').style.display = 'block';
         }
-        
-        // Reload projects and jobs
-        await loadProjects();
+
+        // Reload export jobs
         await loadExportJobs();
-        
+
     } catch (error) {
         alert('Import failed: ' + error.message);
     } finally {
@@ -701,12 +651,15 @@ function displayImportResults(stats) {
 
 // Export DXF
 document.getElementById('exportButton').addEventListener('click', async () => {
-    const projectId = document.getElementById('exportProjectSelect').value;
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
+    }
+    const projectId = activeProject.project_id;
     const dxfVersion = document.getElementById('dxfVersionSelect').value;
     const includeModelspace = document.getElementById('exportModelspace').checked;
     const includePaperspace = document.getElementById('exportPaperspace').checked;
-    
-    if (!projectId) return;
     
     // Show progress
     const progressDiv = document.getElementById('exportProgress');
@@ -740,7 +693,7 @@ document.getElementById('exportButton').addEventListener('click', async () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `drawing_${drawingId}.dxf`;
+        a.download = `project_${projectId}_export.dxf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -760,10 +713,24 @@ document.getElementById('exportButton').addEventListener('click', async () => {
 });
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    loadProjects();
+document.addEventListener('DOMContentLoaded', async () => {
+    await projectContext.init();
+
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        document.getElementById('importButton').disabled = true;
+        document.getElementById('exportButton').disabled = true;
+        return;
+    }
+
     loadExportJobs();
     loadImportPatterns();
+
+    // Reload data when project changes
+    projectContext.onProjectChange(() => {
+        loadExportJobs();
+    });
 });
 </script>
 {% endblock %}

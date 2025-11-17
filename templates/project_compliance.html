@@ -2,22 +2,16 @@
 
 {% block title %}Project Compliance Dashboard{% endblock %}
 
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <h2 class="orbitron"><i class="fas fa-shield-alt neon-cyan"></i> Project Compliance Dashboard</h2>
     <p class="subtitle">Monitor standards compliance and track deviations across projects</p>
 </div>
 
-<div class="panel" style="margin-bottom: 20px;">
-    <div style="display: flex; align-items: center; gap: 15px;">
-        <label for="projectSelector" style="font-weight: 600; white-space: nowrap;">
-            <i class="fas fa-folder-open"></i> Select Project:
-        </label>
-        <select id="projectSelector" class="form-control" style="flex: 1; max-width: 400px;">
-            <option value="">-- Select a project --</option>
-        </select>
-    </div>
-</div>
 
 <div id="emptyState" style="display: block; text-align: center; padding: 80px 20px;">
     <i class="fas fa-folder-open" style="font-size: 4em; color: var(--text-secondary); opacity: 0.3; margin-bottom: 20px;"></i>
@@ -489,27 +483,8 @@
 </style>
 
 <script>
+const projectContext = new ProjectContext();
 let currentProjectId = null;
-
-async function loadProjects() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        
-        const selector = document.getElementById('projectSelector');
-        
-        if (data.projects && data.projects.length > 0) {
-            data.projects.forEach(project => {
-                const option = document.createElement('option');
-                option.value = project.project_id;
-                option.textContent = `${project.project_name}${project.project_number ? ' (' + project.project_number + ')' : ''}`;
-                selector.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Failed to load projects:', error);
-    }
-}
 
 async function loadProjectCompliance(projectId) {
     if (!projectId) {
@@ -889,11 +864,24 @@ function showLoading() {
     document.getElementById('deviationsEmpty').style.display = 'none';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadProjects();
-    
-    document.getElementById('projectSelector').addEventListener('change', (e) => {
-        loadProjectCompliance(e.target.value);
+document.addEventListener('DOMContentLoaded', async () => {
+    await projectContext.init();
+
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        showEmptyState();
+        return;
+    }
+
+    await loadProjectCompliance(activeProject.project_id);
+
+    // Reload data when project changes
+    projectContext.onProjectChange(() => {
+        const newActiveProject = projectContext.getActiveProject();
+        if (newActiveProject) {
+            loadProjectCompliance(newActiveProject.project_id);
+        }
     });
 });
 </script>

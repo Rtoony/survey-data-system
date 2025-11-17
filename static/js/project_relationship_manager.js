@@ -1,42 +1,42 @@
+// Note: This file expects ProjectContext to be loaded in the HTML template
+let projectContext;
 let currentProject = null;
 let currentRelationshipType = null;
 let currentEditingId = null;
 
-document.addEventListener('DOMContentLoaded', function() {
-    loadProjects();
+document.addEventListener('DOMContentLoaded', async function() {
+    // Initialize ProjectContext (should be loaded from the template)
+    if (typeof ProjectContext !== 'undefined') {
+        projectContext = new ProjectContext();
+        await projectContext.init();
+
+        const activeProject = projectContext.getActiveProject();
+        if (activeProject) {
+            currentProject = activeProject.project_id;
+            await loadProjectMappings();
+        } else {
+            alert('Please select a project from the header');
+        }
+
+        // Reload when project changes
+        projectContext.onProjectChange(async () => {
+            const newActiveProject = projectContext.getActiveProject();
+            if (newActiveProject) {
+                currentProject = newActiveProject.project_id;
+                await loadProjectMappings();
+            }
+        });
+    } else {
+        console.error('ProjectContext not loaded. Make sure the HTML template includes ProjectContext.js');
+    }
 });
 
-async function loadProjects() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        
-        const select = document.getElementById('projectSelect');
-        select.innerHTML = '<option value="">-- Select a Project --</option>';
-        
-        data.projects.forEach(project => {
-            const option = document.createElement('option');
-            option.value = project.project_id;
-            option.textContent = `${project.project_name} ${project.project_number ? '(' + project.project_number + ')' : ''}`;
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading projects:', error);
-        showNotification('Error loading projects', 'error');
-    }
-}
-
 async function loadProjectMappings() {
-    const projectId = document.getElementById('projectSelect').value;
-    
-    if (!projectId) {
+    if (!currentProject) {
         document.getElementById('projectContent').style.display = 'none';
         document.getElementById('emptyMessage').style.display = 'block';
-        currentProject = null;
         return;
     }
-    
-    currentProject = projectId;
     document.getElementById('projectContent').style.display = 'block';
     document.getElementById('emptyMessage').style.display = 'none';
     

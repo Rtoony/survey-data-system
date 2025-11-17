@@ -76,13 +76,7 @@ def get_active_project_id():
     Get the current active project ID from session.
     Returns None if no project is active.
     """
-    # For now, get from session or query parameter
-    # This can be enhanced later with proper session management
-    project_id = request.args.get('project_id')
-    if not project_id:
-        # Try to get from session if implemented
-        project_id = session.get('active_project_id') if 'session' in globals() else None
-    return project_id
+    return session.get('active_project_id')
 
 def state_plane_to_wgs84(x_feet, y_feet):
     """
@@ -2846,7 +2840,10 @@ def get_recent_activity():
 def get_classification_review_queue():
     """Get entities needing classification review"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No active project selected'}), 400
+
         min_confidence = float(request.args.get('min_confidence', 0.0))
         max_confidence = float(request.args.get('max_confidence', 1.0))
         limit = int(request.args.get('limit', 100))
@@ -7213,9 +7210,9 @@ def project_relationship_manager():
 def get_keynote_blocks():
     """Get keynote-block relationships for a project"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
         if not project_id:
-            return jsonify({'error': 'project_id is required'}), 400
+            return jsonify({'error': 'No active project selected'}), 400
         
         query = """
             SELECT 
@@ -7327,9 +7324,9 @@ def delete_keynote_block(mapping_id):
 def get_keynote_details():
     """Get keynote-detail relationships for a project"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
         if not project_id:
-            return jsonify({'error': 'project_id is required'}), 400
+            return jsonify({'error': 'No active project selected'}), 400
         
         query = """
             SELECT 
@@ -7444,9 +7441,9 @@ def delete_keynote_detail(mapping_id):
 def get_hatch_materials():
     """Get hatch-material relationships for a project"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
         if not project_id:
-            return jsonify({'error': 'project_id is required'}), 400
+            return jsonify({'error': 'No active project selected'}), 400
         
         query = """
             SELECT 
@@ -7559,9 +7556,9 @@ def delete_hatch_material(mapping_id):
 def get_detail_materials():
     """Get detail-material relationships for a project"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
         if not project_id:
-            return jsonify({'error': 'project_id is required'}), 400
+            return jsonify({'error': 'No active project selected'}), 400
         
         query = """
             SELECT 
@@ -7677,9 +7674,9 @@ def delete_detail_material(mapping_id):
 def get_block_specs():
     """Get block-specification relationships for a project"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
         if not project_id:
-            return jsonify({'error': 'project_id is required'}), 400
+            return jsonify({'error': 'No active project selected'}), 400
         
         query = """
             SELECT 
@@ -8629,9 +8626,9 @@ def validate_element_exists(element_type, element_id):
 def get_cross_references():
     """Get cross-reference relationships for a project"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
         if not project_id:
-            return jsonify({'error': 'project_id is required'}), 400
+            return jsonify({'error': 'No active project selected'}), 400
         
         query = """
             SELECT 
@@ -8891,13 +8888,12 @@ def search_elements():
 def get_pipe_networks():
     """Get list of all pipe networks, optionally filtered by project or mode"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
         network_mode = request.args.get('mode')
-        
+
         query = """
-            SELECT 
+            SELECT
                 pn.network_id,
-                pn.project_id,
                 pn.network_name,
                 pn.utility_system,
                 pn.network_mode,
@@ -9834,7 +9830,7 @@ def analyze_light_coverage(light_id):
 def get_flow_analysis():
     """Get gravity pipe network data and perform hydraulic analysis"""
     try:
-        project_id = request.args.get('project_id') or session.get('active_project_id')
+        project_id = session.get('active_project_id')
         if not project_id:
             return jsonify({'success': False, 'error': 'No project specified'}), 400
 
@@ -9990,7 +9986,7 @@ def get_mannings_n(material):
 def get_laterals():
     """Get lateral connections (service lines from mains to properties)"""
     try:
-        project_id = request.args.get('project_id') or session.get('active_project_id')
+        project_id = session.get('active_project_id')
         if not project_id:
             return jsonify({'success': False, 'error': 'No project specified'}), 400
 
@@ -10092,7 +10088,7 @@ def get_laterals():
 def get_alignments():
     """Get horizontal alignments for a project"""
     try:
-        project_id = request.args.get('project_id') or session.get('active_project_id')
+        project_id = session.get('active_project_id')
         if not project_id:
             return jsonify({'error': 'No project specified', 'alignments': []}), 400
 
@@ -10463,13 +10459,12 @@ def survey_connect_wizard():
 def get_pressure_networks():
     """Get list of pressure pipe networks (potable, reclaimed, fire)"""
     try:
-        project_id = request.args.get('project_id')
-        
+        project_id = session.get('active_project_id')
+
         query = """
-            SELECT 
+            SELECT
                 pn.network_id,
                 pn.project_id,
-                pn.network_name,
                 pn.utility_system,
                 pn.network_mode,
                 pn.network_status,
@@ -11888,13 +11883,12 @@ def reorder_project_sheet_note(project_note_id):
 def get_sheet_note_assignments():
     """Get sheet note assignments by project or by project note"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
         project_note_id = request.args.get('project_note_id')
-        
+
         if project_note_id:
             query = """
-                SELECT 
-                    sna.assignment_id,
+                SELECT
                     sna.project_note_id,
                     sna.project_id,
                     sna.legend_sequence,
@@ -11993,10 +11987,9 @@ def delete_sheet_note_assignment(assignment_id):
 def get_sheet_note_legend():
     """Generate note legend for a project"""
     try:
-        project_id = request.args.get('project_id')
-        
+        project_id = session.get('active_project_id')
         if not project_id:
-            return jsonify({'error': 'project_id is required'}), 400
+            return jsonify({'error': 'No active project selected'}), 400
         
         query = """
             SELECT 
@@ -12538,10 +12531,10 @@ def create_custom_note():
 def get_sheet_note_sets():
     """Get all sheet note sets for a project"""
     try:
-        project_id = request.args.get('project_id')
-        
+        project_id = session.get('active_project_id')
+
         if not project_id:
-            return jsonify({'error': 'project_id is required'}), 400
+            return jsonify({'error': 'No active project selected'}), 400
         
         query = """
             SELECT 
@@ -19023,14 +19016,13 @@ def get_survey_points():
         # Build dynamic WHERE clause based on query parameters
         where_conditions = []
         params = []
-        
-        project_id = request.args.get('project_id')
+
+        project_id = session.get('active_project_id')
         drawing_id = request.args.get('drawing_id')
         discipline = request.args.get('discipline')
         connectivity = request.args.get('connectivity')
         sequence_status = request.args.get('sequence_status')
         is_active = request.args.get('is_active')
-        search = request.args.get('search')
         
         if project_id:
             where_conditions.append("sp.project_id = %s")
@@ -19531,7 +19523,9 @@ def entity_viewer_page():
 def get_entity_viewer_catalog():
     """Get available entity types with counts per project"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No active project selected'}), 400
         
         catalog = []
         for entity_key, config in ENTITY_VIEWER_REGISTRY.items():
@@ -19575,7 +19569,9 @@ def get_entity_viewer_catalog():
 def get_entity_viewer_layers():
     """Get available layers for a project"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No active project selected'}), 400
         
         query = """
             SELECT DISTINCT l.layer_name
@@ -19593,12 +19589,12 @@ def get_entity_viewer_layers():
 def get_entity_viewer_entities():
     """Get entities with geometries, transformed to EPSG:4326"""
     try:
-        project_id = request.args.get('project_id')
+        project_id = session.get('active_project_id')
+        if not project_id:
+            return jsonify({'error': 'No active project selected'}), 400
+
         entity_types = request.args.getlist('entity_type')
         layer_names = request.args.getlist('layer')
-        
-        if not project_id:
-            return jsonify({'error': 'project_id is required'}), 400
         
         if not entity_types:
             entity_types = list(ENTITY_VIEWER_REGISTRY.keys())

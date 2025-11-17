@@ -2,6 +2,10 @@
 
 {% block title %}Entity Viewer{% endblock %}
 
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <style>
     .entity-viewer-container {
@@ -251,13 +255,6 @@
 <div class="entity-viewer-container">
     <div class="viewer-controls">
         <div class="control-group">
-            <label for="projectSelect">Project</label>
-            <select id="projectSelect">
-                <option value="">Select a project...</option>
-            </select>
-        </div>
-
-        <div class="control-group">
             <label for="layerSelect">Layers (Multi-select)</label>
             <select id="layerSelect" multiple size="3" style="height: 60px;">
             </select>
@@ -308,53 +305,43 @@
 </div>
 
 <script>
+const projectContext = new ProjectContext();
 let currentProject = null;
 let currentEntities = [];
 let currentBbox = null;
 let entityTypeCatalog = [];
 let selectedEntityTypes = new Set();
 
-document.addEventListener('DOMContentLoaded', function() {
-    loadProjects();
+document.addEventListener('DOMContentLoaded', async function() {
+    await projectContext.init();
+
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
+    }
+
+    currentProject = activeProject.project_id;
+    await loadCatalog();
+    await loadLayers();
+    await loadEntities();
+
+    // Reload data when project changes
+    projectContext.onProjectChange(async () => {
+        const newActiveProject = projectContext.getActiveProject();
+        if (newActiveProject) {
+            currentProject = newActiveProject.project_id;
+            await loadCatalog();
+            await loadLayers();
+            await loadEntities();
+        }
+    });
+
     setupEventListeners();
 });
 
 function setupEventListeners() {
-    document.getElementById('projectSelect').addEventListener('change', onProjectChange);
     document.getElementById('layerSelect').addEventListener('change', onFilterChange);
-}
-
-async function loadProjects() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        const projects = data.projects || data;
-        
-        const select = document.getElementById('projectSelect');
-        if (Array.isArray(projects)) {
-            projects.forEach(project => {
-                const option = document.createElement('option');
-                option.value = project.project_id;
-                option.textContent = project.project_name;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading projects:', error);
-    }
-}
-
-async function onProjectChange(e) {
-    currentProject = e.target.value;
-    
-    if (!currentProject) {
-        clearViewer();
-        return;
-    }
-    
-    await loadCatalog();
-    await loadLayers();
-    loadEntities();
 }
 
 async function loadCatalog() {
@@ -629,7 +616,6 @@ function clearViewer() {
     document.getElementById('entityCanvas').innerHTML = '';
     document.getElementById('legendContent').innerHTML = '<p style="color: var(--mc-text); font-size: 0.85rem;">Select a project to view entities</p>';
     document.getElementById('entityInfo').innerHTML = '<p style="color: var(--mc-text); font-size: 0.85rem;">Hover or click on an entity to see details</p>';
-    document.getElementById('drawingSelect').innerHTML = '';
     document.getElementById('layerSelect').innerHTML = '';
     document.getElementById('entityTypeToggles').innerHTML = '';
     document.getElementById('noDataMessage').classList.add('hidden');

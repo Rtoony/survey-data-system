@@ -4,6 +4,7 @@
 
 {% block extra_head %}
 <script src="{{ url_for('static', filename='js/specialized-tool-info.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ProjectContext.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -20,12 +21,6 @@
 
     <div class="sheet-notes-container">
         <div class="top-controls">
-            <div class="project-selector">
-                <label for="projectSelect">Project:</label>
-                <select id="projectSelect" onchange="loadProjectNoteSets()">
-                    <option value="">Select a project...</option>
-                </select>
-            </div>
             <div class="set-selector">
                 <label for="noteSetSelect">Note Set:</label>
                 <select id="noteSetSelect" onchange="loadNoteSet()">
@@ -266,18 +261,10 @@
     flex-wrap: wrap;
 }
 
-.project-selector, .set-selector {
+.set-selector {
     display: flex;
     align-items: center;
     gap: 10px;
-}
-
-.project-selector {
-    flex: 1;
-    min-width: 300px;
-}
-
-.set-selector {
     flex: 2;
     min-width: 400px;
 }
@@ -691,45 +678,41 @@
 </style>
 
 <script>
+const projectContext = new ProjectContext();
 let currentProject = null;
 let currentNoteSet = null;
 let currentSelectedNote = null;
 let standardNotes = [];
 let projectNotes = [];
 
-document.addEventListener('DOMContentLoaded', function() {
-    loadProjects();
+document.addEventListener('DOMContentLoaded', async function() {
+    await projectContext.init();
+
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
+        return;
+    }
+
     loadDeviationCategories();
     loadConformanceStatuses();
+    await loadProjectNoteSets();
+
+    // Reload data when project changes
+    projectContext.onProjectChange(() => {
+        loadProjectNoteSets();
+    });
 });
 
-async function loadProjects() {
-    try {
-        const response = await fetch('/api/projects');
-        const data = await response.json();
-        
-        const select = document.getElementById('projectSelect');
-        select.innerHTML = '<option value="">Select a project...</option>';
-        
-        data.projects.forEach(project => {
-            const option = document.createElement('option');
-            option.value = project.project_id;
-            option.textContent = `${project.project_number} - ${project.project_name}`;
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading projects:', error);
-    }
-}
-
 async function loadProjectNoteSets() {
-    const projectId = document.getElementById('projectSelect').value;
-    currentProject = projectId;
-    
-    if (!projectId) {
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
         document.getElementById('noteSetSelect').innerHTML = '<option value="">Select a project first...</option>';
         return;
     }
+
+    const projectId = activeProject.project_id;
+    currentProject = projectId;
     
     try {
         const response = await fetch(`/api/sheet-note-sets?project_id=${projectId}`);
@@ -946,10 +929,12 @@ async function addStandardToProject(standardNoteId) {
 }
 
 function showCreateNoteSetModal() {
-    if (!currentProject) {
-        alert('Please select a project first');
+    const activeProject = projectContext.getActiveProject();
+    if (!activeProject) {
+        alert('Please select a project from the header');
         return;
     }
+    currentProject = activeProject.project_id;
     document.getElementById('createNoteSetModal').classList.add('show');
 }
 
@@ -1275,7 +1260,8 @@ async function loadConformanceStatuses() {
 }
 
 function refreshAll() {
-    if (currentProject) {
+    const activeProject = projectContext.getActiveProject();
+    if (activeProject) {
         loadProjectNoteSets();
     }
     if (currentNoteSet) {
