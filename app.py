@@ -18580,8 +18580,8 @@ def get_utility_systems():
     """Get all utility system standards"""
     try:
         query = """
-            SELECT system_id, system_code, system_name, system_description,
-                   color_hex, line_weight, display_order, is_active
+            SELECT system_id, system_code, system_name, description,
+                   color_hex, display_order, category, is_active
             FROM utility_system_standards
             WHERE is_active = TRUE
             ORDER BY display_order, system_name
@@ -18949,7 +18949,7 @@ def get_block_categories():
     try:
         query = """
             SELECT category_id, category_code, category_name, description,
-                   color_hex, icon_class, cad_layer, display_order, is_active
+                   color_hex, icon, display_order, is_active
             FROM block_category_standards
             WHERE is_active = TRUE
             ORDER BY display_order, category_code
@@ -19041,12 +19041,11 @@ def get_owner_standards():
     """Get all owner standards"""
     try:
         query = """
-            SELECT owner_id, owner_code, owner_name, owner_type, description,
-                   contact_name, contact_phone, contact_email, website,
-                   color_hex, display_order, notes, is_active
+            SELECT owner_id, owner_code, owner_name, owner_type, category,
+                   contact_name, contact_phone, contact_email, website, is_active
             FROM owner_standards
             WHERE is_active = TRUE
-            ORDER BY owner_type, display_order, owner_code
+            ORDER BY owner_type, owner_code
         """
         owners = execute_query(query)
         return jsonify({'owners': owners})
