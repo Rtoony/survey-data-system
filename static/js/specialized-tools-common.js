@@ -50,7 +50,7 @@ const SpecializedTools = {
      */
     async fitMapToProjectExtent(map, projectId) {
         try {
-            const response = await fetch(`/api/projects/${projectId}/extent`);
+            const response = await fetch(`/api/map-viewer/project-extent/${projectId}`);
             const data = await response.json();
 
             if (data.bbox) {

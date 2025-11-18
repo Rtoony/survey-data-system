@@ -807,8 +807,29 @@ function changeBasemap() {
 }
 
 // Zoom to project
-function zoomToProject() {
-    loadMapData();
+async function zoomToProject() {
+    if (!activeProjectId) {
+        showStatus('error', 'No active project selected');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/map-viewer/project-extent/${activeProjectId}`);
+        const data = await response.json();
+
+        if (data.bbox) {
+            map.fitBounds([
+                [data.bbox.min_y, data.bbox.min_x],
+                [data.bbox.max_y, data.bbox.max_x]
+            ], { padding: [50, 50] });
+            showStatus('success', 'Zoomed to project extent');
+        } else {
+            showStatus('info', 'No spatial data to zoom to');
+        }
+    } catch (error) {
+        console.error('Error zooming to project:', error);
+        showStatus('error', 'Failed to zoom to project');
+    }
 }
 
 // Refresh data
