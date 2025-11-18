@@ -534,7 +534,16 @@ document.getElementById('importButton').addEventListener('click', async () => {
     const patternId = document.getElementById('importPatternSelect').value;
     
     const file = fileInput.files[0];
-    if (!file || !projectId) return;
+    if (!file) {
+        alert('Please select a DXF file first');
+        return;
+    }
+    if (!projectId) {
+        alert('Please select a project from the header');
+        return;
+    }
+    
+    console.log('Starting import with file:', file.name, 'for project:', projectId);
     
     // Show progress
     const progressDiv = document.getElementById('importProgress');
@@ -557,13 +566,25 @@ document.getElementById('importButton').addEventListener('click', async () => {
         formData.append('pattern_id', patternId);
     }
     
+    console.log('Sending import request to /api/dxf/import...');
+    
     try {
         const response = await fetch('/api/dxf/import', {
             method: 'POST',
             body: formData
         });
         
+        console.log('Server response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Server error response:', errorText);
+            alert(`Import failed: Server returned ${response.status} error.\n${errorText.substring(0, 200)}`);
+            return;
+        }
+        
         const data = await response.json();
+        console.log('Import response data:', data);
         
         if (data.error) {
             alert('Import failed: ' + data.error);
@@ -588,7 +609,8 @@ document.getElementById('importButton').addEventListener('click', async () => {
         await loadExportJobs();
 
     } catch (error) {
-        alert('Import failed: ' + error.message);
+        console.error('Import error:', error);
+        alert('Import failed: ' + error.message + '\n\nCheck browser console for more details.');
     } finally {
         progressDiv.style.display = 'none';
         importBtn.disabled = false;
