@@ -14281,6 +14281,108 @@ def get_project_entities(project_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/projects/<project_id>/drawing-entities-map')
+def get_project_drawing_entities_map(project_id):
+    """Get drawing entities for a project as GeoJSON grouped by layer"""
+    try:
+        from pyproj import Transformer
+
+        # Get all entities for this project
+        query = """
+            SELECT
+                de.entity_id,
+                de.entity_type,
+                l.layer_name,
+                de.color_aci,
+                ls.color_hex,
+                ls.category,
+                ST_AsGeoJSON(ST_Transform(de.geometry, 4326)) as geojson,
+                ST_SRID(de.geometry) as srid
+            FROM drawing_entities de
+            LEFT JOIN layers l ON de.layer_id = l.layer_id
+            LEFT JOIN layer_standards ls ON l.layer_name = ls.layer_name
+            WHERE de.project_id = %s
+            AND de.geometry IS NOT NULL
+            ORDER BY l.layer_name
+        """
+
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (project_id,))
+                entities = cur.fetchall()
+
+                if not entities:
+                    return jsonify({
+                        'has_spatial_data': False,
+                        'message': 'No spatial data found for this project',
+                        'layer_groups': []
+                    })
+
+                # Group entities by layer
+                layer_groups_dict = {}
+
+                for entity in entities:
+                    layer_name = entity['layer_name'] or 'UNKNOWN'
+
+                    if layer_name not in layer_groups_dict:
+                        layer_groups_dict[layer_name] = {
+                            'id': layer_name.replace(' ', '_').replace('/', '_'),
+                            'name': layer_name,
+                            'category': entity['category'] or 'MISC',
+                            'color': entity['color_hex'] or '#00ffff',
+                            'features': [],
+                            'feature_count': 0
+                        }
+
+                    # Parse GeoJSON and add to features
+                    import json
+                    geom = json.loads(entity['geojson'])
+
+                    feature = {
+                        'type': 'Feature',
+                        'geometry': geom,
+                        'properties': {
+                            'entity_id': entity['entity_id'],
+                            'entity_type': entity['entity_type'],
+                            'layer_name': layer_name,
+                            'color_aci': entity['color_aci']
+                        }
+                    }
+
+                    layer_groups_dict[layer_name]['features'].append(feature)
+                    layer_groups_dict[layer_name]['feature_count'] += 1
+
+                # Convert to list
+                layer_groups = list(layer_groups_dict.values())
+
+                # Get bounding box
+                cur.execute("""
+                    SELECT
+                        ST_XMin(ST_Extent(ST_Transform(geometry, 4326))) as min_x,
+                        ST_YMin(ST_Extent(ST_Transform(geometry, 4326))) as min_y,
+                        ST_XMax(ST_Extent(ST_Transform(geometry, 4326))) as max_x,
+                        ST_YMax(ST_Extent(ST_Transform(geometry, 4326))) as max_y
+                    FROM drawing_entities
+                    WHERE project_id = %s
+                """, (project_id,))
+
+                bbox_row = cur.fetchone()
+                bbox = {
+                    'min_x': bbox_row['min_x'],
+                    'min_y': bbox_row['min_y'],
+                    'max_x': bbox_row['max_x'],
+                    'max_y': bbox_row['max_y']
+                } if bbox_row and bbox_row['min_x'] else None
+
+                return jsonify({
+                    'has_spatial_data': True,
+                    'layer_groups': layer_groups,
+                    'bbox': bbox
+                })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/map-viewer/project-layers/<project_id>')
 def get_project_layers(project_id):
     """Get all layers for a specific project with entity counts"""
