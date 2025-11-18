@@ -7308,6 +7308,299 @@ def get_note_name_mappings():
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================
+# IMPORT MAPPING PATTERNS API (Layer Name Translation)
+# ============================================================================
+
+@app.route('/api/import-mapping-patterns', methods=['GET'])
+def get_import_mapping_patterns():
+    """Get all import mapping patterns"""
+    try:
+        query = """
+            SELECT
+                m.mapping_id,
+                m.client_name,
+                m.source_pattern,
+                m.regex_pattern,
+                m.extraction_rules,
+                m.confidence_score,
+                m.is_active,
+                m.notes,
+                m.created_at,
+                m.updated_at,
+                m.created_by,
+                m.modified_by,
+                d.code as discipline_code,
+                c.code as category_code,
+                t.code as type_code
+            FROM import_mapping_patterns m
+            LEFT JOIN discipline_codes d ON m.target_discipline_id = d.discipline_id
+            LEFT JOIN category_codes c ON m.target_category_id = c.category_id
+            LEFT JOIN object_type_codes t ON m.target_type_id = t.type_id
+            ORDER BY m.confidence_score DESC, m.client_name, m.source_pattern
+        """
+        patterns = execute_query(query)
+        return jsonify({'patterns': patterns})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns/<int:mapping_id>', methods=['GET'])
+def get_import_mapping_pattern(mapping_id):
+    """Get a specific import mapping pattern"""
+    try:
+        query = """
+            SELECT
+                m.*,
+                d.code as discipline_code,
+                c.code as category_code,
+                t.code as type_code
+            FROM import_mapping_patterns m
+            LEFT JOIN discipline_codes d ON m.target_discipline_id = d.discipline_id
+            LEFT JOIN category_codes c ON m.target_category_id = c.category_id
+            LEFT JOIN object_type_codes t ON m.target_type_id = t.type_id
+            WHERE m.mapping_id = %s
+        """
+        pattern = execute_query(query, (mapping_id,))
+        if pattern:
+            return jsonify({'pattern': pattern[0]})
+        else:
+            return jsonify({'error': 'Pattern not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns', methods=['POST'])
+def create_import_mapping_pattern():
+    """Create a new import mapping pattern"""
+    try:
+        data = request.get_json()
+
+        # Get discipline/category/type IDs from codes
+        discipline_id = None
+        category_id = None
+        type_id = None
+
+        if data.get('discipline_code'):
+            result = execute_query(
+                "SELECT discipline_id FROM discipline_codes WHERE code = %s",
+                (data['discipline_code'],)
+            )
+            discipline_id = result[0]['discipline_id'] if result else None
+
+        if data.get('category_code') and discipline_id:
+            result = execute_query(
+                "SELECT category_id FROM category_codes WHERE code = %s AND discipline_id = %s",
+                (data['category_code'], discipline_id)
+            )
+            category_id = result[0]['category_id'] if result else None
+
+        if data.get('type_code') and category_id:
+            result = execute_query(
+                "SELECT type_id FROM object_type_codes WHERE code = %s AND category_id = %s",
+                (data['type_code'], category_id)
+            )
+            type_id = result[0]['type_id'] if result else None
+
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO import_mapping_patterns
+                    (client_name, source_pattern, regex_pattern, extraction_rules,
+                     target_discipline_id, target_category_id, target_type_id,
+                     confidence_score, is_active, notes, created_by)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING mapping_id
+                """, (
+                    data.get('client_name'),
+                    data.get('source_pattern'),
+                    data.get('regex_pattern'),
+                    json.dumps(data.get('extraction_rules', {})),
+                    discipline_id,
+                    category_id,
+                    type_id,
+                    data.get('confidence_score', 80),
+                    data.get('is_active', True),
+                    data.get('notes'),
+                    data.get('created_by', 'api')
+                ))
+                mapping_id = cur.fetchone()[0]
+
+        return jsonify({'mapping_id': mapping_id, 'message': 'Pattern created successfully'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns/<int:mapping_id>', methods=['PUT'])
+def update_import_mapping_pattern(mapping_id):
+    """Update an existing import mapping pattern"""
+    try:
+        data = request.get_json()
+
+        # Get discipline/category/type IDs from codes
+        discipline_id = None
+        category_id = None
+        type_id = None
+
+        if data.get('discipline_code'):
+            result = execute_query(
+                "SELECT discipline_id FROM discipline_codes WHERE code = %s",
+                (data['discipline_code'],)
+            )
+            discipline_id = result[0]['discipline_id'] if result else None
+
+        if data.get('category_code') and discipline_id:
+            result = execute_query(
+                "SELECT category_id FROM category_codes WHERE code = %s AND discipline_id = %s",
+                (data['category_code'], discipline_id)
+            )
+            category_id = result[0]['category_id'] if result else None
+
+        if data.get('type_code') and category_id:
+            result = execute_query(
+                "SELECT type_id FROM object_type_codes WHERE code = %s AND category_id = %s",
+                (data['type_code'], category_id)
+            )
+            type_id = result[0]['type_id'] if result else None
+
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE import_mapping_patterns
+                    SET client_name = %s, source_pattern = %s, regex_pattern = %s,
+                        extraction_rules = %s, target_discipline_id = %s,
+                        target_category_id = %s, target_type_id = %s,
+                        confidence_score = %s, is_active = %s, notes = %s,
+                        modified_by = %s
+                    WHERE mapping_id = %s
+                """, (
+                    data.get('client_name'),
+                    data.get('source_pattern'),
+                    data.get('regex_pattern'),
+                    json.dumps(data.get('extraction_rules', {})),
+                    discipline_id,
+                    category_id,
+                    type_id,
+                    data.get('confidence_score', 80),
+                    data.get('is_active', True),
+                    data.get('notes'),
+                    data.get('modified_by', 'api'),
+                    mapping_id
+                ))
+
+        return jsonify({'message': 'Pattern updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns/<int:mapping_id>', methods=['DELETE'])
+def delete_import_mapping_pattern(mapping_id):
+    """Delete (deactivate) an import mapping pattern"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE import_mapping_patterns
+                    SET is_active = FALSE
+                    WHERE mapping_id = %s
+                """, (mapping_id,))
+
+        return jsonify({'message': 'Pattern deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns/test', methods=['POST'])
+def test_import_mapping_pattern():
+    """Test a pattern against sample layer names"""
+    try:
+        data = request.get_json()
+        regex_pattern = data.get('regex_pattern')
+        extraction_rules = data.get('extraction_rules', {})
+        test_layers = data.get('test_layers', [])
+
+        if not regex_pattern or not test_layers:
+            return jsonify({'error': 'regex_pattern and test_layers are required'}), 400
+
+        results = []
+        import re
+
+        for layer_name in test_layers:
+            try:
+                match = re.match(regex_pattern, layer_name, re.IGNORECASE)
+                if match:
+                    groups = match.groupdict()
+                    results.append({
+                        'layer_name': layer_name,
+                        'matched': True,
+                        'groups': groups,
+                        'full_match': match.group(0)
+                    })
+                else:
+                    results.append({
+                        'layer_name': layer_name,
+                        'matched': False
+                    })
+            except re.error as e:
+                results.append({
+                    'layer_name': layer_name,
+                    'matched': False,
+                    'error': f'Regex error: {str(e)}'
+                })
+
+        return jsonify({'test_results': results})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns/validate', methods=['POST'])
+def validate_import_mapping_pattern():
+    """Validate a pattern and preview the translated layer name"""
+    try:
+        data = request.get_json()
+        layer_name = data.get('layer_name')
+
+        if not layer_name:
+            return jsonify({'error': 'layer_name is required'}), 400
+
+        # Initialize mapping manager
+        from standards.import_mapping_manager import ImportMappingManager
+        manager = ImportMappingManager()
+
+        # Try to find a match
+        match = manager.find_match(layer_name)
+
+        if match:
+            # Build standard layer name
+            parts = [
+                match.discipline_code,
+                match.category_code,
+                match.type_code
+            ]
+            if match.attributes:
+                parts.extend(match.attributes)
+            parts.extend([match.phase_code, match.geometry_code])
+            translated_name = '-'.join(parts)
+
+            return jsonify({
+                'matched': True,
+                'original': layer_name,
+                'translated': translated_name,
+                'confidence': match.confidence,
+                'client_name': match.client_name,
+                'source_pattern': match.source_pattern,
+                'components': {
+                    'discipline': match.discipline_code,
+                    'category': match.category_code,
+                    'type': match.type_code,
+                    'attributes': match.attributes,
+                    'phase': match.phase_code,
+                    'geometry': match.geometry_code
+                }
+            })
+        else:
+            return jsonify({
+                'matched': False,
+                'original': layer_name,
+                'message': 'No matching pattern found'
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
 # BLOCK NAME MAPPINGS CRUD MANAGER
 # ============================================================================
 

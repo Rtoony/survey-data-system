@@ -13,8 +13,13 @@ from typing import Dict, List, Optional, Tuple
 import os
 import math
 import hashlib
+import sys
 from dxf_lookup_service import DXFLookupService
 from intelligent_object_creator import IntelligentObjectCreator
+
+# Add standards directory to path for ImportMappingManager
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'standards'))
+from import_mapping_manager import ImportMappingManager
 
 
 class DXFImporter:
@@ -24,6 +29,12 @@ class DXFImporter:
         """Initialize importer with database configuration."""
         self.db_config = db_config
         self.create_intelligent_objects = create_intelligent_objects
+        # Initialize import mapping manager for layer name translation
+        try:
+            self.mapping_manager = ImportMappingManager()
+        except Exception as e:
+            print(f"Warning: Could not initialize ImportMappingManager: {e}")
+            self.mapping_manager = None
     
     def import_dxf(self, file_path: str, project_id: str,
                    coordinate_system: str = 'LOCAL',
@@ -65,7 +76,8 @@ class DXFImporter:
             'intelligent_objects_created': 0,
             'layers': set(),
             'linetypes': set(),
-            'errors': []
+            'errors': [],
+            'layer_translations': []  # Store layer name translations for preview
         }
         
         # Use external connection or create new one
@@ -193,24 +205,84 @@ class DXFImporter:
         
         return created_count
     
-    def _import_layers(self, doc, project_id: str, 
+    def _import_layers(self, doc, project_id: str,
                        conn, stats: Dict, resolver: DXFLookupService):
-        """Import layers at project level (no drawing-level tracking)."""
+        """Import layers at project level with name translation support."""
         for layer in doc.layers:
             layer_name = layer.dxf.name
             stats['layers'].add(layer_name)
-            
+
+            # Try to find a mapping pattern for this layer name
+            translation = None
+            translated_name = None
+            if self.mapping_manager:
+                try:
+                    match = self.mapping_manager.find_match(layer_name)
+                    if match:
+                        # Build standard layer name from match
+                        translated_name = self._build_standard_layer_name(match)
+                        translation = {
+                            'original': layer_name,
+                            'translated': translated_name,
+                            'confidence': match.confidence,
+                            'client_name': match.client_name,
+                            'source_pattern': match.source_pattern,
+                            'components': {
+                                'discipline': match.discipline_code,
+                                'category': match.category_code,
+                                'type': match.type_code,
+                                'attributes': match.attributes,
+                                'phase': match.phase_code,
+                                'geometry': match.geometry_code
+                            }
+                        }
+                        stats['layer_translations'].append(translation)
+                except Exception as e:
+                    stats['errors'].append(f"Translation error for layer {layer_name}: {str(e)}")
+
             # Get or create layer (project-level, no drawing association)
+            # Use original name for now - translated name can be applied in future enhancement
             color_aci = layer.dxf.color if hasattr(layer.dxf, 'color') else 7
             linetype = layer.dxf.linetype if hasattr(layer.dxf, 'linetype') else 'Continuous'
-            
+
             layer_id, layer_standard_id = resolver.get_or_create_layer(
                 layer_name,
                 project_id=project_id,
                 color_aci=color_aci,
                 linetype=linetype
             )
-    
+
+    def _build_standard_layer_name(self, match) -> str:
+        """
+        Build a standard layer name from a MappingMatch.
+
+        Format: DISCIPLINE-CATEGORY-TYPE-[ATTRIBUTES]-PHASE-GEOMETRY
+        Example: CIV-UTIL-STORM-12IN-NEW-LN
+
+        Args:
+            match: MappingMatch object with extracted components
+
+        Returns:
+            Standard layer name string
+        """
+        parts = [
+            match.discipline_code,
+            match.category_code,
+            match.type_code
+        ]
+
+        # Add attributes if present
+        if match.attributes:
+            parts.extend(match.attributes)
+
+        # Add phase and geometry
+        parts.extend([
+            match.phase_code,
+            match.geometry_code
+        ])
+
+        return '-'.join(parts)
+
     def _import_linetypes(self, doc,
                           conn, stats: Dict, resolver: DXFLookupService):
         """Import linetypes (no drawing-level tracking needed)."""
