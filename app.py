@@ -5999,12 +5999,14 @@ def update_detail(detail_id):
     """Update an existing detail"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE detail_standards
-                    SET detail_number = %s, detail_title = %s, detail_category = %s, 
+                    SET detail_number = %s, detail_title = %s, detail_category = %s,
                         description = %s, usage_context = %s
                     WHERE detail_id = %s
                 """, (
@@ -6195,12 +6197,14 @@ def update_standard_note(note_id):
     """Update an existing standard note"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE standard_notes
-                    SET note_title = %s, note_text = %s, note_category = %s, 
+                    SET note_title = %s, note_text = %s, note_category = %s,
                         discipline = %s, tags = %s, updated_at = CURRENT_TIMESTAMP
                     WHERE note_id = %s
                 """, (
@@ -6292,7 +6296,9 @@ def update_material(material_id):
     """Update an existing material"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -6709,11 +6715,13 @@ def create_hatch():
     """Create a new hatch pattern"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO hatch_patterns 
+                    INSERT INTO hatch_patterns
                     (pattern_name, pattern_type, pattern_definition, description, usage_context)
                     VALUES (%s, %s, %s, %s, %s)
                     RETURNING hatch_id
@@ -6737,7 +6745,9 @@ def update_hatch(hatch_id):
     """Update an existing hatch pattern"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -6799,11 +6809,13 @@ def create_linetype():
     """Create a new linetype"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO linetypes 
+                    INSERT INTO linetypes
                     (linetype_name, pattern_definition, description, usage_context)
                     VALUES (%s, %s, %s, %s)
                     RETURNING linetype_id
@@ -6826,7 +6838,9 @@ def update_linetype(linetype_id):
     """Update an existing linetype"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -6887,11 +6901,13 @@ def create_text_style():
     """Create a new text style"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO text_styles 
+                    INSERT INTO text_styles
                     (style_name, font_name, height, width_factor, oblique_angle,
                      description, usage_context, discipline)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -6919,7 +6935,9 @@ def update_text_style(style_id):
     """Update an existing text style"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -6985,11 +7003,13 @@ def create_dimension_style():
     """Create a new dimension style"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO dimension_styles 
+                    INSERT INTO dimension_styles
                     (style_name, text_height, arrow_size, extension_line_offset,
                      dimension_line_color, text_color, description)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -7016,7 +7036,9 @@ def update_dimension_style(dimension_style_id):
     """Update an existing dimension style"""
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -7580,12 +7602,14 @@ def update_block_mapping(mapping_id):
     """Update an existing block mapping"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE block_name_mappings
                     SET canonical_name = %s, dxf_alias = %s, description = %s,
-                        import_direction = %s, export_direction = %s, 
+                        import_direction = %s, export_direction = %s,
                         client_id = %s, confidence_score = %s
                     WHERE mapping_id = %s
                 """, (
@@ -7670,12 +7694,14 @@ def update_detail_mapping(mapping_id):
     """Update an existing detail mapping"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE detail_name_mappings
                     SET canonical_name = %s, dxf_alias = %s, description = %s,
-                        import_direction = %s, export_direction = %s, 
+                        import_direction = %s, export_direction = %s,
                         client_id = %s, confidence_score = %s
                     WHERE mapping_id = %s
                 """, (
@@ -7760,12 +7786,14 @@ def update_hatch_mapping(mapping_id):
     """Update an existing hatch pattern mapping"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE hatch_pattern_name_mappings
                     SET canonical_name = %s, dxf_alias = %s, description = %s,
-                        import_direction = %s, export_direction = %s, 
+                        import_direction = %s, export_direction = %s,
                         client_id = %s, confidence_score = %s
                     WHERE mapping_id = %s
                 """, (
@@ -7850,12 +7878,14 @@ def update_material_mapping(mapping_id):
     """Update an existing material name mapping"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE material_name_mappings
                     SET canonical_name = %s, dxf_alias = %s, description = %s,
-                        import_direction = %s, export_direction = %s, 
+                        import_direction = %s, export_direction = %s,
                         client_id = %s, confidence_score = %s
                     WHERE mapping_id = %s
                 """, (
@@ -7940,12 +7970,14 @@ def update_note_mapping(mapping_id):
     """Update an existing note name mapping"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request body'}), 400
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE note_name_mappings
                     SET canonical_name = %s, dxf_alias = %s, description = %s,
-                        import_direction = %s, export_direction = %s, 
+                        import_direction = %s, export_direction = %s,
                         client_id = %s, confidence_score = %s
                     WHERE mapping_id = %s
                 """, (
