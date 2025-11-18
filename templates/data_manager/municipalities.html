@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block title %}Municipalities Manager - Data Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-landmark"></i> Municipalities Manager</h1>
+            <p class="subtitle">Manage jurisdictions and agencies - Truth Table for all regulatory references</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-landmark"></i> Jurisdictions & Agencies</h2>
+            <div class="button-group">
+                <button onclick="addNewMunicipality()" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New Municipality
+                </button>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search municipalities..." onkeyup="filterTable()">
+            </div>
+
+            <div id="loadingMessage" class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i> Loading municipalities...
+            </div>
+
+            <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+            <div id="tableContainer" style="display: none; overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Municipality Name</th>
+                            <th>Short Name</th>
+                            <th>Type</th>
+                            <th>County</th>
+                            <th>Contact</th>
+                            <th>Email</th>
+                            <th style="width: 80px;">Active</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="municipalitiesTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="municipalityModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Municipality</h2>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="municipalityForm" onsubmit="saveMunicipality(event)">
+            <input type="hidden" id="municipalityId">
+
+            <div class="form-group">
+                <label for="municipalityName">Municipality Name <span style="color: #ff6b6b;">*</span></label>
+                <input type="text" id="municipalityName" required placeholder="e.g., City of San Jose">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="shortName">Short Name</label>
+                    <input type="text" id="shortName" placeholder="e.g., SJ">
+                </div>
+
+                <div class="form-group">
+                    <label for="municipalityType">Type</label>
+                    <select id="municipalityType" class="form-control">
+                        <option value="">Select type...</option>
+                        <option value="City">City</option>
+                        <option value="County">County</option>
+                        <option value="State Agency">State Agency</option>
+                        <option value="Federal Agency">Federal Agency</option>
+                        <option value="Special District">Special District</option>
+                        <option value="Water District">Water District</option>
+                        <option value="Sanitation District">Sanitation District</option>
+                        <option value="Transportation Agency">Transportation Agency</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="county">County</label>
+                    <input type="text" id="county" placeholder="e.g., Santa Clara">
+                </div>
+
+                <div class="form-group">
+                    <label for="state">State</label>
+                    <input type="text" id="state" placeholder="e.g., CA" maxlength="2">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="contactName">Contact Name</label>
+                    <input type="text" id="contactName" placeholder="e.g., John Doe">
+                </div>
+
+                <div class="form-group">
+                    <label for="contactPhone">Phone</label>
+                    <input type="tel" id="contactPhone" placeholder="e.g., (408) 555-1234">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="contactEmail">Email</label>
+                <input type="email" id="contactEmail" placeholder="e.g., engineering@example.gov">
+            </div>
+
+            <div class="form-group">
+                <label for="address">Address</label>
+                <input type="text" id="address" placeholder="Street address">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="city">City</label>
+                    <input type="text" id="city" placeholder="e.g., San Jose">
+                </div>
+
+                <div class="form-group">
+                    <label for="cityState">State</label>
+                    <input type="text" id="cityState" placeholder="e.g., CA" maxlength="2">
+                </div>
+
+                <div class="form-group">
+                    <label for="zipCode">ZIP Code</label>
+                    <input type="text" id="zipCode" placeholder="95110">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="website">Website</label>
+                <input type="url" id="website" placeholder="https://example.gov">
+            </div>
+
+            <div class="form-group">
+                <label for="jurisdictionCode">Jurisdiction Code</label>
+                <input type="text" id="jurisdictionCode" placeholder="e.g., SJ-CITY">
+                <small class="form-text">Unique code for CAD standards and filing systems</small>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" rows="3" placeholder="Additional notes about this municipality"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="tags">Tags (comma-separated)</label>
+                <input type="text" id="tags" placeholder="e.g., regulatory, permits, inspections">
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="isActive" checked>
+                    <span>Active Municipality</span>
+                </label>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Municipality
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let allMunicipalities = [];
+
+// Load municipalities on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadMunicipalities();
+});
+
+async function loadMunicipalities() {
+    try {
+        document.getElementById('loadingMessage').style.display = 'block';
+        document.getElementById('errorMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+
+        const response = await fetch('/api/municipalities');
+        if (!response.ok) throw new Error('Failed to load municipalities');
+
+        const data = await response.json();
+        allMunicipalities = data.municipalities;
+        renderTable(allMunicipalities);
+
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading municipalities:', error);
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('errorMessage').textContent = 'Error loading municipalities: ' + error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+    }
+}
+
+function renderTable(municipalities) {
+    const tbody = document.getElementById('municipalitiesTableBody');
+    tbody.innerHTML = '';
+
+    if (municipalities.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No municipalities found</td></tr>';
+        return;
+    }
+
+    municipalities.forEach(municipality => {
+        const row = document.createElement('tr');
+        const isActive = municipality.is_active !== false;
+
+        row.innerHTML = `
+            <td><strong>${municipality.municipality_name}</strong></td>
+            <td>${municipality.short_name || ''}</td>
+            <td>${municipality.municipality_type || ''}</td>
+            <td>${municipality.county || ''}</td>
+            <td>${municipality.contact_name || ''}</td>
+            <td>${municipality.contact_email || ''}</td>
+            <td>
+                <span class="badge ${isActive ? 'badge-success' : 'badge-danger'}">
+                    ${isActive ? 'Active' : 'Inactive'}
+                </span>
+            </td>
+            <td>
+                <button onclick="editMunicipality(${municipality.municipality_id})" class="btn-icon" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteMunicipality(${municipality.municipality_id})" class="btn-icon btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function filterTable() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = allMunicipalities.filter(muni =>
+        muni.municipality_name.toLowerCase().includes(searchTerm) ||
+        (muni.short_name && muni.short_name.toLowerCase().includes(searchTerm)) ||
+        (muni.municipality_type && muni.municipality_type.toLowerCase().includes(searchTerm)) ||
+        (muni.county && muni.county.toLowerCase().includes(searchTerm)) ||
+        (muni.contact_name && muni.contact_name.toLowerCase().includes(searchTerm))
+    );
+    renderTable(filtered);
+}
+
+function addNewMunicipality() {
+    document.getElementById('modalTitle').textContent = 'Add New Municipality';
+    document.getElementById('municipalityForm').reset();
+    document.getElementById('municipalityId').value = '';
+    document.getElementById('isActive').checked = true;
+    document.getElementById('municipalityModal').style.display = 'block';
+}
+
+async function editMunicipality(municipalityId) {
+    const muni = allMunicipalities.find(m => m.municipality_id === municipalityId);
+    if (!muni) return;
+
+    document.getElementById('modalTitle').textContent = 'Edit Municipality';
+    document.getElementById('municipalityId').value = muni.municipality_id;
+    document.getElementById('municipalityName').value = muni.municipality_name;
+    document.getElementById('shortName').value = muni.short_name || '';
+    document.getElementById('municipalityType').value = muni.municipality_type || '';
+    document.getElementById('county').value = muni.county || '';
+    document.getElementById('state').value = muni.state || '';
+    document.getElementById('contactName').value = muni.contact_name || '';
+    document.getElementById('contactEmail').value = muni.contact_email || '';
+    document.getElementById('contactPhone').value = muni.contact_phone || '';
+    document.getElementById('address').value = muni.address || '';
+    document.getElementById('city').value = muni.city || '';
+    document.getElementById('cityState').value = muni.city_state || '';
+    document.getElementById('zipCode').value = muni.zip_code || '';
+    document.getElementById('website').value = muni.website || '';
+    document.getElementById('jurisdictionCode').value = muni.jurisdiction_code || '';
+    document.getElementById('notes').value = muni.notes || '';
+    document.getElementById('tags').value = muni.tags || '';
+    document.getElementById('isActive').checked = muni.is_active !== false;
+
+    document.getElementById('municipalityModal').style.display = 'block';
+}
+
+async function saveMunicipality(event) {
+    event.preventDefault();
+
+    const municipalityId = document.getElementById('municipalityId').value;
+    const data = {
+        municipality_name: document.getElementById('municipalityName').value,
+        short_name: document.getElementById('shortName').value || null,
+        municipality_type: document.getElementById('municipalityType').value || null,
+        county: document.getElementById('county').value || null,
+        state: document.getElementById('state').value.toUpperCase() || null,
+        contact_name: document.getElementById('contactName').value || null,
+        contact_email: document.getElementById('contactEmail').value || null,
+        contact_phone: document.getElementById('contactPhone').value || null,
+        address: document.getElementById('address').value || null,
+        city: document.getElementById('city').value || null,
+        city_state: document.getElementById('cityState').value.toUpperCase() || null,
+        zip_code: document.getElementById('zipCode').value || null,
+        website: document.getElementById('website').value || null,
+        jurisdiction_code: document.getElementById('jurisdictionCode').value || null,
+        notes: document.getElementById('notes').value || null,
+        tags: document.getElementById('tags').value || null,
+        is_active: document.getElementById('isActive').checked
+    };
+
+    try {
+        const url = municipalityId ? `/api/municipalities/${municipalityId}` : '/api/municipalities';
+        const method = municipalityId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to save municipality');
+        }
+
+        closeModal();
+        loadMunicipalities();
+    } catch (error) {
+        console.error('Error saving municipality:', error);
+        alert('Error saving municipality: ' + error.message);
+    }
+}
+
+async function deleteMunicipality(municipalityId) {
+    const muni = allMunicipalities.find(m => m.municipality_id === municipalityId);
+    if (!confirm(`Are you sure you want to delete "${muni.municipality_name}"?\n\nNote: This may affect existing projects or utilities that reference this municipality.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/municipalities/${municipalityId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete municipality');
+        }
+
+        loadMunicipalities();
+    } catch (error) {
+        console.error('Error deleting municipality:', error);
+        alert('Error deleting municipality: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('municipalityModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('municipalityModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+
+<style>
+.search-box {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.search-box i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+}
+
+.search-box input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    background: rgba(255,255,255,0.08);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.checkbox-label:hover {
+    background: rgba(0,255,255,0.1);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: rgba(0,200,100,0.2);
+    color: #5cb85c;
+}
+
+.badge-danger {
+    background: rgba(200,0,0,0.2);
+    color: #d9534f;
+}
+
+.modal-content {
+    max-width: 700px;
+}
+
+.form-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+</style>
+{% endblock %}

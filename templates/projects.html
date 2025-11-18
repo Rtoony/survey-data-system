@@ -54,8 +54,13 @@
                 <input type="text" id="project_name" name="project_name" required placeholder="e.g., Main Street Renovation">
             </div>
             <div class="form-group">
-                <label for="client_name">Client Name</label>
-                <input type="text" id="client_name" name="client_name" placeholder="e.g., ACME Corporation">
+                <label for="client_id">Client <span style="color: #ff6b6b;">*</span></label>
+                <select id="client_id" name="client_id" required class="form-control">
+                    <option value="">Loading clients...</option>
+                </select>
+                <small class="form-text" style="color: var(--text-secondary); margin-top: 5px; display: block;">
+                    Client not in list? <a href="/data-manager/clients" target="_blank" style="color: var(--accent-cyan);">Add new client</a>
+                </small>
             </div>
             <div class="form-group">
                 <label for="coordinate_system">Coordinate System <span style="color: #ff6b6b;">*</span></label>
@@ -89,8 +94,13 @@
                 <input type="text" id="edit_project_name" name="project_name" required placeholder="e.g., Main Street Renovation">
             </div>
             <div class="form-group">
-                <label for="edit_client_name">Client Name</label>
-                <input type="text" id="edit_client_name" name="client_name" placeholder="e.g., ACME Corporation">
+                <label for="edit_client_id">Client</label>
+                <select id="edit_client_id" name="client_id" class="form-control">
+                    <option value="">Loading clients...</option>
+                </select>
+                <small class="form-text" style="color: var(--text-secondary); margin-top: 5px; display: block;">
+                    Client not in list? <a href="/data-manager/clients" target="_blank" style="color: var(--accent-cyan);">Add new client</a>
+                </small>
             </div>
             <div class="form-group">
                 <label for="edit_project_number">Project Number</label>
@@ -256,6 +266,21 @@ table input[type="checkbox"] {
 let allProjects = [];
 let selectedProjects = new Set();
 let coordinateSystems = [];
+let clients = [];
+
+// Load clients from API
+async function loadClients() {
+    try {
+        const response = await fetch('/api/clients');
+        const data = await response.json();
+        if (data.clients) {
+            clients = data.clients;
+        }
+    } catch (error) {
+        console.error('Error loading clients:', error);
+        clients = [];
+    }
+}
 
 // Load coordinate systems from API
 async function loadCoordinateSystems() {
@@ -275,6 +300,24 @@ async function loadCoordinateSystems() {
             units: 'US survey foot'
         }];
     }
+}
+
+// Populate client dropdown
+function populateClientDropdown(selectId, selectedValue = null) {
+    const select = document.getElementById(selectId);
+    select.innerHTML = '<option value="">Select Client...</option>';
+
+    clients.forEach(client => {
+        const option = document.createElement('option');
+        option.value = client.client_id;
+        option.textContent = client.client_name;
+
+        if (selectedValue && client.client_id === selectedValue) {
+            option.selected = true;
+        }
+
+        select.appendChild(option);
+    });
 }
 
 // Populate coordinate system dropdown
@@ -488,12 +531,18 @@ async function bulkDelete() {
 }
 
 async function openCreateModal() {
+    // Load clients if not already loaded
+    if (clients.length === 0) {
+        await loadClients();
+    }
+
     // Load coordinate systems if not already loaded
     if (coordinateSystems.length === 0) {
         await loadCoordinateSystems();
     }
 
-    // Populate dropdown with default selection (EPSG:2226)
+    // Populate dropdowns
+    populateClientDropdown('client_id');
     populateCoordinateSystemDropdown('coordinate_system');
 
     document.getElementById('createModal').style.display = 'block';
@@ -511,7 +560,7 @@ async function createProject(event) {
     const formData = new FormData(event.target);
     const data = {
         project_name: formData.get('project_name'),
-        client_name: formData.get('client_name') || null,
+        client_id: formData.get('client_id') || null,
         default_coordinate_system_id: formData.get('default_coordinate_system_id')
     };
 
@@ -537,18 +586,23 @@ async function createProject(event) {
 }
 
 async function openEditModal(project) {
+    // Load clients if not already loaded
+    if (clients.length === 0) {
+        await loadClients();
+    }
+
     // Load coordinate systems if not already loaded
     if (coordinateSystems.length === 0) {
         await loadCoordinateSystems();
     }
 
-    // Populate dropdown with project's current coordinate system selected
+    // Populate dropdowns with project's current values selected
+    populateClientDropdown('edit_client_id', project.client_id);
     populateCoordinateSystemDropdown('edit_coordinate_system', project.default_coordinate_system_id);
 
     document.getElementById('editModal').style.display = 'block';
     document.getElementById('edit_project_id').value = project.project_id;
     document.getElementById('edit_project_name').value = project.project_name || '';
-    document.getElementById('edit_client_name').value = project.client_name || '';
     document.getElementById('edit_project_number').value = project.project_number || '';
     document.getElementById('edit_description').value = project.description || '';
     document.getElementById('edit_project_name').focus();
@@ -566,7 +620,7 @@ async function updateProject(event) {
     const projectId = formData.get('project_id');
     const data = {
         project_name: formData.get('project_name'),
-        client_name: formData.get('client_name') || null,
+        client_id: formData.get('client_id') || null,
         project_number: formData.get('project_number') || null,
         description: formData.get('description') || null,
         default_coordinate_system_id: formData.get('default_coordinate_system_id')
