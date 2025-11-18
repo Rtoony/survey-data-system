@@ -24589,5 +24589,29 @@ def execute_gis_snapshot(project_id, snapshot_id):
             'traceback': traceback.format_exc()
         }), 500
 
+# ============================================================================
+# AI & GRAPHRAG PAGE ROUTES
+# ============================================================================
+
+@app.route('/ai/query-playground')
+def ai_query_playground():
+    """AI Query Playground - Natural language query interface for GraphRAG"""
+    return render_template('ai_query_playground.html')
+
+@app.route('/ai/graph-visualization')
+def graph_visualization():
+    """Knowledge Graph Visualization - Interactive Cytoscape.js graph viewer"""
+    return render_template('graph_visualization.html')
+
+@app.route('/ai/semantic-search')
+def semantic_search():
+    """Semantic Search - Vector similarity search interface"""
+    return render_template('semantic_search.html')
+
+@app.route('/ai/quality-dashboard')
+def quality_dashboard():
+    """Quality Dashboard - Quality analytics and monitoring"""
+    return render_template('quality_dashboard.html')
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

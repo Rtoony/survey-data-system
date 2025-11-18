@@ -1,0 +1,467 @@
+{% extends "base.html" %}
+
+{% block title %}Quality Dashboard{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    .quality-dashboard {
+        max-width: 1600px;
+        margin: 2rem auto;
+        padding: 0 2rem;
+    }
+
+    .dashboard-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .dashboard-header h2 {
+        font-size: 2rem;
+        color: var(--neon-blue);
+        margin-bottom: 0.5rem;
+    }
+
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: var(--neon-green);
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+
+    .stat-change {
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+    }
+
+    .stat-change.positive {
+        color: #4caf50;
+    }
+
+    .stat-change.negative {
+        color: #f44336;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    @media (max-width: 1024px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .chart-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+
+    .chart-title {
+        font-size: 1.2rem;
+        color: var(--neon-green);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+
+    .entity-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .entity-item {
+        background: var(--bg-dark);
+        border-left: 3px solid var(--border-color);
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        border-radius: 4px;
+        transition: all 0.3s;
+    }
+
+    .entity-item:hover {
+        border-left-color: var(--neon-blue);
+    }
+
+    .entity-item.critical {
+        border-left-color: #f44336;
+    }
+
+    .entity-item.warning {
+        border-left-color: #ff9800;
+    }
+
+    .entity-item.good {
+        border-left-color: #4caf50;
+    }
+
+    .entity-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .entity-item-name {
+        font-weight: bold;
+        color: var(--text-primary);
+    }
+
+    .entity-item-score {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+
+    .entity-item-meta {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .issues-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .issue-tag {
+        padding: 0.25rem 0.5rem;
+        background: var(--border-color);
+        border-radius: 4px;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+
+    .project-selector {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .selector-row {
+        display: flex;
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .selector-group {
+        flex: 1;
+    }
+
+    .selector-label {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .selector-input {
+        width: 100%;
+        padding: 0.75rem;
+        background: var(--bg-dark);
+        border: 2px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+    }
+
+    .load-btn {
+        padding: 0.75rem 2rem;
+        background: var(--neon-blue);
+        color: var(--bg-primary);
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .load-btn:hover {
+        background: var(--neon-green);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quality-dashboard">
+    <div class="dashboard-header">
+        <h2><i class="fas fa-chart-line"></i> Quality Dashboard</h2>
+        <p>Monitor and improve data quality across your projects</p>
+    </div>
+
+    <div class="project-selector">
+        <div class="selector-row">
+            <div class="selector-group">
+                <label class="selector-label">Select Project</label>
+                <select id="projectSelect" class="selector-input">
+                    <option value="">All Projects</option>
+                </select>
+            </div>
+            <button id="loadDashboardBtn" class="load-btn">
+                <i class="fas fa-sync"></i> Load Dashboard
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-overview">
+        <div class="stat-card">
+            <div class="stat-value" id="avgQualityScore">--</div>
+            <div class="stat-label">Average Quality</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="totalEntities">--</div>
+            <div class="stat-label">Total Entities</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="entitiesWithEmbeddings">--</div>
+            <div class="stat-label">With Embeddings</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="entitiesWithRelationships">--</div>
+            <div class="stat-label">With Relationships</div>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="chart-card">
+            <div class="chart-title">
+                <i class="fas fa-pie-chart"></i>
+                Quality Distribution
+            </div>
+            <div class="chart-container">
+                <canvas id="distributionChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">
+                <i class="fas fa-chart-area"></i>
+                Quality Trends (Last 30 Days)
+            </div>
+            <div class="chart-container">
+                <canvas id="trendsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-card">
+        <div class="chart-title">
+            <i class="fas fa-exclamation-triangle"></i>
+            Low Quality Entities (Score < 0.5)
+        </div>
+        <div id="lowQualityEntities" class="entity-list"></div>
+    </div>
+</div>
+
+<script>
+    let distributionChart = null;
+    let trendsChart = null;
+
+    async function loadDashboard() {
+        const projectId = document.getElementById('projectSelect').value;
+        const btn = document.getElementById('loadDashboardBtn');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+
+        try {
+            // Load project summary
+            if (projectId) {
+                const summaryResponse = await fetch(`/api/ai/quality/project/${projectId}/summary`);
+                const summary = await summaryResponse.json();
+                updateStats(summary);
+                updateDistributionChart(summary.quality_distribution);
+            }
+
+            // Load trends
+            const trendsResponse = await fetch(`/api/ai/quality/trends?days=30${projectId ? '&project_id=' + projectId : ''}`);
+            const trends = await trendsResponse.json();
+            updateTrendsChart(trends);
+
+            // Load low quality entities
+            const lowQualityResponse = await fetch(`/api/ai/quality/low-quality-entities?threshold=0.5&limit=50${projectId ? '&project_id=' + projectId : ''}`);
+            const lowQuality = await lowQualityResponse.json();
+            updateLowQualityList(lowQuality);
+
+        } catch (error) {
+            alert('Error loading dashboard: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sync"></i> Load Dashboard';
+        }
+    }
+
+    function updateStats(summary) {
+        document.getElementById('avgQualityScore').textContent = (summary.avg_quality_score * 100).toFixed(0) + '%';
+        document.getElementById('totalEntities').textContent = summary.entity_count.toLocaleString();
+        document.getElementById('entitiesWithEmbeddings').textContent = summary.entities_with_embeddings.toLocaleString();
+        document.getElementById('entitiesWithRelationships').textContent = summary.entities_with_relationships.toLocaleString();
+    }
+
+    function updateDistributionChart(distribution) {
+        const ctx = document.getElementById('distributionChart').getContext('2d');
+
+        if (distributionChart) {
+            distributionChart.destroy();
+        }
+
+        distributionChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Excellent (≥90%)', 'Good (70-90%)', 'Fair (50-70%)', 'Poor (<50%)'],
+                datasets: [{
+                    data: [
+                        distribution.excellent || 0,
+                        distribution.good || 0,
+                        distribution.fair || 0,
+                        distribution.poor || 0
+                    ],
+                    backgroundColor: ['#4caf50', '#00bcd4', '#ff9800', '#f44336']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#fff' }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateTrendsChart(trends) {
+        const ctx = document.getElementById('trendsChart').getContext('2d');
+
+        if (trendsChart) {
+            trendsChart.destroy();
+        }
+
+        // Group by date
+        const dateMap = {};
+        trends.forEach(t => {
+            const date = t.date;
+            if (!dateMap[date]) {
+                dateMap[date] = { avg_score: 0, count: 0 };
+            }
+            dateMap[date].avg_score += t.avg_score;
+            dateMap[date].count++;
+        });
+
+        const dates = Object.keys(dateMap).sort().slice(-30);
+        const scores = dates.map(d => (dateMap[d].avg_score / dateMap[d].count * 100).toFixed(1));
+
+        trendsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'Average Quality Score',
+                    data: scores,
+                    borderColor: '#00bcd4',
+                    backgroundColor: 'rgba(0, 188, 212, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#fff' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#999' },
+                        grid: { color: '#333' }
+                    },
+                    y: {
+                        ticks: { color: '#999' },
+                        grid: { color: '#333' },
+                        min: 0,
+                        max: 100
+                    }
+                }
+            }
+        });
+    }
+
+    function updateLowQualityList(entities) {
+        const container = document.getElementById('lowQualityEntities');
+
+        if (!entities || entities.length === 0) {
+            container.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-secondary);">No low quality entities found</p>';
+            return;
+        }
+
+        container.innerHTML = entities.map(entity => {
+            const score = entity.quality_score || 0;
+            const scoreClass = score < 0.3 ? 'critical' : score < 0.5 ? 'warning' : 'good';
+            const scoreColor = score < 0.3 ? '#f44336' : score < 0.5 ? '#ff9800' : '#4caf50';
+
+            return `
+                <div class="entity-item ${scoreClass}">
+                    <div class="entity-item-header">
+                        <div class="entity-item-name">${entity.canonical_name}</div>
+                        <div class="entity-item-score" style="background: ${scoreColor}; color: #fff;">
+                            ${(score * 100).toFixed(0)}%
+                        </div>
+                    </div>
+                    <div class="entity-item-meta">
+                        <i class="fas fa-tag"></i> ${entity.entity_type}
+                    </div>
+                    ${entity.issues && entity.issues.length > 0 ? `
+                        <div class="issues-list">
+                            ${entity.issues.map(issue => `<span class="issue-tag">${issue.replace(/_/g, ' ')}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('loadDashboardBtn').addEventListener('click', loadDashboard);
+        // Load initial data
+        loadDashboard();
+    });
+</script>
+{% endblock %}

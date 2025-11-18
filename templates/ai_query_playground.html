@@ -1,0 +1,717 @@
+{% extends "base.html" %}
+
+{% block title %}AI Query Playground{% endblock %}
+
+{% block extra_head %}
+<style>
+    .query-playground {
+        max-width: 1400px;
+        margin: 2rem auto;
+        padding: 0 2rem;
+    }
+
+    .query-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .query-header h2 {
+        font-size: 2rem;
+        color: var(--neon-blue);
+        margin-bottom: 0.5rem;
+    }
+
+    .query-header p {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+    }
+
+    .query-interface {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    @media (max-width: 1024px) {
+        .query-interface {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .query-input-section, .query-results-section {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 1.3rem;
+        color: var(--neon-green);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .query-input-area {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+
+    .query-input {
+        width: 100%;
+        min-height: 120px;
+        padding: 1rem;
+        background: var(--bg-dark);
+        border: 2px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 1rem;
+        font-family: inherit;
+        resize: vertical;
+        transition: border-color 0.3s;
+    }
+
+    .query-input:focus {
+        outline: none;
+        border-color: var(--neon-blue);
+    }
+
+    .query-suggestions {
+        margin-top: 0.5rem;
+        padding: 0.75rem;
+        background: var(--bg-dark);
+        border-radius: 6px;
+        display: none;
+    }
+
+    .query-suggestions.active {
+        display: block;
+    }
+
+    .suggestion-item {
+        padding: 0.5rem;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background 0.2s;
+        font-size: 0.9rem;
+    }
+
+    .suggestion-item:hover {
+        background: var(--border-color);
+        color: var(--neon-blue);
+    }
+
+    .query-examples {
+        margin-bottom: 1rem;
+    }
+
+    .example-queries {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .example-query-btn {
+        padding: 0.5rem 1rem;
+        background: var(--bg-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+
+    .example-query-btn:hover {
+        background: var(--neon-blue);
+        color: var(--bg-primary);
+        border-color: var(--neon-blue);
+    }
+
+    .query-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .option-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .option-label {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+
+    .option-input {
+        padding: 0.5rem;
+        background: var(--bg-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        color: var(--text-primary);
+    }
+
+    .checkbox-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 0.75rem 2rem;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-primary {
+        background: var(--neon-blue);
+        color: var(--bg-primary);
+    }
+
+    .btn-primary:hover {
+        background: var(--neon-green);
+        box-shadow: 0 0 20px var(--neon-green);
+    }
+
+    .btn-secondary {
+        background: var(--bg-dark);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+        background: var(--border-color);
+    }
+
+    .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--bg-dark);
+        border-top-color: var(--neon-blue);
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .results-container {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .query-metadata {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--bg-dark);
+        border-radius: 6px;
+        margin-bottom: 1rem;
+    }
+
+    .metadata-item {
+        text-align: center;
+    }
+
+    .metadata-label {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+    }
+
+    .metadata-value {
+        font-size: 1.2rem;
+        color: var(--neon-green);
+        font-weight: bold;
+    }
+
+    .entity-card {
+        background: var(--bg-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        transition: all 0.3s;
+    }
+
+    .entity-card:hover {
+        border-color: var(--neon-blue);
+        box-shadow: 0 0 10px rgba(0, 188, 212, 0.3);
+    }
+
+    .entity-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 0.5rem;
+    }
+
+    .entity-name {
+        font-size: 1.1rem;
+        color: var(--neon-blue);
+        font-weight: bold;
+    }
+
+    .entity-type {
+        padding: 0.25rem 0.75rem;
+        background: var(--border-color);
+        border-radius: 12px;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+
+    .entity-description {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .entity-meta {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .quality-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .quality-bar {
+        width: 60px;
+        height: 8px;
+        background: var(--bg-dark);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .quality-fill {
+        height: 100%;
+        background: linear-gradient(to right, #ff4444, #ffaa00, #00ff00);
+        transition: width 0.3s;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    .parsed-query {
+        background: var(--bg-dark);
+        border-left: 3px solid var(--neon-green);
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+
+    .parsed-item {
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .parsed-label {
+        color: var(--neon-green);
+        font-weight: bold;
+        margin-right: 0.5rem;
+    }
+
+    .relationships-section {
+        margin-top: 1.5rem;
+    }
+
+    .relationship-card {
+        background: var(--bg-dark);
+        border-left: 3px solid var(--neon-green);
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .relationship-type {
+        color: var(--neon-green);
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="query-playground">
+    <div class="query-header">
+        <h2><i class="fas fa-brain"></i> AI Query Playground</h2>
+        <p>Ask questions about your CAD/GIS data in natural language</p>
+    </div>
+
+    <div class="query-interface">
+        <!-- Left Panel: Query Input -->
+        <div class="query-input-section">
+            <div class="section-title">
+                <i class="fas fa-keyboard"></i>
+                Query Input
+            </div>
+
+            <div class="query-examples">
+                <label class="option-label">Example Queries:</label>
+                <div class="example-queries">
+                    <button class="example-query-btn" data-query="Find all pipes connected to Basin MH-101">
+                        Connected entities
+                    </button>
+                    <button class="example-query-btn" data-query="Show flow path from Basin A to Outlet B">
+                        Flow paths
+                    </button>
+                    <button class="example-query-btn" data-query="Find manholes within 50 feet of Station 10+00">
+                        Spatial search
+                    </button>
+                    <button class="example-query-btn" data-query="Show similar retention pond designs">
+                        Similar designs
+                    </button>
+                    <button class="example-query-btn" data-query="Find entities with quality score less than 0.5">
+                        Quality check
+                    </button>
+                </div>
+            </div>
+
+            <div class="query-input-area">
+                <textarea
+                    id="queryInput"
+                    class="query-input"
+                    placeholder="Type your query here... (e.g., 'Find all pipes connected to Basin MH-101')"
+                ></textarea>
+                <div id="querySuggestions" class="query-suggestions"></div>
+            </div>
+
+            <div class="query-options">
+                <div class="option-group">
+                    <label class="option-label">Max Results</label>
+                    <input type="number" id="maxResults" class="option-input" value="100" min="1" max="1000">
+                </div>
+                <div class="option-group checkbox-option">
+                    <input type="checkbox" id="useCache" checked>
+                    <label class="option-label" for="useCache">Use Cache</label>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="executeQueryBtn" class="btn btn-primary">
+                    <i class="fas fa-search"></i>
+                    Execute Query
+                </button>
+                <button id="parseQueryBtn" class="btn btn-secondary">
+                    <i class="fas fa-code"></i>
+                    Parse Only
+                </button>
+                <button id="clearBtn" class="btn btn-secondary">
+                    <i class="fas fa-eraser"></i>
+                    Clear
+                </button>
+            </div>
+
+            <div id="parsedQuerySection" style="margin-top: 1.5rem; display: none;">
+                <div class="section-title">
+                    <i class="fas fa-code-branch"></i>
+                    Parsed Query
+                </div>
+                <div id="parsedQueryDisplay" class="parsed-query"></div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Results -->
+        <div class="query-results-section">
+            <div class="section-title">
+                <i class="fas fa-list"></i>
+                Query Results
+                <span id="resultCount" style="margin-left: auto; font-size: 0.9rem;"></span>
+            </div>
+
+            <div id="queryMetadata" style="display: none;"></div>
+
+            <div id="resultsContainer" class="results-container">
+                <div class="empty-state">
+                    <i class="fas fa-search"></i>
+                    <p>Execute a query to see results here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const queryInput = document.getElementById('queryInput');
+    const querySuggestions = document.getElementById('querySuggestions');
+    const executeQueryBtn = document.getElementById('executeQueryBtn');
+    const parseQueryBtn = document.getElementById('parseQueryBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const queryMetadata = document.getElementById('queryMetadata');
+    const parsedQuerySection = document.getElementById('parsedQuerySection');
+    const parsedQueryDisplay = document.getElementById('parsedQueryDisplay');
+    const resultCount = document.getElementById('resultCount');
+
+    // Example query buttons
+    document.querySelectorAll('.example-query-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            queryInput.value = btn.dataset.query;
+            queryInput.focus();
+        });
+    });
+
+    // Query suggestions (debounced)
+    let suggestionTimeout;
+    queryInput.addEventListener('input', () => {
+        clearTimeout(suggestionTimeout);
+        const query = queryInput.value.trim();
+
+        if (query.length > 3) {
+            suggestionTimeout = setTimeout(() => fetchSuggestions(query), 300);
+        } else {
+            querySuggestions.classList.remove('active');
+        }
+    });
+
+    async function fetchSuggestions(query) {
+        try {
+            const response = await fetch(`/api/graphrag/query/suggestions?q=${encodeURIComponent(query)}&limit=5`);
+            const data = await response.json();
+
+            if (data.suggestions && data.suggestions.length > 0) {
+                querySuggestions.innerHTML = data.suggestions
+                    .map(s => `<div class="suggestion-item" data-suggestion="${s}">${s}</div>`)
+                    .join('');
+                querySuggestions.classList.add('active');
+
+                // Add click handlers
+                querySuggestions.querySelectorAll('.suggestion-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        queryInput.value = item.dataset.suggestion;
+                        querySuggestions.classList.remove('active');
+                    });
+                });
+            } else {
+                querySuggestions.classList.remove('active');
+            }
+        } catch (error) {
+            console.error('Error fetching suggestions:', error);
+        }
+    }
+
+    // Parse query
+    parseQueryBtn.addEventListener('click', async () => {
+        const query = queryInput.value.trim();
+        if (!query) {
+            alert('Please enter a query');
+            return;
+        }
+
+        parseQueryBtn.disabled = true;
+        parseQueryBtn.innerHTML = '<span class="loading-spinner"></span> Parsing...';
+
+        try {
+            const response = await fetch('/api/graphrag/query/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query })
+            });
+
+            const data = await response.json();
+            displayParsedQuery(data);
+        } catch (error) {
+            alert('Error parsing query: ' + error.message);
+        } finally {
+            parseQueryBtn.disabled = false;
+            parseQueryBtn.innerHTML = '<i class="fas fa-code"></i> Parse Only';
+        }
+    });
+
+    // Execute query
+    executeQueryBtn.addEventListener('click', async () => {
+        const query = queryInput.value.trim();
+        if (!query) {
+            alert('Please enter a query');
+            return;
+        }
+
+        const maxResults = parseInt(document.getElementById('maxResults').value) || 100;
+        const useCache = document.getElementById('useCache').checked;
+
+        executeQueryBtn.disabled = true;
+        executeQueryBtn.innerHTML = '<span class="loading-spinner"></span> Executing...';
+
+        try {
+            const response = await fetch('/api/graphrag/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query, max_results: maxResults, use_cache: useCache })
+            });
+
+            const data = await response.json();
+            displayResults(data);
+        } catch (error) {
+            alert('Error executing query: ' + error.message);
+        } finally {
+            executeQueryBtn.disabled = false;
+            executeQueryBtn.innerHTML = '<i class="fas fa-search"></i> Execute Query';
+        }
+    });
+
+    // Clear
+    clearBtn.addEventListener('click', () => {
+        queryInput.value = '';
+        resultsContainer.innerHTML = '<div class="empty-state"><i class="fas fa-search"></i><p>Execute a query to see results here</p></div>';
+        queryMetadata.style.display = 'none';
+        parsedQuerySection.style.display = 'none';
+        resultCount.textContent = '';
+    });
+
+    function displayParsedQuery(data) {
+        parsedQuerySection.style.display = 'block';
+        parsedQueryDisplay.innerHTML = `
+            <div class="parsed-item">
+                <span class="parsed-label">Query Type:</span>
+                <span>${data.query_type}</span>
+            </div>
+            ${data.entity_references && data.entity_references.length > 0 ? `
+                <div class="parsed-item">
+                    <span class="parsed-label">Entity References:</span>
+                    <span>${data.entity_references.join(', ')}</span>
+                </div>
+            ` : ''}
+            ${data.entity_types && data.entity_types.length > 0 ? `
+                <div class="parsed-item">
+                    <span class="parsed-label">Entity Types:</span>
+                    <span>${data.entity_types.join(', ')}</span>
+                </div>
+            ` : ''}
+            ${Object.keys(data.parameters || {}).length > 0 ? `
+                <div class="parsed-item">
+                    <span class="parsed-label">Parameters:</span>
+                    <span>${JSON.stringify(data.parameters, null, 2)}</span>
+                </div>
+            ` : ''}
+            <div class="parsed-item">
+                <span class="parsed-label">Confidence:</span>
+                <span>${(data.confidence * 100).toFixed(0)}%</span>
+            </div>
+        `;
+    }
+
+    function displayResults(data) {
+        // Display metadata
+        if (data.metadata) {
+            queryMetadata.style.display = 'block';
+            queryMetadata.innerHTML = `
+                <div class="query-metadata">
+                    <div class="metadata-item">
+                        <div class="metadata-label">Query Type</div>
+                        <div class="metadata-value">${data.metadata.query_type}</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Entities Found</div>
+                        <div class="metadata-value">${data.entities?.length || 0}</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Relationships</div>
+                        <div class="metadata-value">${data.relationships?.length || 0}</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Execution Time</div>
+                        <div class="metadata-value">${data.metadata.execution_time_ms}ms</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Display entities
+        if (data.entities && data.entities.length > 0) {
+            resultCount.textContent = `${data.entities.length} results`;
+            resultsContainer.innerHTML = data.entities.map(entity => `
+                <div class="entity-card">
+                    <div class="entity-header">
+                        <div class="entity-name">${entity.canonical_name || entity.name || entity.entity_id}</div>
+                        <div class="entity-type">${entity.entity_type}</div>
+                    </div>
+                    ${entity.description ? `<div class="entity-description">${entity.description}</div>` : ''}
+                    <div class="entity-meta">
+                        ${entity.quality_score !== undefined ? `
+                            <div class="quality-badge">
+                                <span>Quality:</span>
+                                <div class="quality-bar">
+                                    <div class="quality-fill" style="width: ${entity.quality_score * 100}%"></div>
+                                </div>
+                                <span>${(entity.quality_score * 100).toFixed(0)}%</span>
+                            </div>
+                        ` : ''}
+                        ${entity.hop_distance !== undefined ? `<span><i class="fas fa-route"></i> ${entity.hop_distance} hops</span>` : ''}
+                        ${entity.similarity_score !== undefined ? `<span><i class="fas fa-percentage"></i> ${(entity.similarity_score * 100).toFixed(0)}% similar</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            // Display relationships
+            if (data.relationships && data.relationships.length > 0) {
+                resultsContainer.innerHTML += `
+                    <div class="relationships-section">
+                        <div class="section-title">
+                            <i class="fas fa-project-diagram"></i>
+                            Relationships (${data.relationships.length})
+                        </div>
+                        ${data.relationships.map(rel => `
+                            <div class="relationship-card">
+                                <span class="relationship-type">${rel.relationship_type}</span>
+                                <span> between </span>
+                                <span>${rel.subject_entity_id}</span>
+                                <span> → </span>
+                                <span>${rel.object_entity_id}</span>
+                                ${rel.confidence_score ? ` (${(rel.confidence_score * 100).toFixed(0)}% confidence)` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        } else {
+            resultCount.textContent = '';
+            resultsContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>No results found</p>
+                    <p style="font-size: 0.9rem;">${data.explanation || 'Try a different query'}</p>
+                </div>
+            `;
+        }
+    }
+</script>
+{% endblock %}
