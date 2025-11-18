@@ -37,6 +37,14 @@ from pyproj import Transformer
 # Load environment variables (works with both .env file and Replit secrets)
 load_dotenv()
 
+# Import auth blueprint
+from auth.routes import auth_bp
+
+# Import GraphRAG and AI API blueprints
+from api.graphrag_routes import graphrag_bp
+from api.ai_search_routes import ai_search_bp
+from api.quality_routes import quality_bp
+
 # Custom JSON provider for datetime, date, Decimal, and UUID objects (Flask 2.2+)
 class CustomJSONProvider(DefaultJSONProvider):
     def default(self, o):  # type: ignore[override]
@@ -57,6 +65,20 @@ CORS(app)
 app.config['CACHE_TYPE'] = 'SimpleCache'  # In-memory cache
 app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes default
 cache = Cache(app)
+
+# Register authentication blueprint
+app.register_blueprint(auth_bp)
+
+# Register GraphRAG and AI API blueprints
+app.register_blueprint(graphrag_bp)
+app.register_blueprint(ai_search_bp)
+app.register_blueprint(quality_bp)
+
+# Configure session settings for security
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
+app.config['SESSION_COOKIE_HTTPONLY'] = os.getenv('SESSION_COOKIE_HTTPONLY', 'true').lower() == 'true'
+app.config['SESSION_COOKIE_SAMESITE'] = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
+app.config['PERMANENT_SESSION_LIFETIME'] = int(os.getenv('SESSION_TIMEOUT_HOURS', '8')) * 3600  # Convert hours to seconds
 
 # Debug: Check if DB credentials are available
 print("=" * 50)
@@ -726,6 +748,7 @@ def create_project():
             return jsonify({'error': 'Invalid request body'}), 400
 
         project_name = data.get('project_name')
+        client_id = data.get('client_id')
         client_name = data.get('client_name')
         project_number = data.get('project_number')
         description = data.get('description')
@@ -744,17 +767,27 @@ def create_project():
 
         with get_db() as conn:
             with conn.cursor() as cur:
+                # If client_id is provided, fetch client_name from clients table
+                if client_id:
+                    cur.execute(
+                        "SELECT client_name FROM clients WHERE client_id = %s",
+                        (client_id,)
+                    )
+                    client_result = cur.fetchone()
+                    if client_result:
+                        client_name = client_result[0]
+                
                 cur.execute(
                     """
                     INSERT INTO projects (
-                        project_name, client_name, project_number, description,
+                        project_name, client_id, client_name, project_number, description,
                         default_coordinate_system_id, quality_score, tags, attributes
                     )
-                    VALUES (%s, %s, %s, %s, %s, 0.5, '{}', '{}')
-                    RETURNING project_id, project_name, client_name, project_number,
+                    VALUES (%s, %s, %s, %s, %s, %s, 0.5, '{}', '{}')
+                    RETURNING project_id, project_name, client_id, client_name, project_number,
                               default_coordinate_system_id, created_at
                     """,
-                    (project_name, client_name, project_number, description, default_coordinate_system_id)
+                    (project_name, client_id, client_name, project_number, description, default_coordinate_system_id)
                 )
                 result = cur.fetchone()
                 conn.commit()
@@ -762,10 +795,11 @@ def create_project():
                 return jsonify({
                     'project_id': str(result[0]),
                     'project_name': result[1],
-                    'client_name': result[2],
-                    'project_number': result[3],
-                    'default_coordinate_system_id': str(result[4]) if result[4] else None,
-                    'created_at': result[5].isoformat() if result[5] else None
+                    'client_id': result[2],
+                    'client_name': result[3],
+                    'project_number': result[4],
+                    'default_coordinate_system_id': str(result[5]) if result[5] else None,
+                    'created_at': result[6].isoformat() if result[6] else None
                 })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -6060,6 +6094,36 @@ def text_styles_manager():
 def dimension_styles_manager():
     """Render the Dimension Styles Manager page"""
     return render_template('data_manager/dimension-styles.html')
+
+@app.route('/data-manager/utility-systems')
+def utility_systems_manager():
+    """Render the Utility Systems Manager page"""
+    return render_template('data_manager/utility_systems.html')
+
+@app.route('/data-manager/coordinate-systems')
+def coordinate_systems_manager():
+    """Render the Coordinate Systems Manager page"""
+    return render_template('data_manager/coordinate_systems.html')
+
+@app.route('/data-manager/status-standards')
+def status_standards_manager():
+    """Render the Status Standards Manager page"""
+    return render_template('data_manager/status_standards.html')
+
+@app.route('/data-manager/survey-descriptions')
+def survey_descriptions_manager():
+    """Render the Survey Point Descriptions Manager page"""
+    return render_template('data_manager/survey_descriptions.html')
+
+@app.route('/data-manager/block-categories')
+def block_categories_manager():
+    """Render the Block Categories Manager page"""
+    return render_template('data_manager/block_categories.html')
+
+@app.route('/data-manager/owner-standards')
+def owner_standards_manager():
+    """Render the Owner Standards Manager page"""
+    return render_template('data_manager/owner_standards.html')
 
 @app.route('/usage-dashboard')
 def usage_dashboard():
@@ -18634,6 +18698,572 @@ def delete_municipality(municipality_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ===== REFERENCE DATA STANDARDS API =====
+
+# ----- Utility System Standards API -----
+
+@app.route('/api/utility_systems')
+def get_utility_systems():
+    """Get all utility system standards"""
+    try:
+        query = """
+            SELECT system_id, system_code, system_name, description,
+                   color_hex, display_order, category, is_active
+            FROM utility_system_standards
+            WHERE is_active = TRUE
+            ORDER BY display_order, system_name
+        """
+        systems = execute_query(query)
+        return jsonify({'systems': systems})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/utility_systems', methods=['POST'])
+def create_utility_system():
+    """Create a new utility system standard"""
+    try:
+        data = request.get_json()
+        if not data or not data.get('system_code') or not data.get('system_name'):
+            return jsonify({'error': 'system_code and system_name are required'}), 400
+
+        query = """
+            INSERT INTO utility_system_standards
+            (system_code, system_name, system_description, color_hex, line_weight, display_order, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING system_id
+        """
+        params = (
+            data['system_code'].upper(),
+            data['system_name'],
+            data.get('system_description'),
+            data.get('color_hex'),
+            data.get('line_weight'),
+            data.get('display_order'),
+            data.get('is_active', True)
+        )
+        result = execute_query(query, params)
+        return jsonify({'message': 'Utility system created successfully', 'system_id': result[0]['system_id']}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/utility_systems/<system_id>', methods=['PUT'])
+def update_utility_system(system_id):
+    """Update a utility system standard"""
+    try:
+        data = request.get_json()
+        if not data.get('system_code') or not data.get('system_name'):
+            return jsonify({'error': 'system_code and system_name are required'}), 400
+
+        query = """
+            UPDATE utility_system_standards
+            SET system_code = %s, system_name = %s, system_description = %s,
+                color_hex = %s, line_weight = %s, display_order = %s, is_active = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE system_id = %s
+            RETURNING system_id
+        """
+        params = (
+            data['system_code'].upper(),
+            data['system_name'],
+            data.get('system_description'),
+            data.get('color_hex'),
+            data.get('line_weight'),
+            data.get('display_order'),
+            data.get('is_active', True),
+            system_id
+        )
+        result = execute_query(query, params)
+        if not result:
+            return jsonify({'error': 'Utility system not found'}), 404
+        return jsonify({'message': 'Utility system updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/utility_systems/<system_id>', methods=['DELETE'])
+def delete_utility_system(system_id):
+    """Delete a utility system (soft delete)"""
+    try:
+        query = "UPDATE utility_system_standards SET is_active = FALSE WHERE system_id = %s RETURNING system_id"
+        result = execute_query(query, (system_id,))
+        if not result:
+            return jsonify({'error': 'Utility system not found'}), 404
+        return jsonify({'message': 'Utility system deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ----- Coordinate Systems API -----
+
+@app.route('/api/coordinate_systems')
+def get_coordinate_systems_crud():
+    """Get all coordinate systems"""
+    try:
+        query = """
+            SELECT system_id, system_name, epsg_code, system_type, zone_number,
+                   units, description, wkt, is_active
+            FROM coordinate_systems
+            WHERE is_active = TRUE
+            ORDER BY system_type, system_name
+        """
+        systems = execute_query(query)
+        return jsonify({'systems': systems})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/coordinate_systems', methods=['POST'])
+def create_coordinate_system_crud():
+    """Create a new coordinate system"""
+    try:
+        data = request.get_json()
+        if not data or not data.get('system_name'):
+            return jsonify({'error': 'system_name is required'}), 400
+
+        query = """
+            INSERT INTO coordinate_systems
+            (system_name, epsg_code, system_type, zone_number, units, description, wkt, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING system_id
+        """
+        params = (
+            data['system_name'],
+            data.get('epsg_code'),
+            data.get('system_type'),
+            data.get('zone_number'),
+            data.get('units'),
+            data.get('description'),
+            data.get('wkt'),
+            data.get('is_active', True)
+        )
+        result = execute_query(query, params)
+        return jsonify({'message': 'Coordinate system created successfully', 'system_id': result[0]['system_id']}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/coordinate_systems/<system_id>', methods=['PUT'])
+def update_coordinate_system_crud(system_id):
+    """Update a coordinate system"""
+    try:
+        data = request.get_json()
+        if not data.get('system_name'):
+            return jsonify({'error': 'system_name is required'}), 400
+
+        query = """
+            UPDATE coordinate_systems
+            SET system_name = %s, epsg_code = %s, system_type = %s, zone_number = %s,
+                units = %s, description = %s, wkt = %s, is_active = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE system_id = %s
+            RETURNING system_id
+        """
+        params = (
+            data['system_name'],
+            data.get('epsg_code'),
+            data.get('system_type'),
+            data.get('zone_number'),
+            data.get('units'),
+            data.get('description'),
+            data.get('wkt'),
+            data.get('is_active', True),
+            system_id
+        )
+        result = execute_query(query, params)
+        if not result:
+            return jsonify({'error': 'Coordinate system not found'}), 404
+        return jsonify({'message': 'Coordinate system updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/coordinate_systems/<system_id>', methods=['DELETE'])
+def delete_coordinate_system_crud(system_id):
+    """Delete a coordinate system (soft delete)"""
+    try:
+        query = "UPDATE coordinate_systems SET is_active = FALSE WHERE system_id = %s RETURNING system_id"
+        result = execute_query(query, (system_id,))
+        if not result:
+            return jsonify({'error': 'Coordinate system not found'}), 404
+        return jsonify({'message': 'Coordinate system deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ----- Status Standards API -----
+
+@app.route('/api/status_standards')
+def get_status_standards():
+    """Get all status standards"""
+    try:
+        query = """
+            SELECT status_id, status_code, status_name, applies_to, description,
+                   color_hex, display_order, is_active
+            FROM status_standards
+            WHERE is_active = TRUE
+            ORDER BY applies_to, display_order, status_code
+        """
+        statuses = execute_query(query)
+        return jsonify({'statuses': statuses})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/status_standards', methods=['POST'])
+def create_status_standard():
+    """Create a new status standard"""
+    try:
+        data = request.get_json()
+        if not data or not data.get('status_code'):
+            return jsonify({'error': 'status_code is required'}), 400
+
+        query = """
+            INSERT INTO status_standards
+            (status_code, status_name, applies_to, description, color_hex, display_order, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING status_id
+        """
+        params = (
+            data['status_code'].upper(),
+            data.get('status_name'),
+            data.get('applies_to'),
+            data.get('description'),
+            data.get('color_hex'),
+            data.get('display_order'),
+            data.get('is_active', True)
+        )
+        result = execute_query(query, params)
+        return jsonify({'message': 'Status standard created successfully', 'status_id': result[0]['status_id']}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/status_standards/<status_id>', methods=['PUT'])
+def update_status_standard(status_id):
+    """Update a status standard"""
+    try:
+        data = request.get_json()
+        if not data.get('status_code'):
+            return jsonify({'error': 'status_code is required'}), 400
+
+        query = """
+            UPDATE status_standards
+            SET status_code = %s, status_name = %s, applies_to = %s, description = %s,
+                color_hex = %s, display_order = %s, is_active = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE status_id = %s
+            RETURNING status_id
+        """
+        params = (
+            data['status_code'].upper(),
+            data.get('status_name'),
+            data.get('applies_to'),
+            data.get('description'),
+            data.get('color_hex'),
+            data.get('display_order'),
+            data.get('is_active', True),
+            status_id
+        )
+        result = execute_query(query, params)
+        if not result:
+            return jsonify({'error': 'Status standard not found'}), 404
+        return jsonify({'message': 'Status standard updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/status_standards/<status_id>', methods=['DELETE'])
+def delete_status_standard(status_id):
+    """Delete a status standard (soft delete)"""
+    try:
+        query = "UPDATE status_standards SET is_active = FALSE WHERE status_id = %s RETURNING status_id"
+        result = execute_query(query, (status_id,))
+        if not result:
+            return jsonify({'error': 'Status standard not found'}), 404
+        return jsonify({'message': 'Status standard deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ----- Survey Point Descriptions API -----
+
+@app.route('/api/survey_point_descriptions')
+def get_survey_point_descriptions_crud():
+    """Get all survey point description standards"""
+    try:
+        query = """
+            SELECT description_id, description_code, description_text, description_full,
+                   category, subcategory, cad_symbol, color_hex, is_active
+            FROM survey_point_description_standards
+            WHERE is_active = TRUE
+            ORDER BY category, description_code
+        """
+        descriptions = execute_query(query)
+        return jsonify({'descriptions': descriptions})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey_point_descriptions', methods=['POST'])
+def create_survey_point_description_crud():
+    """Create a new survey point description standard"""
+    try:
+        data = request.get_json()
+        if not data or not data.get('description_code') or not data.get('description_text'):
+            return jsonify({'error': 'description_code and description_text are required'}), 400
+
+        query = """
+            INSERT INTO survey_point_description_standards
+            (description_code, description_text, category, symbol_code, color_hex, display_order, notes, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING description_id
+        """
+        params = (
+            data['description_code'].upper(),
+            data['description_text'],
+            data.get('category'),
+            data.get('symbol_code'),
+            data.get('color_hex'),
+            data.get('display_order'),
+            data.get('notes'),
+            data.get('is_active', True)
+        )
+        result = execute_query(query, params)
+        return jsonify({'message': 'Survey description created successfully', 'description_id': result[0]['description_id']}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey_point_descriptions/<description_id>', methods=['PUT'])
+def update_survey_point_description_crud(description_id):
+    """Update a survey point description standard"""
+    try:
+        data = request.get_json()
+        if not data.get('description_code') or not data.get('description_text'):
+            return jsonify({'error': 'description_code and description_text are required'}), 400
+
+        query = """
+            UPDATE survey_point_description_standards
+            SET description_code = %s, description_text = %s, category = %s, symbol_code = %s,
+                color_hex = %s, display_order = %s, notes = %s, is_active = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE description_id = %s
+            RETURNING description_id
+        """
+        params = (
+            data['description_code'].upper(),
+            data['description_text'],
+            data.get('category'),
+            data.get('symbol_code'),
+            data.get('color_hex'),
+            data.get('display_order'),
+            data.get('notes'),
+            data.get('is_active', True),
+            description_id
+        )
+        result = execute_query(query, params)
+        if not result:
+            return jsonify({'error': 'Survey description not found'}), 404
+        return jsonify({'message': 'Survey description updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/survey_point_descriptions/<description_id>', methods=['DELETE'])
+def delete_survey_point_description_crud(description_id):
+    """Delete a survey point description (soft delete)"""
+    try:
+        query = "UPDATE survey_point_description_standards SET is_active = FALSE WHERE description_id = %s RETURNING description_id"
+        result = execute_query(query, (description_id,))
+        if not result:
+            return jsonify({'error': 'Survey description not found'}), 404
+        return jsonify({'message': 'Survey description deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ----- Block Categories API -----
+
+@app.route('/api/block_categories')
+def get_block_categories():
+    """Get all block category standards"""
+    try:
+        query = """
+            SELECT category_id, category_code, category_name, description,
+                   color_hex, icon, display_order, is_active
+            FROM block_category_standards
+            WHERE is_active = TRUE
+            ORDER BY display_order, category_code
+        """
+        categories = execute_query(query)
+        return jsonify({'categories': categories})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/block_categories', methods=['POST'])
+def create_block_category():
+    """Create a new block category standard"""
+    try:
+        data = request.get_json()
+        if not data or not data.get('category_code') or not data.get('category_name'):
+            return jsonify({'error': 'category_code and category_name are required'}), 400
+
+        query = """
+            INSERT INTO block_category_standards
+            (category_code, category_name, description, color_hex, icon_class, cad_layer, display_order, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING category_id
+        """
+        params = (
+            data['category_code'].upper(),
+            data['category_name'],
+            data.get('description'),
+            data.get('color_hex'),
+            data.get('icon_class'),
+            data.get('cad_layer'),
+            data.get('display_order'),
+            data.get('is_active', True)
+        )
+        result = execute_query(query, params)
+        return jsonify({'message': 'Block category created successfully', 'category_id': result[0]['category_id']}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/block_categories/<category_id>', methods=['PUT'])
+def update_block_category(category_id):
+    """Update a block category standard"""
+    try:
+        data = request.get_json()
+        if not data.get('category_code') or not data.get('category_name'):
+            return jsonify({'error': 'category_code and category_name are required'}), 400
+
+        query = """
+            UPDATE block_category_standards
+            SET category_code = %s, category_name = %s, description = %s, color_hex = %s,
+                icon_class = %s, cad_layer = %s, display_order = %s, is_active = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE category_id = %s
+            RETURNING category_id
+        """
+        params = (
+            data['category_code'].upper(),
+            data['category_name'],
+            data.get('description'),
+            data.get('color_hex'),
+            data.get('icon_class'),
+            data.get('cad_layer'),
+            data.get('display_order'),
+            data.get('is_active', True),
+            category_id
+        )
+        result = execute_query(query, params)
+        if not result:
+            return jsonify({'error': 'Block category not found'}), 404
+        return jsonify({'message': 'Block category updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/block_categories/<category_id>', methods=['DELETE'])
+def delete_block_category(category_id):
+    """Delete a block category (soft delete)"""
+    try:
+        query = "UPDATE block_category_standards SET is_active = FALSE WHERE category_id = %s RETURNING category_id"
+        result = execute_query(query, (category_id,))
+        if not result:
+            return jsonify({'error': 'Block category not found'}), 404
+        return jsonify({'message': 'Block category deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ----- Owner Standards API -----
+
+@app.route('/api/owner_standards')
+def get_owner_standards():
+    """Get all owner standards"""
+    try:
+        query = """
+            SELECT owner_id, owner_code, owner_name, owner_type, category,
+                   contact_name, contact_phone, contact_email, website, is_active
+            FROM owner_standards
+            WHERE is_active = TRUE
+            ORDER BY owner_type, owner_code
+        """
+        owners = execute_query(query)
+        return jsonify({'owners': owners})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/owner_standards', methods=['POST'])
+def create_owner_standard():
+    """Create a new owner standard"""
+    try:
+        data = request.get_json()
+        if not data or not data.get('owner_code') or not data.get('owner_name'):
+            return jsonify({'error': 'owner_code and owner_name are required'}), 400
+
+        query = """
+            INSERT INTO owner_standards
+            (owner_code, owner_name, owner_type, description, contact_name, contact_phone,
+             contact_email, website, color_hex, display_order, notes, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING owner_id
+        """
+        params = (
+            data['owner_code'].upper(),
+            data['owner_name'],
+            data.get('owner_type'),
+            data.get('description'),
+            data.get('contact_name'),
+            data.get('contact_phone'),
+            data.get('contact_email'),
+            data.get('website'),
+            data.get('color_hex'),
+            data.get('display_order'),
+            data.get('notes'),
+            data.get('is_active', True)
+        )
+        result = execute_query(query, params)
+        return jsonify({'message': 'Owner standard created successfully', 'owner_id': result[0]['owner_id']}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/owner_standards/<owner_id>', methods=['PUT'])
+def update_owner_standard(owner_id):
+    """Update an owner standard"""
+    try:
+        data = request.get_json()
+        if not data.get('owner_code') or not data.get('owner_name'):
+            return jsonify({'error': 'owner_code and owner_name are required'}), 400
+
+        query = """
+            UPDATE owner_standards
+            SET owner_code = %s, owner_name = %s, owner_type = %s, description = %s,
+                contact_name = %s, contact_phone = %s, contact_email = %s, website = %s,
+                color_hex = %s, display_order = %s, notes = %s, is_active = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE owner_id = %s
+            RETURNING owner_id
+        """
+        params = (
+            data['owner_code'].upper(),
+            data['owner_name'],
+            data.get('owner_type'),
+            data.get('description'),
+            data.get('contact_name'),
+            data.get('contact_phone'),
+            data.get('contact_email'),
+            data.get('website'),
+            data.get('color_hex'),
+            data.get('display_order'),
+            data.get('notes'),
+            data.get('is_active', True),
+            owner_id
+        )
+        result = execute_query(query, params)
+        if not result:
+            return jsonify({'error': 'Owner standard not found'}), 404
+        return jsonify({'message': 'Owner standard updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/owner_standards/<owner_id>', methods=['DELETE'])
+def delete_owner_standard(owner_id):
+    """Delete an owner standard (soft delete)"""
+    try:
+        query = "UPDATE owner_standards SET is_active = FALSE WHERE owner_id = %s RETURNING owner_id"
+        result = execute_query(query, (owner_id,))
+        if not result:
+            return jsonify({'error': 'Owner standard not found'}), 404
+        return jsonify({'message': 'Owner standard deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ===== TOOL OBJECT MAPPINGS API =====
 
 @app.route('/api/tool-mappings')
@@ -18978,11 +19608,67 @@ def delete_naming_template(template_id):
     try:
         query = "UPDATE relationship_set_naming_templates SET is_active = FALSE WHERE template_id = %s RETURNING template_id"
         result = execute_query(query, (str(template_id),))
-        
+
         if not result:
             return jsonify({'error': 'Template not found'}), 404
-        
+
         return jsonify({'message': 'Template deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naming-templates/<uuid:template_id>/preview', methods=['POST'])
+def preview_naming_template(template_id):
+    """Preview generated name and short code from template with provided token values"""
+    try:
+        token_values = request.get_json() or {}
+
+        # Get template
+        query = """
+            SELECT name_format, short_code_format, required_tokens
+            FROM relationship_set_naming_templates
+            WHERE template_id = %s AND is_active = TRUE
+        """
+        result = execute_query(query, (str(template_id),))
+
+        if not result:
+            return jsonify({'error': 'Template not found'}), 404
+
+        template = result[0]
+        name_format = template['name_format']
+        short_code_format = template['short_code_format']
+        required_tokens = template.get('required_tokens', [])
+
+        # Validate required tokens are provided
+        missing_tokens = [token for token in required_tokens if not token_values.get(token)]
+        if missing_tokens:
+            return jsonify({
+                'error': f'Missing required tokens: {", ".join(missing_tokens)}',
+                'missing_tokens': missing_tokens
+            }), 400
+
+        # Replace tokens in format strings
+        generated_name = name_format
+        generated_code = short_code_format
+
+        for token_name, token_value in token_values.items():
+            placeholder = f'{{{token_name}}}'
+            generated_name = generated_name.replace(placeholder, str(token_value))
+            generated_code = generated_code.replace(placeholder, str(token_value))
+
+        # Check if any tokens remain unreplaced
+        import re
+        remaining_name_tokens = re.findall(r'\{([^}]+)\}', generated_name)
+        remaining_code_tokens = re.findall(r'\{([^}]+)\}', generated_code)
+
+        return jsonify({
+            'generated_name': generated_name,
+            'generated_code': generated_code,
+            'remaining_tokens': {
+                'name': remaining_name_tokens,
+                'code': remaining_code_tokens
+            },
+            'is_complete': len(remaining_name_tokens) == 0 and len(remaining_code_tokens) == 0
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -24019,6 +24705,30 @@ def execute_gis_snapshot(project_id, snapshot_id):
             'error': str(e),
             'traceback': traceback.format_exc()
         }), 500
+
+# ============================================================================
+# AI & GRAPHRAG PAGE ROUTES
+# ============================================================================
+
+@app.route('/ai/query-playground')
+def ai_query_playground():
+    """AI Query Playground - Natural language query interface for GraphRAG"""
+    return render_template('ai_query_playground.html')
+
+@app.route('/ai/graph-visualization')
+def graph_visualization():
+    """Knowledge Graph Visualization - Interactive Cytoscape.js graph viewer"""
+    return render_template('graph_visualization.html')
+
+@app.route('/ai/semantic-search')
+def semantic_search():
+    """Semantic Search - Vector similarity search interface"""
+    return render_template('semantic_search.html')
+
+@app.route('/ai/quality-dashboard')
+def quality_dashboard():
+    """Quality Dashboard - Quality analytics and monitoring"""
+    return render_template('quality_dashboard.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

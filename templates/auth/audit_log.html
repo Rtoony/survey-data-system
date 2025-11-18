@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log - ACAD-GIS{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1><i class="fas fa-clipboard-list"></i> Audit Log</h1>
+    <p class="text-muted">Comprehensive audit trail of all system actions</p>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5><i class="fas fa-filter"></i> Filters</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('auth.audit_log') }}">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label for="action" class="form-label">Action</label>
+                        <select class="form-select" id="action" name="action">
+                            <option value="">All Actions</option>
+                            {% for act in actions %}
+                                <option value="{{ act }}" {% if current_filters.action == act %}selected{% endif %}>
+                                    {{ act }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="table_name" class="form-label">Table</label>
+                        <input type="text" class="form-control" id="table_name" name="table_name"
+                               value="{{ current_filters.table_name or '' }}" placeholder="e.g., projects">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="user_id" class="form-label">User ID</label>
+                        <input type="text" class="form-control" id="user_id" name="user_id"
+                               value="{{ current_filters.user_id or '' }}" placeholder="UUID">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="limit" class="form-label">Limit</label>
+                        <select class="form-select" id="limit" name="limit">
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="500">500</option>
+                            <option value="1000">1000</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Apply Filters
+                        </button>
+                        <a href="{{ url_for('auth.audit_log') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Clear Filters
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Audit Log Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" id="auditTable">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Table</th>
+                            <th>Record ID</th>
+                            <th>Project</th>
+                            <th>Status</th>
+                            <th>IP Address</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr {% if not log.success %}class="table-danger"{% endif %}>
+                            <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>
+                                <strong>{{ log.username }}</strong>
+                                {% if log.email %}
+                                <br><small class="text-muted">{{ log.email }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge
+                                    {% if log.action == 'LOGIN' %}bg-success
+                                    {% elif log.action == 'LOGOUT' %}bg-info
+                                    {% elif log.action == 'LOGIN_FAILED' %}bg-danger
+                                    {% elif log.action == 'CREATE' %}bg-primary
+                                    {% elif log.action == 'UPDATE' %}bg-warning
+                                    {% elif log.action == 'DELETE' %}bg-danger
+                                    {% elif log.action == 'ACCESS_DENIED' %}bg-danger
+                                    {% else %}bg-secondary
+                                    {% endif %}">
+                                    {{ log.action }}
+                                </span>
+                            </td>
+                            <td>{{ log.table_name or '-' }}</td>
+                            <td>
+                                {% if log.record_id %}
+                                <small><code>{{ log.record_id[:8] }}...</code></small>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.project_name %}
+                                <a href="/projects/{{ log.project_id }}">{{ log.project_name }}</a>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.success %}
+                                    <i class="fas fa-check-circle text-success"></i>
+                                {% else %}
+                                    <i class="fas fa-times-circle text-danger"></i>
+                                    {% if log.error_message %}
+                                    <small class="text-danger d-block">{{ log.error_message }}</small>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>{{ log.ip_address or '-' }}</td>
+                            <td>
+                                {% if log.old_values or log.new_values %}
+                                <button class="btn btn-sm btn-outline-primary view-details-btn"
+                                        data-old-values="{{ log.old_values|tojson if log.old_values else '' }}"
+                                        data-new-values="{{ log.new_values|tojson if log.new_values else '' }}">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if not logs %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No audit log entries found matching the current filters.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Audit Log Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="detailsContent">
+                    <h6>Old Values:</h6>
+                    <pre id="oldValuesJson" class="bg-light p-3 rounded"></pre>
+
+                    <h6 class="mt-3">New Values:</h6>
+                    <pre id="newValuesJson" class="bg-light p-3 rounded"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Handle view details buttons
+document.querySelectorAll('.view-details-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const oldValues = this.dataset.oldValues;
+        const newValues = this.dataset.newValues;
+
+        document.getElementById('oldValuesJson').textContent =
+            oldValues ? JSON.stringify(JSON.parse(oldValues), null, 2) : 'None';
+        document.getElementById('newValuesJson').textContent =
+            newValues ? JSON.stringify(JSON.parse(newValues), null, 2) : 'None';
+
+        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        modal.show();
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+
+{% block title %}Utility Systems Manager - Data Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-network-wired"></i> Utility Systems Manager</h1>
+            <p class="subtitle">Manage utility system type standards - Truth Table for STORM, SEWER, WATER, etc.</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-list"></i> Utility System Standards</h2>
+            <div class="button-group">
+                <button onclick="addNewSystem()" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New System
+                </button>
+                <button onclick="loadSystems()" class="btn btn-secondary">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search systems..." onkeyup="filterTable()">
+            </div>
+
+            <div id="loadingMessage" class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i> Loading utility systems...
+            </div>
+
+            <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+            <div id="tableContainer" style="display: none; overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Code</th>
+                            <th>System Name</th>
+                            <th>Category</th>
+                            <th style="width: 80px;">Color</th>
+                            <th>Layer Prefix</th>
+                            <th>Usage</th>
+                            <th style="width: 80px;">Active</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="systemsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="systemModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Utility System</h2>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="systemForm" onsubmit="saveSystem(event)">
+            <input type="hidden" id="systemId">
+
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="systemCode">System Code <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="systemCode" required placeholder="e.g., STORM"
+                           style="text-transform: uppercase;"
+                           pattern="[A-Z_]+"
+                           title="Uppercase letters and underscores only">
+                    <small style="color: #888;">Uppercase only (e.g., STORM, SEWER)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="systemName">System Name <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="systemName" required placeholder="e.g., Storm Drainage">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="2" placeholder="Description of this utility system..."></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" class="form-control">
+                        <option value="">Select category...</option>
+                        <option value="Drainage">Drainage</option>
+                        <option value="Potable">Potable</option>
+                        <option value="Energy">Energy</option>
+                        <option value="Communication">Communication</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="subcategory">Subcategory</label>
+                    <input type="text" id="subcategory" placeholder="e.g., Surface Drainage">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 150px 1fr 100px; gap: 15px; align-items: end;">
+                <div class="form-group">
+                    <label for="colorHex">Color</label>
+                    <input type="color" id="colorHex" value="#808080"
+                           style="height: 40px; width: 100%; border-radius: 4px; border: 1px solid var(--border-color);">
+                </div>
+
+                <div class="form-group">
+                    <label for="colorHexText">Hex Code</label>
+                    <input type="text" id="colorHexText" value="#808080"
+                           pattern="#[0-9A-Fa-f]{6}"
+                           placeholder="#RRGGBB"
+                           oninput="document.getElementById('colorHex').value = this.value">
+                </div>
+
+                <div class="form-group">
+                    <label for="displayOrder">Order</label>
+                    <input type="number" id="displayOrder" placeholder="1" min="1">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="defaultLayerPrefix">Default Layer Prefix</label>
+                    <input type="text" id="defaultLayerPrefix" placeholder="e.g., STORM-">
+                    <small style="color: #888;">Used for CAD layer naming</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="lineStyle">Line Style</label>
+                    <select id="lineStyle" class="form-control">
+                        <option value="Continuous">Continuous</option>
+                        <option value="Dashed">Dashed</option>
+                        <option value="Hidden">Hidden</option>
+                        <option value="Phantom">Phantom</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="regulatoryAuthority">Regulatory Authority</label>
+                <input type="text" id="regulatoryAuthority" placeholder="e.g., EPA, Local Municipality">
+            </div>
+
+            <div class="form-group">
+                <label for="relatedCodes">Related Codes/Standards</label>
+                <textarea id="relatedCodes" rows="2" placeholder="Reference to applicable codes and standards..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="isActive" checked> Active
+                </label>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save System
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let allSystems = [];
+
+document.getElementById('colorHex').addEventListener('input', function() {
+    document.getElementById('colorHexText').value = this.value;
+});
+
+async function loadSystems() {
+    document.getElementById('loadingMessage').style.display = 'block';
+    document.getElementById('tableContainer').style.display = 'none';
+    document.getElementById('errorMessage').style.display = 'none';
+
+    try {
+        const response = await fetch('/api/data-manager/utility-systems');
+        const data = await response.json();
+
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+
+        allSystems = data.systems || [];
+        renderTable();
+
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+
+    } catch (error) {
+        showError('Failed to load utility systems: ' + error.message);
+        document.getElementById('loadingMessage').style.display = 'none';
+    }
+}
+
+function renderTable() {
+    const tbody = document.getElementById('systemsTableBody');
+    tbody.innerHTML = '';
+
+    allSystems.forEach(system => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><code class="neon-cyan">${escapeHtml(system.system_code)}</code></td>
+            <td><strong>${escapeHtml(system.system_name)}</strong></td>
+            <td>${escapeHtml(system.category || '')}</td>
+            <td>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <div style="width: 30px; height: 20px; background: ${escapeHtml(system.color_hex)}; border: 1px solid #fff; border-radius: 3px;"></div>
+                    <small>${escapeHtml(system.color_hex)}</small>
+                </div>
+            </td>
+            <td><code>${escapeHtml(system.default_layer_prefix || '')}</code></td>
+            <td><span class="badge">${system.usage_count || 0}</span></td>
+            <td>
+                <span class="badge ${system.is_active ? 'badge-success' : 'badge-danger'}">
+                    ${system.is_active ? 'Yes' : 'No'}
+                </span>
+            </td>
+            <td>
+                <button onclick='editSystem(${JSON.stringify(system)})' class="btn btn-sm btn-primary" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteSystem('${system.system_id}')" class="btn btn-sm btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function filterTable() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const tbody = document.getElementById('systemsTableBody');
+    const rows = tbody.getElementsByTagName('tr');
+
+    for (let row of rows) {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    }
+}
+
+function addNewSystem() {
+    document.getElementById('modalTitle').textContent = 'Add New Utility System';
+    document.getElementById('systemForm').reset();
+    document.getElementById('systemId').value = '';
+    document.getElementById('isActive').checked = true;
+    document.getElementById('systemCode').readOnly = false;
+    document.getElementById('colorHex').value = '#808080';
+    document.getElementById('colorHexText').value = '#808080';
+    document.getElementById('systemModal').style.display = 'block';
+}
+
+function editSystem(system) {
+    document.getElementById('modalTitle').textContent = 'Edit Utility System';
+    document.getElementById('systemId').value = system.system_id;
+    document.getElementById('systemCode').value = system.system_code;
+    document.getElementById('systemCode').readOnly = true; // Don't allow changing code
+    document.getElementById('systemName').value = system.system_name;
+    document.getElementById('description').value = system.description || '';
+    document.getElementById('category').value = system.category || '';
+    document.getElementById('subcategory').value = system.subcategory || '';
+    document.getElementById('colorHex').value = system.color_hex || '#808080';
+    document.getElementById('colorHexText').value = system.color_hex || '#808080';
+    document.getElementById('defaultLayerPrefix').value = system.default_layer_prefix || '';
+    document.getElementById('lineStyle').value = system.line_style || 'Continuous';
+    document.getElementById('displayOrder').value = system.display_order || '';
+    document.getElementById('regulatoryAuthority').value = system.regulatory_authority || '';
+    document.getElementById('relatedCodes').value = system.related_codes || '';
+    document.getElementById('isActive').checked = system.is_active !== false;
+    document.getElementById('systemModal').style.display = 'block';
+}
+
+async function saveSystem(event) {
+    event.preventDefault();
+
+    const systemId = document.getElementById('systemId').value;
+    const formData = {
+        system_code: document.getElementById('systemCode').value.toUpperCase(),
+        system_name: document.getElementById('systemName').value,
+        description: document.getElementById('description').value,
+        category: document.getElementById('category').value,
+        subcategory: document.getElementById('subcategory').value,
+        color_hex: document.getElementById('colorHexText').value,
+        default_layer_prefix: document.getElementById('defaultLayerPrefix').value,
+        line_style: document.getElementById('lineStyle').value,
+        display_order: parseInt(document.getElementById('displayOrder').value) || null,
+        regulatory_authority: document.getElementById('regulatoryAuthority').value,
+        related_codes: document.getElementById('relatedCodes').value,
+        is_active: document.getElementById('isActive').checked
+    };
+
+    try {
+        const url = systemId
+            ? `/api/data-manager/utility-systems/${systemId}`
+            : '/api/data-manager/utility-systems';
+        const method = systemId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+
+        closeModal();
+        loadSystems();
+        showSuccess(systemId ? 'System updated successfully' : 'System created successfully');
+
+    } catch (error) {
+        showError('Failed to save system: ' + error.message);
+    }
+}
+
+async function deleteSystem(systemId) {
+    if (!confirm('Are you sure you want to delete this utility system? This will fail if the system is referenced by any utility lines or structures.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/data-manager/utility-systems/${systemId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+
+        loadSystems();
+        showSuccess('System deleted successfully');
+
+    } catch (error) {
+        showError('Failed to delete system: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('systemModal').style.display = 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    setTimeout(() => errorDiv.style.display = 'none', 5000);
+}
+
+function showSuccess(message) {
+    // Simple success notification
+    const successDiv = document.createElement('div');
+    successDiv.className = 'alert alert-success';
+    successDiv.textContent = message;
+    successDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000;';
+    document.body.appendChild(successDiv);
+    setTimeout(() => successDiv.remove(), 3000);
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Load systems on page load
+document.addEventListener('DOMContentLoaded', loadSystems);
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('systemModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+
+<style>
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: rgba(0, 255, 127, 0.2);
+    color: #00ff7f;
+}
+
+.badge-danger {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+}
+
+code {
+    font-family: 'Courier New', monospace;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(0, 255, 255, 0.1);
+}
+</style>
+
+{% endblock %}

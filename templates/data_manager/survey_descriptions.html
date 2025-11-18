@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+
+{% block title %}Survey Point Descriptions Manager - Data Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-map-marker-alt"></i> Survey Point Descriptions Manager</h1>
+            <p class="subtitle">Manage survey point description codes - Truth Table for all field observations</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-map-marker-alt"></i> Survey Point Codes</h2>
+            <div class="button-group">
+                <button onclick="addNewDescription()" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New Description
+                </button>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search descriptions..." onkeyup="filterTable()">
+            </div>
+
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterByCategory('ALL')">All</button>
+                <button class="filter-btn" onclick="filterByCategory('Pavement')">Pavement</button>
+                <button class="filter-btn" onclick="filterByCategory('Curb & Gutter')">Curb & Gutter</button>
+                <button class="filter-btn" onclick="filterByCategory('Structures')">Structures</button>
+                <button class="filter-btn" onclick="filterByCategory('Utilities')">Utilities</button>
+                <button class="filter-btn" onclick="filterByCategory('Vegetation')">Vegetation</button>
+                <button class="filter-btn" onclick="filterByCategory('Terrain')">Terrain</button>
+                <button class="filter-btn" onclick="filterByCategory('Control')">Control</button>
+            </div>
+
+            <div id="loadingMessage" class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i> Loading survey descriptions...
+            </div>
+
+            <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+            <div id="tableContainer" style="display: none; overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Code</th>
+                            <th>Description</th>
+                            <th style="width: 150px;">Category</th>
+                            <th style="width: 80px;">Color</th>
+                            <th style="width: 80px;">Order</th>
+                            <th style="width: 80px;">Active</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="descriptionsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="descriptionModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Survey Description</h2>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="descriptionForm" onsubmit="saveDescription(event)">
+            <input type="hidden" id="descriptionId">
+
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="descriptionCode">Code <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="descriptionCode" required placeholder="e.g., EP" maxlength="20" style="text-transform: uppercase;">
+                    <small class="form-text">Short code (uppercase)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="descriptionText">Description <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="descriptionText" required placeholder="e.g., Edge of Pavement">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="category">Category <span style="color: #ff6b6b;">*</span></label>
+                    <select id="category" required class="form-control">
+                        <option value="">Select category...</option>
+                        <option value="Pavement">Pavement</option>
+                        <option value="Curb & Gutter">Curb & Gutter</option>
+                        <option value="Structures">Structures</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Vegetation">Vegetation</option>
+                        <option value="Terrain">Terrain</option>
+                        <option value="Control">Control</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="displayOrder">Display Order</label>
+                    <input type="number" id="displayOrder" placeholder="e.g., 10" min="0">
+                    <small class="form-text">Lower numbers appear first</small>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="symbolCode">CAD Symbol Code</label>
+                <input type="text" id="symbolCode" placeholder="e.g., POINT-EP">
+                <small class="form-text">Associated CAD symbol/block name</small>
+            </div>
+
+            <div class="form-group">
+                <label for="colorHex">Color (Hex)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="color" id="colorPicker" value="#00FFFF" style="width: 50px; height: 40px; border: none; cursor: pointer;">
+                    <input type="text" id="colorHex" placeholder="#00FFFF" pattern="#[0-9A-Fa-f]{6}" maxlength="7" style="flex: 1;">
+                </div>
+                <small class="form-text">Color for map display</small>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" rows="2" placeholder="Additional information about this point type"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="isActive" checked>
+                    <span>Active Description</span>
+                </label>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Description
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let allDescriptions = [];
+let currentCategory = 'ALL';
+
+// Sync color picker and hex input
+document.addEventListener('DOMContentLoaded', function() {
+    const colorPicker = document.getElementById('colorPicker');
+    const colorHex = document.getElementById('colorHex');
+
+    colorPicker.addEventListener('input', function() {
+        colorHex.value = this.value.toUpperCase();
+    });
+
+    colorHex.addEventListener('input', function() {
+        if (/^#[0-9A-Fa-f]{6}$/.test(this.value)) {
+            colorPicker.value = this.value;
+        }
+    });
+
+    loadDescriptions();
+});
+
+async function loadDescriptions() {
+    try {
+        document.getElementById('loadingMessage').style.display = 'block';
+        document.getElementById('errorMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+
+        const response = await fetch('/api/survey_point_descriptions');
+        if (!response.ok) throw new Error('Failed to load survey descriptions');
+
+        const data = await response.json();
+        allDescriptions = data.descriptions;
+        renderTable(filterDescriptions());
+
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading descriptions:', error);
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('errorMessage').textContent = 'Error loading survey descriptions: ' + error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+    }
+}
+
+function filterDescriptions() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    return allDescriptions.filter(desc => {
+        const matchesSearch = desc.description_code.toLowerCase().includes(searchTerm) ||
+            (desc.description_text && desc.description_text.toLowerCase().includes(searchTerm)) ||
+            (desc.category && desc.category.toLowerCase().includes(searchTerm));
+
+        const matchesCategory = currentCategory === 'ALL' || desc.category === currentCategory;
+
+        return matchesSearch && matchesCategory;
+    });
+}
+
+function renderTable(descriptions) {
+    const tbody = document.getElementById('descriptionsTableBody');
+    tbody.innerHTML = '';
+
+    if (descriptions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No descriptions found</td></tr>';
+        return;
+    }
+
+    descriptions.sort((a, b) => {
+        const catCompare = (a.category || '').localeCompare(b.category || '');
+        if (catCompare !== 0) return catCompare;
+        return (a.display_order || 999) - (b.display_order || 999);
+    });
+
+    descriptions.forEach(desc => {
+        const row = document.createElement('tr');
+        const isActive = desc.is_active !== false;
+        const colorHex = desc.color_hex || '#808080';
+
+        row.innerHTML = `
+            <td><code style="background: rgba(0,255,255,0.1); padding: 2px 6px; border-radius: 3px;">${desc.description_code}</code></td>
+            <td><strong>${desc.description_text}</strong></td>
+            <td>
+                <span class="badge badge-category">${desc.category}</span>
+            </td>
+            <td>
+                <div style="width: 30px; height: 30px; background: ${colorHex}; border: 2px solid rgba(255,255,255,0.2); border-radius: 4px;" title="${colorHex}"></div>
+            </td>
+            <td style="text-align: center;">${desc.display_order || '-'}</td>
+            <td>
+                <span class="badge ${isActive ? 'badge-success' : 'badge-danger'}">
+                    ${isActive ? 'Active' : 'Inactive'}
+                </span>
+            </td>
+            <td>
+                <button onclick='editDescription("${desc.description_id}")' class="btn-icon" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick='deleteDescription("${desc.description_id}")' class="btn-icon btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function filterTable() {
+    renderTable(filterDescriptions());
+}
+
+function filterByCategory(category) {
+    currentCategory = category;
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    renderTable(filterDescriptions());
+}
+
+function addNewDescription() {
+    document.getElementById('modalTitle').textContent = 'Add New Survey Description';
+    document.getElementById('descriptionForm').reset();
+    document.getElementById('descriptionId').value = '';
+    document.getElementById('isActive').checked = true;
+    document.getElementById('colorPicker').value = '#00FFFF';
+    document.getElementById('colorHex').value = '#00FFFF';
+    document.getElementById('descriptionModal').style.display = 'block';
+}
+
+async function editDescription(descriptionId) {
+    const desc = allDescriptions.find(d => d.description_id === descriptionId);
+    if (!desc) return;
+
+    document.getElementById('modalTitle').textContent = 'Edit Survey Description';
+    document.getElementById('descriptionId').value = desc.description_id;
+    document.getElementById('descriptionCode').value = desc.description_code;
+    document.getElementById('descriptionText').value = desc.description_text || '';
+    document.getElementById('category').value = desc.category || '';
+    document.getElementById('displayOrder').value = desc.display_order || '';
+    document.getElementById('symbolCode').value = desc.symbol_code || '';
+    document.getElementById('notes').value = desc.notes || '';
+    const colorHex = desc.color_hex || '#00FFFF';
+    document.getElementById('colorHex').value = colorHex;
+    document.getElementById('colorPicker').value = colorHex;
+    document.getElementById('isActive').checked = desc.is_active !== false;
+
+    document.getElementById('descriptionModal').style.display = 'block';
+}
+
+async function saveDescription(event) {
+    event.preventDefault();
+
+    const descriptionId = document.getElementById('descriptionId').value;
+    const data = {
+        description_code: document.getElementById('descriptionCode').value.toUpperCase(),
+        description_text: document.getElementById('descriptionText').value,
+        category: document.getElementById('category').value,
+        display_order: parseInt(document.getElementById('displayOrder').value) || null,
+        symbol_code: document.getElementById('symbolCode').value || null,
+        color_hex: document.getElementById('colorHex').value || null,
+        notes: document.getElementById('notes').value || null,
+        is_active: document.getElementById('isActive').checked
+    };
+
+    try {
+        const url = descriptionId ? `/api/survey_point_descriptions/${descriptionId}` : '/api/survey_point_descriptions';
+        const method = descriptionId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to save description');
+        }
+
+        closeModal();
+        loadDescriptions();
+    } catch (error) {
+        console.error('Error saving description:', error);
+        alert('Error saving description: ' + error.message);
+    }
+}
+
+async function deleteDescription(descriptionId) {
+    const desc = allDescriptions.find(d => d.description_id === descriptionId);
+    if (!confirm(`Are you sure you want to delete "${desc.description_code}"?\n\nNote: This may affect existing survey points that use this description.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/survey_point_descriptions/${descriptionId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete description');
+        }
+
+        loadDescriptions();
+    } catch (error) {
+        console.error('Error deleting description:', error);
+        alert('Error deleting description: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('descriptionModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('descriptionModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+
+<style>
+.search-box {
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.search-box i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+}
+
+.search-box input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    background: rgba(255,255,255,0.08);
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+    background: rgba(0,255,255,0.1);
+    border-color: var(--accent-cyan);
+    color: var(--text-primary);
+}
+
+.filter-btn.active {
+    background: rgba(0,255,255,0.2);
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    font-weight: 600;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.checkbox-label:hover {
+    background: rgba(0,255,255,0.1);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.badge-success {
+    background: rgba(0,200,100,0.2);
+    color: #5cb85c;
+}
+
+.badge-danger {
+    background: rgba(200,0,0,0.2);
+    color: #d9534f;
+}
+
+.badge-category {
+    background: rgba(138,43,226,0.2);
+    color: #ba68c8;
+    font-size: 11px;
+}
+
+.modal-content {
+    max-width: 600px;
+}
+
+.form-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+code {
+    font-family: 'Courier New', monospace;
+}
+</style>
+{% endblock %}

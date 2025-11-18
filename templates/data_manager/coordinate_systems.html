@@ -1,0 +1,399 @@
+{% extends "base.html" %}
+
+{% block title %}Coordinate Systems Manager - Data Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-globe"></i> Coordinate Systems Manager</h1>
+            <p class="subtitle">Manage coordinate system standards - Truth Table for EPSG codes and projection systems</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-list"></i> Coordinate System Standards</h2>
+            <div class="button-group">
+                <button onclick="addNewSystem()" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New System
+                </button>
+                <button onclick="loadSystems()" class="btn btn-secondary">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search by EPSG code, system name, or region..." onkeyup="filterTable()">
+            </div>
+
+            <div id="loadingMessage" class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i> Loading coordinate systems...
+            </div>
+
+            <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+            <div id="tableContainer" style="display: none; overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">EPSG Code</th>
+                            <th>System Name</th>
+                            <th>Region</th>
+                            <th>Datum</th>
+                            <th>Units</th>
+                            <th>Zone</th>
+                            <th>Usage</th>
+                            <th style="width: 80px;">Active</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="systemsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="systemModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Coordinate System</h2>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="systemForm" onsubmit="saveSystem(event)">
+            <input type="hidden" id="systemId">
+
+            <div style="display: grid; grid-template-columns: 150px 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="epsgCode">EPSG Code <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="epsgCode" required placeholder="e.g., 2226"
+                           pattern="[0-9]+"
+                           title="Numeric EPSG code">
+                    <small style="color: #888;"><a href="https://epsg.io" target="_blank">Look up EPSG codes</a></small>
+                </div>
+
+                <div class="form-group">
+                    <label for="systemName">System Name <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="systemName" required placeholder="e.g., NAD83 / California zone 3 (ftUS)">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="region">Region</label>
+                    <input type="text" id="region" placeholder="e.g., California, Santa Clara County">
+                </div>
+
+                <div class="form-group">
+                    <label for="datum">Datum</label>
+                    <input type="text" id="datum" placeholder="e.g., NAD83, WGS84">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 100px; gap: 15px;">
+                <div class="form-group">
+                    <label for="units">Units <span style="color: #ff6b6b;">*</span></label>
+                    <select id="units" required class="form-control">
+                        <option value="">Select units...</option>
+                        <option value="US Survey Feet">US Survey Feet</option>
+                        <option value="International Feet">International Feet</option>
+                        <option value="Meters">Meters</option>
+                        <option value="Degrees">Degrees</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="projectionType">Projection Type</label>
+                    <select id="projectionType" class="form-control">
+                        <option value="">Select type...</option>
+                        <option value="State Plane">State Plane</option>
+                        <option value="UTM">UTM</option>
+                        <option value="Geographic">Geographic (Lat/Lon)</option>
+                        <option value="Local">Local</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="zoneNumber">Zone #</label>
+                    <input type="number" id="zoneNumber" placeholder="3">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" rows="3" placeholder="Usage notes, applicability, accuracy considerations..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="isActive" checked> Active
+                </label>
+                <small style="color: #888; margin-left: 10px;">Inactive systems won't appear in dropdowns</small>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save System
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let allSystems = [];
+
+async function loadSystems() {
+    document.getElementById('loadingMessage').style.display = 'block';
+    document.getElementById('tableContainer').style.display = 'none';
+    document.getElementById('errorMessage').style.display = 'none';
+
+    try {
+        const response = await fetch('/api/data-manager/coordinate-systems');
+        const data = await response.json();
+
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+
+        allSystems = data.systems || [];
+        renderTable();
+
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+
+    } catch (error) {
+        showError('Failed to load coordinate systems: ' + error.message);
+        document.getElementById('loadingMessage').style.display = 'none';
+    }
+}
+
+function renderTable() {
+    const tbody = document.getElementById('systemsTableBody');
+    tbody.innerHTML = '';
+
+    if (allSystems.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px; color: #888;">No coordinate systems found. Add your first system to get started.</td></tr>';
+        return;
+    }
+
+    allSystems.forEach(system => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><code class="neon-cyan">${escapeHtml(system.epsg_code)}</code></td>
+            <td><strong>${escapeHtml(system.system_name)}</strong></td>
+            <td>${escapeHtml(system.region || '')}</td>
+            <td>${escapeHtml(system.datum || '')}</td>
+            <td>${escapeHtml(system.units || '')}</td>
+            <td>${system.zone_number || ''}</td>
+            <td><span class="badge">${system.usage_frequency || 0}</span></td>
+            <td>
+                <span class="badge ${system.is_active ? 'badge-success' : 'badge-danger'}">
+                    ${system.is_active ? 'Yes' : 'No'}
+                </span>
+            </td>
+            <td>
+                <button onclick='editSystem(${JSON.stringify(system).replace(/'/g, "&#39;")})' class="btn btn-sm btn-primary" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteSystem('${system.system_id}')" class="btn btn-sm btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function filterTable() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const tbody = document.getElementById('systemsTableBody');
+    const rows = tbody.getElementsByTagName('tr');
+
+    for (let row of rows) {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    }
+}
+
+function addNewSystem() {
+    document.getElementById('modalTitle').textContent = 'Add New Coordinate System';
+    document.getElementById('systemForm').reset();
+    document.getElementById('systemId').value = '';
+    document.getElementById('isActive').checked = true;
+    document.getElementById('epsgCode').readOnly = false;
+    document.getElementById('systemModal').style.display = 'block';
+}
+
+function editSystem(system) {
+    document.getElementById('modalTitle').textContent = 'Edit Coordinate System';
+    document.getElementById('systemId').value = system.system_id;
+    document.getElementById('epsgCode').value = system.epsg_code;
+    document.getElementById('epsgCode').readOnly = true; // Don't allow changing EPSG code
+    document.getElementById('systemName').value = system.system_name;
+    document.getElementById('region').value = system.region || '';
+    document.getElementById('datum').value = system.datum || '';
+    document.getElementById('units').value = system.units || '';
+    document.getElementById('projectionType').value = system.attributes?.projection_type || '';
+    document.getElementById('zoneNumber').value = system.zone_number || '';
+    document.getElementById('notes').value = system.notes || '';
+    document.getElementById('isActive').checked = system.is_active !== false;
+    document.getElementById('systemModal').style.display = 'block';
+}
+
+async function saveSystem(event) {
+    event.preventDefault();
+
+    const systemId = document.getElementById('systemId').value;
+    const formData = {
+        epsg_code: document.getElementById('epsgCode').value,
+        system_name: document.getElementById('systemName').value,
+        region: document.getElementById('region').value,
+        datum: document.getElementById('datum').value,
+        units: document.getElementById('units').value,
+        zone_number: parseInt(document.getElementById('zoneNumber').value) || null,
+        notes: document.getElementById('notes').value,
+        is_active: document.getElementById('isActive').checked,
+        attributes: {
+            projection_type: document.getElementById('projectionType').value
+        }
+    };
+
+    try {
+        const url = systemId
+            ? `/api/data-manager/coordinate-systems/${systemId}`
+            : '/api/data-manager/coordinate-systems';
+        const method = systemId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+
+        closeModal();
+        loadSystems();
+        showSuccess(systemId ? 'Coordinate system updated successfully' : 'Coordinate system created successfully');
+
+    } catch (error) {
+        showError('Failed to save coordinate system: ' + error.message);
+    }
+}
+
+async function deleteSystem(systemId) {
+    if (!confirm('Are you sure you want to delete this coordinate system? This will fail if the system is referenced by any survey points or projects.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/data-manager/coordinate-systems/${systemId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+
+        loadSystems();
+        showSuccess('Coordinate system deleted successfully');
+
+    } catch (error) {
+        showError('Failed to delete coordinate system: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('systemModal').style.display = 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    setTimeout(() => errorDiv.style.display = 'none', 5000);
+}
+
+function showSuccess(message) {
+    const successDiv = document.createElement('div');
+    successDiv.className = 'alert alert-success';
+    successDiv.textContent = message;
+    successDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000;';
+    document.body.appendChild(successDiv);
+    setTimeout(() => successDiv.remove(), 3000);
+}
+
+function escapeHtml(text) {
+    if (!text && text !== 0) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
+// Load systems on page load
+document.addEventListener('DOMContentLoaded', loadSystems);
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('systemModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+
+<style>
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: rgba(0, 255, 127, 0.2);
+    color: #00ff7f;
+}
+
+.badge-danger {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+}
+
+code {
+    font-family: 'Courier New', monospace;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(0, 255, 255, 0.1);
+}
+
+.card-body a {
+    color: var(--neon-cyan);
+    text-decoration: none;
+}
+
+.card-body a:hover {
+    text-decoration: underline;
+}
+</style>
+
+{% endblock %}

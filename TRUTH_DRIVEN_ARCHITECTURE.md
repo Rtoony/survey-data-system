@@ -237,15 +237,16 @@ discipline VARCHAR(50),           -- Free text (should be from discipline_codes)
 
 **Solution Implemented:**
 - ✅ `material_standards` table exists with fields: `material_code`, `material_name`, `material_type`, `specifications`, etc.
-- ✅ Added `material_code` column to `material_standards` (short codes like "PVC", "CONCRETE", "STEEL")
+- ✅ Added `material_code` column to `material_standards` (short codes like "PVC", "CONCRETE", "ASPHALT", "UNKNOWN")
 - ✅ FK constraints added: `utility_lines.material` → `material_standards.material_code`
 - ✅ FK constraints added: `utility_structures.material` → `material_standards.material_code`
 - ✅ Constraints include ON DELETE SET NULL and ON UPDATE CASCADE for data safety
-- Examples: "PVC", "CONCRETE", "STEEL", "HDPE", "DI" (with full names in material_name column)
+- ✅ Migrated 920 existing utility_lines records to use "UNKNOWN" material code
+- Examples: "PVC", "CONCRETE", "ASPHALT", "UNKNOWN" (with full names in material_name column)
 
-**Status:** ⚠️ **NOT IMPLEMENTED** - Material columns remain VARCHAR without FK constraints
-**Required Migration:** `database/migrations/014_add_material_standards_fk_constraints.sql` (not yet created)
-**Current State:** utility_lines.material and utility_structures.material are VARCHAR(100) with no FK enforcement
+**Status:** ✅ **IMPLEMENTED** (Migration 014 executed Jan 2026)
+**Migration File:** `database/migrations/014_add_material_standards_fk_constraints.sql` (executed successfully)
+**Current State:** FK constraints `fk_utility_lines_material` and `fk_utility_structures_material` are active and enforcing controlled vocabulary
 
 ---
 
@@ -265,15 +266,17 @@ structure_type VARCHAR(50),       -- Free text (should be controlled vocabulary)
 - Inventory reports unreliable
 - Standards enforcement fails
 
-**Solution Needed:**
-- Create `structure_type_standards` table
-- Fields: `type_code`, `type_name`, `category`, `icon`, `specialized_tool_id`, `required_attributes`
-- Examples: "MH" = "Manhole", "CB" = "Catch Basin", "CLNOUT" = "Cleanout"
-- Link to `specialized_tools_registry` for auto-tool launching
-- Enforce via dropdown selects
+**Solution Implemented:**
+- ✅ Created `structure_type_standards` table with fields: `type_code`, `type_name`, `category`, `icon_class`, `specialized_tool_id`, `required_attributes`
+- ✅ Seeded with 12 standard structure types: MH, CB, INLET, OUTLET, JUNCTION, CLEANOUT, VALVE, METER, PUMP, TANK, VAULT, UNKNOWN
+- ✅ Added FK constraint: `utility_structures.structure_type` → `structure_type_standards.type_code`
+- ✅ Migrated 312 existing structures to use "UNKNOWN" code
+- ✅ UI dropdown uses `/api/structure-type-standards` endpoint
+- Examples: "MH" = "Manhole", "CB" = "Catch Basin", "INLET" = "Inlet", "CLEANOUT" = "Cleanout"
 
-**Status:** ⚠️ **Not implemented** - Free text currently allowed (no CHECK constraint or FK)
-**Recommendation:** Add CHECK constraint for immediate improvement, or better yet, create `structure_type_standards` table with FK for full truth-driven architecture compliance
+**Status:** ✅ **IMPLEMENTED** (Migration 027 + data migration executed Jan 2026)
+**Migration File:** `database/migrations/027_create_structure_type_standards.sql` (executed successfully)
+**Current State:** FK constraint `fk_utility_structures_type` is active and enforcing controlled vocabulary
 
 ---
 
@@ -346,16 +349,19 @@ structure_type VARCHAR(50),       -- Free text (should be controlled vocabulary)
    - Update relationship set create modal to use templates
    - Migrate existing sets to closest template
 
-2. **Material Type Enforcement**
-   - Add foreign key constraints to all material columns
-   - Update all material input fields to use dropdowns from `material_standards`
-   - Data migration script for existing free text
+2. **Material Type Enforcement** ✅ **COMPLETED (Jan 2026)**
+   - ✅ Added foreign key constraints to all material columns (Migration 014)
+   - ✅ Updated material input fields to use dropdowns from `material_standards` via `/api/standards/materials`
+   - ✅ Data migration script executed for 920 existing utility_lines records
 
-3. **Structure Type Standardization**
-   - Create `structure_type_standards` table
-   - Build CRUD interface
-   - Update structure management UIs
-   - Link to specialized tools registry
+3. **Structure Type Standardization** ✅ **COMPLETED (Jan 2026)**
+   - ✅ Created `structure_type_standards` table (Migration 027)
+   - ✅ Seeded with 12 standard structure types
+   - ✅ Added FK constraint for utility_structures.structure_type
+   - ✅ Migrated 312 existing structures to "UNKNOWN" type
+   - ✅ UI dropdown implemented using `/api/structure-type-standards` endpoint
+   - ⚠️ Future: Build full CRUD interface for structure_type_standards management
+   - ⚠️ Future: Link to specialized tools registry for auto-tool launching
 
 ---
 
@@ -572,7 +578,10 @@ clients • municipalities • cad_standards • projects • discipline_codes �
 **Specialized Vocabularies (4 tables):**
 survey_code_library • specialized_tools_registry • project_usage_tracking • entity_registry
 
-**Future Tables (6+ planned):**
-relationship_set_naming_templates • survey_point_description_standards • survey_method_types • structure_type_standards • equipment_type_standards • project_attribute_vocabulary
+**Implemented Tables (Added Jan 2026):**
+structure_type_standards ✅ (Migration 027)
 
-**Total:** 31 current + 6 planned = **37 truth tables**
+**Future Tables (5+ planned):**
+relationship_set_naming_templates • survey_point_description_standards • survey_method_types • equipment_type_standards • project_attribute_vocabulary
+
+**Total:** 32 current + 5 planned = **37 truth tables**
