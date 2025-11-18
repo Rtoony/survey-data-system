@@ -1,0 +1,1044 @@
+{% extends 'base.html' %}
+
+{% block title %}Spec-Geometry Link Visualizer{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Breadcrumb -->
+    <div style="margin-bottom: 1rem;">
+        <nav style="color: var(--mc-muted); font-size: 0.9rem;">
+            <i class="fas fa-home"></i>
+            <a href="/standards-library" style="color: var(--mc-primary); text-decoration: none;">Standards Library</a>
+            <span style="margin: 0 0.5rem;">/</span>
+            <span>Spec-Geometry Links</span>
+        </nav>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <i class="fas fa-link neon-cyan"></i>
+                <h2>Spec-Geometry Link Visualizer</h2>
+            </div>
+            <button class="btn" onclick="openCreateLinkModal()" style="background: linear-gradient(135deg, var(--mc-primary), var(--mc-accent));">
+                <i class="fas fa-plus"></i> Create Link
+            </button>
+        </div>
+        <div class="panel-body">
+            <!-- Filters Bar -->
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; padding: 1.5rem; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 8px;">
+                <select id="projectFilter" class="filter-select" onchange="applyFilters()">
+                    <option value="">All Projects</option>
+                </select>
+                <select id="specFilter" class="filter-select" onchange="applyFilters()">
+                    <option value="">All Specifications</option>
+                </select>
+                <select id="entityTypeFilter" class="filter-select" onchange="applyFilters()">
+                    <option value="">All Entity Types</option>
+                    <option value="pipe">Pipe</option>
+                    <option value="manhole">Manhole</option>
+                    <option value="structure">Structure</option>
+                    <option value="valve">Valve</option>
+                    <option value="hydrant">Hydrant</option>
+                    <option value="other">Other</option>
+                </select>
+                <select id="complianceFilter" class="filter-select" onchange="applyFilters()">
+                    <option value="">All Compliance Status</option>
+                    <option value="compliant">Compliant</option>
+                    <option value="warning">Warning</option>
+                    <option value="violation">Violation</option>
+                    <option value="pending">Pending</option>
+                </select>
+                <select id="linkTypeFilter" class="filter-select" onchange="applyFilters()">
+                    <option value="">All Link Types</option>
+                    <option value="governs">Governs</option>
+                    <option value="references">References</option>
+                    <option value="impacts">Impacts</option>
+                </select>
+                <div style="flex: 1; position: relative; min-width: 250px;">
+                    <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--mc-muted);"></i>
+                    <input type="text" id="searchBox" placeholder="Search..."
+                           class="filter-select"
+                           style="padding-left: 36px; width: 100%;"
+                           oninput="applyFilters()">
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div class="stats-card" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1)); border: 1px solid rgba(59, 130, 246, 0.5);">
+                    <div class="stats-icon" style="color: #3b82f6;">
+                        <i class="fas fa-link"></i>
+                    </div>
+                    <div class="stats-value" id="totalLinks" style="color: #3b82f6;">0</div>
+                    <div class="stats-label">Total Links</div>
+                </div>
+                <div class="stats-card" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1)); border: 1px solid rgba(16, 185, 129, 0.5);">
+                    <div class="stats-icon" style="color: #10b981;">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stats-value" id="compliantLinks" style="color: #10b981;">0</div>
+                    <div class="stats-label">Compliant</div>
+                </div>
+                <div class="stats-card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1)); border: 1px solid rgba(245, 158, 11, 0.5);">
+                    <div class="stats-icon" style="color: #f59e0b;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stats-value" id="warningLinks" style="color: #f59e0b;">0</div>
+                    <div class="stats-label">Warnings</div>
+                </div>
+                <div class="stats-card" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1)); border: 1px solid rgba(239, 68, 68, 0.5);">
+                    <div class="stats-icon" style="color: #ef4444;">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="stats-value" id="violationLinks" style="color: #ef4444;">0</div>
+                    <div class="stats-label">Violations</div>
+                </div>
+            </div>
+
+            <!-- Links Table -->
+            <div style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 8px; overflow: hidden;">
+                <!-- Bulk Actions Bar -->
+                <div id="bulkActionsBar" style="display: none; padding: 1rem; background: rgba(0, 255, 255, 0.1); border-bottom: 1px solid rgba(0, 255, 255, 0.2);">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <span id="selectedCount" style="color: var(--mc-primary); font-weight: 600;">0 selected</span>
+                        <button class="btn" onclick="bulkDelete()" style="background: rgba(255, 68, 68, 0.2); border: 1px solid var(--mc-danger);">
+                            <i class="fas fa-trash"></i> Delete Selected
+                        </button>
+                        <button class="btn" onclick="bulkUpdateStatus()" style="background: rgba(0, 255, 136, 0.2); border: 1px solid var(--mc-accent);">
+                            <i class="fas fa-edit"></i> Update Status
+                        </button>
+                        <button class="btn" onclick="exportSelected()" style="background: rgba(0, 255, 255, 0.2); border: 1px solid var(--mc-primary);">
+                            <i class="fas fa-download"></i> Export CSV
+                        </button>
+                        <button class="btn" onclick="clearSelection()" style="background: rgba(136, 146, 176, 0.2); border: 1px solid var(--mc-muted);">
+                            <i class="fas fa-times"></i> Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div style="overflow-x: auto;">
+                    <table class="data-table" style="width: 100%; margin: 0;">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="cursor: pointer;">
+                                </th>
+                                <th>Spec Number & Title</th>
+                                <th>Entity Type & ID</th>
+                                <th>Project</th>
+                                <th>Link Type</th>
+                                <th>Compliance</th>
+                                <th>Confidence</th>
+                                <th>Linked Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="linksTableBody">
+                            <tr>
+                                <td colspan="9" style="text-align: center; padding: 3rem;">
+                                    <div class="loading-spinner">
+                                        <i class="fas fa-spinner fa-spin neon-cyan"></i>
+                                        <p>Loading links...</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div id="pagination" style="padding: 1rem; border-top: 1px solid rgba(0, 255, 255, 0.2); display: flex; justify-content: center; gap: 0.5rem;">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Link Modal -->
+<div id="linkModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 id="linkModalTitle">Create Spec-Geometry Link</h3>
+            <button class="close-btn" onclick="closeLinkModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="linkForm">
+                <input type="hidden" id="linkId">
+
+                <div class="form-group">
+                    <label for="specSelect"><i class="fas fa-file-alt"></i> Specification *</label>
+                    <select id="specSelect" class="project-select-control" style="width: 100%;" required>
+                        <option value="">-- Select Specification --</option>
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="entityType"><i class="fas fa-shapes"></i> Entity Type *</label>
+                        <select id="entityType" class="project-select-control" style="width: 100%;" required>
+                            <option value="">-- Select Type --</option>
+                            <option value="pipe">Pipe</option>
+                            <option value="manhole">Manhole</option>
+                            <option value="structure">Structure</option>
+                            <option value="valve">Valve</option>
+                            <option value="hydrant">Hydrant</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="entityId"><i class="fas fa-hashtag"></i> Entity ID *</label>
+                        <input type="text" id="entityId" placeholder="e.g., PIPE-001"
+                               style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.3); border: 2px solid rgba(0, 255, 255, 0.3); border-radius: 8px; color: var(--mc-text); font-family: 'Rajdhani', sans-serif;" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="projectSelect"><i class="fas fa-folder"></i> Project *</label>
+                    <select id="projectSelect" class="project-select-control" style="width: 100%;" required>
+                        <option value="">-- Select Project --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label><i class="fas fa-link"></i> Link Type *</label>
+                    <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="linkType" value="governs" checked style="cursor: pointer;">
+                            <span>Governs</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="linkType" value="references" style="cursor: pointer;">
+                            <span>References</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="linkType" value="impacts" style="cursor: pointer;">
+                            <span>Impacts</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="complianceStatus"><i class="fas fa-check-circle"></i> Compliance Status</label>
+                        <select id="complianceStatus" class="project-select-control" style="width: 100%;">
+                            <option value="pending">Pending</option>
+                            <option value="compliant">Compliant</option>
+                            <option value="warning">Warning</option>
+                            <option value="violation">Violation</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confidence"><i class="fas fa-percent"></i> Confidence</label>
+                        <input type="number" id="confidence" min="0" max="100" step="1" placeholder="0-100"
+                               style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.3); border: 2px solid rgba(0, 255, 255, 0.3); border-radius: 8px; color: var(--mc-text); font-family: 'Rajdhani', sans-serif;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="linkNotes"><i class="fas fa-sticky-note"></i> Notes</label>
+                    <textarea id="linkNotes" rows="4" placeholder="Additional notes..."
+                              style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.3); border: 2px solid rgba(0, 255, 255, 0.3); border-radius: 8px; color: var(--mc-text); font-family: 'Rajdhani', sans-serif; resize: vertical;"></textarea>
+                </div>
+
+                <div class="modal-footer" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(0, 255, 255, 0.2);">
+                    <button type="button" class="btn" onclick="closeLinkModal()" style="background: rgba(136, 146, 176, 0.2); border: 1px solid var(--mc-muted);">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn" style="background: linear-gradient(135deg, var(--mc-primary), var(--mc-accent));">
+                        <i class="fas fa-save"></i> Save Link
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 style="color: var(--mc-danger);"><i class="fas fa-exclamation-triangle"></i> Confirm Delete</h3>
+            <button class="close-btn" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="confirm-dialog">
+                <p id="deleteMessage">Are you sure you want to delete this link?</p>
+                <div class="confirm-actions">
+                    <button class="btn" onclick="closeDeleteModal()" style="background: rgba(136, 146, 176, 0.2); border: 1px solid var(--mc-muted);">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button class="btn" onclick="confirmDelete()" style="background: linear-gradient(135deg, #ff4444, #cc0000);">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Link Detail View (Inline Expansion) -->
+<template id="linkDetailTemplate">
+    <tr class="link-detail-row">
+        <td colspan="9" style="background: rgba(0, 255, 255, 0.05); padding: 1.5rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2rem;">
+                <div>
+                    <h4 class="orbitron" style="color: var(--mc-accent); font-size: 0.9rem; margin-bottom: 0.75rem;">
+                        <i class="fas fa-file-alt"></i> Specification Details
+                    </h4>
+                    <div style="color: var(--mc-muted); line-height: 1.8;" id="detailSpec"></div>
+                </div>
+                <div>
+                    <h4 class="orbitron" style="color: var(--mc-accent); font-size: 0.9rem; margin-bottom: 0.75rem;">
+                        <i class="fas fa-shapes"></i> Entity Details
+                    </h4>
+                    <div style="color: var(--mc-muted); line-height: 1.8;" id="detailEntity"></div>
+                </div>
+                <div>
+                    <h4 class="orbitron" style="color: var(--mc-accent); font-size: 0.9rem; margin-bottom: 0.75rem;">
+                        <i class="fas fa-link"></i> Link Metadata
+                    </h4>
+                    <div style="color: var(--mc-muted); line-height: 1.8;" id="detailMeta"></div>
+                </div>
+            </div>
+        </td>
+    </tr>
+</template>
+
+<style>
+.filter-select {
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    border-radius: 8px;
+    color: var(--mc-text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.filter-select:hover,
+.filter-select:focus {
+    border-color: var(--mc-primary);
+    background: rgba(0, 255, 255, 0.1);
+    outline: none;
+}
+
+.stats-card {
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.stats-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.stats-value {
+    font-size: 2rem;
+    font-weight: bold;
+    font-family: 'Orbitron', sans-serif;
+    margin-bottom: 0.25rem;
+}
+
+.stats-label {
+    color: var(--mc-muted);
+    font-size: 0.9rem;
+}
+
+.data-table {
+    border-collapse: collapse;
+}
+
+.data-table thead {
+    background: rgba(0, 255, 255, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.data-table th {
+    padding: 1rem;
+    text-align: left;
+    color: var(--mc-accent);
+    font-weight: 600;
+    border-bottom: 2px solid rgba(0, 255, 255, 0.3);
+}
+
+.data-table td {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+    color: var(--mc-text);
+}
+
+.data-table tbody tr {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.data-table tbody tr:hover {
+    background: rgba(0, 255, 255, 0.05);
+}
+
+.data-table tbody tr.expanded {
+    background: rgba(0, 255, 255, 0.1);
+}
+
+.link-detail-row {
+    cursor: default !important;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge-governs {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+}
+
+.badge-references {
+    background: rgba(168, 85, 247, 0.2);
+    color: #a855f7;
+    border: 1px solid #a855f7;
+}
+
+.badge-impacts {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+}
+
+.badge-compliant {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid #10b981;
+}
+
+.badge-warning {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+}
+
+.badge-violation {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid #ef4444;
+}
+
+.badge-pending {
+    background: rgba(136, 146, 176, 0.2);
+    color: var(--mc-muted);
+    border: 1px solid var(--mc-muted);
+}
+
+.action-btn {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    background: rgba(0, 255, 255, 0.2);
+    color: var(--mc-primary);
+    border: 1px solid var(--mc-primary);
+    font-size: 0.85rem;
+}
+
+.action-btn:hover {
+    background: rgba(0, 255, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 255, 255, 0.3);
+}
+
+.action-btn.danger {
+    background: rgba(255, 68, 68, 0.2);
+    color: var(--mc-danger);
+    border-color: var(--mc-danger);
+}
+
+.action-btn.danger:hover {
+    background: rgba(255, 68, 68, 0.3);
+    box-shadow: 0 4px 8px rgba(255, 68, 68, 0.3);
+}
+
+.pagination-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--mc-primary);
+    background: rgba(0, 255, 255, 0.1);
+    color: var(--mc-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: rgba(0, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.pagination-btn.active {
+    background: var(--mc-primary);
+    color: var(--mc-black);
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// State
+let allLinks = [];
+let allProjects = [];
+let allSpecs = [];
+let filteredLinks = [];
+let selectedLinks = new Set();
+let currentPage = 1;
+let deleteTargetId = null;
+const ITEMS_PER_PAGE = 50;
+
+// API Helper
+async function apiCall(endpoint, method = 'GET', data = null) {
+    const options = { method, headers: { 'Content-Type': 'application/json' } };
+    if (data) options.body = JSON.stringify(data);
+
+    const response = await fetch(endpoint, options);
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+    }
+    return response.json();
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', async () => {
+    await Promise.all([
+        loadProjects(),
+        loadSpecs(),
+        loadLinks()
+    ]);
+});
+
+// Load Data
+async function loadProjects() {
+    try {
+        allProjects = await apiCall('/api/projects');
+        const select = document.getElementById('projectFilter');
+        const modalSelect = document.getElementById('projectSelect');
+
+        allProjects.forEach(project => {
+            const option1 = document.createElement('option');
+            option1.value = project.project_id;
+            option1.textContent = project.project_name;
+            select.appendChild(option1);
+
+            const option2 = option1.cloneNode(true);
+            modalSelect.appendChild(option2);
+        });
+    } catch (error) {
+        console.error('Failed to load projects:', error);
+    }
+}
+
+async function loadSpecs() {
+    try {
+        allSpecs = await apiCall('/api/spec-library');
+        const select = document.getElementById('specFilter');
+        const modalSelect = document.getElementById('specSelect');
+
+        allSpecs.forEach(spec => {
+            const option1 = document.createElement('option');
+            option1.value = spec.spec_library_id;
+            option1.textContent = `${spec.spec_number} - ${spec.spec_title}`;
+            select.appendChild(option1);
+
+            const option2 = option1.cloneNode(true);
+            modalSelect.appendChild(option2);
+        });
+    } catch (error) {
+        console.error('Failed to load specs:', error);
+    }
+}
+
+async function loadLinks() {
+    try {
+        allLinks = await apiCall('/api/spec-geometry-links');
+        applyFilters();
+        updateStatistics();
+    } catch (error) {
+        console.error('Failed to load links:', error);
+        document.getElementById('linksTableBody').innerHTML = `
+            <tr>
+                <td colspan="9" style="text-align: center; padding: 3rem; color: var(--mc-danger);">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Failed to load links: ${error.message}</p>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// Apply Filters
+function applyFilters() {
+    const projectFilter = document.getElementById('projectFilter').value;
+    const specFilter = document.getElementById('specFilter').value;
+    const entityTypeFilter = document.getElementById('entityTypeFilter').value;
+    const complianceFilter = document.getElementById('complianceFilter').value;
+    const linkTypeFilter = document.getElementById('linkTypeFilter').value;
+    const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+
+    filteredLinks = allLinks.filter(link => {
+        const matchesProject = !projectFilter || link.project_id == projectFilter;
+        const matchesSpec = !specFilter || link.spec_library_id == specFilter;
+        const matchesEntityType = !entityTypeFilter || link.entity_type === entityTypeFilter;
+        const matchesCompliance = !complianceFilter || link.compliance_status === complianceFilter;
+        const matchesLinkType = !linkTypeFilter || link.link_type === linkTypeFilter;
+        const matchesSearch = !searchTerm ||
+            link.entity_id.toLowerCase().includes(searchTerm) ||
+            link.notes?.toLowerCase().includes(searchTerm);
+
+        return matchesProject && matchesSpec && matchesEntityType && matchesCompliance && matchesLinkType && matchesSearch;
+    });
+
+    currentPage = 1;
+    renderLinks();
+    updateStatistics();
+}
+
+// Update Statistics
+function updateStatistics() {
+    const stats = {
+        total: filteredLinks.length,
+        compliant: filteredLinks.filter(l => l.compliance_status === 'compliant').length,
+        warning: filteredLinks.filter(l => l.compliance_status === 'warning').length,
+        violation: filteredLinks.filter(l => l.compliance_status === 'violation').length
+    };
+
+    document.getElementById('totalLinks').textContent = stats.total;
+    document.getElementById('compliantLinks').textContent = stats.compliant;
+    document.getElementById('warningLinks').textContent = stats.warning;
+    document.getElementById('violationLinks').textContent = stats.violation;
+}
+
+// Render Links
+function renderLinks() {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const pageLinks = filteredLinks.slice(start, end);
+
+    const tbody = document.getElementById('linksTableBody');
+
+    if (pageLinks.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" style="text-align: center; padding: 3rem; color: var(--mc-muted);">
+                    <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                    <p>No links found</p>
+                </td>
+            </tr>
+        `;
+        document.getElementById('pagination').innerHTML = '';
+        return;
+    }
+
+    tbody.innerHTML = pageLinks.map(link => {
+        const spec = allSpecs.find(s => s.spec_library_id === link.spec_library_id);
+        const project = allProjects.find(p => p.project_id === link.project_id);
+
+        return `
+            <tr onclick="toggleLinkDetail(${link.link_id})" data-link-id="${link.link_id}">
+                <td onclick="event.stopPropagation();">
+                    <input type="checkbox" class="link-checkbox" data-link-id="${link.link_id}"
+                           ${selectedLinks.has(link.link_id) ? 'checked' : ''}
+                           onchange="toggleLinkSelection(${link.link_id})">
+                </td>
+                <td>
+                    <strong style="color: var(--mc-primary);">${spec ? spec.spec_number : 'N/A'}</strong>
+                    <div style="font-size: 0.85rem; color: var(--mc-muted); margin-top: 0.25rem;">
+                        ${spec ? spec.spec_title : 'Unknown'}
+                    </div>
+                </td>
+                <td>
+                    <div><strong>${link.entity_type}</strong></div>
+                    <div style="font-size: 0.85rem; color: var(--mc-muted);">${link.entity_id}</div>
+                </td>
+                <td>${project ? project.project_name : 'Unknown'}</td>
+                <td><span class="badge badge-${link.link_type}">${link.link_type}</span></td>
+                <td><span class="badge badge-${link.compliance_status}">${link.compliance_status}</span></td>
+                <td>${link.confidence_score != null ? link.confidence_score + '%' : '-'}</td>
+                <td>${formatDate(link.created_at)}</td>
+                <td onclick="event.stopPropagation();">
+                    <div style="display: flex; gap: 0.25rem;">
+                        <button class="action-btn" onclick="openEditLinkModal(${link.link_id})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="action-btn danger" onclick="openDeleteModal(${link.link_id})" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    renderPagination();
+}
+
+// Toggle Link Detail
+function toggleLinkDetail(id) {
+    const row = document.querySelector(`tr[data-link-id="${id}"]`);
+    if (!row) return;
+
+    const existingDetail = row.nextElementSibling;
+    if (existingDetail && existingDetail.classList.contains('link-detail-row')) {
+        existingDetail.remove();
+        row.classList.remove('expanded');
+        return;
+    }
+
+    // Close other expanded rows
+    document.querySelectorAll('.link-detail-row').forEach(el => el.remove());
+    document.querySelectorAll('tr.expanded').forEach(el => el.classList.remove('expanded'));
+
+    row.classList.add('expanded');
+
+    const link = allLinks.find(l => l.link_id === id);
+    const spec = allSpecs.find(s => s.spec_library_id === link.spec_library_id);
+    const project = allProjects.find(p => p.project_id === link.project_id);
+
+    const template = document.getElementById('linkDetailTemplate');
+    const detailRow = template.content.cloneNode(true);
+
+    detailRow.querySelector('#detailSpec').innerHTML = `
+        <div><strong>Number:</strong> ${spec ? spec.spec_number : 'N/A'}</div>
+        <div><strong>Title:</strong> ${spec ? spec.spec_title : 'Unknown'}</div>
+        <div><strong>CSI Code:</strong> ${spec?.csi_code || 'N/A'}</div>
+    `;
+
+    detailRow.querySelector('#detailEntity').innerHTML = `
+        <div><strong>Type:</strong> ${link.entity_type}</div>
+        <div><strong>ID:</strong> ${link.entity_id}</div>
+        <div><strong>Project:</strong> ${project ? project.project_name : 'Unknown'}</div>
+    `;
+
+    detailRow.querySelector('#detailMeta').innerHTML = `
+        <div><strong>Link Type:</strong> ${link.link_type}</div>
+        <div><strong>Confidence:</strong> ${link.confidence_score != null ? link.confidence_score + '%' : 'N/A'}</div>
+        <div><strong>Notes:</strong> ${link.notes || 'None'}</div>
+        <div><strong>Created:</strong> ${formatDate(link.created_at)}</div>
+    `;
+
+    row.insertAdjacentElement('afterend', detailRow.querySelector('tr'));
+}
+
+// Pagination
+function renderPagination() {
+    const totalPages = Math.ceil(filteredLinks.length / ITEMS_PER_PAGE);
+    const pagination = document.getElementById('pagination');
+
+    if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+    }
+
+    let html = `
+        <button class="pagination-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+            <i class="fas fa-chevron-left"></i> Previous
+        </button>
+    `;
+
+    for (let i = 1; i <= Math.min(totalPages, 10); i++) {
+        html += `
+            <button class="pagination-btn ${currentPage === i ? 'active' : ''}" onclick="changePage(${i})">
+                ${i}
+            </button>
+        `;
+    }
+
+    html += `
+        <button class="pagination-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+            Next <i class="fas fa-chevron-right"></i>
+        </button>
+    `;
+
+    pagination.innerHTML = html;
+}
+
+function changePage(page) {
+    const totalPages = Math.ceil(filteredLinks.length / ITEMS_PER_PAGE);
+    if (page < 1 || page > totalPages) return;
+    currentPage = page;
+    renderLinks();
+}
+
+// Selection Functions
+function toggleSelectAll() {
+    const checked = document.getElementById('selectAll').checked;
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const pageLinks = filteredLinks.slice(start, end);
+
+    pageLinks.forEach(link => {
+        if (checked) {
+            selectedLinks.add(link.link_id);
+        } else {
+            selectedLinks.delete(link.link_id);
+        }
+    });
+
+    updateSelectionUI();
+}
+
+function toggleLinkSelection(id) {
+    if (selectedLinks.has(id)) {
+        selectedLinks.delete(id);
+    } else {
+        selectedLinks.add(id);
+    }
+    updateSelectionUI();
+}
+
+function updateSelectionUI() {
+    document.querySelectorAll('.link-checkbox').forEach(checkbox => {
+        const id = parseInt(checkbox.dataset.linkId);
+        checkbox.checked = selectedLinks.has(id);
+    });
+
+    const bulkBar = document.getElementById('bulkActionsBar');
+    const selectedCount = document.getElementById('selectedCount');
+
+    if (selectedLinks.size > 0) {
+        bulkBar.style.display = 'block';
+        selectedCount.textContent = `${selectedLinks.size} selected`;
+    } else {
+        bulkBar.style.display = 'none';
+    }
+}
+
+function clearSelection() {
+    selectedLinks.clear();
+    document.getElementById('selectAll').checked = false;
+    updateSelectionUI();
+}
+
+// Bulk Operations
+async function bulkDelete() {
+    if (selectedLinks.size === 0) return;
+
+    if (!confirm(`Are you sure you want to delete ${selectedLinks.size} link(s)?`)) {
+        return;
+    }
+
+    try {
+        await Promise.all(
+            Array.from(selectedLinks).map(id =>
+                apiCall(`/api/spec-geometry-links/${id}`, 'DELETE')
+            )
+        );
+        showToast(`${selectedLinks.size} link(s) deleted successfully`, 'success');
+        clearSelection();
+        await loadLinks();
+    } catch (error) {
+        showToast('Failed to delete some links: ' + error.message, 'error');
+    }
+}
+
+async function bulkUpdateStatus() {
+    if (selectedLinks.size === 0) return;
+
+    const newStatus = prompt('Enter new compliance status (compliant/warning/violation/pending):');
+    if (!newStatus || !['compliant', 'warning', 'violation', 'pending'].includes(newStatus)) {
+        showToast('Invalid status', 'error');
+        return;
+    }
+
+    try {
+        await Promise.all(
+            Array.from(selectedLinks).map(id => {
+                const link = allLinks.find(l => l.link_id === id);
+                return apiCall(`/api/spec-geometry-links/${id}`, 'PUT', {
+                    ...link,
+                    compliance_status: newStatus
+                });
+            })
+        );
+        showToast(`${selectedLinks.size} link(s) updated successfully`, 'success');
+        clearSelection();
+        await loadLinks();
+    } catch (error) {
+        showToast('Failed to update some links: ' + error.message, 'error');
+    }
+}
+
+function exportSelected() {
+    if (selectedLinks.size === 0) {
+        showToast('No links selected', 'warning');
+        return;
+    }
+
+    const selectedLinkData = allLinks.filter(l => selectedLinks.has(l.link_id));
+    const csv = convertToCSV(selectedLinkData);
+    downloadCSV(csv, 'spec-geometry-links.csv');
+    showToast('Export successful', 'success');
+}
+
+function convertToCSV(data) {
+    const headers = ['Link ID', 'Spec Number', 'Entity Type', 'Entity ID', 'Project', 'Link Type', 'Compliance', 'Confidence', 'Created'];
+    const rows = data.map(link => {
+        const spec = allSpecs.find(s => s.spec_library_id === link.spec_library_id);
+        const project = allProjects.find(p => p.project_id === link.project_id);
+        return [
+            link.link_id,
+            spec ? spec.spec_number : 'N/A',
+            link.entity_type,
+            link.entity_id,
+            project ? project.project_name : 'Unknown',
+            link.link_type,
+            link.compliance_status,
+            link.confidence_score || '',
+            formatDate(link.created_at)
+        ];
+    });
+
+    return [headers, ...rows].map(row => row.join(',')).join('\n');
+}
+
+function downloadCSV(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// Modal Functions
+function openCreateLinkModal() {
+    document.getElementById('linkModalTitle').textContent = 'Create Spec-Geometry Link';
+    document.getElementById('linkForm').reset();
+    document.getElementById('linkId').value = '';
+    document.getElementById('linkModal').classList.add('active');
+}
+
+function openEditLinkModal(id) {
+    const link = allLinks.find(l => l.link_id === id);
+    if (!link) return;
+
+    document.getElementById('linkModalTitle').textContent = 'Edit Spec-Geometry Link';
+    document.getElementById('linkId').value = link.link_id;
+    document.getElementById('specSelect').value = link.spec_library_id || '';
+    document.getElementById('entityType').value = link.entity_type || '';
+    document.getElementById('entityId').value = link.entity_id || '';
+    document.getElementById('projectSelect').value = link.project_id || '';
+    document.querySelector(`input[name="linkType"][value="${link.link_type}"]`).checked = true;
+    document.getElementById('complianceStatus').value = link.compliance_status || 'pending';
+    document.getElementById('confidence').value = link.confidence_score || '';
+    document.getElementById('linkNotes').value = link.notes || '';
+
+    document.getElementById('linkModal').classList.add('active');
+}
+
+function closeLinkModal() {
+    document.getElementById('linkModal').classList.remove('active');
+}
+
+// Save Link
+document.getElementById('linkForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const id = document.getElementById('linkId').value;
+    const data = {
+        spec_library_id: parseInt(document.getElementById('specSelect').value),
+        entity_type: document.getElementById('entityType').value,
+        entity_id: document.getElementById('entityId').value,
+        project_id: parseInt(document.getElementById('projectSelect').value),
+        link_type: document.querySelector('input[name="linkType"]:checked').value,
+        compliance_status: document.getElementById('complianceStatus').value,
+        confidence_score: document.getElementById('confidence').value ? parseFloat(document.getElementById('confidence').value) : null,
+        notes: document.getElementById('linkNotes').value || null
+    };
+
+    try {
+        if (id) {
+            await apiCall(`/api/spec-geometry-links/${id}`, 'PUT', data);
+            showToast('Link updated successfully', 'success');
+        } else {
+            await apiCall('/api/spec-geometry-links', 'POST', data);
+            showToast('Link created successfully', 'success');
+        }
+        closeLinkModal();
+        await loadLinks();
+    } catch (error) {
+        showToast('Failed to save link: ' + error.message, 'error');
+    }
+});
+
+// Delete Functions
+function openDeleteModal(id) {
+    deleteTargetId = id;
+    const link = allLinks.find(l => l.link_id === id);
+    const spec = allSpecs.find(s => s.spec_library_id === link.spec_library_id);
+
+    document.getElementById('deleteMessage').textContent =
+        `Are you sure you want to delete the link for "${link.entity_type}: ${link.entity_id}" to "${spec ? spec.spec_number : 'Unknown'}"?`;
+
+    document.getElementById('deleteModal').classList.add('active');
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('active');
+    deleteTargetId = null;
+}
+
+async function confirmDelete() {
+    if (!deleteTargetId) return;
+
+    try {
+        await apiCall(`/api/spec-geometry-links/${deleteTargetId}`, 'DELETE');
+        showToast('Link deleted successfully', 'success');
+        closeDeleteModal();
+        await loadLinks();
+    } catch (error) {
+        showToast('Failed to delete link: ' + error.message, 'error');
+    }
+}
+
+// Utility Functions
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+</script>
+{% endblock %}

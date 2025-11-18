@@ -43,7 +43,7 @@
                 <span>Home</span>
             </a>
 
-            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-library', '/standards/layer-vocabulary', '/standards/reference-data', '/standards/reference', '/standards/layer-generator', '/tools/dxf-test-generator', '/tools/object-reclassifier', '/tools/batch-cad-import', '/tools/batch-block-import', '/tools/survey-codes'] %}active{% endif %}">
+            <div class="mc-nav-item mc-has-dropdown {% if request.path in ['/standards-library', '/standards/layer-vocabulary', '/standards/reference-data', '/standards/reference', '/standards/layer-generator', '/standards/specifications', '/standards/spec-geometry-links', '/tools/dxf-test-generator', '/tools/object-reclassifier', '/tools/batch-cad-import', '/tools/batch-block-import', '/tools/survey-codes'] %}active{% endif %}">
                 <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-ruler-combined"></i>
                     <span>Standards</span>
@@ -73,6 +73,16 @@
                     <a href="/standards/reference" class="mc-dropdown-item {% if request.path == '/standards/reference' %}active{% endif %}">
                         <i class="fas fa-book-open"></i>
                         Layer Standards Reference
+                    </a>
+                    <div class="mc-dropdown-divider"></div>
+                    <div class="mc-dropdown-header">Specification Management</div>
+                    <a href="/standards/specifications" class="mc-dropdown-item {% if request.path == '/standards/specifications' %}active{% endif %}">
+                        <i class="fas fa-file-alt"></i>
+                        Specifications Library
+                    </a>
+                    <a href="/standards/spec-geometry-links" class="mc-dropdown-item {% if request.path == '/standards/spec-geometry-links' %}active{% endif %}">
+                        <i class="fas fa-link"></i>
+                        Spec-Geometry Links
                     </a>
                     <div class="mc-dropdown-divider"></div>
                     <div class="mc-dropdown-header">CAD Management Tools</div>

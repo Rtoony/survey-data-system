@@ -540,6 +540,16 @@ def standards_bulk_editor():
     """Bulk Standards Editor page"""
     return render_template('standards/bulk_editor.html')
 
+@app.route('/standards/specifications')
+def standards_specifications():
+    """Specifications Library - browse and manage organizational spec library"""
+    return render_template('standards/specifications.html')
+
+@app.route('/standards/spec-geometry-links')
+def standards_spec_geometry_links():
+    """Spec-Geometry Link Visualizer - view and manage spec-entity relationships"""
+    return render_template('standards/spec_geometry_viewer.html')
+
 # ============================================
 # API ENDPOINTS
 # ============================================
