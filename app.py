@@ -7308,6 +7308,214 @@ def get_note_name_mappings():
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================
+# IMPORT MAPPING PATTERNS API (Layer Name Translation with Regex)
+# ============================================================================
+
+@app.route('/api/import-mapping-patterns')
+def get_import_mapping_patterns():
+    """Get all import mapping patterns (regex-based layer name translation)"""
+    try:
+        query = """
+            SELECT
+                m.mapping_id,
+                m.client_name,
+                m.source_pattern,
+                m.regex_pattern,
+                m.extraction_rules,
+                m.confidence_score,
+                m.is_active,
+                m.status,
+                m.description,
+                m.created_by,
+                m.created_at,
+                m.modified_by,
+                m.modified_at,
+                d.code as discipline_code,
+                d.name as discipline_name,
+                c.code as category_code,
+                c.name as category_name,
+                t.code as type_code,
+                t.name as type_name
+            FROM import_mapping_patterns m
+            LEFT JOIN discipline_codes d ON m.target_discipline_id = d.discipline_id
+            LEFT JOIN category_codes c ON m.target_category_id = c.category_id
+            LEFT JOIN object_type_codes t ON m.target_type_id = t.type_id
+            ORDER BY m.confidence_score DESC, m.client_name, m.source_pattern
+        """
+        patterns = execute_query(query)
+        return jsonify({'patterns': patterns, 'count': len(patterns)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns/<int:mapping_id>')
+def get_import_mapping_pattern(mapping_id):
+    """Get a single import mapping pattern by ID"""
+    try:
+        query = """
+            SELECT
+                m.*,
+                d.code as discipline_code,
+                d.name as discipline_name,
+                c.code as category_code,
+                c.name as category_name,
+                t.code as type_code,
+                t.name as type_name
+            FROM import_mapping_patterns m
+            LEFT JOIN discipline_codes d ON m.target_discipline_id = d.discipline_id
+            LEFT JOIN category_codes c ON m.target_category_id = c.category_id
+            LEFT JOIN object_type_codes t ON m.target_type_id = t.type_id
+            WHERE m.mapping_id = %s
+        """
+        pattern = execute_query(query, (mapping_id,))
+        if pattern:
+            return jsonify({'pattern': pattern[0]})
+        else:
+            return jsonify({'error': 'Pattern not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns', methods=['POST'])
+def create_import_mapping_pattern():
+    """Create a new import mapping pattern"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Use ImportMappingManager to add the pattern
+        from standards.import_mapping_manager import ImportMappingManager
+        manager = ImportMappingManager()
+
+        success = manager.add_pattern(
+            client_name=data.get('client_name', ''),
+            source_pattern=data.get('source_pattern', ''),
+            regex_pattern=data.get('regex_pattern', ''),
+            extraction_rules=data.get('extraction_rules', {}),
+            discipline_code=data.get('discipline_code'),
+            category_code=data.get('category_code'),
+            type_code=data.get('type_code'),
+            confidence_score=data.get('confidence_score', 80)
+        )
+
+        if success:
+            return jsonify({'message': 'Pattern created successfully'}), 201
+        else:
+            return jsonify({'error': 'Failed to create pattern'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns/<int:mapping_id>', methods=['PUT'])
+def update_import_mapping_pattern(mapping_id):
+    """Update an existing import mapping pattern"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Build update query dynamically based on provided fields
+        update_fields = []
+        params = []
+
+        field_mapping = {
+            'client_name': 'client_name',
+            'source_pattern': 'source_pattern',
+            'regex_pattern': 'regex_pattern',
+            'extraction_rules': 'extraction_rules',
+            'confidence_score': 'confidence_score',
+            'is_active': 'is_active',
+            'status': 'status',
+            'description': 'description',
+            'modified_by': 'modified_by'
+        }
+
+        for key, db_field in field_mapping.items():
+            if key in data:
+                update_fields.append(f"{db_field} = %s")
+                params.append(data[key])
+
+        # Always update modified_at
+        update_fields.append("modified_at = NOW()")
+
+        if not update_fields:
+            return jsonify({'error': 'No fields to update'}), 400
+
+        params.append(mapping_id)
+
+        query = f"""
+            UPDATE import_mapping_patterns
+            SET {', '.join(update_fields)}
+            WHERE mapping_id = %s
+        """
+
+        execute_query(query, tuple(params), fetch=False)
+        return jsonify({'message': 'Pattern updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns/<int:mapping_id>', methods=['DELETE'])
+def delete_import_mapping_pattern(mapping_id):
+    """Soft delete an import mapping pattern (set is_active = false)"""
+    try:
+        query = """
+            UPDATE import_mapping_patterns
+            SET is_active = FALSE, status = 'deprecated', modified_at = NOW()
+            WHERE mapping_id = %s
+        """
+        execute_query(query, (mapping_id,), fetch=False)
+        return jsonify({'message': 'Pattern deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns/test', methods=['POST'])
+def test_import_mapping_pattern():
+    """Test a pattern against a layer name to see if it matches"""
+    try:
+        data = request.get_json()
+        if not data or 'layer_name' not in data:
+            return jsonify({'error': 'layer_name is required'}), 400
+
+        layer_name = data['layer_name']
+
+        from standards.import_mapping_manager import ImportMappingManager
+        manager = ImportMappingManager()
+
+        match = manager.find_match(layer_name, detect_conflicts=True)
+
+        if match:
+            return jsonify({
+                'matched': True,
+                'match': match.to_dict()
+            })
+        else:
+            return jsonify({
+                'matched': False,
+                'message': f'No pattern matched layer name: {layer_name}'
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-mapping-patterns/stats')
+def get_import_mapping_pattern_stats():
+    """Get statistics about import mapping patterns"""
+    try:
+        stats_query = """
+            SELECT
+                COUNT(*) as total_patterns,
+                COUNT(*) FILTER (WHERE is_active = TRUE) as active_patterns,
+                COUNT(*) FILTER (WHERE status = 'draft') as draft_patterns,
+                COUNT(*) FILTER (WHERE status = 'approved') as approved_patterns,
+                COUNT(*) FILTER (WHERE status = 'active') as active_status_patterns,
+                COUNT(DISTINCT client_name) as unique_clients,
+                AVG(confidence_score) as avg_confidence
+            FROM import_mapping_patterns
+        """
+        stats = execute_query(stats_query)
+
+        return jsonify({'stats': stats[0] if stats else {}})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
 # BLOCK NAME MAPPINGS CRUD MANAGER
 # ============================================================================
 
