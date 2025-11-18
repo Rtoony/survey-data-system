@@ -18667,7 +18667,7 @@ def delete_utility_system(system_id):
 # ----- Coordinate Systems API -----
 
 @app.route('/api/coordinate_systems')
-def get_coordinate_systems():
+def get_coordinate_systems_crud():
     """Get all coordinate systems"""
     try:
         query = """
@@ -18683,7 +18683,7 @@ def get_coordinate_systems():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/coordinate_systems', methods=['POST'])
-def create_coordinate_system():
+def create_coordinate_system_crud():
     """Create a new coordinate system"""
     try:
         data = request.get_json()
@@ -18712,7 +18712,7 @@ def create_coordinate_system():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/coordinate_systems/<system_id>', methods=['PUT'])
-def update_coordinate_system(system_id):
+def update_coordinate_system_crud(system_id):
     """Update a coordinate system"""
     try:
         data = request.get_json()
@@ -18746,7 +18746,7 @@ def update_coordinate_system(system_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/coordinate_systems/<system_id>', methods=['DELETE'])
-def delete_coordinate_system(system_id):
+def delete_coordinate_system_crud(system_id):
     """Delete a coordinate system (soft delete)"""
     try:
         query = "UPDATE coordinate_systems SET is_active = FALSE WHERE system_id = %s RETURNING system_id"
@@ -18851,7 +18851,7 @@ def delete_status_standard(status_id):
 # ----- Survey Point Descriptions API -----
 
 @app.route('/api/survey_point_descriptions')
-def get_survey_point_descriptions():
+def get_survey_point_descriptions_crud():
     """Get all survey point description standards"""
     try:
         query = """
@@ -18867,7 +18867,7 @@ def get_survey_point_descriptions():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/survey_point_descriptions', methods=['POST'])
-def create_survey_point_description():
+def create_survey_point_description_crud():
     """Create a new survey point description standard"""
     try:
         data = request.get_json()
@@ -18896,7 +18896,7 @@ def create_survey_point_description():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/survey_point_descriptions/<description_id>', methods=['PUT'])
-def update_survey_point_description(description_id):
+def update_survey_point_description_crud(description_id):
     """Update a survey point description standard"""
     try:
         data = request.get_json()
@@ -18930,7 +18930,7 @@ def update_survey_point_description(description_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/survey_point_descriptions/<description_id>', methods=['DELETE'])
-def delete_survey_point_description(description_id):
+def delete_survey_point_description_crud(description_id):
     """Delete a survey point description (soft delete)"""
     try:
         query = "UPDATE survey_point_description_standards SET is_active = FALSE WHERE description_id = %s RETURNING description_id"
