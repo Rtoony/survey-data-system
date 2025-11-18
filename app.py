@@ -721,6 +721,7 @@ def create_project():
             return jsonify({'error': 'Invalid request body'}), 400
 
         project_name = data.get('project_name')
+        client_id = data.get('client_id')
         client_name = data.get('client_name')
         project_number = data.get('project_number')
         description = data.get('description')
@@ -739,17 +740,27 @@ def create_project():
 
         with get_db() as conn:
             with conn.cursor() as cur:
+                # If client_id is provided, fetch client_name from clients table
+                if client_id:
+                    cur.execute(
+                        "SELECT client_name FROM clients WHERE client_id = %s",
+                        (client_id,)
+                    )
+                    client_result = cur.fetchone()
+                    if client_result:
+                        client_name = client_result[0]
+                
                 cur.execute(
                     """
                     INSERT INTO projects (
-                        project_name, client_name, project_number, description,
+                        project_name, client_id, client_name, project_number, description,
                         default_coordinate_system_id, quality_score, tags, attributes
                     )
-                    VALUES (%s, %s, %s, %s, %s, 0.5, '{}', '{}')
-                    RETURNING project_id, project_name, client_name, project_number,
+                    VALUES (%s, %s, %s, %s, %s, %s, 0.5, '{}', '{}')
+                    RETURNING project_id, project_name, client_id, client_name, project_number,
                               default_coordinate_system_id, created_at
                     """,
-                    (project_name, client_name, project_number, description, default_coordinate_system_id)
+                    (project_name, client_id, client_name, project_number, description, default_coordinate_system_id)
                 )
                 result = cur.fetchone()
                 conn.commit()
@@ -757,10 +768,11 @@ def create_project():
                 return jsonify({
                     'project_id': str(result[0]),
                     'project_name': result[1],
-                    'client_name': result[2],
-                    'project_number': result[3],
-                    'default_coordinate_system_id': str(result[4]) if result[4] else None,
-                    'created_at': result[5].isoformat() if result[5] else None
+                    'client_id': result[2],
+                    'client_name': result[3],
+                    'project_number': result[4],
+                    'default_coordinate_system_id': str(result[5]) if result[5] else None,
+                    'created_at': result[6].isoformat() if result[6] else None
                 })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
