@@ -1,0 +1,77 @@
+I. Spec-Geometry Linking System (In Progress/Not Started)
+The project to implement specification-to-geometry linking is currently 90% complete in Phase 3 (API Endpoints) and Phases 4 and 5 are entirely pending,,.
+A. Phase 3: API Endpoints (Finalization)
+Although the API code is written in a separate file (API_ENDPOINTS_TO_ADD.py), it still needs to be inserted into app.py and deployed,,,.
+1. Insert 36 new API endpoints (CSI MasterFormat, Spec-Geometry Linking, Compliance, and Auto-Linking) into app.py (after line 3210),.
+2. Run database migrations (010_spec_geometry_linking.sql and 011_csi_masterformat_seed.sql) and verify the schema,.
+3. Test all new API endpoints,.
+B. Phase 4: UI Components (Not Started Yet)
+This phase focuses on user interface integration for linking and compliance.
+1. Map Viewer integration: Add a "Link Spec" button to the entity property panel,.
+2. Create spec linking modal/interface,.
+3. Create the compliance dashboard page,.
+4. Add visual compliance status indicators to the UI,.
+5. Update the Spec Library with CSI code UI integration.
+C. Phase 5: Intelligence Layer (Not Started Yet)
+This phase integrates advanced AI and automation features.
+1. Implement the auto-linking rules engine (or advanced auto-linking with ML),,.
+2. Integrate GraphRAG queries,,.
+3. Build the change propagation system,,.
+4. Add spec version control,.
+
+--------------------------------------------------------------------------------
+II. Truth-Driven Architecture Remediation (Pending Phases)
+The comprehensive audit revealed that the system is only 58% compliant with Truth-Driven Architecture principles, requiring significant development effort across four remaining phases to reach the 95% target,,.
+A. Phase 1: Restore Missing CRUD Interfaces
+These tables have APIs but lack user management interfaces,,.
+1. Create the Clients CRUD UI (/templates/data_manager/clients.html),.
+2. Create the Municipalities CRUD UI (/templates/data_manager/municipalities.html),.
+B. Phase 3: Create Missing Truth Tables
+Four critical truth tables referenced in documentation need to be created in the database, along with their associated UIs and Foreign Key (FK) enforcement,,:
+1. Structure Type Standards: Create the structure_type_standards table, CRUD UI, and FK enforcement on utility_structures.structure_type,.
+2. Utility System Standards: Create the utility_system_standards table, CRUD UI, and FK enforcement on utility_lines.utility_system,.
+3. Condition Standards: Create the condition_standards table, CRUD UI, and FK enforcement on multiple condition fields (e.g., utility_structures.condition),.
+4. Survey Method Types: Create the survey_method_types table, CRUD UI, and FK enforcement on survey_points.survey_method,.
+C. Phase 4: Update UI Components (Enforcement)
+This involves converting remaining free-text inputs in specialized tools to dropdowns based on the newly created truth tables,:
+1. Pressure Network Manager: Convert fields like structure_type, valve_type, valve_status, pressure_class, and condition to use dropdowns,.
+2. Gravity Network Manager: Perform similar UI conversions,.
+3. Survey Point Forms: Convert survey_method to a dropdown and consider adding a description standards dropdown,.
+D. Phase 5: Data Migration and Validation
+This final phase involves comprehensive cleanup of historical data,.
+1. Run automated migration scripts to map existing free-text values to the new truth table entries,.
+2. Perform manual data cleanup for any unmapped values, creating necessary truth table entries and validating all Foreign Keys,.
+3. Conduct final testing and validation to verify all new dropdowns and CRUD operations function correctly,.
+
+--------------------------------------------------------------------------------
+III. Database and Architectural Fixes (Ready for Deployment/Deferred)
+A. Deploy Pending Migrations (Immediate Deployment)
+The following migration files have been created and are ready to be applied to the production environment,:
+1. 014_add_material_standards_fk_constraints.sql: Adds Foreign Key (FK) constraints to material columns in utility_lines and utility_structures,,.
+2. 015_add_entity_type_comments.sql: Adds clarifying comments to resolve the entity_type name collision,,.
+3. 025_add_quality_score_check_constraints.sql: Adds CHECK constraints to all quality_score columns to enforce the 0.0-1.0 range,.
+4. Deploy various relationship and junction table migrations (016, 017, and 018-023),.
+B. AI Database Optimization (GraphRAG)
+The long-term optimization strategy outlines tasks for enriching graph relationships and migrating data,:
+1. Phase 2 (Enrich Relationships): Analyze existing foreign keys, create explicit relationship records (e.g., uses_layer, requires_block), and build materialized views for common queries.
+2. Phase 3 (Migration): Gradually move existing embeddings to the centralized entity_embeddings table and update application code to reference the new tables.
+C. Numeric Standardization (Deferred)
+Standardize the precision of quality_score columns across 9 tables from NUMERIC(4,3) to the standardized NUMERIC(3,2), which is deferred pending team review after the high-priority CHECK constraint migration is deployed,,.
+
+--------------------------------------------------------------------------------
+IV. Future/Planned Features & Documentation Gaps
+A. Survey Code System Future Phases
+Phase 1 is complete, but three future phases are planned for the survey code system,:
+1. Phase 2 (Code Parser & Testing): Implement a web interface to test code parsing, simulate field shots, and validate attribute prompts.
+2. Phase 3 (Import Tool): Implement the ability to import PNEZD files, automatically generate polylines, and insert blocks at node locations.
+3. Phase 4 (DXF Export): Integrate export functionality to generate complete, auto-layered CAD drawings with survey-grade 3D elevation preservation.
+B. Deferred Architectural Decisions
+Two medium-priority issues require domain expert input or codebase analysis before implementation,:
+1. Conformance vs. Standardization Status: Create a documentation and database plan to define the interaction rules and valid state combinations between these two parallel status systems,.
+2. Filterable Entity Columns Scope: Clarify whether the filterable_entity_columns table is intended as a generic, system-wide registry or if its scope is specific to the Project Relationship Sets feature,.
+C. Documentation Gaps (Medium Priority)
+Several documentation updates are deferred to a cleanup phase,,:
+1. Update user guides with clearer roadmap statuses for planned features.
+2. List and verify the 24 CAD standards interfaces mentioned in the documentation.
+3. Clarify the requirement status of the layer_standard_id Foreign Key constraint.
+4. Complete the documentation for the standard_notes schema and embedding version tracking.
