@@ -1,6 +1,12 @@
 """
 Import Mapping Manager
 Manages regex patterns for translating client CAD layer names to standard format.
+
+Key Features:
+- Pre-compiled regex patterns for performance
+- Conflict detection when multiple patterns match
+- Entity Registry validation
+- Standards compliance checking
 """
 
 import re
@@ -11,6 +17,12 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.db_utils import execute_query
+from services.entity_registry import EntityRegistry
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @dataclass
 class MappingMatch:
@@ -24,7 +36,15 @@ class MappingMatch:
     confidence: float
     client_name: Optional[str] = None
     source_pattern: Optional[str] = None
-    
+    mapping_id: Optional[int] = None
+    entity_valid: bool = True
+    has_conflicts: bool = False
+    conflict_patterns: List[str] = None
+
+    def __post_init__(self):
+        if self.conflict_patterns is None:
+            self.conflict_patterns = []
+
     def to_dict(self):
         return {
             'discipline_code': self.discipline_code,
@@ -35,27 +55,46 @@ class MappingMatch:
             'geometry_code': self.geometry_code,
             'confidence': self.confidence,
             'client_name': self.client_name,
-            'source_pattern': self.source_pattern
+            'source_pattern': self.source_pattern,
+            'mapping_id': self.mapping_id,
+            'entity_valid': self.entity_valid,
+            'has_conflicts': self.has_conflicts,
+            'conflict_patterns': self.conflict_patterns
         }
 
 
 class ImportMappingManager:
     """
     Manages import mapping patterns for converting client CAD layers to standard format.
-    
+
     Uses regex patterns with named capture groups to extract components from various
     client naming conventions.
+
+    Features:
+    - Pre-compiled regex patterns for performance (no recompilation on each match)
+    - Conflict detection when multiple patterns match
+    - Entity Registry validation for extracted types
+    - Comprehensive logging and error handling
     """
-    
-    def __init__(self):
-        """Initialize mapping manager and load patterns from database"""
+
+    def __init__(self, validate_entities: bool = True):
+        """
+        Initialize mapping manager and load patterns from database.
+
+        Args:
+            validate_entities: Whether to validate extracted types against Entity Registry
+        """
         self.patterns = []
+        self.compiled_patterns = {}  # Cache for compiled regex patterns
+        self.validate_entities = validate_entities
+        self.entity_registry = EntityRegistry()
         self._load_patterns()
+        logger.info(f"Loaded {len(self.patterns)} import mapping patterns")
     
     def _load_patterns(self):
-        """Load all active mapping patterns from database"""
+        """Load all active mapping patterns from database and pre-compile regex"""
         query = """
-            SELECT 
+            SELECT
                 m.mapping_id,
                 m.client_name,
                 m.source_pattern,
@@ -69,56 +108,107 @@ class ImportMappingManager:
             LEFT JOIN discipline_codes d ON m.target_discipline_id = d.discipline_id
             LEFT JOIN category_codes c ON m.target_category_id = c.category_id
             LEFT JOIN object_type_codes t ON m.target_type_id = t.type_id
-            WHERE m.is_active = TRUE
+            WHERE m.is_active = TRUE AND m.status IN ('active', 'approved')
             ORDER BY m.confidence_score DESC
         """
-        
+
         results = execute_query(query)
         if results:
             self.patterns = results
+            # Pre-compile all regex patterns for performance
+            for pattern_data in self.patterns:
+                mapping_id = pattern_data['mapping_id']
+                regex_pattern = pattern_data['regex_pattern']
+                try:
+                    self.compiled_patterns[mapping_id] = re.compile(regex_pattern, re.IGNORECASE)
+                    logger.debug(f"Pre-compiled pattern {mapping_id}: {regex_pattern}")
+                except re.error as e:
+                    logger.error(f"Failed to compile pattern {mapping_id}: {e}")
+                    # Mark pattern as invalid in compiled cache
+                    self.compiled_patterns[mapping_id] = None
     
-    def find_match(self, layer_name: str) -> Optional[MappingMatch]:
+    def find_match(self, layer_name: str, detect_conflicts: bool = True) -> Optional[MappingMatch]:
         """
         Find the best matching pattern for a layer name.
-        
+
         Args:
             layer_name: Client CAD layer name
-            
+            detect_conflicts: Whether to detect and report conflicting patterns
+
         Returns:
             MappingMatch object or None if no match found
+
+        Features:
+        - Uses pre-compiled regex patterns for performance
+        - Detects conflicting patterns
+        - Validates against Entity Registry
         """
         if not layer_name:
             return None
-        
+
+        matches = []
+        conflict_patterns = []
+
         # Try each pattern in order (sorted by confidence)
         for pattern_data in self.patterns:
-            regex = pattern_data['regex_pattern']
+            mapping_id = pattern_data['mapping_id']
+            compiled_regex = self.compiled_patterns.get(mapping_id)
+
+            # Skip patterns that failed to compile
+            if compiled_regex is None:
+                continue
+
             extraction_rules = pattern_data.get('extraction_rules', {})
-            
+
             try:
-                match = re.match(regex, layer_name, re.IGNORECASE)
+                match = compiled_regex.match(layer_name)
                 if match:
                     # Extract components using extraction rules
                     result = self._extract_components(
-                        match, 
+                        match,
                         pattern_data,
                         extraction_rules
                     )
                     if result:
-                        return result
-            except re.error:
-                # Skip invalid regex patterns
+                        matches.append((result, pattern_data))
+
+                        # If not detecting conflicts, return first match
+                        if not detect_conflicts:
+                            return result
+
+            except Exception as e:
+                logger.error(f"Error matching pattern {mapping_id} against '{layer_name}': {e}")
                 continue
-        
-        return None
+
+        # No matches found
+        if not matches:
+            logger.debug(f"No mapping pattern matched '{layer_name}'")
+            return None
+
+        # Return best match (first in list, sorted by confidence)
+        best_match, best_pattern = matches[0]
+
+        # Detect conflicts
+        if detect_conflicts and len(matches) > 1:
+            best_match.has_conflicts = True
+            for result, pattern_data in matches[1:]:
+                conflict_info = f"{pattern_data['source_pattern']} (ID: {pattern_data['mapping_id']})"
+                best_match.conflict_patterns.append(conflict_info)
+            logger.warning(
+                f"Layer '{layer_name}' matched {len(matches)} patterns. "
+                f"Using highest confidence: {best_pattern['source_pattern']} "
+                f"(confidence: {best_pattern['confidence_score']})"
+            )
+
+        return best_match
     
-    def _extract_components(self, 
+    def _extract_components(self,
                            match: re.Match,
                            pattern_data: Dict,
                            extraction_rules: Dict) -> Optional[MappingMatch]:
         """
         Extract standard components from regex match using extraction rules.
-        
+
         Extraction rules format:
         {
             "discipline": "CIV",  // Static value
@@ -128,46 +218,48 @@ class ImportMappingManager:
             "phase": "group:phase",
             "geometry": "LN"  // Static default
         }
+
+        Also validates extracted types against Entity Registry if enabled.
         """
         try:
             # Get matched groups
             groups = match.groupdict()
-            
+
             # Extract discipline
             discipline = self._extract_value(
                 extraction_rules.get('discipline'),
                 groups,
                 pattern_data.get('discipline_code')
             )
-            
+
             # Extract category
             category = self._extract_value(
                 extraction_rules.get('category'),
                 groups,
                 pattern_data.get('category_code')
             )
-            
+
             # Extract type
             obj_type = self._extract_value(
                 extraction_rules.get('type'),
                 groups,
                 pattern_data.get('type_code')
             )
-            
+
             # Extract phase
             phase = self._extract_value(
                 extraction_rules.get('phase'),
                 groups,
                 'NEW'  # Default
             )
-            
+
             # Extract geometry
             geometry = self._extract_value(
                 extraction_rules.get('geometry'),
                 groups,
                 'LN'  # Default
             )
-            
+
             # Extract attributes (list)
             attributes = []
             attr_rules = extraction_rules.get('attributes', [])
@@ -176,13 +268,37 @@ class ImportMappingManager:
                     attr_val = self._extract_value(attr_rule, groups, None)
                     if attr_val:
                         attributes.append(attr_val)
-            
+
             # Validate required components
             if not all([discipline, category, obj_type, phase, geometry]):
+                logger.warning(f"Pattern {pattern_data['mapping_id']} missing required components")
                 return None
-            
+
             confidence = pattern_data.get('confidence_score', 80) / 100.0
-            
+
+            # Validate against Entity Registry if enabled
+            entity_valid = True
+            if self.validate_entities and obj_type:
+                # Construct potential entity type from extracted components
+                # Common pattern: discipline_type (e.g., "utility_line", "survey_point")
+                potential_entity_types = [
+                    obj_type.lower(),
+                    f"{discipline.lower()}_{obj_type.lower()}",
+                    f"{category.lower()}_{obj_type.lower()}"
+                ]
+
+                # Check if any potential entity type is valid
+                entity_valid = any(
+                    self.entity_registry.is_valid_entity_type(et)
+                    for et in potential_entity_types
+                )
+
+                if not entity_valid:
+                    logger.debug(
+                        f"Extracted type '{obj_type}' not found in Entity Registry. "
+                        f"Checked: {potential_entity_types}"
+                    )
+
             return MappingMatch(
                 discipline_code=discipline,
                 category_code=category,
@@ -192,11 +308,13 @@ class ImportMappingManager:
                 geometry_code=geometry,
                 confidence=confidence,
                 client_name=pattern_data.get('client_name'),
-                source_pattern=pattern_data.get('source_pattern')
+                source_pattern=pattern_data.get('source_pattern'),
+                mapping_id=pattern_data.get('mapping_id'),
+                entity_valid=entity_valid
             )
-            
+
         except Exception as e:
-            print(f"Error extracting components: {e}")
+            logger.error(f"Error extracting components from pattern {pattern_data.get('mapping_id')}: {e}")
             return None
     
     def _extract_value(self, rule: str, groups: Dict, default: str) -> Optional[str]:

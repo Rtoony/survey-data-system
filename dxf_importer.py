@@ -15,15 +15,26 @@ import math
 import hashlib
 from dxf_lookup_service import DXFLookupService
 from intelligent_object_creator import IntelligentObjectCreator
+from standards.import_mapping_manager import ImportMappingManager
 
 
 class DXFImporter:
     """Import DXF files and store entities in PostgreSQL database."""
-    
-    def __init__(self, db_config: Dict, create_intelligent_objects: bool = True):
-        """Initialize importer with database configuration."""
+
+    def __init__(self, db_config: Dict, create_intelligent_objects: bool = True,
+                 use_name_translator: bool = True):
+        """
+        Initialize importer with database configuration.
+
+        Args:
+            db_config: Database configuration dictionary
+            create_intelligent_objects: Whether to create intelligent objects after import
+            use_name_translator: Whether to use ImportMappingManager for layer name translation
+        """
         self.db_config = db_config
         self.create_intelligent_objects = create_intelligent_objects
+        self.use_name_translator = use_name_translator
+        self.mapping_manager = ImportMappingManager() if use_name_translator else None
     
     def import_dxf(self, file_path: str, project_id: str,
                    coordinate_system: str = 'LOCAL',
@@ -65,7 +76,15 @@ class DXFImporter:
             'intelligent_objects_created': 0,
             'layers': set(),
             'linetypes': set(),
-            'errors': []
+            'errors': [],
+            'layer_translations': {},  # Maps original layer names to translated info
+            'translation_stats': {
+                'attempted': 0,
+                'matched': 0,
+                'conflicts': 0,
+                'entity_valid': 0,
+                'entity_invalid': 0
+            }
         }
         
         # Use external connection or create new one
@@ -193,19 +212,76 @@ class DXFImporter:
         
         return created_count
     
-    def _import_layers(self, doc, project_id: str, 
+    def _import_layers(self, doc, project_id: str,
                        conn, stats: Dict, resolver: DXFLookupService):
-        """Import layers at project level (no drawing-level tracking)."""
+        """
+        Import layers at project level.
+
+        If use_name_translator is enabled, attempts to translate layer names
+        using ImportMappingManager before creating/retrieving layers.
+        """
         for layer in doc.layers:
             layer_name = layer.dxf.name
             stats['layers'].add(layer_name)
-            
+
             # Get or create layer (project-level, no drawing association)
             color_aci = layer.dxf.color if hasattr(layer.dxf, 'color') else 7
             linetype = layer.dxf.linetype if hasattr(layer.dxf, 'linetype') else 'Continuous'
-            
+
+            # Attempt name translation if enabled
+            translated_name = layer_name
+            translation_info = None
+
+            if self.use_name_translator and self.mapping_manager:
+                stats['translation_stats']['attempted'] += 1
+                match = self.mapping_manager.find_match(layer_name)
+
+                if match:
+                    stats['translation_stats']['matched'] += 1
+
+                    # Build canonical layer name from match
+                    # Format: DISCIPLINE-CATEGORY-TYPE-ATTRIBUTES-PHASE-GEOMETRY
+                    translated_parts = [
+                        match.discipline_code,
+                        match.category_code,
+                        match.type_code
+                    ]
+
+                    if match.attributes:
+                        translated_parts.extend(match.attributes)
+
+                    translated_parts.append(match.phase_code)
+                    translated_parts.append(match.geometry_code)
+
+                    translated_name = '-'.join(translated_parts)
+
+                    # Track translation
+                    translation_info = {
+                        'original': layer_name,
+                        'translated': translated_name,
+                        'confidence': match.confidence,
+                        'pattern': match.source_pattern,
+                        'entity_valid': match.entity_valid,
+                        'has_conflicts': match.has_conflicts,
+                        'conflicts': match.conflict_patterns
+                    }
+                    stats['layer_translations'][layer_name] = translation_info
+
+                    # Update stats
+                    if match.has_conflicts:
+                        stats['translation_stats']['conflicts'] += 1
+                    if match.entity_valid:
+                        stats['translation_stats']['entity_valid'] += 1
+                    else:
+                        stats['translation_stats']['entity_invalid'] += 1
+
+                    print(f"[TRANSLATE] '{layer_name}' → '{translated_name}' "
+                          f"(confidence: {match.confidence:.0%}, "
+                          f"entity_valid: {match.entity_valid}, "
+                          f"conflicts: {len(match.conflict_patterns)})")
+
             layer_id, layer_standard_id = resolver.get_or_create_layer(
-                layer_name,
+                translated_name,  # Use translated name if available
                 project_id=project_id,
                 color_aci=color_aci,
                 linetype=linetype
