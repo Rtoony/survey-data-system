@@ -37,6 +37,9 @@ from pyproj import Transformer
 # Load environment variables (works with both .env file and Replit secrets)
 load_dotenv()
 
+# Import auth blueprint
+from auth.routes import auth_bp
+
 # Custom JSON provider for datetime, date, Decimal, and UUID objects (Flask 2.2+)
 class CustomJSONProvider(DefaultJSONProvider):
     def default(self, o):  # type: ignore[override]
@@ -57,6 +60,15 @@ CORS(app)
 app.config['CACHE_TYPE'] = 'SimpleCache'  # In-memory cache
 app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes default
 cache = Cache(app)
+
+# Register authentication blueprint
+app.register_blueprint(auth_bp)
+
+# Configure session settings for security
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
+app.config['SESSION_COOKIE_HTTPONLY'] = os.getenv('SESSION_COOKIE_HTTPONLY', 'true').lower() == 'true'
+app.config['SESSION_COOKIE_SAMESITE'] = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
+app.config['PERMANENT_SESSION_LIFETIME'] = int(os.getenv('SESSION_TIMEOUT_HOURS', '8')) * 3600  # Convert hours to seconds
 
 # Debug: Check if DB credentials are available
 print("=" * 50)
