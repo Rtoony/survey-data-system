@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge Graph Visualization{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape-cola@2.5.1/cytoscape-cola.min.js"></script>
+<style>
+    .graph-container {
+        max-width: 1600px;
+        margin: 1rem auto;
+        padding: 0 1rem;
+        height: calc(100vh - 180px);
+    }
+
+    .graph-layout {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 1rem;
+        height: 100%;
+    }
+
+    @media (max-width: 1024px) {
+        .graph-layout {
+            grid-template-columns: 1fr;
+        }
+        .graph-sidebar {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    }
+
+    .graph-sidebar {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.5rem;
+        overflow-y: auto;
+    }
+
+    .graph-main {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    #cy {
+        width: 100%;
+        height: 100%;
+        background: var(--bg-dark);
+    }
+
+    .sidebar-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .sidebar-title {
+        font-size: 1.1rem;
+        color: var(--neon-green);
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .control-group {
+        margin-bottom: 1rem;
+    }
+
+    .control-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+
+    .control-input {
+        width: 100%;
+        padding: 0.5rem;
+        background: var(--bg-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        color: var(--text-primary);
+        font-size: 0.9rem;
+    }
+
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .btn {
+        padding: 0.6rem 1rem;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .btn-primary {
+        background: var(--neon-blue);
+        color: var(--bg-primary);
+    }
+
+    .btn-primary:hover {
+        background: var(--neon-green);
+        box-shadow: 0 0 15px var(--neon-green);
+    }
+
+    .btn-secondary {
+        background: var(--bg-dark);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+        background: var(--border-color);
+    }
+
+    .layout-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+    }
+
+    .layout-btn {
+        padding: 0.5rem;
+        background: var(--bg-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.3s;
+    }
+
+    .layout-btn:hover, .layout-btn.active {
+        background: var(--neon-blue);
+        color: var(--bg-primary);
+        border-color: var(--neon-blue);
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+
+    .stat-item {
+        background: var(--bg-dark);
+        padding: 0.75rem;
+        border-radius: 4px;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        color: var(--neon-green);
+        font-weight: bold;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+
+    .filter-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .filter-tag {
+        padding: 0.25rem 0.75rem;
+        background: var(--bg-dark);
+        border: 1px solid var(--neon-blue);
+        border-radius: 12px;
+        font-size: 0.75rem;
+        color: var(--neon-blue);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .filter-tag .remove {
+        cursor: pointer;
+        opacity: 0.7;
+    }
+
+    .filter-tag .remove:hover {
+        opacity: 1;
+    }
+
+    .graph-controls {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        display: flex;
+        gap: 0.5rem;
+        z-index: 10;
+    }
+
+    .control-btn {
+        width: 36px;
+        height: 36px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+    }
+
+    .control-btn:hover {
+        background: var(--neon-blue);
+        color: var(--bg-primary);
+        border-color: var(--neon-blue);
+    }
+
+    .node-tooltip {
+        position: absolute;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 1rem;
+        pointer-events: none;
+        z-index: 1000;
+        display: none;
+        max-width: 300px;
+    }
+
+    .tooltip-title {
+        font-size: 1rem;
+        color: var(--neon-blue);
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .tooltip-item {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+    }
+
+    .legend {
+        position: absolute;
+        bottom: 1rem;
+        left: 1rem;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 1rem;
+        z-index: 10;
+    }
+
+    .legend-title {
+        font-size: 0.9rem;
+        color: var(--neon-green);
+        margin-bottom: 0.5rem;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="graph-container">
+    <div class="graph-layout">
+        <!-- Sidebar -->
+        <div class="graph-sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">
+                    <i class="fas fa-filter"></i>
+                    Data Source
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Project</label>
+                    <select id="projectSelect" class="control-input">
+                        <option value="">All Projects</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Entity Type</label>
+                    <select id="entityTypeSelect" class="control-input">
+                        <option value="">All Types</option>
+                        <option value="utility_structure">Utility Structures</option>
+                        <option value="utility_line">Utility Lines</option>
+                        <option value="survey_point">Survey Points</option>
+                        <option value="bmp">BMPs</option>
+                    </select>
+                </div>
+                <div class="btn-group">
+                    <button id="loadGraphBtn" class="btn btn-primary">
+                        <i class="fas fa-sync"></i>
+                        Load Graph
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">
+                    <i class="fas fa-chart-bar"></i>
+                    Graph Stats
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="nodeCount">0</div>
+                        <div class="stat-label">Nodes</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="edgeCount">0</div>
+                        <div class="stat-label">Edges</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="communityCount">-</div>
+                        <div class="stat-label">Communities</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="densityValue">0.00</div>
+                        <div class="stat-label">Density</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">
+                    <i class="fas fa-sitemap"></i>
+                    Layout
+                </div>
+                <div class="layout-buttons">
+                    <button class="layout-btn active" data-layout="cola">Cola</button>
+                    <button class="layout-btn" data-layout="circle">Circle</button>
+                    <button class="layout-btn" data-layout="grid">Grid</button>
+                    <button class="layout-btn" data-layout="concentric">Concentric</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">
+                    <i class="fas fa-magic"></i>
+                    Analytics
+                </div>
+                <div class="btn-group">
+                    <button id="highlightInfluentialBtn" class="btn btn-secondary">
+                        <i class="fas fa-star"></i>
+                        Highlight Influential
+                    </button>
+                    <button id="findCommunitiesBtn" class="btn btn-secondary">
+                        <i class="fas fa-users"></i>
+                        Detect Communities
+                    </button>
+                    <button id="findBridgesBtn" class="btn btn-secondary">
+                        <i class="fas fa-bridge"></i>
+                        Find Bridges
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">
+                    <i class="fas fa-download"></i>
+                    Export
+                </div>
+                <div class="btn-group">
+                    <button id="exportPngBtn" class="btn btn-secondary">
+                        <i class="fas fa-image"></i>
+                        Export PNG
+                    </button>
+                    <button id="exportJsonBtn" class="btn btn-secondary">
+                        <i class="fas fa-file-code"></i>
+                        Export JSON
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Graph Area -->
+        <div class="graph-main">
+            <div id="cy"></div>
+
+            <div class="graph-controls">
+                <button id="zoomInBtn" class="control-btn" title="Zoom In">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button id="zoomOutBtn" class="control-btn" title="Zoom Out">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button id="fitBtn" class="control-btn" title="Fit to Screen">
+                    <i class="fas fa-expand"></i>
+                </button>
+                <button id="resetBtn" class="control-btn" title="Reset View">
+                    <i class="fas fa-redo"></i>
+                </button>
+            </div>
+
+            <div class="legend">
+                <div class="legend-title">Node Types</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00bcd4;"></div>
+                    <span>Utility Structure</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4caf50;"></div>
+                    <span>Utility Line</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff9800;"></div>
+                    <span>Survey Point</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #9c27b0;"></div>
+                    <span>BMP</span>
+                </div>
+            </div>
+
+            <div id="nodeTooltip" class="node-tooltip"></div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/graph_vis.js') }}"></script>
+{% endblock %}
