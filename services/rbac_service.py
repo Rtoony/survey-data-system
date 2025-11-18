@@ -82,7 +82,7 @@ class RBACService:
             return False
 
         role = user.get('role')
-        if role not in self.ROLE_PERMISSIONS:
+        if not role or role not in self.ROLE_PERMISSIONS:
             return False
 
         resource_permissions = self.ROLE_PERMISSIONS[role].get(resource, [])
@@ -439,15 +439,15 @@ class RBACService:
         Returns:
             Dict with user statistics
         """
+        stats: Dict[str, Any] = {
+            'projects_with_access': 0,
+            'active_sessions': 0,
+            'actions_last_24h': 0,
+            'actions_last_7d': 0,
+            'last_action': None
+        }
+        
         try:
-            stats = {
-                'projects_with_access': 0,
-                'active_sessions': 0,
-                'actions_last_24h': 0,
-                'actions_last_7d': 0,
-                'last_action': None
-            }
-
             # Projects with access
             result = execute_query("""
                 SELECT COUNT(*) as count FROM project_permissions
