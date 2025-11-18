@@ -29,7 +29,7 @@ def run_migration(migration_file):
         return False
 
 if __name__ == '__main__':
-    migration_file = 'database/migrations/008_spec_management_system.sql'
+    migration_file = 'database/migrations/018_add_project_id_to_drawing_tables.sql'
 
     if not os.path.exists(migration_file):
         print(f"Error: Migration file not found: {migration_file}")
