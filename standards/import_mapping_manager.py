@@ -108,7 +108,7 @@ class ImportMappingManager:
             LEFT JOIN discipline_codes d ON m.target_discipline_id = d.discipline_id
             LEFT JOIN category_codes c ON m.target_category_id = c.category_id
             LEFT JOIN object_type_codes t ON m.target_type_id = t.type_id
-            WHERE m.is_active = TRUE AND m.status IN ('active', 'approved')
+            WHERE m.is_active = TRUE
             ORDER BY m.confidence_score DESC
         """
 
