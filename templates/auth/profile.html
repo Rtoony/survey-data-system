@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile - ACAD-GIS{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1><i class="fas fa-user-circle"></i> User Profile</h1>
+
+    <div class="row mt-4">
+        <!-- User Information Card -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="fas fa-id-card"></i> Account Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="avatar-circle">
+                            {{ user.username[0]|upper }}
+                        </div>
+                    </div>
+
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <th>Username:</th>
+                            <td>{{ user.username }}</td>
+                        </tr>
+                        <tr>
+                            <th>Email:</th>
+                            <td>{{ user.email or 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Full Name:</th>
+                            <td>{{ user.full_name or 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Role:</th>
+                            <td>
+                                <span class="badge {% if user.role == 'ADMIN' %}bg-danger{% elif user.role == 'ENGINEER' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                    {{ user.role }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                {% if user.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Last Login:</th>
+                            <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Member Since:</th>
+                            <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'N/A' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Activity Statistics Card -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5><i class="fas fa-chart-line"></i> Activity Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="stat-item">
+                        <div class="stat-label">Projects with Access</div>
+                        <div class="stat-value">{{ stats.projects_with_access }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Active Sessions</div>
+                        <div class="stat-value">{{ stats.active_sessions }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Actions (Last 24h)</div>
+                        <div class="stat-value">{{ stats.actions_last_24h }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Actions (Last 7d)</div>
+                        <div class="stat-value">{{ stats.actions_last_7d }}</div>
+                    </div>
+                    {% if stats.last_action %}
+                    <div class="stat-item">
+                        <div class="stat-label">Last Action</div>
+                        <div class="stat-value-sm">{{ stats.last_action.strftime('%Y-%m-%d %H:%M') }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Projects Access Card -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5><i class="fas fa-project-diagram"></i> Projects Access ({{ projects|length }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if projects %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Project Name</th>
+                                        <th>Project Number</th>
+                                        <th>Client</th>
+                                        <th>Access Level</th>
+                                        <th>Granted</th>
+                                        <th>Expires</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for project in projects %}
+                                    <tr>
+                                        <td>
+                                            <a href="/projects/{{ project.project_id }}">
+                                                {{ project.project_name }}
+                                            </a>
+                                        </td>
+                                        <td>{{ project.project_number or 'N/A' }}</td>
+                                        <td>{{ project.client_name or 'N/A' }}</td>
+                                        <td>
+                                            <span class="badge {% if project.access_level == 'ADMIN' %}bg-danger{% elif project.access_level == 'WRITE' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                                {{ project.access_level }}
+                                            </span>
+                                        </td>
+                                        <td>{{ project.granted_at.strftime('%Y-%m-%d') if project.granted_at else 'System' }}</td>
+                                        <td>{{ project.expires_at.strftime('%Y-%m-%d') if project.expires_at else 'Never' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> You don't have access to any projects yet.
+                            {% if user.role == 'VIEWER' %}
+                            Please contact an administrator to request project access.
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Active Sessions Card -->
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5><i class="fas fa-laptop"></i> Active Sessions ({{ active_sessions|length }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_sessions %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Created</th>
+                                        <th>Last Activity</th>
+                                        <th>Expires</th>
+                                        <th>IP Address</th>
+                                        <th>Browser</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for sess in active_sessions %}
+                                    <tr {% if session.get('session_token') == sess.session_token %}class="table-primary"{% endif %}>
+                                        <td>{{ sess.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td>{{ sess.last_activity.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td>{{ sess.expires_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td>{{ sess.ip_address or 'N/A' }}</td>
+                                        <td>
+                                            <small>{{ sess.user_agent[:50] + '...' if sess.user_agent and sess.user_agent|length > 50 else sess.user_agent or 'N/A' }}</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-info-circle"></i> Sessions highlighted in blue are your current session.
+                        </p>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> No active sessions found.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    font-weight: bold;
+    margin: 0 auto;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.stat-item {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.stat-value-sm {
+    font-size: 1rem;
+    color: #333;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: none;
+    border-radius: 8px;
+}
+
+.card-header {
+    border-radius: 8px 8px 0 0;
+}
+
+.table-primary {
+    background-color: #cfe2ff !important;
+}
+</style>
+{% endblock %}
