@@ -264,6 +264,11 @@ def classification_review_tool():
     """Classification Review - Review and classify uncertain entities"""
     return render_template('tools/classification_review.html')
 
+@app.route('/tools/classification-analytics')
+def classification_analytics_tool():
+    """Classification Analytics - Track accuracy and performance metrics"""
+    return render_template('tools/classification_analytics.html')
+
 @app.route('/tools/object-reclassifier')
 def object_reclassifier_tool():
     """
@@ -2929,6 +2934,118 @@ def bulk_reclassify():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/classification/ai-suggestions/<entity_id>', methods=['GET'])
+def get_ai_classification_suggestions(entity_id):
+    """Get AI-powered classification suggestions using vector embeddings"""
+    try:
+        limit = int(request.args.get('limit', 5))
+
+        from services.ai_classification_service import AIClassificationService
+
+        with get_db() as conn:
+            ai_service = AIClassificationService(DB_CONFIG, conn=conn)
+            suggestions = ai_service.get_ai_suggestions(entity_id, limit=limit)
+
+        return jsonify({
+            'success': True,
+            'entity_id': entity_id,
+            'suggestions': suggestions
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/classification/spatial-context/<entity_id>', methods=['GET'])
+def get_spatial_context(entity_id):
+    """Get spatial context for an entity to aid classification"""
+    try:
+        search_radius = float(request.args.get('radius', 100.0))
+
+        from services.ai_classification_service import AIClassificationService
+
+        with get_db() as conn:
+            ai_service = AIClassificationService(DB_CONFIG, conn=conn)
+            context = ai_service.get_spatial_context(entity_id, search_radius_feet=search_radius)
+
+        return jsonify({
+            'success': True,
+            'entity_id': entity_id,
+            'context': context
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/classification/analytics', methods=['GET'])
+def get_classification_analytics():
+    """Get classification analytics and accuracy metrics"""
+    try:
+        project_id = session.get('active_project_id')
+        days_back = int(request.args.get('days', 30))
+
+        from services.ai_classification_service import AIClassificationService
+
+        with get_db() as conn:
+            ai_service = AIClassificationService(DB_CONFIG, conn=conn)
+            analytics = ai_service.get_classification_analytics(
+                project_id=project_id,
+                days_back=days_back
+            )
+
+        return jsonify({
+            'success': True,
+            'analytics': analytics
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/classification/geometry-preview/<entity_id>', methods=['GET'])
+def get_geometry_preview(entity_id):
+    """Get SVG preview of entity geometry"""
+    try:
+        width = int(request.args.get('width', 400))
+        height = int(request.args.get('height', 300))
+
+        from services.geometry_preview_service import GeometryPreviewService
+
+        with get_db() as conn:
+            preview_service = GeometryPreviewService(DB_CONFIG, conn=conn)
+            svg = preview_service.generate_svg(entity_id, width=width, height=height)
+
+        return Response(svg, mimetype='image/svg+xml')
+
+    except Exception as e:
+        return Response(
+            f'<svg><text x="10" y="20" fill="red">Error: {str(e)}</text></svg>',
+            mimetype='image/svg+xml'
+        ), 500
+
+
+@app.route('/api/classification/geometry-thumbnail/<entity_id>', methods=['GET'])
+def get_geometry_thumbnail(entity_id):
+    """Get small thumbnail preview of entity geometry"""
+    try:
+        size = int(request.args.get('size', 100))
+
+        from services.geometry_preview_service import GeometryPreviewService
+
+        with get_db() as conn:
+            preview_service = GeometryPreviewService(DB_CONFIG, conn=conn)
+            svg = preview_service.generate_thumbnail(entity_id, size=size)
+
+        return Response(svg, mimetype='image/svg+xml')
+
+    except Exception as e:
+        return Response(
+            f'<svg><text x="10" y="20" fill="red">Error</text></svg>',
+            mimetype='image/svg+xml'
+        ), 500
 
 
 @app.route('/api/classification/vocabulary', methods=['GET'])

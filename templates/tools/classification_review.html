@@ -54,8 +54,11 @@
 
             <!-- Bulk Actions -->
             <div class="mc-form-group" style="margin-top: 2rem;">
-                <button id="bulkReclassifyBtn" class="btn btn-primary" style="width: 100%;" onclick="showBulkReclassifyModal()" disabled>
+                <button id="bulkReclassifyBtn" class="btn btn-primary" style="width: 100%;" onclick="bulkReclassifySelected()" disabled>
                     <i class="fas fa-tasks"></i> Bulk Reclassify
+                </button>
+                <button class="btn btn-success" style="width: 100%; margin-top: 0.5rem;" onclick="approveAllAISuggestions()" disabled id="approveAIBtn">
+                    <i class="fas fa-magic"></i> Approve Top AI Suggestions
                 </button>
             </div>
         </div>
@@ -74,11 +77,11 @@
                     <thead>
                         <tr>
                             <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                            <th>Preview</th>
                             <th>Layer</th>
                             <th>Geometry</th>
                             <th>Confidence</th>
                             <th>Top Suggestion</th>
-                            <th>Spatial Context</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -103,6 +106,18 @@
             <button class="modal-close" onclick="closeReclassifyModal()">&times;</button>
         </div>
         <div class="modal-body">
+            <!-- Geometry Preview -->
+            <div class="geometry-preview-section" style="margin-bottom: 1.5rem;">
+                <h4 style="margin-bottom: 0.75rem;">
+                    <i class="fas fa-draw-polygon"></i> Geometry Preview
+                </h4>
+                <div id="geometryPreview" style="background: #1a1a1a; border-radius: 4px; padding: 10px; text-align: center;">
+                    <svg width="400" height="300" style="background: #1a1a1a;">
+                        <text x="200" y="150" fill="#666" font-size="14" text-anchor="middle">Loading...</text>
+                    </svg>
+                </div>
+            </div>
+
             <!-- Entity Context -->
             <div class="entity-context" style="padding: 1rem; background: rgba(0,255,255,0.05); border-radius: 4px; margin-bottom: 1.5rem;">
                 <div class="context-row">
@@ -119,12 +134,24 @@
                 </div>
             </div>
 
-            <!-- ML Suggestions -->
+            <!-- Spatial Context -->
+            <div id="spatialContextSection" style="margin-bottom: 1.5rem;">
+                <h4 style="margin-bottom: 0.75rem;">
+                    <i class="fas fa-map-marker-alt"></i> Spatial Context
+                </h4>
+                <div id="spatialContextContent" class="text-dim">
+                    <p>Loading spatial context...</p>
+                </div>
+            </div>
+
+            <!-- AI Suggestions -->
             <div id="suggestionsSection" style="margin-bottom: 1.5rem;">
                 <h4 style="margin-bottom: 0.75rem;">
-                    <i class="fas fa-lightbulb"></i> Suggestions
+                    <i class="fas fa-brain"></i> AI Suggestions
                 </h4>
-                <div id="suggestionsList"></div>
+                <div id="suggestionsList">
+                    <p class="text-dim">Loading AI suggestions...</p>
+                </div>
             </div>
 
             <!-- Manual Selection -->
@@ -321,13 +348,17 @@ function renderEntityTable(entities) {
     entities.forEach(entity => {
         const metadata = JSON.parse(entity.classification_metadata || '{}');
         const topSuggestion = metadata.suggestions?.[0];
-        const spatialCtx = metadata.spatial_context || {};
 
         const row = document.createElement('tr');
         row.innerHTML = `
             <td><input type="checkbox" class="entity-checkbox" data-id="${entity.entity_id}" onchange="updateSelection()"></td>
-            <td><code>${entity.layer_name || 'N/A'}</code></td>
-            <td>${entity.geometry_type?.replace('ST_', '') || 'Unknown'}</td>
+            <td>
+                <div style="width: 80px; height: 60px; background: #1a1a1a; border-radius: 4px; overflow: hidden;" id="thumb-${entity.entity_id}">
+                    <div style="font-size: 10px; color: #666; padding: 5px;">Loading...</div>
+                </div>
+            </td>
+            <td><code style="font-size: 0.85rem;">${entity.layer_name || 'N/A'}</code></td>
+            <td><span style="font-size: 0.85rem;">${entity.geometry_type?.replace('ST_', '') || 'Unknown'}</span></td>
             <td>
                 <div class="confidence-bar-container">
                     <div class="confidence-bar-fill" style="width: ${(entity.classification_confidence || 0) * 100}%"></div>
@@ -335,16 +366,7 @@ function renderEntityTable(entities) {
                 <small>${(entity.classification_confidence || 0).toFixed(2)}</small>
             </td>
             <td>
-                ${topSuggestion ?
-                    `<strong>${topSuggestion.type}</strong> (${(topSuggestion.confidence).toFixed(2)})` :
-                    '<span class="text-dim">No suggestion</span>'
-                }
-            </td>
-            <td>
-                <small>
-                    ${spatialCtx.nearby_utility_lines || 0} pipes,
-                    ${spatialCtx.nearby_structures || 0} structures
-                </small>
+                <span class="text-dim" style="font-size: 0.85rem;">AI loading...</span>
             </td>
             <td>
                 <button class="btn btn-sm btn-primary" onclick="openReclassifyModal('${entity.entity_id}')">
@@ -353,7 +375,25 @@ function renderEntityTable(entities) {
             </td>
         `;
         tbody.appendChild(row);
+
+        // Load thumbnail asynchronously
+        loadThumbnail(entity.entity_id);
     });
+}
+
+// Load thumbnail for entity
+async function loadThumbnail(entityId) {
+    const thumbDiv = document.getElementById(`thumb-${entityId}`);
+    if (!thumbDiv) return;
+
+    try {
+        const response = await fetch(`/api/classification/geometry-thumbnail/${entityId}?size=80`);
+        const svgText = await response.text();
+        thumbDiv.innerHTML = svgText;
+    } catch (error) {
+        console.error('Failed to load thumbnail:', error);
+        thumbDiv.innerHTML = '<div style="font-size: 10px; color: #ff4444; padding: 5px;">Error</div>';
+    }
 }
 
 // Update stats
@@ -392,45 +432,132 @@ async function openReclassifyModal(entityId) {
     selectedEntity = currentEntities.find(e => e.entity_id === entityId);
     if (!selectedEntity) return;
 
-    const metadata = JSON.parse(selectedEntity.classification_metadata || '{}');
-
-    // Populate context
+    // Populate basic context
     document.getElementById('modalLayer').textContent = selectedEntity.layer_name || 'N/A';
     document.getElementById('modalCurrentType').textContent = selectedEntity.entity_type || 'Unknown';
     document.getElementById('modalConfidence').textContent = (selectedEntity.classification_confidence || 0).toFixed(2);
 
-    // Render suggestions
-    const suggestionsList = document.getElementById('suggestionsList');
-    suggestionsList.innerHTML = '';
+    // Show modal immediately
+    document.getElementById('reclassifyModal').style.display = 'flex';
 
-    if (metadata.suggestions && metadata.suggestions.length > 0) {
-        metadata.suggestions.forEach((sug, idx) => {
-            const card = document.createElement('div');
-            card.className = 'suggestion-card';
-            card.onclick = () => selectSuggestion(sug.type, card);
-            card.innerHTML = `
-                <div>
-                    <strong>${sug.type}</strong>
-                    <div class="text-dim" style="font-size: 0.85rem;">${sug.reason}</div>
-                </div>
-                <div>
-                    <div class="confidence-bar-container">
-                        <div class="confidence-bar-fill" style="width: ${sug.confidence * 100}%"></div>
-                    </div>
-                    <small>${sug.confidence.toFixed(2)}</small>
-                </div>
-            `;
-            suggestionsList.appendChild(card);
-        });
-    } else {
-        suggestionsList.innerHTML = '<p class="text-dim">No suggestions available</p>';
-    }
+    // Load geometry preview
+    loadGeometryPreview(entityId);
+
+    // Load spatial context
+    loadSpatialContext(entityId);
+
+    // Load AI suggestions
+    await loadAISuggestions(entityId);
 
     // Load vocabulary for manual selection
     await loadVocabulary();
+}
 
-    // Show modal
-    document.getElementById('reclassifyModal').style.display = 'flex';
+// Load geometry preview
+async function loadGeometryPreview(entityId) {
+    const previewDiv = document.getElementById('geometryPreview');
+    previewDiv.innerHTML = '<p class="text-dim">Loading geometry preview...</p>';
+
+    try {
+        const response = await fetch(`/api/classification/geometry-preview/${entityId}?width=400&height=300`);
+        const svgText = await response.text();
+        previewDiv.innerHTML = svgText;
+    } catch (error) {
+        console.error('Failed to load geometry preview:', error);
+        previewDiv.innerHTML = '<p style="color: #ff4444;">Failed to load preview</p>';
+    }
+}
+
+// Load spatial context
+async function loadSpatialContext(entityId) {
+    const contextDiv = document.getElementById('spatialContextContent');
+    contextDiv.innerHTML = '<p class="text-dim">Loading...</p>';
+
+    try {
+        const response = await fetch(`/api/classification/spatial-context/${entityId}?radius=100`);
+        const data = await response.json();
+
+        if (data.success && data.context) {
+            const ctx = data.context;
+            let html = '';
+
+            if (ctx.total_nearby > 0) {
+                html += `<p><strong>${ctx.total_nearby}</strong> classified entities within ${ctx.search_radius_feet} feet</p>`;
+
+                if (ctx.nearby_types && ctx.nearby_types.length > 0) {
+                    html += '<div style="margin-top: 0.5rem;"><strong>Nearby Types:</strong><ul style="margin: 0.25rem 0; padding-left: 1.5rem;">';
+                    ctx.nearby_types.forEach(t => {
+                        html += `<li>${t.type}: ${t.count}</li>`;
+                    });
+                    html += '</ul></div>';
+                }
+
+                if (ctx.network_hints && ctx.network_hints.length > 0) {
+                    html += '<div style="margin-top: 0.5rem;"><strong>Network Hints:</strong><ul style="margin: 0.25rem 0; padding-left: 1.5rem;">';
+                    ctx.network_hints.forEach(hint => {
+                        html += `<li>${hint}</li>`;
+                    });
+                    html += '</ul></div>';
+                }
+
+                html += `<p style="margin-top: 0.5rem;"><em>Density: ${ctx.density}</em></p>`;
+            } else {
+                html = `<p class="text-dim">${ctx.message || 'No classified entities found nearby'}</p>`;
+            }
+
+            contextDiv.innerHTML = html;
+        } else {
+            contextDiv.innerHTML = '<p class="text-dim">No spatial context available</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load spatial context:', error);
+        contextDiv.innerHTML = '<p style="color: #ff4444;">Failed to load context</p>';
+    }
+}
+
+// Load AI suggestions
+async function loadAISuggestions(entityId) {
+    const suggestionsList = document.getElementById('suggestionsList');
+    suggestionsList.innerHTML = '<p class="text-dim">Loading AI suggestions...</p>';
+
+    try {
+        const response = await fetch(`/api/classification/ai-suggestions/${entityId}?limit=5`);
+        const data = await response.json();
+
+        if (data.success && data.suggestions && data.suggestions.length > 0) {
+            suggestionsList.innerHTML = '';
+
+            data.suggestions.forEach((sug, idx) => {
+                const card = document.createElement('div');
+                card.className = 'suggestion-card';
+                card.onclick = () => selectSuggestion(sug.suggested_type, card);
+                card.innerHTML = `
+                    <div style="flex: 1;">
+                        <strong>${sug.suggested_type}</strong>
+                        <div class="text-dim" style="font-size: 0.85rem; margin-top: 0.25rem;">
+                            ${sug.reason}
+                        </div>
+                        <div class="text-dim" style="font-size: 0.75rem; margin-top: 0.25rem;">
+                            Similarity: ${sug.similarity_score} | Support: ${sug.support_count} entities
+                            ${sug.user_verified_count > 0 ? ` | ${sug.user_verified_count} user-verified` : ''}
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="confidence-bar-container" style="width: 80px;">
+                            <div class="confidence-bar-fill" style="width: ${sug.confidence * 100}%"></div>
+                        </div>
+                        <small style="display: block; margin-top: 0.25rem;">${sug.confidence.toFixed(3)}</small>
+                    </div>
+                `;
+                suggestionsList.appendChild(card);
+            });
+        } else {
+            suggestionsList.innerHTML = '<p class="text-dim">No AI suggestions available (entity may not have embeddings)</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load AI suggestions:', error);
+        suggestionsList.innerHTML = '<p style="color: #ff4444;">Failed to load suggestions</p>';
+    }
 }
 
 function closeReclassifyModal() {
@@ -518,6 +645,103 @@ function updateConfidenceLabel() {
     const min = document.getElementById('minConfidence').value;
     const max = document.getElementById('maxConfidence').value;
     document.getElementById('confidenceLabel').textContent = `${parseFloat(min).toFixed(1)} - ${parseFloat(max).toFixed(1)}`;
+}
+
+// Bulk reclassify selected entities
+async function bulkReclassifySelected() {
+    if (selectedEntityIds.size === 0) {
+        alert('Please select at least one entity');
+        return;
+    }
+
+    const newType = prompt('Enter entity type for all selected entities (e.g., utility_line, utility_structure):');
+    if (!newType) return;
+
+    const notes = prompt('Optional notes for this batch reclassification:') || 'Bulk reclassification via UI';
+
+    const confirmation = confirm(`Reclassify ${selectedEntityIds.size} entities to type "${newType}"?`);
+    if (!confirmation) return;
+
+    try {
+        const response = await fetch('/api/classification/bulk-reclassify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                entity_ids: Array.from(selectedEntityIds),
+                new_type: newType,
+                notes: notes
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success !== undefined) {
+            alert(`Successfully reclassified ${data.success} entities. Failed: ${data.failed}`);
+            if (data.failed > 0 && data.errors) {
+                console.error('Reclassification errors:', data.errors);
+            }
+            selectedEntityIds.clear();
+            loadReviewQueue(); // Refresh
+        } else {
+            alert('Bulk reclassification failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Bulk reclassification error:', error);
+        alert('Failed to perform bulk reclassification');
+    }
+}
+
+// Approve all AI suggestions for selected entities
+async function approveAllAISuggestions() {
+    if (selectedEntityIds.size === 0) {
+        alert('Please select at least one entity');
+        return;
+    }
+
+    const confirmation = confirm(`Approve top AI suggestion for ${selectedEntityIds.size} selected entities?`);
+    if (!confirmation) return;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const entityId of selectedEntityIds) {
+        try {
+            // Get AI suggestions
+            const sugResponse = await fetch(`/api/classification/ai-suggestions/${entityId}?limit=1`);
+            const sugData = await sugResponse.json();
+
+            if (sugData.success && sugData.suggestions && sugData.suggestions.length > 0) {
+                const topSuggestion = sugData.suggestions[0];
+
+                // Reclassify to top suggestion
+                const reclassResponse = await fetch('/api/classification/reclassify', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        entity_id: entityId,
+                        new_type: topSuggestion.suggested_type,
+                        notes: `Auto-approved AI suggestion (confidence: ${topSuggestion.confidence})`
+                    })
+                });
+
+                const reclassData = await reclassResponse.json();
+                if (reclassData.success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } else {
+                failCount++;
+            }
+        } catch (error) {
+            console.error('Error approving suggestion for entity:', entityId, error);
+            failCount++;
+        }
+    }
+
+    alert(`Approved ${successCount} entities. Failed: ${failCount}`);
+    selectedEntityIds.clear();
+    loadReviewQueue(); // Refresh
 }
 
 // Initialize
