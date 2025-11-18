@@ -18861,11 +18861,67 @@ def delete_naming_template(template_id):
     try:
         query = "UPDATE relationship_set_naming_templates SET is_active = FALSE WHERE template_id = %s RETURNING template_id"
         result = execute_query(query, (str(template_id),))
-        
+
         if not result:
             return jsonify({'error': 'Template not found'}), 404
-        
+
         return jsonify({'message': 'Template deactivated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naming-templates/<uuid:template_id>/preview', methods=['POST'])
+def preview_naming_template(template_id):
+    """Preview generated name and short code from template with provided token values"""
+    try:
+        token_values = request.get_json() or {}
+
+        # Get template
+        query = """
+            SELECT name_format, short_code_format, required_tokens
+            FROM relationship_set_naming_templates
+            WHERE template_id = %s AND is_active = TRUE
+        """
+        result = execute_query(query, (str(template_id),))
+
+        if not result:
+            return jsonify({'error': 'Template not found'}), 404
+
+        template = result[0]
+        name_format = template['name_format']
+        short_code_format = template['short_code_format']
+        required_tokens = template.get('required_tokens', [])
+
+        # Validate required tokens are provided
+        missing_tokens = [token for token in required_tokens if not token_values.get(token)]
+        if missing_tokens:
+            return jsonify({
+                'error': f'Missing required tokens: {", ".join(missing_tokens)}',
+                'missing_tokens': missing_tokens
+            }), 400
+
+        # Replace tokens in format strings
+        generated_name = name_format
+        generated_code = short_code_format
+
+        for token_name, token_value in token_values.items():
+            placeholder = f'{{{token_name}}}'
+            generated_name = generated_name.replace(placeholder, str(token_value))
+            generated_code = generated_code.replace(placeholder, str(token_value))
+
+        # Check if any tokens remain unreplaced
+        import re
+        remaining_name_tokens = re.findall(r'\{([^}]+)\}', generated_name)
+        remaining_code_tokens = re.findall(r'\{([^}]+)\}', generated_code)
+
+        return jsonify({
+            'generated_name': generated_name,
+            'generated_code': generated_code,
+            'remaining_tokens': {
+                'name': remaining_name_tokens,
+                'code': remaining_code_tokens
+            },
+            'is_complete': len(remaining_name_tokens) == 0 and len(remaining_code_tokens) == 0
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
