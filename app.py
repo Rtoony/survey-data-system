@@ -2981,11 +2981,19 @@ def get_classification_vocabulary():
 from services.spec_standards_service import SpecStandardsService
 from services.spec_library_service import SpecLibraryService
 from services.project_spec_service import ProjectSpecService
+from services.spec_linking_service import SpecLinkingService
+from services.compliance_service import ComplianceService
+from services.auto_linking_service import AutoLinkingService
+from services.csi_masterformat_service import CSIMasterformatService
 
 # Initialize services
 spec_standards_service = SpecStandardsService()
 spec_library_service = SpecLibraryService()
 project_spec_service = ProjectSpecService()
+spec_linking_service = SpecLinkingService()
+compliance_service = ComplianceService()
+auto_linking_service = AutoLinkingService()
+csi_service = CSIMasterformatService()
 
 # Spec Standards Registry Endpoints
 @app.route('/api/spec-standards', methods=['GET'])
