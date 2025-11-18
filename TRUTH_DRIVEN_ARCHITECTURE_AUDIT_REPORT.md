@@ -61,8 +61,11 @@ This audit identifies **critical violations** of the Truth-Driven Architecture p
 
 **VIOLATION TYPE:** Missing user interface for truth table management
 
-#### **VIOLATION #1: Clients Truth Table**
+#### **VIOLATION #1: Clients Truth Table** ✅ RESOLVED
 
+**UPDATE:** This violation has been resolved. The UI now exists at `templates/data_manager/clients.html` (423 lines, fully functional).
+
+**Original Finding (now outdated):**
 **Files:** API exists at `app.py:17746-17910`, UI missing
 **Impact:** Users cannot manage client list through the application
 **Current Workaround:** Direct database manipulation required
@@ -85,8 +88,11 @@ This audit identifies **critical violations** of the Truth-Driven Architecture p
 
 ---
 
-#### **VIOLATION #2: Municipalities Truth Table**
+#### **VIOLATION #2: Municipalities Truth Table** ✅ RESOLVED
 
+**UPDATE:** This violation has been resolved. The UI now exists at `templates/data_manager/municipalities.html` (463 lines, fully functional).
+
+**Original Finding (now outdated):**
 **Files:** API exists at `app.py:18018-18175`, UI missing
 **Impact:** Users cannot manage municipality/jurisdiction list
 **Current Workaround:** Direct database manipulation required
@@ -506,18 +512,21 @@ survey_method character varying(100)  -- Should be FK
 **Priority:** CRITICAL - Highest user impact, most data corruption
 
 **Tasks:**
-1. ✅ **Fix Project Client Selection** (8 hours)
+1. ⚠️ **Fix Project Client Selection** (8 hours) - NOT YET COMPLETED
    - Convert client_name to client_id foreign key
+   - **Current Status:** Still using free-text client_name field in templates/data_manager/projects.html
    - Update create/edit forms to use dropdown
    - Write data migration script
    - Test thoroughly
 
-2. ✅ **Fix Standard Notes Category** (6 hours)
+2. ⚠️ **Fix Standard Notes Category** (6 hours) - NOT YET COMPLETED
+   - **Current Status:** standard_notes.note_category is still VARCHAR(100) without FK
    - Convert note_category to category_id foreign key
    - Update UI to use category dropdown
    - Migrate existing data
 
-3. ✅ **Fix Standard Notes Discipline** (6 hours)
+3. ⚠️ **Fix Standard Notes Discipline** (6 hours) - NOT YET COMPLETED
+   - **Current Status:** standard_notes.discipline is still VARCHAR(50) without FK
    - Convert discipline to discipline_id foreign key
    - Update UI to use discipline dropdown
    - Migrate existing data
