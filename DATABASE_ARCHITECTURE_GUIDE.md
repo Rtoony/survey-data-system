@@ -4,7 +4,7 @@
 
 This document explains the complete architectural transformation of ACAD-GIS from a traditional file-based CAD system into an **AI-first, database-centric platform** optimized for machine learning, semantic reasoning, and spatial intelligence.
 
-**What we built:** A PostgreSQL/PostGIS database with 81 tables, 700+ specialized indexes, and integrated vector embeddings that treats every CAD element as a semantically-queryable entity with graph relationships.
+**What we built:** A PostgreSQL/PostGIS database with 69 tables implemented (documented at database/schema/complete_schema.sql), 700+ specialized indexes, and integrated vector embeddings that treats every CAD element as a semantically-queryable entity with graph relationships.
 
 **Why we built it:** To enable AI systems (LLMs, ML models, GraphRAG) to understand and reason about CAD/GIS data the same way they understand text—through semantic similarity, multi-hop reasoning, and spatial-semantic fusion.
 

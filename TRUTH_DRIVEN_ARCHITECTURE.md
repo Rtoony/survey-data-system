@@ -158,7 +158,8 @@ These violations directly impact user experience and data quality:
   2. Token replacement fields (fill in project-specific values)
   3. Auto-generated name preview
 
-**Status:** ⚠️ **Not implemented** - CRUD interface needed
+**Status:** ⚠️ **NOT IMPLEMENTED** - Table does not exist in database schema
+**Database Reality:** Table `relationship_set_naming_templates` is NOT in complete_schema.sql
 
 ---
 
@@ -242,8 +243,9 @@ discipline VARCHAR(50),           -- Free text (should be from discipline_codes)
 - ✅ Constraints include ON DELETE SET NULL and ON UPDATE CASCADE for data safety
 - Examples: "PVC", "CONCRETE", "STEEL", "HDPE", "DI" (with full names in material_name column)
 
-**Status:** ✅ **IMPLEMENTED** - Material standards enforced via FK constraints (Migration 014)
-**Migration:** See `database/migrations/014_add_material_standards_fk_constraints.sql`
+**Status:** ⚠️ **NOT IMPLEMENTED** - Material columns remain VARCHAR without FK constraints
+**Required Migration:** `database/migrations/014_add_material_standards_fk_constraints.sql` (not yet created)
+**Current State:** utility_lines.material and utility_structures.material are VARCHAR(100) with no FK enforcement
 
 ---
 
