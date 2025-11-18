@@ -1,0 +1,476 @@
+{% extends "base.html" %}
+
+{% block title %}Status Standards Manager - Data Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-tags"></i> Status Standards Manager</h1>
+            <p class="subtitle">Manage status codes for utilities, drawings, and projects - Truth Table for all lifecycle states</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-tags"></i> Status Codes</h2>
+            <div class="button-group">
+                <button onclick="addNewStatus()" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New Status
+                </button>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search status codes..." onkeyup="filterTable()">
+            </div>
+
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterByType('ALL')">All</button>
+                <button class="filter-btn" onclick="filterByType('UTILITY')">Utility</button>
+                <button class="filter-btn" onclick="filterByType('PROJECT')">Project</button>
+                <button class="filter-btn" onclick="filterByType('DRAWING')">Drawing</button>
+            </div>
+
+            <div id="loadingMessage" class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i> Loading status codes...
+            </div>
+
+            <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+            <div id="tableContainer" style="display: none; overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 120px;">Code</th>
+                            <th>Name</th>
+                            <th style="width: 120px;">Applies To</th>
+                            <th>Description</th>
+                            <th style="width: 80px;">Color</th>
+                            <th style="width: 80px;">Order</th>
+                            <th style="width: 80px;">Active</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="statusTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="statusModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Status</h2>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="statusForm" onsubmit="saveStatus(event)">
+            <input type="hidden" id="statusId">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="statusCode">Status Code <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="statusCode" required placeholder="e.g., EXISTING" maxlength="20" style="text-transform: uppercase;">
+                    <small class="form-text">All uppercase, no spaces (use underscores)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="statusName">Status Name <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="statusName" required placeholder="e.g., Existing Utility">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="appliesTo">Applies To <span style="color: #ff6b6b;">*</span></label>
+                    <select id="appliesTo" required class="form-control">
+                        <option value="">Select scope...</option>
+                        <option value="ALL">All (Utility, Drawing, Project)</option>
+                        <option value="UTILITY">Utility Only</option>
+                        <option value="DRAWING">Drawing Only</option>
+                        <option value="PROJECT">Project Only</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="displayOrder">Display Order</label>
+                    <input type="number" id="displayOrder" placeholder="e.g., 10" min="0">
+                    <small class="form-text">Lower numbers appear first</small>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Describe when this status should be used"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="colorHex">Color (Hex)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="color" id="colorPicker" value="#00FFFF" style="width: 50px; height: 40px; border: none; cursor: pointer;">
+                    <input type="text" id="colorHex" placeholder="#00FFFF" pattern="#[0-9A-Fa-f]{6}" maxlength="7" style="flex: 1;">
+                </div>
+                <small class="form-text">Color for visual identification in UI</small>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="isActive" checked>
+                    <span>Active Status</span>
+                </label>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Status
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let allStatuses = [];
+let currentFilter = 'ALL';
+
+// Sync color picker and hex input
+document.addEventListener('DOMContentLoaded', function() {
+    const colorPicker = document.getElementById('colorPicker');
+    const colorHex = document.getElementById('colorHex');
+
+    colorPicker.addEventListener('input', function() {
+        colorHex.value = this.value.toUpperCase();
+    });
+
+    colorHex.addEventListener('input', function() {
+        if (/^#[0-9A-Fa-f]{6}$/.test(this.value)) {
+            colorPicker.value = this.value;
+        }
+    });
+
+    loadStatuses();
+});
+
+async function loadStatuses() {
+    try {
+        document.getElementById('loadingMessage').style.display = 'block';
+        document.getElementById('errorMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+
+        const response = await fetch('/api/status_standards');
+        if (!response.ok) throw new Error('Failed to load status codes');
+
+        const data = await response.json();
+        allStatuses = data.statuses;
+        renderTable(filterStatuses());
+
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading statuses:', error);
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('errorMessage').textContent = 'Error loading status codes: ' + error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+    }
+}
+
+function filterStatuses() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    return allStatuses.filter(status => {
+        const matchesSearch = status.status_code.toLowerCase().includes(searchTerm) ||
+            (status.status_name && status.status_name.toLowerCase().includes(searchTerm)) ||
+            (status.description && status.description.toLowerCase().includes(searchTerm));
+
+        const matchesType = currentFilter === 'ALL' ||
+            status.applies_to === currentFilter ||
+            status.applies_to === 'ALL';
+
+        return matchesSearch && matchesType;
+    });
+}
+
+function renderTable(statuses) {
+    const tbody = document.getElementById('statusTableBody');
+    tbody.innerHTML = '';
+
+    if (statuses.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No status codes found</td></tr>';
+        return;
+    }
+
+    statuses.sort((a, b) => (a.display_order || 999) - (b.display_order || 999));
+
+    statuses.forEach(status => {
+        const row = document.createElement('tr');
+        const isActive = status.is_active !== false;
+        const colorHex = status.color_hex || '#808080';
+
+        row.innerHTML = `
+            <td><code style="background: rgba(0,255,255,0.1); padding: 2px 6px; border-radius: 3px;">${status.status_code}</code></td>
+            <td><strong>${status.status_name || status.status_code}</strong></td>
+            <td>
+                <span class="badge badge-type">${status.applies_to}</span>
+            </td>
+            <td style="font-size: 12px; color: var(--text-secondary);">${status.description || ''}</td>
+            <td>
+                <div style="width: 30px; height: 30px; background: ${colorHex}; border: 2px solid rgba(255,255,255,0.2); border-radius: 4px;" title="${colorHex}"></div>
+            </td>
+            <td style="text-align: center;">${status.display_order || '-'}</td>
+            <td>
+                <span class="badge ${isActive ? 'badge-success' : 'badge-danger'}">
+                    ${isActive ? 'Active' : 'Inactive'}
+                </span>
+            </td>
+            <td>
+                <button onclick='editStatus("${status.status_id}")' class="btn-icon" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick='deleteStatus("${status.status_id}")' class="btn-icon btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function filterTable() {
+    renderTable(filterStatuses());
+}
+
+function filterByType(type) {
+    currentFilter = type;
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    renderTable(filterStatuses());
+}
+
+function addNewStatus() {
+    document.getElementById('modalTitle').textContent = 'Add New Status';
+    document.getElementById('statusForm').reset();
+    document.getElementById('statusId').value = '';
+    document.getElementById('isActive').checked = true;
+    document.getElementById('colorPicker').value = '#00FFFF';
+    document.getElementById('colorHex').value = '#00FFFF';
+    document.getElementById('statusModal').style.display = 'block';
+}
+
+async function editStatus(statusId) {
+    const status = allStatuses.find(s => s.status_id === statusId);
+    if (!status) return;
+
+    document.getElementById('modalTitle').textContent = 'Edit Status';
+    document.getElementById('statusId').value = status.status_id;
+    document.getElementById('statusCode').value = status.status_code;
+    document.getElementById('statusName').value = status.status_name || '';
+    document.getElementById('appliesTo').value = status.applies_to || '';
+    document.getElementById('description').value = status.description || '';
+    document.getElementById('displayOrder').value = status.display_order || '';
+    const colorHex = status.color_hex || '#00FFFF';
+    document.getElementById('colorHex').value = colorHex;
+    document.getElementById('colorPicker').value = colorHex;
+    document.getElementById('isActive').checked = status.is_active !== false;
+
+    document.getElementById('statusModal').style.display = 'block';
+}
+
+async function saveStatus(event) {
+    event.preventDefault();
+
+    const statusId = document.getElementById('statusId').value;
+    const data = {
+        status_code: document.getElementById('statusCode').value.toUpperCase(),
+        status_name: document.getElementById('statusName').value || null,
+        applies_to: document.getElementById('appliesTo').value || null,
+        description: document.getElementById('description').value || null,
+        color_hex: document.getElementById('colorHex').value || null,
+        display_order: parseInt(document.getElementById('displayOrder').value) || null,
+        is_active: document.getElementById('isActive').checked
+    };
+
+    try {
+        const url = statusId ? `/api/status_standards/${statusId}` : '/api/status_standards';
+        const method = statusId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to save status');
+        }
+
+        closeModal();
+        loadStatuses();
+    } catch (error) {
+        console.error('Error saving status:', error);
+        alert('Error saving status: ' + error.message);
+    }
+}
+
+async function deleteStatus(statusId) {
+    const status = allStatuses.find(s => s.status_id === statusId);
+    if (!confirm(`Are you sure you want to delete "${status.status_code}"?\n\nNote: This may affect existing utilities, projects, or drawings that use this status.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/status_standards/${statusId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete status');
+        }
+
+        loadStatuses();
+    } catch (error) {
+        console.error('Error deleting status:', error);
+        alert('Error deleting status: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('statusModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('statusModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+
+<style>
+.search-box {
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.search-box i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+}
+
+.search-box input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    background: rgba(255,255,255,0.08);
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+    background: rgba(0,255,255,0.1);
+    border-color: var(--accent-cyan);
+    color: var(--text-primary);
+}
+
+.filter-btn.active {
+    background: rgba(0,255,255,0.2);
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    font-weight: 600;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.checkbox-label:hover {
+    background: rgba(0,255,255,0.1);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.badge-success {
+    background: rgba(0,200,100,0.2);
+    color: #5cb85c;
+}
+
+.badge-danger {
+    background: rgba(200,0,0,0.2);
+    color: #d9534f;
+}
+
+.badge-type {
+    background: rgba(0,255,255,0.15);
+    color: var(--accent-cyan);
+    font-size: 11px;
+}
+
+.modal-content {
+    max-width: 600px;
+}
+
+.form-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+code {
+    font-family: 'Courier New', monospace;
+}
+</style>
+{% endblock %}

@@ -74,10 +74,26 @@
                 </div>
             </div>
 
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="clientId">Client</label>
+                    <select id="clientId">
+                        <option value="">-- Select Client --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="municipalityId">Municipality</label>
+                    <select id="municipalityId">
+                        <option value="">-- Select Municipality --</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="form-group">
-                <label for="clientId">Client</label>
-                <select id="clientId">
-                    <option value="">-- Select Client --</option>
+                <label for="projectStatus">Project Status</label>
+                <select id="projectStatus">
+                    <option value="">-- Select Status --</option>
                 </select>
             </div>
 
@@ -122,27 +138,92 @@ async function loadClients() {
     try {
         const response = await fetch('/api/clients');
         const data = await response.json();
-        
+
         if (data.error) {
             console.error('Failed to load clients:', data.error);
             return;
         }
-        
+
         allClients = data.clients || data || [];
         populateClientDropdown();
-        
+
     } catch (error) {
         console.error('Failed to load clients:', error.message);
+    }
+}
+
+let allMunicipalities = [];
+async function loadMunicipalities() {
+    try {
+        const response = await fetch('/api/municipalities');
+        const data = await response.json();
+
+        if (data.error) {
+            console.error('Failed to load municipalities:', data.error);
+            return;
+        }
+
+        allMunicipalities = data.municipalities || [];
+        populateMunicipalityDropdown();
+
+    } catch (error) {
+        console.error('Failed to load municipalities:', error.message);
+    }
+}
+
+let allStatuses = [];
+async function loadStatuses() {
+    try {
+        const response = await fetch('/api/status_standards');
+        const data = await response.json();
+
+        if (data.error) {
+            console.error('Failed to load statuses:', data.error);
+            return;
+        }
+
+        // Filter for PROJECT or ALL statuses
+        allStatuses = (data.statuses || []).filter(s =>
+            s.applies_to === 'PROJECT' || s.applies_to === 'ALL'
+        );
+        populateStatusDropdown();
+
+    } catch (error) {
+        console.error('Failed to load statuses:', error.message);
     }
 }
 
 function populateClientDropdown() {
     const select = document.getElementById('clientId');
     const currentValue = select.value;
-    
+
     select.innerHTML = '<option value="">-- Select Client --</option>' +
         allClients.map(c => `<option value="${c.client_id}">${c.client_name}</option>`).join('');
-    
+
+    if (currentValue) {
+        select.value = currentValue;
+    }
+}
+
+function populateMunicipalityDropdown() {
+    const select = document.getElementById('municipalityId');
+    const currentValue = select.value;
+
+    select.innerHTML = '<option value="">-- Select Municipality --</option>' +
+        allMunicipalities.map(m => `<option value="${m.municipality_id}">${m.municipality_name}</option>`).join('');
+
+    if (currentValue) {
+        select.value = currentValue;
+    }
+}
+
+function populateStatusDropdown() {
+    const select = document.getElementById('projectStatus');
+    const currentValue = select.value;
+
+    select.innerHTML = '<option value="">-- Select Status --</option>' +
+        allStatuses.map(s => `<option value="${s.status_code}">${s.status_name || s.status_code}</option>`).join('');
+
     if (currentValue) {
         select.value = currentValue;
     }
@@ -203,28 +284,35 @@ function showAddModal() {
 async function editProject(projectId) {
     const project = allProjects.find(p => p.project_id === projectId);
     if (!project) return;
-    
+
     await loadClients();
-    
+    await loadMunicipalities();
+    await loadStatuses();
+
     document.getElementById('modalTitle').textContent = 'Edit Project';
     document.getElementById('projectId').value = project.project_id;
     document.getElementById('projectName').value = project.project_name;
     document.getElementById('projectNumber').value = project.project_number || '';
     document.getElementById('clientId').value = project.client_id || '';
+    document.getElementById('municipalityId').value = project.municipality_id || '';
+    document.getElementById('projectStatus').value = project.project_status || '';
     document.getElementById('description').value = project.description || '';
-    
+
     document.getElementById('projectModal').style.display = 'block';
 }
 
 async function saveProject(event) {
     event.preventDefault();
-    
+
     const projectId = document.getElementById('projectId').value;
     const clientIdValue = document.getElementById('clientId').value;
+    const municipalityIdValue = document.getElementById('municipalityId').value;
     const projectData = {
         project_name: document.getElementById('projectName').value,
         project_number: document.getElementById('projectNumber').value || null,
         client_id: clientIdValue ? parseInt(clientIdValue) : null,
+        municipality_id: municipalityIdValue || null,
+        project_status: document.getElementById('projectStatus').value || null,
         description: document.getElementById('description').value || null
     };
     
@@ -303,6 +391,8 @@ window.onclick = function(event) {
 document.addEventListener('DOMContentLoaded', () => {
     loadProjects();
     loadClients();
+    loadMunicipalities();
+    loadStatuses();
 });
 </script>
 {% endblock %}

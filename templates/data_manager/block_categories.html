@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}Block Categories Manager - Data Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-cubes"></i> Block Categories Manager</h1>
+            <p class="subtitle">Manage CAD block/symbol categories - Truth Table for all design elements</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-cubes"></i> Block Categories</h2>
+            <div class="button-group">
+                <button onclick="addNewCategory()" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New Category
+                </button>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search categories..." onkeyup="filterTable()">
+            </div>
+
+            <div id="loadingMessage" class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i> Loading block categories...
+            </div>
+
+            <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+            <div id="tableContainer" style="display: none; overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 150px;">Code</th>
+                            <th>Category Name</th>
+                            <th>Description</th>
+                            <th style="width: 80px;">Color</th>
+                            <th style="width: 80px;">Order</th>
+                            <th style="width: 80px;">Active</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categoriesTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="categoryModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Block Category</h2>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="categoryForm" onsubmit="saveCategory(event)">
+            <input type="hidden" id="categoryId">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="categoryCode">Category Code <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="categoryCode" required placeholder="e.g., STRUCTURE" maxlength="20" style="text-transform: uppercase;">
+                    <small class="form-text">All uppercase, use underscores</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="categoryName">Category Name <span style="color: #ff6b6b;">*</span></label>
+                    <input type="text" id="categoryName" required placeholder="e.g., Utility Structures">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" rows="3" placeholder="Describe what types of blocks belong in this category"></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="colorHex">Color (Hex)</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="color" id="colorPicker" value="#00FFFF" style="width: 50px; height: 40px; border: none; cursor: pointer;">
+                        <input type="text" id="colorHex" placeholder="#00FFFF" pattern="#[0-9A-Fa-f]{6}" maxlength="7" style="flex: 1;">
+                    </div>
+                    <small class="form-text">Default color for blocks in this category</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="displayOrder">Display Order</label>
+                    <input type="number" id="displayOrder" placeholder="e.g., 10" min="0">
+                    <small class="form-text">Lower numbers appear first</small>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="iconClass">Icon Class</label>
+                <input type="text" id="iconClass" placeholder="e.g., fa-cube">
+                <small class="form-text">FontAwesome icon class name</small>
+            </div>
+
+            <div class="form-group">
+                <label for="cadLayer">Default CAD Layer</label>
+                <input type="text" id="cadLayer" placeholder="e.g., A-SYMBOL">
+                <small class="form-text">Suggested layer name for blocks in this category</small>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="isActive" checked>
+                    <span>Active Category</span>
+                </label>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Category
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let allCategories = [];
+
+// Sync color picker and hex input
+document.addEventListener('DOMContentLoaded', function() {
+    const colorPicker = document.getElementById('colorPicker');
+    const colorHex = document.getElementById('colorHex');
+
+    colorPicker.addEventListener('input', function() {
+        colorHex.value = this.value.toUpperCase();
+    });
+
+    colorHex.addEventListener('input', function() {
+        if (/^#[0-9A-Fa-f]{6}$/.test(this.value)) {
+            colorPicker.value = this.value;
+        }
+    });
+
+    loadCategories();
+});
+
+async function loadCategories() {
+    try {
+        document.getElementById('loadingMessage').style.display = 'block';
+        document.getElementById('errorMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+
+        const response = await fetch('/api/block_categories');
+        if (!response.ok) throw new Error('Failed to load block categories');
+
+        const data = await response.json();
+        allCategories = data.categories;
+        renderTable(allCategories);
+
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading categories:', error);
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('errorMessage').textContent = 'Error loading block categories: ' + error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+    }
+}
+
+function renderTable(categories) {
+    const tbody = document.getElementById('categoriesTableBody');
+    tbody.innerHTML = '';
+
+    if (categories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No categories found</td></tr>';
+        return;
+    }
+
+    // Filter by search
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = categories.filter(cat =>
+        cat.category_code.toLowerCase().includes(searchTerm) ||
+        (cat.category_name && cat.category_name.toLowerCase().includes(searchTerm)) ||
+        (cat.description && cat.description.toLowerCase().includes(searchTerm))
+    );
+
+    filtered.sort((a, b) => (a.display_order || 999) - (b.display_order || 999));
+
+    filtered.forEach(cat => {
+        const row = document.createElement('tr');
+        const isActive = cat.is_active !== false;
+        const colorHex = cat.color_hex || '#808080';
+
+        row.innerHTML = `
+            <td><code style="background: rgba(0,255,255,0.1); padding: 2px 6px; border-radius: 3px;">${cat.category_code}</code></td>
+            <td>
+                ${cat.icon_class ? `<i class="fas ${cat.icon_class}"></i> ` : ''}
+                <strong>${cat.category_name || cat.category_code}</strong>
+            </td>
+            <td style="font-size: 12px; color: var(--text-secondary);">${cat.description || ''}</td>
+            <td>
+                <div style="width: 30px; height: 30px; background: ${colorHex}; border: 2px solid rgba(255,255,255,0.2); border-radius: 4px;" title="${colorHex}"></div>
+            </td>
+            <td style="text-align: center;">${cat.display_order || '-'}</td>
+            <td>
+                <span class="badge ${isActive ? 'badge-success' : 'badge-danger'}">
+                    ${isActive ? 'Active' : 'Inactive'}
+                </span>
+            </td>
+            <td>
+                <button onclick='editCategory("${cat.category_id}")' class="btn-icon" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick='deleteCategory("${cat.category_id}")' class="btn-icon btn-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function filterTable() {
+    renderTable(allCategories);
+}
+
+function addNewCategory() {
+    document.getElementById('modalTitle').textContent = 'Add New Block Category';
+    document.getElementById('categoryForm').reset();
+    document.getElementById('categoryId').value = '';
+    document.getElementById('isActive').checked = true;
+    document.getElementById('colorPicker').value = '#00FFFF';
+    document.getElementById('colorHex').value = '#00FFFF';
+    document.getElementById('categoryModal').style.display = 'block';
+}
+
+async function editCategory(categoryId) {
+    const cat = allCategories.find(c => c.category_id === categoryId);
+    if (!cat) return;
+
+    document.getElementById('modalTitle').textContent = 'Edit Block Category';
+    document.getElementById('categoryId').value = cat.category_id;
+    document.getElementById('categoryCode').value = cat.category_code;
+    document.getElementById('categoryName').value = cat.category_name || '';
+    document.getElementById('description').value = cat.description || '';
+    document.getElementById('displayOrder').value = cat.display_order || '';
+    document.getElementById('iconClass').value = cat.icon_class || '';
+    document.getElementById('cadLayer').value = cat.cad_layer || '';
+    const colorHex = cat.color_hex || '#00FFFF';
+    document.getElementById('colorHex').value = colorHex;
+    document.getElementById('colorPicker').value = colorHex;
+    document.getElementById('isActive').checked = cat.is_active !== false;
+
+    document.getElementById('categoryModal').style.display = 'block';
+}
+
+async function saveCategory(event) {
+    event.preventDefault();
+
+    const categoryId = document.getElementById('categoryId').value;
+    const data = {
+        category_code: document.getElementById('categoryCode').value.toUpperCase(),
+        category_name: document.getElementById('categoryName').value,
+        description: document.getElementById('description').value || null,
+        color_hex: document.getElementById('colorHex').value || null,
+        display_order: parseInt(document.getElementById('displayOrder').value) || null,
+        icon_class: document.getElementById('iconClass').value || null,
+        cad_layer: document.getElementById('cadLayer').value || null,
+        is_active: document.getElementById('isActive').checked
+    };
+
+    try {
+        const url = categoryId ? `/api/block_categories/${categoryId}` : '/api/block_categories';
+        const method = categoryId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to save category');
+        }
+
+        closeModal();
+        loadCategories();
+    } catch (error) {
+        console.error('Error saving category:', error);
+        alert('Error saving category: ' + error.message);
+    }
+}
+
+async function deleteCategory(categoryId) {
+    const cat = allCategories.find(c => c.category_id === categoryId);
+    if (!confirm(`Are you sure you want to delete "${cat.category_code}"?\n\nNote: This may affect existing blocks that use this category.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/block_categories/${categoryId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete category');
+        }
+
+        loadCategories();
+    } catch (error) {
+        console.error('Error deleting category:', error);
+        alert('Error deleting category: ' + error.message);
+    }
+}
+
+function closeModal() {
+    document.getElementById('categoryModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('categoryModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+
+<style>
+.search-box {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.search-box i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+}
+
+.search-box input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    background: rgba(255,255,255,0.08);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.checkbox-label:hover {
+    background: rgba(0,255,255,0.1);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.badge-success {
+    background: rgba(0,200,100,0.2);
+    color: #5cb85c;
+}
+
+.badge-danger {
+    background: rgba(200,0,0,0.2);
+    color: #d9534f;
+}
+
+.modal-content {
+    max-width: 600px;
+}
+
+.form-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+code {
+    font-family: 'Courier New', monospace;
+}
+</style>
+{% endblock %}
