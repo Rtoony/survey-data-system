@@ -374,6 +374,58 @@ The following migration files exist and are ready to apply:
 
 ---
 
+## Follow-up Documentation Updates Completed
+
+**Date:** November 18, 2025 (Follow-up session)
+
+### Additional Verification and Updates:
+
+#### 1. Survey Point Column Name (HIGH #8 follow-up)
+- [x] Verified TRUTH_DRIVEN_ARCHITECTURE.md line 172 uses correct name: `point_description`
+- [x] No changes needed - documentation already consistent
+
+#### 2. Entity Registry Clarification (MEDIUM #13)
+- [x] Verified `services/entity_registry.py` exists as Python service
+- [x] Updated README.md to clarify distinction:
+  - Database table: `standards_entities` (canonical identity)
+  - Python service: `services/entity_registry.py` (programmatic access)
+- [x] Added note to Architecture Highlights section
+
+#### 3. SRID 0 Usage Audit (MEDIUM #14)
+- [x] Audited complete_schema.sql for SRID 0 usage
+- [x] Result: **No SRID 0 usage found** in schema
+- [x] README.md already correctly shows only SRID 2226 (California State Plane Zone 3)
+- [x] No changes needed
+
+#### 4. Quality Score Context Clarification
+- [x] Updated README.md Architecture Highlights to show:
+  - "Multi-context scoring (entity completeness 0-1.0, project validation 0-100, search ranking)"
+- [x] Clarifies the three different quality score contexts found in HIGH #5
+
+#### 5. Table Count Update (MEDIUM #15)
+- [x] Already completed in initial review
+- [x] README.md updated: 69 → 73 tables
+
+#### 6. Spatial Reference Clarification
+- [x] Added explicit SRID 2226 reference to Architecture Highlights
+- [x] Confirms California State Plane Zone 3 as the standard
+
+### Summary of Follow-up Work:
+
+**Completed:**
+- 3 verification checks (all documentation already accurate)
+- 2 README.md enhancements (entity registry note, quality score context)
+- 1 SRID audit (confirmed no SRID 0 usage)
+
+**Result:**
+- All high-priority documentation is now consistent and accurate
+- Entity registry distinction clarified
+- Quality score contexts explained
+- No additional schema issues found
+
+---
+
 **Audit completed by:** Claude Code Agent
-**Completion date:** November 18, 2025
+**Initial completion date:** November 18, 2025
+**Follow-up updates:** November 18, 2025
 **Next review:** After migration deployment

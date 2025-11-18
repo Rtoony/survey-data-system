@@ -135,12 +135,12 @@ Access at `http://localhost:5000`
 ## Architecture Highlights
 
 ### AI-First Database Design
-- **Unified Entity Registry:** `standards_entities` table as canonical identity
+- **Unified Entity Registry:** `standards_entities` table as canonical identity (see also: `services/entity_registry.py` for programmatic access)
 - **Centralized Embeddings:** `entity_embeddings` with versioning
 - **Graph Edges:** `entity_relationships` for GraphRAG
-- **Quality Metrics:** Completeness, embedding coverage, relationship depth
+- **Quality Metrics:** Multi-context scoring (entity completeness 0-1.0, project validation 0-100, search ranking)
 - **Vector Indexing:** IVFFlat indexes for fast similarity search
-- **Spatial Indexing:** GIST indexes on PostGIS geometries
+- **Spatial Indexing:** GIST indexes on PostGIS geometries (SRID 2226 - California State Plane Zone 3)
 
 ### Intelligent DXF Workflow
 ```
