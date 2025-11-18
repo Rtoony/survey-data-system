@@ -18855,11 +18855,11 @@ def get_survey_point_descriptions_crud():
     """Get all survey point description standards"""
     try:
         query = """
-            SELECT description_id, description_code, description_text, category,
-                   symbol_code, color_hex, display_order, notes, is_active
+            SELECT description_id, description_code, description_text, description_full,
+                   category, subcategory, cad_symbol, color_hex, is_active
             FROM survey_point_description_standards
             WHERE is_active = TRUE
-            ORDER BY category, display_order, description_code
+            ORDER BY category, description_code
         """
         descriptions = execute_query(query)
         return jsonify({'descriptions': descriptions})
