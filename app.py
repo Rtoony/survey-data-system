@@ -1333,9 +1333,9 @@ def get_project_intelligent_objects_map(project_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/projects/<project_id>/drawing-entities-map')
-def get_project_drawing_entities_map(project_id):
-    """Get all drawing entities grouped by Category+Object_Type for Map Viewer"""
+@app.route('/api/projects/<project_id>/entities-map')
+def get_project_entities_map(project_id):
+    """Get all CAD entities grouped by Category+Object_Type for Map Viewer"""
     try:
         project_check = execute_query(
             "SELECT project_id, project_name FROM projects WHERE project_id = %s",
