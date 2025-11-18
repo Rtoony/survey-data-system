@@ -1333,9 +1333,9 @@ def get_project_intelligent_objects_map(project_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/projects/<project_id>/drawing-entities-map')
-def get_project_drawing_entities_map(project_id):
-    """Get all drawing entities grouped by Category+Object_Type for Map Viewer"""
+@app.route('/api/projects/<project_id>/entities-map')
+def get_project_entities_map(project_id):
+    """Get all CAD entities grouped by Category+Object_Type for Map Viewer"""
     try:
         project_check = execute_query(
             "SELECT project_id, project_name FROM projects WHERE project_id = %s",
@@ -13246,57 +13246,33 @@ def get_map_projects():
 
 @app.route('/api/map-viewer/project-structure')
 def get_project_structure():
-    """Get all projects with nested drawings and entity type counts"""
+    """Get all projects with entity counts and bounding boxes (project-only architecture)"""
     try:
-        # Query all projects with their drawings
-        # Include projects even without bbox - will calculate from entities if needed
+        # Query all projects with their entity counts and calculated bounding boxes
         query = """
-            SELECT 
+            SELECT
                 p.project_id,
                 p.project_name,
                 p.client_name,
                 p.description,
-                d.drawing_id,
-                d.drawing_name,
-                d.drawing_number,
-                d.bbox_min_x,
-                d.bbox_min_y,
-                d.bbox_max_x,
-                d.bbox_max_y,
-                -- Calculate bbox from entities if drawing bbox is null
-                -- Only calculate from entities if they exist (COUNT > 0)
-                COALESCE(
-                    d.bbox_min_x, 
-                    CASE WHEN (SELECT COUNT(*) FROM drawing_entities WHERE drawing_id = d.drawing_id) > 0 
-                        THEN (SELECT ST_XMin(ST_Extent(geometry)) FROM drawing_entities WHERE drawing_id = d.drawing_id AND geometry IS NOT NULL)
-                        ELSE NULL 
-                    END
-                ) as calc_min_x,
-                COALESCE(
-                    d.bbox_min_y, 
-                    CASE WHEN (SELECT COUNT(*) FROM drawing_entities WHERE drawing_id = d.drawing_id) > 0 
-                        THEN (SELECT ST_YMin(ST_Extent(geometry)) FROM drawing_entities WHERE drawing_id = d.drawing_id AND geometry IS NOT NULL)
-                        ELSE NULL 
-                    END
-                ) as calc_min_y,
-                COALESCE(
-                    d.bbox_max_x, 
-                    CASE WHEN (SELECT COUNT(*) FROM drawing_entities WHERE drawing_id = d.drawing_id) > 0 
-                        THEN (SELECT ST_XMax(ST_Extent(geometry)) FROM drawing_entities WHERE drawing_id = d.drawing_id AND geometry IS NOT NULL)
-                        ELSE NULL 
-                    END
-                ) as calc_max_x,
-                COALESCE(
-                    d.bbox_max_y, 
-                    CASE WHEN (SELECT COUNT(*) FROM drawing_entities WHERE drawing_id = d.drawing_id) > 0 
-                        THEN (SELECT ST_YMax(ST_Extent(geometry)) FROM drawing_entities WHERE drawing_id = d.drawing_id AND geometry IS NOT NULL)
-                        ELSE NULL 
-                    END
-                ) as calc_max_y
+                -- Calculate bbox from project's drawing_entities
+                (SELECT ST_XMin(ST_Extent(geometry))
+                 FROM drawing_entities
+                 WHERE project_id = p.project_id AND geometry IS NOT NULL) as bbox_min_x,
+                (SELECT ST_YMin(ST_Extent(geometry))
+                 FROM drawing_entities
+                 WHERE project_id = p.project_id AND geometry IS NOT NULL) as bbox_min_y,
+                (SELECT ST_XMax(ST_Extent(geometry))
+                 FROM drawing_entities
+                 WHERE project_id = p.project_id AND geometry IS NOT NULL) as bbox_max_x,
+                (SELECT ST_YMax(ST_Extent(geometry))
+                 FROM drawing_entities
+                 WHERE project_id = p.project_id AND geometry IS NOT NULL) as bbox_max_y,
+                (SELECT COUNT(*)
+                 FROM drawing_entities
+                 WHERE project_id = p.project_id) as entity_count
             FROM projects p
-            LEFT JOIN drawings d ON p.project_id = d.project_id
-            WHERE d.drawing_id IS NOT NULL
-            ORDER BY p.created_at DESC, p.project_name, d.drawing_name
+            ORDER BY p.created_at DESC, p.project_name
         """
         
         with get_db() as conn:
@@ -19057,10 +19033,9 @@ def get_survey_points():
         where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
         
         query = f"""
-            SELECT 
+            SELECT
                 sp.point_id,
                 sp.project_id,
-                sp.drawing_id,
                 sp.point_number,
                 sp.point_description,
                 sp.code,
@@ -19081,12 +19056,9 @@ def get_survey_points():
                 sp.created_at,
                 sp.updated_at,
                 p.project_number,
-                p.project_name,
-                d.drawing_number,
-                d.drawing_name
+                p.project_name
             FROM survey_points sp
             LEFT JOIN projects p ON sp.project_id = p.project_id
-            LEFT JOIN drawings d ON sp.drawing_id = d.drawing_id
             WHERE {where_clause}
             ORDER BY sp.created_at DESC, sp.point_number
             LIMIT 1000

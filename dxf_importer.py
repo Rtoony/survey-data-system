@@ -301,16 +301,16 @@ class DXFImporter:
                 # The POLYGON Z WKT format should preserve the polygon type
                 geom_cast = f"ST_GeomFromText(%s, {self.srid})"
 
-                # Insert entity with NULL drawing_id (project-level import)
+                # Insert entity at project level (project-only architecture)
                 cur.execute(f"""
                     INSERT INTO drawing_entities (
-                        drawing_id, entity_type, layer_id,
+                        project_id, entity_type, layer_id,
                         geometry, dxf_handle, color_aci, lineweight, linetype,
                         transparency, quality_score, tags, attributes
                     )
-                    VALUES (NULL, %s, %s, {geom_cast}, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
+                    VALUES (%s::uuid, %s, %s, {geom_cast}, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
                 """, (
-                    entity_type, layer_id,
+                    project_id, entity_type, layer_id,
                     geometry_wkt, dxf_handle, color_aci, lineweight, linetype,
                     transparency, json.dumps(attributes)
                 ))
@@ -476,14 +476,14 @@ class DXFImporter:
 
         cur.execute(f"""
             INSERT INTO drawing_text (
-                drawing_id, layer_id, text_content,
+                project_id, layer_id, text_content,
                 insertion_point, text_height, rotation_angle,
                 text_style, horizontal_justification, vertical_justification,
                 dxf_handle, quality_score, tags, attributes
             )
-            VALUES (NULL, %s::uuid, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
+            VALUES (%s::uuid, %s::uuid, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
         """, (
-            layer_id, text_content,
+            project_id, layer_id, text_content,
             geometry_wkt, height, rotation, style_name, h_just, v_just,
             dxf_handle, json.dumps(attributes)
         ))
@@ -522,13 +522,13 @@ class DXFImporter:
 
         cur.execute(f"""
             INSERT INTO drawing_dimensions (
-                drawing_id, layer_id, dimension_type,
+                project_id, layer_id, dimension_type,
                 measured_value, dimension_text, dimension_style,
                 dxf_handle, quality_score, tags, attributes
             )
-            VALUES (NULL, %s::uuid, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
+            VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
         """, (
-            layer_id, dim_type,
+            project_id, layer_id, dim_type,
             measured_value, dimension_text, dimstyle_name,
             dxf_handle, json.dumps(attributes)
         ))
@@ -581,13 +581,13 @@ class DXFImporter:
 
                 cur.execute(f"""
                     INSERT INTO drawing_hatches (
-                        drawing_id, layer_id, hatch_pattern,
+                        project_id, layer_id, hatch_pattern,
                         boundary_geometry, hatch_scale, hatch_angle,
                         dxf_handle, quality_score, tags, attributes
                     )
-                    VALUES (NULL, %s::uuid, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, 0.5, '{{}}', %s)
+                    VALUES (%s::uuid, %s::uuid, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, 0.5, '{{}}', %s)
                 """, (
-                    layer_id, pattern_name,
+                    project_id, layer_id, pattern_name,
                     geometry_wkt, scale, angle,
                     dxf_handle, json.dumps(attributes)
                 ))
@@ -634,13 +634,13 @@ class DXFImporter:
         try:
             cur.execute(f"""
                 INSERT INTO block_inserts (
-                    drawing_id, layer_id, block_name, insertion_point,
+                    project_id, layer_id, block_name, insertion_point,
                     scale_x, scale_y, scale_z, rotation,
                     dxf_handle, quality_score, tags, attributes
                 )
-                VALUES (NULL, %s::uuid, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
+                VALUES (%s::uuid, %s::uuid, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s, %s, 0.5, '{{}}', %s)
             """, (
-                layer_id, block_name, geometry_wkt,
+                project_id, layer_id, block_name, geometry_wkt,
                 scale_x, scale_y, scale_z, rotation,
                 dxf_handle, json.dumps(attributes)
             ))
@@ -672,12 +672,12 @@ class DXFImporter:
         
         cur.execute(f"""
             INSERT INTO drawing_entities (
-                drawing_id, entity_type, layer_id,
+                project_id, entity_type, layer_id,
                 geometry, color_aci, lineweight, linetype, attributes
             )
-            VALUES (NULL, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
+            VALUES (%s::uuid, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
         """, (
-            'POINT', layer_id,
+            project_id, 'POINT', layer_id,
             geometry_wkt,
             entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
             -1, 'ByLayer',
@@ -746,12 +746,12 @@ class DXFImporter:
         
         cur.execute(f"""
             INSERT INTO drawing_entities (
-                drawing_id, entity_type, layer_id,
+                project_id, entity_type, layer_id,
                 geometry, color_aci, lineweight, linetype, attributes
             )
-            VALUES (NULL, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
+            VALUES (%s::uuid, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
         """, (
-            '3DFACE', layer_id,
+            project_id, '3DFACE', layer_id,
             geometry_wkt,
             entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
             -1, 'ByLayer',
@@ -788,12 +788,12 @@ class DXFImporter:
             
             cur.execute(f"""
                 INSERT INTO drawing_entities (
-                    drawing_id, entity_type, layer_id,
+                    project_id, entity_type, layer_id,
                     geometry, color_aci, lineweight, linetype, attributes
                 )
-                VALUES (NULL, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
+                VALUES (%s::uuid, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
             """, (
-                '3DSOLID', layer_id,
+                project_id, '3DSOLID', layer_id,
                 geometry_wkt,
                 entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
                 -1, 'ByLayer',
@@ -837,12 +837,12 @@ class DXFImporter:
             
             cur.execute(f"""
                 INSERT INTO drawing_entities (
-                    drawing_id, entity_type, layer_id,
+                    project_id, entity_type, layer_id,
                     geometry, color_aci, lineweight, linetype, attributes
                 )
-                VALUES (NULL, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
+                VALUES (%s::uuid, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
             """, (
-                'MESH', layer_id,
+                project_id, 'MESH', layer_id,
                 geometry_wkt,
                 entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
                 -1, 'ByLayer',
@@ -888,12 +888,12 @@ class DXFImporter:
             
             cur.execute(f"""
                 INSERT INTO drawing_entities (
-                    drawing_id, entity_type, layer_id,
+                    project_id, entity_type, layer_id,
                     geometry, color_aci, lineweight, linetype, attributes
                 )
-                VALUES (NULL, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
+                VALUES (%s::uuid, %s, %s, ST_GeomFromText(%s, {self.srid}), %s, %s, %s, %s)
             """, (
-                'LEADER', layer_id,
+                project_id, 'LEADER', layer_id,
                 geometry_wkt,
                 entity.dxf.color if hasattr(entity.dxf, 'color') else 256,
                 -1, 'ByLayer',

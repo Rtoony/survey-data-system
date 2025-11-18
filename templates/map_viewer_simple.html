@@ -118,15 +118,14 @@
                 <!-- LAYERS TAB -->
                 <div id="tab-layers" class="tab-content">
                     <div class="section">
-                        <h3><i class="fas fa-folder-open"></i> Project Entities</h3>
-                        
-                        <label style="color: #aaa; font-size: 11px; margin-bottom: 5px; display: block;">Select Project:</label>
-                        <select id="project-select" onchange="selectProject(this.value)" style="margin-bottom: 10px; width: 100%;">
-                            <option value="">Loading projects...</option>
-                        </select>
-                        
+                        <h3><i class="fas fa-folder-open"></i> Active Project Entities</h3>
+
+                        <div id="active-project-info" style="margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; font-size: 11px; color: #aaa;">
+                            <i class="fas fa-info-circle"></i> Select a project from the header above
+                        </div>
+
                         <button id="btn-zoom-project" onclick="zoomToProject()" disabled style="margin-bottom: 10px; width: 100%;">
-                            <i class="fas fa-search-location"></i> Zoom to Project
+                            <i class="fas fa-search-location"></i> Zoom to Active Project
                         </button>
                         
                         <div style="margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;">
@@ -1332,7 +1331,13 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
             
             loadProjectStructure();
             loadGISLayers();
-            
+
+            // Listen for active project changes from global header
+            window.addEventListener('activeProjectChanged', (event) => {
+                console.log('Active project changed in map viewer:', event.detail);
+                handleActiveProjectChange(event.detail);
+            });
+
             console.log('Map initialized!');
             setTimeout(() => {
                 map.invalidateSize();
@@ -1582,32 +1587,36 @@ let map, basemaps, drawnItems, measureLayer, measureMode, measurePoints;
             try {
                 const res = await fetch('/api/map-viewer/project-structure');
                 const data = await res.json();
-                
+
                 projectsData = data.projects || [];
-                
-                const select = document.getElementById('project-select');
-                if (projectsData.length === 0) {
-                    select.innerHTML = '<option value="">No projects available</option>';
-                    document.getElementById('project-layers-container').innerHTML = 
-                        '<div style="color: #888; text-align: center; padding: 10px;">No projects available</div>';
-                    return;
-                }
-                
-                select.innerHTML = '<option value="">Select a project...</option>' +
-                    projectsData.map(project => 
-                        `<option value="${project.project_id}">${project.project_name}</option>`
-                    ).join('');
-                
-                document.getElementById('project-layers-container').innerHTML = 
-                    '<div style="color: #888; text-align: center; padding: 10px;">Select a project to view layers</div>';
-                
+
                 console.log(`Loaded ${projectsData.length} projects`);
+
+                // Check if there's an active project and load it
+                const activeProject = projectContext.getActiveProject();
+                if (activeProject) {
+                    handleActiveProjectChange(activeProject);
+                }
             } catch (e) {
                 console.error('Error loading project structure:', e);
-                document.getElementById('project-select').innerHTML = '<option value="">Error loading projects</option>';
-                document.getElementById('project-layers-container').innerHTML = 
+                document.getElementById('active-project-info').innerHTML =
+                    '<i class="fas fa-exclamation-triangle"></i> Error loading projects';
+                document.getElementById('project-layers-container').innerHTML =
                     '<div style="color: #ff4444; text-align: center; padding: 10px;">Error loading projects</div>';
             }
+        }
+
+        function handleActiveProjectChange(project) {
+            const infoDiv = document.getElementById('active-project-info');
+
+            if (!project || !project.project_id) {
+                infoDiv.innerHTML = '<i class="fas fa-info-circle"></i> Select a project from the header above';
+                selectProject(null);
+                return;
+            }
+
+            infoDiv.innerHTML = `<strong>${project.project_name || 'Unnamed Project'}</strong>`;
+            selectProject(project.project_id);
         }
         
         function changeBasemap(id) {

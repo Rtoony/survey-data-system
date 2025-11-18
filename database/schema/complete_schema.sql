@@ -1470,6 +1470,34 @@ CREATE TABLE public.dimension_styles (
 );
 
 
+--
+-- Name: drawing_dimensions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drawing_dimensions (
+    dimension_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    layer_id uuid,
+    project_id uuid,
+    dimension_style_id uuid,
+    dimension_type character varying(50) NOT NULL,
+    measured_value numeric(15,4),
+    dimension_text character varying(255),
+    dimension_style character varying(100),
+    dxf_handle character varying(100),
+    quality_score numeric(3,2) DEFAULT 0.5,
+    tags text[],
+    attributes jsonb,
+    search_vector tsvector,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: TABLE drawing_dimensions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.drawing_dimensions IS 'CAD dimension annotations (linear, aligned, angular, radial, diametric, ordinate)';
 
 
 --
@@ -1739,6 +1767,36 @@ COMMENT ON TABLE public.hatch_patterns IS 'Hatch pattern standards - AI-optimize
 
 
 --
+-- Name: drawing_hatches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drawing_hatches (
+    hatch_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    layer_id uuid,
+    project_id uuid,
+    pattern_id uuid,
+    hatch_pattern character varying(255),
+    boundary_geometry public.geometry(PolygonZ,2226) NOT NULL,
+    hatch_scale numeric(10,4) DEFAULT 1.0,
+    hatch_angle numeric(10,4) DEFAULT 0.0,
+    dxf_handle character varying(100),
+    quality_score numeric(3,2) DEFAULT 0.5,
+    tags text[],
+    attributes jsonb,
+    search_vector tsvector,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: TABLE drawing_hatches; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.drawing_hatches IS 'CAD hatch pattern instances with boundary geometry and pattern definitions';
+
+
+--
 -- Name: horizontal_alignments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1809,7 +1867,6 @@ CREATE TABLE public.layers (
     layer_id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_id uuid,
     project_id uuid,
-    drawing_id uuid,
     layer_name character varying(255) NOT NULL,
     layer_standard_id uuid,
     color integer,
@@ -1828,6 +1885,69 @@ CREATE TABLE public.layers (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
+
+
+--
+-- Name: drawing_entities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drawing_entities (
+    entity_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    layer_id uuid,
+    project_id uuid,
+    entity_type character varying(50) NOT NULL,
+    geometry public.geometry(GeometryZ,2226) NOT NULL,
+    dxf_handle character varying(100),
+    color_aci integer,
+    linetype character varying(100),
+    lineweight integer,
+    transparency integer,
+    quality_score numeric(3,2) DEFAULT 0.5,
+    tags text[],
+    attributes jsonb,
+    search_vector tsvector,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: TABLE drawing_entities; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.drawing_entities IS 'CAD drawing entities (lines, polylines, arcs, circles, etc.) with PostGIS geometry';
+
+
+--
+-- Name: drawing_text; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drawing_text (
+    text_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    layer_id uuid,
+    project_id uuid,
+    text_content text NOT NULL,
+    insertion_point public.geometry(PointZ,2226) NOT NULL,
+    text_height numeric(10,4),
+    rotation_angle numeric(10,4) DEFAULT 0.0,
+    text_style character varying(100),
+    horizontal_justification character varying(50),
+    vertical_justification character varying(50),
+    dxf_handle character varying(100),
+    quality_score numeric(3,2) DEFAULT 0.5,
+    tags text[],
+    attributes jsonb,
+    search_vector tsvector,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: TABLE drawing_text; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.drawing_text IS 'CAD text annotations with insertion points, styles, rotation, and justification';
 
 
 --
@@ -5542,7 +5662,7 @@ CREATE INDEX idx_layers_usage ON public.layers USING btree (usage_frequency DESC
 -- Name: idx_layers_project_layer_unique; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX idx_layers_project_layer_unique ON public.layers USING btree (project_id, layer_name) WHERE (drawing_id IS NULL);
+CREATE UNIQUE INDEX idx_layers_project_layer_unique ON public.layers USING btree (project_id, layer_name);
 
 
 --
