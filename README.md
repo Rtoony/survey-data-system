@@ -59,7 +59,7 @@ Streamlined project management dashboard:
 ### 🤖 AI Toolkit
 - **Vector Embeddings:** 1536-dimension OpenAI embeddings with pgvector
 - **Knowledge Graph:** Explicit relationship tables for GraphRAG multi-hop queries
-- **Quality Scoring:** Automated data quality assessment
+- **Quality Scoring:** Multi-context automated assessment (entity completeness, project validation, search ranking)
 - **Full-Text Search:** Weighted tsvector search across all entities
 - **Materialized Views:** Pre-computed AI-optimized queries
 - **Interactive Visualizations:** Vis.js graph viewer and quality dashboard
@@ -128,19 +128,19 @@ Access at `http://localhost:5000`
 - **[AI Optimization Guide](AI_DATABASE_OPTIMIZATION_GUIDE.md)** - ML/AI features and optimization patterns
 
 ### Developer Resources
-- **[Database Schema](database/SCHEMA_VERIFICATION.md)** - Complete schema reference (69 tables implemented)
+- **[Database Schema](database/SCHEMA_VERIFICATION.md)** - Complete schema reference (73 tables implemented)
 - **[AI Toolkit](tools/README.md)** - Python modules for embeddings, relationships, validation
 - **[Example Scripts](examples/README.md)** - Sample workflows for data ingestion and processing
 
 ## Architecture Highlights
 
 ### AI-First Database Design
-- **Unified Entity Registry:** `standards_entities` table as canonical identity
+- **Unified Entity Registry:** `standards_entities` table as canonical identity (see also: `services/entity_registry.py` for programmatic access)
 - **Centralized Embeddings:** `entity_embeddings` with versioning
 - **Graph Edges:** `entity_relationships` for GraphRAG
-- **Quality Metrics:** Completeness, embedding coverage, relationship depth
+- **Quality Metrics:** Multi-context scoring (entity completeness 0-1.0, project validation 0-100, search ranking)
 - **Vector Indexing:** IVFFlat indexes for fast similarity search
-- **Spatial Indexing:** GIST indexes on PostGIS geometries
+- **Spatial Indexing:** GIST indexes on PostGIS geometries (SRID 2226 - California State Plane Zone 3)
 
 ### Intelligent DXF Workflow
 ```
