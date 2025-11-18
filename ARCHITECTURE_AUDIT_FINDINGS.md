@@ -429,3 +429,87 @@ The following migration files exist and are ready to apply:
 **Initial completion date:** November 18, 2025
 **Follow-up updates:** November 18, 2025
 **Next review:** After migration deployment
+
+---
+
+## Additional Work: Numeric Type Standardization (MEDIUM #9-12)
+
+**Date:** November 18, 2025 (Continued session)
+
+### Investigation Summary:
+
+Conducted comprehensive audit of numeric column types across the schema, specifically focusing on `quality_score` and `confidence_score` columns.
+
+#### Findings:
+
+**1. Quality Score Precision Inconsistency**
+- **39+ tables** have quality_score columns
+- **9 tables** use NUMERIC(4,3): block_definitions, color_standards, hatch_patterns, layer_standards, linetypes, standards_entities, plot_styles, projects, text_styles
+- **~30 tables** use NUMERIC(3,2): utility_lines, utility_structures, horizontal_alignments, and others
+- **Issue:** Inconsistent precision without documented rationale
+
+**2. Missing CHECK Constraints**
+- **ZERO CHECK constraints** exist on quality_score columns
+- No database-level validation of 0.0-1.0 range
+- Data integrity relies entirely on application code (brittle)
+
+**3. Confidence Score Analysis**
+- entity_relationships.confidence_score uses NUMERIC(4,3) DEFAULT 1.0
+- Note: Original audit mentioned "relationship_strength" but this column doesn't exist
+- confidence_score is the actual column name
+
+#### Resolution:
+
+**Created Deliverables:**
+1. **NUMERIC_TYPE_STANDARDIZATION_ANALYSIS.md**
+   - 300+ line comprehensive analysis
+   - Documents all findings and inconsistencies
+   - Provides 3 migration strategy options
+   - Includes risk assessment and recommendations
+
+2. **Migration 025: Add CHECK Constraints**
+   - File: `database/migrations/025_add_quality_score_check_constraints.sql`
+   - Adds CHECK constraints to ALL quality_score columns (0.0-1.0 validation)
+   - Adds CHECK constraint to confidence_score column
+   - Includes pre-migration data validation
+   - Includes post-migration testing
+   - Adds schema comments documenting the constraints
+   - **Status:** Ready for Phase 1 deployment (HIGH PRIORITY)
+
+**Migration Strategy:**
+- **Phase 1** (HIGH PRIORITY): Add CHECK constraints - Created migration 025
+- **Phase 2** (MEDIUM PRIORITY): Optionally standardize precision to NUMERIC(3,2) - Deferred pending team review
+
+#### Impact Assessment:
+
+**Benefits:**
+- Database-level data integrity enforcement
+- Prevents invalid quality scores from being inserted
+- Documents the valid range in schema comments
+- No application code changes required
+
+**Risks:**
+- LOW: Validation step ensures no existing data violates constraints
+- Migration fails gracefully if invalid data found
+- Easy rollback (DROP CONSTRAINT)
+
+#### Recommendations:
+
+**Immediate (High Priority):**
+- ✅ Deploy migration 025 to add CHECK constraints
+- ✅ Prevents future data integrity issues
+- ✅ Zero risk to existing data (includes validation)
+
+**Follow-up (Medium Priority):**
+- Consider Phase 2: Standardize precision to NUMERIC(3,2)
+- Requires team input on whether extra decimal place is needed
+- Can be deferred indefinitely if deemed unnecessary
+
+---
+
+**Final Status Update:**
+**Audit completed by:** Claude Code Agent
+**Initial completion date:** November 18, 2025
+**Follow-up updates:** November 18, 2025 (multiple sessions)
+**Numeric standardization work:** November 18, 2025
+**Next review:** After migrations 014, 015, and 025 deployment
