@@ -5899,6 +5899,16 @@ def materials_manager():
     """Render the Materials Manager page"""
     return render_template('data_manager/materials.html')
 
+@app.route('/data-manager/clients')
+def clients_manager():
+    """Render the Clients Manager page"""
+    return render_template('data_manager/clients.html')
+
+@app.route('/data-manager/municipalities')
+def municipalities_manager():
+    """Render the Municipalities Manager page"""
+    return render_template('data_manager/municipalities.html')
+
 @app.route('/data-manager/projects')
 def projects_manager():
     """Redirect to new Projects page location"""
