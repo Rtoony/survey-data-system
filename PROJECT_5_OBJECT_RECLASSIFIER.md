@@ -1,4 +1,4 @@
-# Project 7: Object Reclassifier - Testing & AI Enhancement Suite
+# Project 5: Object Reclassifier - Testing & AI Enhancement Suite
 
 ## Executive Summary
 Test and enhance the existing Object Reclassifier tool that reviews low-confidence DXF entity classifications. Transform it from a basic manual review interface into an AI-powered classification workbench with intelligent suggestions, batch workflows, visual geometry preview, and spatial context. This 3-week project leverages the AI-first architecture (embeddings) to make reclassification fast and accurate.
@@ -647,7 +647,7 @@ def get_geometry_preview(entity_id):
 
 **Requirements**:
 - OpenAI API key (text-embedding-3-small model)
-- Embeddings table populated (see Project #1)
+- Embeddings table populated (see Project #4)
 
 ### Phase 3: Visual Preview (Week 2, Days 3-4)
 
@@ -700,7 +700,7 @@ def get_geometry_preview(entity_id):
 - ✅ Mobile-responsive review UI
 
 ## Dependencies
-- **Project #1 (AI Agent Toolkit)**: Embeddings table must be populated
+- **Project #4 (AI Agent Toolkit)**: Embeddings table must be populated
 - OpenAI API key for embedding generation
 - Existing Object Reclassifier UI
 - Classification Service
@@ -733,4 +733,4 @@ def get_geometry_preview(entity_id):
 
 The Object Reclassifier exists but is untested and basic. This project transforms it into a production-ready, AI-powered classification workbench that makes reviewing low-confidence imports fast, accurate, and even enjoyable. The 3-week timeline delivers immediate value while setting the foundation for advanced features.
 
-**Recommended Start**: After Project #1 (AI Agent Toolkit) populates embeddings table.
+**Recommended Start**: After Project #4 (AI Agent Toolkit) populates embeddings table.

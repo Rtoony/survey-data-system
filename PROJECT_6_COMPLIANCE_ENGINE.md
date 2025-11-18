@@ -1,11 +1,11 @@
-# Project 3: Automated CAD Compliance & Quality Engine
+# Project 6: Automated CAD Compliance & Quality Engine
 
 ## Executive Summary
-Combine AI intelligence (Project 1) with truth-driven constraints (Project 2) to create an automated compliance validation engine. Build real-time DXF validation, AI-powered correction suggestions, intelligent Relationship Set rule generation, and automated quality reporting. Transform ACAD-GIS from a passive repository into an active quality assurance system.
+Combine AI intelligence (Project 4) with truth-driven constraints (Project 3) to create an automated compliance validation engine. Build real-time DXF validation, AI-powered correction suggestions, intelligent Relationship Set rule generation, and automated quality reporting. Transform ACAD-GIS from a passive repository into an active quality assurance system.
 
 ## Dependencies
-- **Requires Project 1**: AI Agent Toolkit (embeddings, GraphRAG)
-- **Requires Project 2**: Truth-Driven Phase 2 (all FK constraints)
+- **Requires Project 4**: AI Agent Toolkit (embeddings, GraphRAG)
+- **Requires Project 3**: Truth-Driven Phase 2 (all FK constraints)
 - **Builds on**: Existing Relationship Sets system
 
 ## Current State Assessment

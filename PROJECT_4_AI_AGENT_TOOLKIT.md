@@ -1,4 +1,4 @@
-# Project 1: AI Agent Toolkit & GraphRAG Query System
+# Project 4: AI Agent Toolkit & GraphRAG Query System
 
 ## Executive Summary
 Activate ACAD-GIS's AI-first architecture by implementing the embedding generation pipeline, GraphRAG query engine, and semantic search capabilities. Transform the database from a passive storage system into an intelligent knowledge graph that understands CAD/GIS relationships and enables natural language queries.

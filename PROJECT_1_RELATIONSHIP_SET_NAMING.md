@@ -1,4 +1,4 @@
-# Project 6: Relationship Set Naming Templates - Truth-Driven Quick Win
+# Project 1: Relationship Set Naming Templates - Truth-Driven Quick Win
 
 ## Executive Summary
 Complete the truth-driven architecture for Project Relationship Sets by implementing the database-backed naming template system. Build CRUD UI for the existing `relationship_set_naming_templates` table and replace free-text Set Name/Short Code inputs with template-based selection and token replacement. This 2-week quick win eliminates naming inconsistencies and completes a critical gap identified in Phase 1.
@@ -698,9 +698,9 @@ INSERT INTO relationship_set_naming_templates (template_name, category, format_s
 | Hardcoded rules | ✅ High | ❌ Low | ❌ Difficult | ❌ Code changes |
 
 ### Integration with Other Projects
-- **Project #2 (Truth-Driven Phase 2)**: This IS part of Phase 2 roadmap
-- **Project #3 (Compliance Engine)**: Templates enable compliance rule naming standards
-- **Project #1 (AI Agent)**: Standardized names improve AI semantic understanding
+- **Project #3 (Truth-Driven Phase 2)**: This IS part of Phase 2 roadmap
+- **Project #6 (Compliance Engine)**: Templates enable compliance rule naming standards
+- **Project #4 (AI Agent)**: Standardized names improve AI semantic understanding
 
 ## Post-Implementation Enhancements
 

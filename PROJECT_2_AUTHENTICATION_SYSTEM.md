@@ -1,4 +1,4 @@
-# Project 8: Authentication & Authorization System - Security Foundation
+# Project 2: Authentication & Authorization System - Security Foundation
 
 ## Executive Summary
 Implement comprehensive authentication and role-based access control (RBAC) for ACAD-GIS using Replit Auth integration. Transform the currently open system into a secure, multi-user environment with Admin/Engineer/Viewer roles, project-level permissions, audit logging, and session management. This 4-week project establishes the security foundation for enterprise deployment.
@@ -704,8 +704,8 @@ def grant_project_permission(project_id):
 
 ### Integration with Other Projects
 - **All Projects**: Authentication required before using any feature
-- **Project #3 (Compliance Engine)**: Audit log feeds compliance reports
-- **Project #1 (AI Agent)**: User context improves AI recommendations
+- **Project #6 (Compliance Engine)**: Audit log feeds compliance reports
+- **Project #4 (AI Agent)**: User context improves AI recommendations
 
 ## Post-Implementation Enhancements
 
