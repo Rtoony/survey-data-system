@@ -306,9 +306,77 @@
                     </a>
                 </div>
             </div>
+
+            <!-- User Account Menu -->
+            <div class="mc-nav-item mc-has-dropdown mc-navbar-right {% if request.path.startswith('/auth/') %}active{% endif %}">
+                {% if session.get('user_id') %}
+                    <button class="mc-nav-link" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-user-circle"></i>
+                        <span>{{ session.get('username', 'User') }}</span>
+                        {% if session.get('role') == 'ADMIN' %}
+                            <span class="role-badge role-admin">ADMIN</span>
+                        {% elif session.get('role') == 'ENGINEER' %}
+                            <span class="role-badge role-engineer">ENGINEER</span>
+                        {% elif session.get('role') == 'VIEWER' %}
+                            <span class="role-badge role-viewer">VIEWER</span>
+                        {% endif %}
+                        <i class="fas fa-chevron-down mc-dropdown-icon"></i>
+                    </button>
+                    <div class="mc-dropdown">
+                        <a href="/auth/profile" class="mc-dropdown-item {% if request.path == '/auth/profile' %}active{% endif %}">
+                            <i class="fas fa-user"></i>
+                            My Profile
+                        </a>
+                        {% if session.get('role') == 'ADMIN' %}
+                            <div class="mc-dropdown-divider"></div>
+                            <div class="mc-dropdown-header">Administration</div>
+                            <a href="/auth/users" class="mc-dropdown-item {% if request.path == '/auth/users' %}active{% endif %}">
+                                <i class="fas fa-users"></i>
+                                User Management
+                            </a>
+                            <a href="/auth/audit-log" class="mc-dropdown-item {% if request.path == '/auth/audit-log' %}active{% endif %}">
+                                <i class="fas fa-history"></i>
+                                Audit Log
+                            </a>
+                        {% endif %}
+                        <div class="mc-dropdown-divider"></div>
+                        <a href="/auth/logout" class="mc-dropdown-item">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </a>
+                    </div>
+                {% else %}
+                    <a href="/auth/login" class="mc-nav-link">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <span>Login</span>
+                    </a>
+                {% endif %}
+            </div>
         </div>
     </nav>
     </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}" role="alert">
+                        {% if category == 'success' %}
+                            <i class="fas fa-check-circle"></i>
+                        {% elif category == 'error' %}
+                            <i class="fas fa-exclamation-circle"></i>
+                        {% elif category == 'warning' %}
+                            <i class="fas fa-exclamation-triangle"></i>
+                        {% else %}
+                            <i class="fas fa-info-circle"></i>
+                        {% endif %}
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
 
     <main class="main-content" id="mainContent">
         <div class="container">
