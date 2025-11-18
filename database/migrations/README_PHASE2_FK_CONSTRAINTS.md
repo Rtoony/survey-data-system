@@ -246,12 +246,16 @@ Migration 036 includes comprehensive data migration:
 - ✓ coordinate_systems.html CRUD interface
 - ⏳ Survey point manager UI updates (pending)
 
-### Phase 3: Block Standards (Planned)
-**Target:** 1 new FK constraint
+### Phase 3: Block Standards ✓ COMPLETE
+**Target:** 2 FK constraints (found 2 block tables)
 
-- cad_blocks.block_category → block_category_standards.category_code
-
-**Note:** Need to verify if cad_blocks table exists. May need schema updates.
+**Deliverables:**
+- ✓ Migration 037: block_category_standards table with 18 categories
+- ✓ 2 FK constraints added:
+  * block_definitions.category → block_category_standards
+  * block_standards.category → block_category_standards
+- ✓ Data migration with category mapping
+- ⏳ block_category_standards.html CRUD interface (pending)
 
 ### Phase 4: Relationship Set Naming Templates (Planned)
 **Target:** 1 new FK constraint
@@ -280,12 +284,12 @@ Migration 036 includes comprehensive data migration:
 ### Overall Progress
 - **Phase 1:** ✓ Complete (5 FK constraints)
 - **Phase 2:** ✓ Complete (2 new + 1 verified = 3 FK constraints)
-- **Phase 3:** Pending (1 FK constraint)
+- **Phase 3:** ✓ Complete (2 FK constraints)
 - **Phase 4:** Pending (1 FK constraint)
 - **Phase 5:** Pending (3 FK constraints)
 
-**Total FK Constraints:** 13 new (7 complete + 6 pending)
-**Combined with Phase 1 Original:** 13 total FK constraints completed (6 original + 7 new)
+**Total FK Constraints:** 14 new (9 complete + 5 pending)
+**Combined with Phase 1 Original:** 15 total FK constraints completed (6 original + 9 new)
 
 ### Existing FK Constraints (From Phase 1)
 1. utility_lines.material → material_standards.material_code
@@ -314,6 +318,13 @@ Migration 036 includes comprehensive data migration:
 - ✓ Comprehensive data migration with fuzzy matching (25+ rules)
 - ⏳ 1 CRUD interface pending (survey_descriptions.html)
 - ⏳ Survey point UI forms not yet updated with dropdowns
+
+### Phase 3 Metrics
+- ✓ 2 FK constraints implemented (block_definitions + block_standards)
+- ✓ 18 block category standards created
+- ✓ Automated tests included in migrations (2 tests)
+- ✓ Data migration with category mapping
+- ⏳ 1 CRUD interface pending (block_category_standards.html)
 
 ### Target Metrics (All Phases)
 - 100% of text columns use FK constraints or have documented reason for free-text
