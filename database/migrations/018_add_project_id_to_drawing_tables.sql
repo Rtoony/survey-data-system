@@ -15,5 +15,9 @@ ADD COLUMN project_id UUID;
 ALTER TABLE drawing_hatches
 ADD COLUMN project_id UUID;
 
+-- Add project_id to block_inserts
+ALTER TABLE block_inserts
+ADD COLUMN project_id UUID;
+
 -- Note: We don't add NOT NULL constraint because there may be existing rows
 -- Note: drawing_entities already has project_id column (was partially migrated earlier)

@@ -13,11 +13,11 @@ def verify_migration():
     print("Verifying migration 018: Add project_id columns to drawing tables...")
     print("-" * 70)
 
-    # Query to check if project_id column exists in the three tables
+    # Query to check if project_id column exists in the four tables
     query = """
         SELECT table_name, column_name, data_type, is_nullable
         FROM information_schema.columns
-        WHERE table_name IN ('drawing_text', 'drawing_dimensions', 'drawing_hatches')
+        WHERE table_name IN ('drawing_text', 'drawing_dimensions', 'drawing_hatches', 'block_inserts')
           AND column_name = 'project_id'
         ORDER BY table_name;
     """
@@ -31,11 +31,12 @@ def verify_migration():
             print("  - drawing_text")
             print("  - drawing_dimensions")
             print("  - drawing_hatches")
+            print("  - block_inserts")
             return False
 
-        # Check that we have all three tables
+        # Check that we have all four tables
         tables_found = {row['table_name'] for row in results}
-        expected_tables = {'drawing_text', 'drawing_dimensions', 'drawing_hatches'}
+        expected_tables = {'drawing_text', 'drawing_dimensions', 'drawing_hatches', 'block_inserts'}
 
         if tables_found != expected_tables:
             print(f"❌ FAILED: Not all tables have project_id column")
@@ -45,7 +46,7 @@ def verify_migration():
             return False
 
         # Display results
-        print("✅ SUCCESS: All three tables have project_id column\n")
+        print("✅ SUCCESS: All four tables have project_id column\n")
         print(f"{'Table Name':<25} {'Column':<15} {'Data Type':<15} {'Nullable':<10}")
         print("-" * 70)
         for row in results:

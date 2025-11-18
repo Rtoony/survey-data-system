@@ -5,9 +5,10 @@ DXF imports are completely broken because the `dxf_importer.py` code tries to IN
 - `drawing_text`
 - `drawing_dimensions`
 - `drawing_hatches`
+- `block_inserts`
 
 ## Solution
-This migration adds the missing `project_id` column to all three tables.
+This migration adds the missing `project_id` column to all four tables.
 
 ## How to Execute This Migration
 
@@ -38,6 +39,10 @@ ADD COLUMN project_id UUID;
 -- Add project_id to drawing_hatches
 ALTER TABLE drawing_hatches
 ADD COLUMN project_id UUID;
+
+-- Add project_id to block_inserts
+ALTER TABLE block_inserts
+ADD COLUMN project_id UUID;
 ```
 
 ### Option 4: Via Supabase SQL Editor
@@ -53,15 +58,16 @@ After running the migration, verify the columns were added:
 ```sql
 SELECT column_name, data_type
 FROM information_schema.columns
-WHERE table_name IN ('drawing_text', 'drawing_dimensions', 'drawing_hatches')
+WHERE table_name IN ('drawing_text', 'drawing_dimensions', 'drawing_hatches', 'block_inserts')
   AND column_name = 'project_id'
 ORDER BY table_name;
 ```
 
-You should see 3 rows returned:
+You should see 4 rows returned:
 ```
  column_name | data_type
 -------------+-----------
+ project_id  | uuid
  project_id  | uuid
  project_id  | uuid
  project_id  | uuid
