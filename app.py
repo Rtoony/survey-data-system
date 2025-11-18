@@ -40,6 +40,11 @@ load_dotenv()
 # Import auth blueprint
 from auth.routes import auth_bp
 
+# Import GraphRAG and AI API blueprints
+from api.graphrag_routes import graphrag_bp
+from api.ai_search_routes import ai_search_bp
+from api.quality_routes import quality_bp
+
 # Custom JSON provider for datetime, date, Decimal, and UUID objects (Flask 2.2+)
 class CustomJSONProvider(DefaultJSONProvider):
     def default(self, o):  # type: ignore[override]
@@ -63,6 +68,11 @@ cache = Cache(app)
 
 # Register authentication blueprint
 app.register_blueprint(auth_bp)
+
+# Register GraphRAG and AI API blueprints
+app.register_blueprint(graphrag_bp)
+app.register_blueprint(ai_search_bp)
+app.register_blueprint(quality_bp)
 
 # Configure session settings for security
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
