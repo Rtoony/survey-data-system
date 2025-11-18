@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - ACAD-GIS{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1><i class="fas fa-users-cog"></i> User Management</h1>
+    <p class="text-muted">Manage system users, roles, and permissions</p>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Full Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Last Login</th>
+                            <th>Projects</th>
+                            <th>Actions (24h)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td><strong>{{ user.username }}</strong></td>
+                            <td>{{ user.email or 'N/A' }}</td>
+                            <td>{{ user.full_name or 'N/A' }}</td>
+                            <td>
+                                <select class="form-select form-select-sm role-selector"
+                                        data-user-id="{{ user.user_id }}"
+                                        {% if user.user_id == session.get('user_id') %}disabled{% endif %}>
+                                    <option value="ADMIN" {% if user.role == 'ADMIN' %}selected{% endif %}>Admin</option>
+                                    <option value="ENGINEER" {% if user.role == 'ENGINEER' %}selected{% endif %}>Engineer</option>
+                                    <option value="VIEWER" {% if user.role == 'VIEWER' %}selected{% endif %}>Viewer</option>
+                                </select>
+                            </td>
+                            <td>
+                                {% if user.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never' }}</td>
+                            <td>{{ user.stats.projects_with_access }}</td>
+                            <td>{{ user.stats.actions_last_24h }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    {% if user.is_active %}
+                                        <button class="btn btn-warning deactivate-btn"
+                                                data-user-id="{{ user.user_id }}"
+                                                data-username="{{ user.username }}"
+                                                {% if user.user_id == session.get('user_id') %}disabled{% endif %}>
+                                            <i class="fas fa-ban"></i> Deactivate
+                                        </button>
+                                    {% else %}
+                                        <button class="btn btn-success activate-btn"
+                                                data-user-id="{{ user.user_id }}"
+                                                data-username="{{ user.username }}">
+                                            <i class="fas fa-check"></i> Activate
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Handle role changes
+document.querySelectorAll('.role-selector').forEach(select => {
+    select.addEventListener('change', async function() {
+        const userId = this.dataset.userId;
+        const newRole = this.value;
+        const oldRole = this.querySelector('option[selected]')?.value;
+
+        if (!confirm(`Change user role to ${newRole}?`)) {
+            this.value = oldRole;
+            return;
+        }
+
+        try {
+            const response = await fetch(`/auth/users/${userId}/role`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({role: newRole})
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert('Role updated successfully');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+                this.value = oldRole;
+            }
+        } catch (error) {
+            alert('Network error: ' + error);
+            this.value = oldRole;
+        }
+    });
+});
+
+// Handle deactivation
+document.querySelectorAll('.deactivate-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const userId = this.dataset.userId;
+        const username = this.dataset.username;
+
+        if (!confirm(`Deactivate user ${username}? They will be logged out immediately.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/auth/users/${userId}/deactivate`, {
+                method: 'POST'
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert('User deactivated successfully');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (error) {
+            alert('Network error: ' + error);
+        }
+    });
+});
+
+// Handle activation
+document.querySelectorAll('.activate-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const userId = this.dataset.userId;
+        const username = this.dataset.username;
+
+        if (!confirm(`Activate user ${username}?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/auth/users/${userId}/activate`, {
+                method: 'POST'
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert('User activated successfully');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (error) {
+            alert('Network error: ' + error);
+        }
+    });
+});
+</script>
+{% endblock %}
