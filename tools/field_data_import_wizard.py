@@ -8,30 +8,11 @@ import logging
 import csv
 from io import StringIO
 import json
-from database import get_db, execute_query  # ADDED: Central database imports
+from database import get_db, execute_query
+from services.data_normalization_service import DataNormalizationService
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-# --- Mocked Dependency (Phase 25) ---
-# NOTE: The actual normalization service should be imported here.
-# We retain a minimal mock class for structural integrity, but it should be moved to imports.
-class MockDataNormalizationService:
-    def normalize_attributes(self, raw_attributes: Dict[str, Any]) -> Dict[str, Any]:
-        """Simulates data cleanup and calculation (e.g., adding DEPTH)."""
-        normalized = raw_attributes.copy()
-
-        # Simple mock cleanup - handle both 'Material' and 'MATERIAL' keys
-        material = normalized.get('Material', normalized.get('MATERIAL', 'Unknown'))
-        normalized['Material'] = material.upper() if isinstance(material, str) else str(material).upper()
-
-        # Mock error simulation for required field check
-        # Check both key existence and value (empty strings should fail)
-        elevation = normalized.get('Elevation', normalized.get('ELEVATION'))
-        if not elevation or (isinstance(elevation, str) and elevation.strip() == ''):
-            raise ValueError("Normalization Error: Required field 'ELEVATION' missing or empty.")
-
-        return normalized
 
 # --- Mock File Content ---
 MOCK_FILE_CONTENT = """
@@ -51,7 +32,7 @@ class FieldDataImportWizard:
     """
 
     def __init__(self):
-        self.normalizer = MockDataNormalizationService()
+        self.normalizer = DataNormalizationService()
         logger.info("FieldDataImportWizard initialized. Ready to parse and clean.")
 
     def _parse_file_content(self, file_content_str: str, import_config: Dict[str, Any]) -> List[Dict[str, Any]]:

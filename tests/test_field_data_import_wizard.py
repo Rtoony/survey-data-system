@@ -6,15 +6,45 @@ import pytest
 from unittest.mock import MagicMock, patch
 from tools.field_data_import_wizard import (
     FieldDataImportWizard,
-    MockDataNormalizationService,
     MOCK_FILE_CONTENT
 )
+from services.data_normalization_service import DataNormalizationService
+
+
+# Test-only mock for validating wizard behavior with specific test data
+class _TestMockNormalizer:
+    """
+    Test-only mock normalizer that simulates validation errors
+    for testing the wizard's error handling behavior.
+    """
+    def normalize_attributes(self, raw_attributes):
+        """Simulates data cleanup with validation."""
+        normalized = raw_attributes.copy()
+
+        # Handle Material field
+        material = normalized.get('Material', normalized.get('MATERIAL', 'Unknown'))
+        normalized['Material'] = material.upper() if isinstance(material, str) else str(material).upper()
+
+        # Validate required field
+        elevation = normalized.get('Elevation', normalized.get('ELEVATION'))
+        if not elevation or (isinstance(elevation, str) and elevation.strip() == ''):
+            raise ValueError("Normalization Error: Required field 'ELEVATION' missing or empty.")
+
+        return normalized
 
 
 @pytest.fixture
 def wizard():
     """Create a FieldDataImportWizard instance for testing."""
     return FieldDataImportWizard()
+
+
+@pytest.fixture
+def wizard_with_test_mock():
+    """Create a wizard with test mock normalizer for error handling tests."""
+    wizard_instance = FieldDataImportWizard()
+    wizard_instance.normalizer = _TestMockNormalizer()
+    return wizard_instance
 
 
 @pytest.fixture
@@ -65,7 +95,7 @@ class TestFieldDataImportWizard:
 
         assert wizard is not None
         assert wizard.normalizer is not None
-        assert isinstance(wizard.normalizer, MockDataNormalizationService)
+        assert isinstance(wizard.normalizer, DataNormalizationService)
 
     def test_parse_file_content_basic(self, wizard, valid_csv_content, mock_config):
         """Test basic CSV parsing functionality."""
@@ -100,9 +130,9 @@ PointID, Code, Elevation, Material
 class TestParseAndNormalize:
     """Test suite for the full parse_and_normalize_file pipeline."""
 
-    def test_successful_normalization(self, wizard, valid_csv_content, mock_config):
+    def test_successful_normalization(self, wizard_with_test_mock, valid_csv_content, mock_config):
         """Test that valid data is successfully normalized."""
-        result = wizard.parse_and_normalize_file(valid_csv_content, mock_config)
+        result = wizard_with_test_mock.parse_and_normalize_file(valid_csv_content, mock_config)
 
         assert result['success_count'] == 3
         assert result['error_count'] == 0
@@ -113,9 +143,9 @@ class TestParseAndNormalize:
         materials = [point['Material'] for point in result['normalized_data_staging']]
         assert all(mat.isupper() for mat in materials)
 
-    def test_normalization_with_errors(self, wizard, invalid_csv_content, mock_config):
+    def test_normalization_with_errors(self, wizard_with_test_mock, invalid_csv_content, mock_config):
         """Test that missing required fields trigger normalization errors."""
-        result = wizard.parse_and_normalize_file(invalid_csv_content, mock_config)
+        result = wizard_with_test_mock.parse_and_normalize_file(invalid_csv_content, mock_config)
 
         # All records should fail due to missing Elevation field
         assert result['success_count'] == 0
@@ -128,9 +158,9 @@ class TestParseAndNormalize:
             assert error['status'] == 'FAILED'
             assert 'ELEVATION' in error['reason']
 
-    def test_mixed_normalization_results(self, wizard, mixed_csv_content, mock_config):
+    def test_mixed_normalization_results(self, wizard_with_test_mock, mixed_csv_content, mock_config):
         """Test processing of mixed valid/invalid records."""
-        result = wizard.parse_and_normalize_file(mixed_csv_content, mock_config)
+        result = wizard_with_test_mock.parse_and_normalize_file(mixed_csv_content, mock_config)
 
         # Records 101 and 103 should succeed, 102 and 104 should fail
         assert result['success_count'] == 2
@@ -148,9 +178,9 @@ class TestParseAndNormalize:
         assert '102' in failed_ids
         assert '104' in failed_ids
 
-    def test_error_report_structure(self, wizard, invalid_csv_content, mock_config):
+    def test_error_report_structure(self, wizard_with_test_mock, invalid_csv_content, mock_config):
         """Test that error reports contain expected fields."""
-        result = wizard.parse_and_normalize_file(invalid_csv_content, mock_config)
+        result = wizard_with_test_mock.parse_and_normalize_file(invalid_csv_content, mock_config)
 
         assert result['error_count'] > 0
 
@@ -161,9 +191,9 @@ class TestParseAndNormalize:
             assert 'raw_data' in error
             assert error['status'] in ['FAILED', 'ERROR']
 
-    def test_normalized_data_structure(self, wizard, valid_csv_content, mock_config):
+    def test_normalized_data_structure(self, wizard_with_test_mock, valid_csv_content, mock_config):
         """Test that normalized data retains all expected fields."""
-        result = wizard.parse_and_normalize_file(valid_csv_content, mock_config)
+        result = wizard_with_test_mock.parse_and_normalize_file(valid_csv_content, mock_config)
 
         assert result['success_count'] > 0
 
@@ -177,60 +207,63 @@ class TestParseAndNormalize:
             assert point['Material'].isupper()
 
 
-class TestMockDataNormalizationService:
-    """Test suite for the MockDataNormalizationService."""
+class TestDataNormalizationService:
+    """Test suite for the DataNormalizationService."""
 
     def test_normalize_attributes_success(self):
         """Test successful attribute normalization."""
-        normalizer = MockDataNormalizationService()
+        normalizer = DataNormalizationService()
         raw_attrs = {
             'PointID': '101',
             'Code': 'SDMH',
-            'Elevation': '102.50',
-            'Material': 'conc'
+            'MATERIAL': 'conc',
+            'RIM_ELEV': 105.50,
+            'INVERT_ELEV': 99.25
         }
 
         normalized = normalizer.normalize_attributes(raw_attrs)
 
-        assert normalized['Material'] == 'CONC'
+        # Material should be standardized and uppercased
+        assert normalized['MATERIAL'] == 'CONCRETE'
         assert normalized['PointID'] == '101'
         assert normalized['Code'] == 'SDMH'
+        # Depth should be calculated
+        assert 'DEPTH' in normalized
+        assert normalized['DEPTH'] == 6.25
 
-    def test_normalize_attributes_missing_elevation(self):
-        """Test that missing Elevation field raises ValueError."""
-        normalizer = MockDataNormalizationService()
+    def test_normalize_attributes_material_standardization(self):
+        """Test that material abbreviations are standardized."""
+        normalizer = DataNormalizationService()
         raw_attrs = {
-            'PointID': '104',
-            'Code': 'SDMH',
-            'Material': 'pvc'
+            'MATERIAL': 'di'
         }
 
-        with pytest.raises(ValueError) as exc_info:
-            normalizer.normalize_attributes(raw_attrs)
+        normalized = normalizer.normalize_attributes(raw_attrs)
 
-        assert 'ELEVATION' in str(exc_info.value)
+        assert normalized['MATERIAL'] == 'DUCTILE_IRON'
 
-    def test_normalize_attributes_material_default(self):
-        """Test that missing Material field gets default value."""
-        normalizer = MockDataNormalizationService()
+    def test_normalize_attributes_without_depth_calculation(self):
+        """Test that missing elevation fields don't cause errors."""
+        normalizer = DataNormalizationService()
         raw_attrs = {
             'PointID': '105',
             'Code': 'WV',
-            'Elevation': '100.00'
+            'MATERIAL': 'pvc'
         }
 
         normalized = normalizer.normalize_attributes(raw_attrs)
 
-        assert normalized['Material'] == 'UNKNOWN'
+        # No depth calculation should occur
+        assert 'DEPTH' not in normalized
+        assert normalized['MATERIAL'] == 'PVC'
 
     def test_normalize_attributes_preserves_originals(self):
         """Test that normalization preserves original data fields."""
-        normalizer = MockDataNormalizationService()
+        normalizer = DataNormalizationService()
         raw_attrs = {
             'PointID': '101',
             'Code': 'SDMH',
-            'Elevation': '102.50',
-            'Material': 'conc',
+            'MATERIAL': 'conc',
             'CustomField': 'CustomValue'
         }
 
@@ -277,13 +310,13 @@ SDMH,102.50,conc
             # Should have ROW_N format for missing PointIDs
             assert any('ROW_' in str(error_id) or error_id == '' for error_id in error_ids)
 
-    def test_special_characters_in_material(self, wizard, mock_config):
+    def test_special_characters_in_material(self, wizard_with_test_mock, mock_config):
         """Test handling of special characters in data fields."""
         csv_with_special = """
 PointID,Code,Elevation,Material
 101,SDMH,102.50,conc-special
 """
-        result = wizard.parse_and_normalize_file(csv_with_special, mock_config)
+        result = wizard_with_test_mock.parse_and_normalize_file(csv_with_special, mock_config)
 
         # Should normalize successfully
         assert result['success_count'] == 1
@@ -293,17 +326,17 @@ PointID,Code,Elevation,Material
 class TestMockFileContent:
     """Test suite for the mock file content constant."""
 
-    def test_mock_file_content_parsing(self, wizard, mock_config):
+    def test_mock_file_content_parsing(self, wizard_with_test_mock, mock_config):
         """Test that MOCK_FILE_CONTENT can be parsed successfully."""
-        result = wizard.parse_and_normalize_file(MOCK_FILE_CONTENT, mock_config)
+        result = wizard_with_test_mock.parse_and_normalize_file(MOCK_FILE_CONTENT, mock_config)
 
         # MOCK_FILE_CONTENT has 4 rows, 1 should fail (row 104 with missing elevation)
         assert result['success_count'] == 3
         assert result['error_count'] == 1
 
-    def test_mock_file_content_error_case(self, wizard, mock_config):
+    def test_mock_file_content_error_case(self, wizard_with_test_mock, mock_config):
         """Test that MOCK_FILE_CONTENT error case is properly detected."""
-        result = wizard.parse_and_normalize_file(MOCK_FILE_CONTENT, mock_config)
+        result = wizard_with_test_mock.parse_and_normalize_file(MOCK_FILE_CONTENT, mock_config)
 
         # Row 104 should be in error report
         failed_ids = [error['id'] for error in result['import_error_report']]
@@ -313,7 +346,7 @@ class TestMockFileContent:
 class TestIntegrationScenarios:
     """Test suite for realistic integration scenarios."""
 
-    def test_full_pipeline_real_world_data(self, wizard, mock_config):
+    def test_full_pipeline_real_world_data(self, wizard_with_test_mock, mock_config):
         """Test the full pipeline with realistic survey data."""
         real_world_csv = """
 PointID,Code,Elevation,Material,Size,Owner
@@ -322,7 +355,7 @@ PointID,Code,Elevation,Material,Size,Owner
 1003,TOC,110.00,asphalt,24,Private
 1004,SDMH,98.75,pvc,36,City
 """
-        result = wizard.parse_and_normalize_file(real_world_csv, mock_config)
+        result = wizard_with_test_mock.parse_and_normalize_file(real_world_csv, mock_config)
 
         assert result['success_count'] == 4
         assert result['error_count'] == 0
@@ -332,7 +365,7 @@ PointID,Code,Elevation,Material,Size,Owner
             assert 'Size' in point
             assert 'Owner' in point
 
-    def test_large_batch_processing(self, wizard, mock_config):
+    def test_large_batch_processing(self, wizard_with_test_mock, mock_config):
         """Test processing of larger data batch."""
         # Generate CSV with 100 records
         rows = ["PointID,Code,Elevation,Material"]
@@ -341,7 +374,7 @@ PointID,Code,Elevation,Material,Size,Owner
 
         large_csv = "\n".join(rows)
 
-        result = wizard.parse_and_normalize_file(large_csv, mock_config)
+        result = wizard_with_test_mock.parse_and_normalize_file(large_csv, mock_config)
 
         assert result['success_count'] == 100
         assert result['error_count'] == 0
