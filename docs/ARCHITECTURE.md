@@ -1791,11 +1791,321 @@ def get_project_statistics():
 The Survey Data System is a sophisticated civil engineering platform undergoing a major architectural refactor. The hybrid legacy/modern architecture allows for incremental migration without breaking changes. Key features include intelligent DXF import, AI-powered classification, relationship management, specification linking, and GraphRAG natural language queries.
 
 **Next Steps**:
-1. Complete route migration to blueprints
-2. Implement database migrations with Alembic
-3. Add comprehensive test coverage
-4. Implement API versioning and documentation
-5. Add monitoring and observability
+1. **🔴 CRITICAL: Apply security and performance fixes** (See Phase 4 Audit Results below)
+2. Complete route migration to blueprints
+3. Implement database migrations with Alembic
+4. Add comprehensive test coverage
+5. Implement API versioning and documentation
+6. Add monitoring and observability
 
 For API documentation, see [API_SPEC.md](API_SPEC.md).
 For development setup, see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).
+
+---
+
+## 14. Phase 4 Audit Results: Prioritized Fix List
+
+**Audit Date**: 2025-11-18
+**Audit Type**: Security & Performance Deep Scan
+**Status**: 🔴 **CRITICAL ISSUES FOUND** - Immediate action required
+
+### Security Audit Summary
+
+**Total Vulnerabilities**: 20
+- 🔴 **CRITICAL**: 6 (SQL Injection, requires 24-48 hour patch)
+- 🟠 **HIGH**: 7 (SQL Injection, Connection Leaks, requires 1 week patch)
+- 🟡 **MEDIUM**: 6 (Input Validation, requires 2 week patch)
+- 🔵 **LOW**: 1
+
+**Full Report**: [docs/SECURITY_AUDIT.md](SECURITY_AUDIT.md)
+
+### Performance Audit Summary
+
+**Total Issues**: 67
+- 🔴 **CRITICAL**: 21 (Blocking operations, missing indexes)
+- 🟠 **HIGH**: 32 (Inefficient queries, memory issues)
+- 🟡 **MEDIUM**: 14 (Optimization opportunities)
+
+**Current Performance Grade**: D- (2/10)
+**Expected After Fixes**: A (9/10) - **90-95% faster**
+
+**Full Report**: [docs/PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md)
+
+---
+
+### 🔥 EMERGENCY FIX LIST (Next 48 Hours)
+
+**Priority 0 - CRITICAL Security Vulnerabilities**
+
+These vulnerabilities allow **complete database compromise** via SQL injection. Must be patched immediately:
+
+1. **VULN-001**: User coordinate injection in distance measurement
+   - **File**: `app.py:23364-23365`
+   - **Fix**: Validate coordinates as floats before SQL interpolation
+   - **Effort**: 15 minutes
+
+2. **VULN-002**: User coordinate injection in area calculation
+   - **File**: `app.py:23375-23376`
+   - **Fix**: Same as VULN-001
+   - **Effort**: 10 minutes
+
+3. **VULN-003**: Elevation profile loop with SQL injection + N+1
+   - **File**: `app.py:23386-23392`
+   - **Fix**: Validate coordinates + convert to single LATERAL JOIN query
+   - **Effort**: 30 minutes
+
+4. **VULN-004**: Layer name pattern injection (regex bypass)
+   - **File**: `app.py:13926-13936`
+   - **Fix**: Whitelist validation on discipline/category/phase codes
+   - **Effort**: 20 minutes
+
+5. **VULN-005**: Table name injection in element validation
+   - **File**: `app.py:9572`
+   - **Fix**: Replace dictionary lookup with explicit query mapping
+   - **Effort**: 15 minutes
+
+6. **VULN-006**: Information schema table injection
+   - **File**: `app.py:21184-21188`
+   - **Fix**: Use parameterized query for table_name
+   - **Effort**: 10 minutes
+
+**Total Effort**: ~1.5 hours
+**Risk if not fixed**: Complete database compromise, data deletion, privilege escalation
+
+---
+
+### 🚀 QUICK PERFORMANCE WINS (Next 2-3 Days)
+
+**Phase 1: Database Indexing (2 hours)**
+
+These indexes will provide **immediate 10-100x speedup** on common queries:
+
+```sql
+-- Critical indexes for project filtering (336 queries affected)
+CREATE INDEX CONCURRENTLY idx_drawing_entities_project_id ON drawing_entities(project_id);
+CREATE INDEX CONCURRENTLY idx_utility_lines_project_id ON utility_lines(project_id);
+CREATE INDEX CONCURRENTLY idx_utility_structures_project_id ON utility_structures(project_id);
+CREATE INDEX CONCURRENTLY idx_storm_bmps_project_id ON storm_bmps(project_id);
+CREATE INDEX CONCURRENTLY idx_horizontal_alignments_project_id ON horizontal_alignments(project_id);
+CREATE INDEX CONCURRENTLY idx_site_trees_project_id ON site_trees(project_id);
+CREATE INDEX CONCURRENTLY idx_generic_objects_project_id ON generic_objects(project_id);
+CREATE INDEX CONCURRENTLY idx_survey_points_project_id ON survey_points(project_id);
+
+-- Layer filtering indexes
+CREATE INDEX CONCURRENTLY idx_drawing_entities_layer_id ON drawing_entities(layer_id);
+CREATE INDEX CONCURRENTLY idx_layers_project_layer ON layers(project_id, layer_name);
+
+-- Entity type filtering
+CREATE INDEX CONCURRENTLY idx_drawing_entities_entity_type ON drawing_entities(entity_type);
+
+-- Time-based queries
+CREATE INDEX CONCURRENTLY idx_drawing_entities_created_at ON drawing_entities(created_at DESC);
+CREATE INDEX CONCURRENTLY idx_generic_objects_created_at ON generic_objects(created_at DESC);
+
+-- Composite indexes for common queries
+CREATE INDEX CONCURRENTLY idx_utility_lines_project_geom
+    ON utility_lines(project_id) WHERE geometry IS NOT NULL;
+
+CREATE INDEX CONCURRENTLY idx_drawing_entities_project_geom
+    ON drawing_entities(project_id) INCLUDE (layer_id, entity_type)
+    WHERE geometry IS NOT NULL;
+
+CREATE INDEX CONCURRENTLY idx_survey_points_project_active
+    ON survey_points(project_id) WHERE is_active = true;
+```
+
+**Expected Impact**:
+- Map view: 3.5s → 0.4s (88% faster)
+- Survey points: 2.1s → 0.15s (93% faster)
+- Statistics: 1.8s → 0.25s (86% faster)
+
+**Phase 2: Add Pagination (2 hours)**
+
+Add LIMIT/OFFSET to 24 endpoints that currently return unbounded result sets:
+
+- `/api/projects/<project_id>/survey-points` (Line 809)
+- `/api/projects/<project_id>/entities` (Line 1893)
+- `/api/projects/<project_id>/generic-objects` (Line 2051)
+- All reference data endpoints (clients, vendors, municipalities)
+
+**Expected Impact**:
+- Response size: 5 MB → 50 KB (100x smaller)
+- Load time: 5s → 0.2s (25x faster)
+
+**Phase 3: Replace SELECT * Queries (1 hour)**
+
+Optimize 8 queries that fetch unnecessary columns:
+
+- Lines 4112, 4126, 4140, 7709, 7801, 13826, 14674, 22590
+
+**Expected Impact**:
+- Query size: 100 KB → 5 KB (95% reduction)
+- Network transfer: 80% faster
+
+**Phase 4: Bulk Insert for Batch Operations (30 minutes)**
+
+Replace loop-based INSERTs with `execute_values()`:
+
+- Batch point import (Line 5821)
+
+**Expected Impact**:
+- 1,000 points: 10s → 0.02s (500x faster)
+- 10,000 points: 100s → 0.2s (500x faster)
+
+---
+
+### 📋 MEDIUM-TERM PRIORITIES (Next 1-2 Weeks)
+
+**1. Implement Background Task Queue (3-5 days)**
+
+Setup Celery/RQ to move blocking operations off HTTP request thread:
+
+**Critical Endpoints to Convert**:
+- DXF Import (`app.py:12258`) - 45s → 0.1s response
+- Batch CAD Import (`app.py:5423`) - 50-100s → 0.1s response
+- GIS Export (`app.py:14642`) - 120s → 0.1s response
+- DXF Re-import (`app.py:12506`) - 85s → 0.1s response
+
+**Benefits**:
+- Eliminates request timeouts
+- Server remains responsive during heavy operations
+- Progress tracking for users
+- Parallel processing capability
+
+**Implementation**:
+```bash
+# Install task queue
+pip install celery redis
+
+# Create tasks.py
+from celery import Celery
+app = Celery('survey_system', broker='redis://localhost:6379')
+
+@app.task(bind=True)
+def import_dxf_task(self, file_path, project_id):
+    # Move DXF import logic here
+    # Report progress via self.update_state()
+    pass
+```
+
+**2. Fix High-Severity Security Issues (1 week)**
+
+- VULN-007 to VULN-010 (SQL injection, connection leaks, validation)
+- See [SECURITY_AUDIT.md](SECURITY_AUDIT.md) for details
+
+**3. Optimize N+1 Queries (4 hours)**
+
+- Combine 6 queries into 1 UNION (Lines 1083-1296)
+- Replace conditional COUNT with subqueries (Lines 1533-1561)
+
+---
+
+### 🔧 LONG-TERM OPTIMIZATIONS (Next 1-3 Months)
+
+**1. Query Optimization (2-3 days)**
+- Add computed columns for area/length calculations
+- Create materialized views for common transformations
+- Optimize geometry operations
+
+**2. Caching Strategy (1-2 days)**
+- Implement Redis caching for reference data
+- Add HTTP caching headers
+- Cache project statistics
+
+**3. Memory Optimization (2-3 days)**
+- Convert to streaming operations for large datasets
+- Implement generator patterns
+- Add streaming file uploads
+
+**4. Monitoring & Observability (3-5 days)**
+- Setup Prometheus metrics
+- Add slow query logging
+- Implement performance dashboards
+- Setup alerting for degraded performance
+
+---
+
+### 📊 Success Metrics
+
+**Before Optimization**:
+| Metric | Current Value |
+|--------|--------------|
+| Average API response time | 2.3s |
+| P95 response time | 8.5s |
+| Timeout rate | 5% |
+| Database CPU usage | 85% |
+| Memory usage | 1.2 GB |
+
+**After Phase 1-2 (Quick Wins)**:
+| Metric | Target Value | Improvement |
+|--------|--------------|-------------|
+| Average API response time | 0.5s | 78% faster |
+| P95 response time | 1.2s | 86% faster |
+| Timeout rate | 0.5% | 90% reduction |
+| Database CPU usage | 45% | 47% reduction |
+| Memory usage | 600 MB | 50% reduction |
+
+**After All Optimizations**:
+| Metric | Target Value | Improvement |
+|--------|--------------|-------------|
+| Average API response time | 0.2s | 91% faster |
+| P95 response time | 0.8s | 91% faster |
+| Timeout rate | 0% | 100% reduction |
+| Database CPU usage | 25% | 71% reduction |
+| Memory usage | 400 MB | 67% reduction |
+
+---
+
+### 🎯 Execution Timeline
+
+**Week 1: Emergency Security Fixes + Quick Performance Wins**
+- Day 1-2: Fix 6 CRITICAL SQL injection vulnerabilities
+- Day 3: Create all database indexes
+- Day 4: Add pagination to 24 endpoints
+- Day 5: Optimize SELECT * queries + bulk inserts
+
+**Week 2: Background Task Implementation**
+- Day 1-2: Setup Celery/RQ infrastructure
+- Day 3-4: Convert blocking operations to background tasks
+- Day 5: Add progress tracking and status API
+
+**Week 3: Medium Priority Fixes**
+- Day 1-2: Fix HIGH severity security issues
+- Day 3-4: Optimize N+1 queries
+- Day 5: Testing and validation
+
+**Week 4-8: Long-term Optimizations**
+- Query optimization
+- Caching implementation
+- Memory optimization
+- Monitoring setup
+
+---
+
+### ⚠️ Risk Assessment
+
+**Current State Risk Level**: 🔴 **HIGH**
+
+**Risks**:
+1. **Security**: SQL injection vulnerabilities allow database compromise
+2. **Performance**: Request timeouts frustrate users, cause data loss
+3. **Scalability**: Cannot handle production workloads
+4. **Reliability**: Connection leaks cause service degradation
+
+**Risk After Phase 1 Fixes**: 🟡 **MEDIUM** (acceptable for staging, not production)
+
+**Risk After All Fixes**: 🟢 **LOW** (production-ready)
+
+---
+
+### 📝 Additional Resources
+
+- **Security Audit**: [docs/SECURITY_AUDIT.md](SECURITY_AUDIT.md)
+- **Performance Report**: [docs/PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md)
+- **API Specification**: [docs/API_SPEC.md](API_SPEC.md)
+- **Developer Guide**: [docs/DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)
+
+---
+
+**Last Updated**: 2025-11-18
+**Next Audit**: After emergency fixes complete (1 week)

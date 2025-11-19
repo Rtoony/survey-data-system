@@ -9555,24 +9555,23 @@ def generate_pdf_export(data, title, description):
 
 def validate_element_exists(element_type, element_id):
     """Validate that an element ID exists in the appropriate table for its type"""
-    element_tables = {
-        'keynote': ('standard_notes', 'note_id'),
-        'block': ('block_definitions', 'block_id'),
-        'detail': ('detail_standards', 'detail_id'),
-        'hatch': ('hatch_patterns', 'hatch_id'),
-        'material': ('material_standards', 'material_id')
+    # Use explicit query mapping (whitelist approach) to prevent SQL injection
+    QUERY_MAP = {
+        'keynote': "SELECT 1 FROM standard_notes WHERE note_id = %s LIMIT 1",
+        'block': "SELECT 1 FROM block_definitions WHERE block_id = %s LIMIT 1",
+        'detail': "SELECT 1 FROM detail_standards WHERE detail_id = %s LIMIT 1",
+        'hatch': "SELECT 1 FROM hatch_patterns WHERE hatch_id = %s LIMIT 1",
+        'material': "SELECT 1 FROM material_standards WHERE material_id = %s LIMIT 1"
     }
-    
-    if element_type not in element_tables:
+
+    query = QUERY_MAP.get(element_type)
+    if not query:
         return False, f"Invalid element type: {element_type}"
-    
-    table_name, id_column = element_tables[element_type]
-    
+
     try:
-        query = f"SELECT 1 FROM {table_name} WHERE {id_column} = %s LIMIT 1"
         result = execute_query(query, (element_id,))
         if not result:
-            return False, f"{element_type} with ID {element_id} not found in {table_name}"
+            return False, f"{element_type} with ID {element_id} not found"
         return True, None
     except Exception as e:
         return False, f"Validation error: {str(e)}"
@@ -13837,7 +13836,18 @@ def get_database_layers():
         disciplines = request.args.getlist('disciplines')
         categories = request.args.getlist('categories')
         phases = request.args.getlist('phases')
-        
+
+        # Validate input against whitelist (alphanumeric only to prevent SQL injection)
+        import re
+        ALLOWED_PATTERN = re.compile(r'^[A-Z0-9]+$')
+
+        if disciplines and not all(ALLOWED_PATTERN.match(d) for d in disciplines):
+            return jsonify({'error': 'Invalid discipline code format'}), 400
+        if categories and not all(ALLOWED_PATTERN.match(c) for c in categories):
+            return jsonify({'error': 'Invalid category code format'}), 400
+        if phases and not all(ALLOWED_PATTERN.match(p) for p in phases):
+            return jsonify({'error': 'Invalid phase code format'}), 400
+
         has_filters = len(disciplines) > 0 or len(categories) > 0 or len(phases) > 0
         
         # Define the database layers that contain geospatial data
@@ -21181,12 +21191,12 @@ def get_entity_viewer_catalog():
         catalog = []
         for entity_key, config in ENTITY_VIEWER_REGISTRY.items():
             try:
-                col_check = execute_query(f"""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name='{config['table']}' 
+                col_check = execute_query("""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = %s
                     AND column_name IN ('project_id', 'drawing_id')
-                """)
+                """, (config['table'],))
                 col_names = [c['column_name'] for c in col_check]
                 has_project_id = 'project_id' in col_names
                 has_drawing_id = 'drawing_id' in col_names
@@ -23360,10 +23370,18 @@ def map_measure():
             if len(coordinates) < 2:
                 return jsonify({'error': 'Need at least 2 points'}), 400
 
-            # Use PostGIS to calculate distance
-            coords_str = ','.join([f"ST_SetSRID(ST_MakePoint({c[0]}, {c[1]}), 4326)" for c in coordinates])
+            # Validate coordinates as numeric first
+            try:
+                validated_coords = [(float(c[0]), float(c[1])) for c in coordinates]
+            except (ValueError, TypeError, IndexError):
+                return jsonify({'error': 'Invalid coordinates'}), 400
+
+            # Use PostGIS to calculate distance with parameterized query
+            points = [f"ST_SetSRID(ST_MakePoint(%s, %s), 4326)" for _ in validated_coords]
+            coords_str = ','.join(points)
             query = f"SELECT ST_Length(ST_MakeLine(ARRAY[{coords_str}]::geometry[])) as distance"
-            result = execute_query(query)
+            params = [val for coord in validated_coords for val in coord]
+            result = execute_query(query, params)
 
             return jsonify({'distance': result[0]['distance'], 'unit': 'meters'})
 
@@ -23372,27 +23390,51 @@ def map_measure():
             if len(coordinates) < 3:
                 return jsonify({'error': 'Need at least 3 points'}), 400
 
-            coords_str = ','.join([f"{c[0]} {c[1]}" for c in coordinates])
-            query = f"SELECT ST_Area(ST_GeomFromText('POLYGON(({coords_str}))', 4326)) as area"
-            result = execute_query(query)
+            # Validate coordinates as numeric first
+            try:
+                validated_coords = [(float(c[0]), float(c[1])) for c in coordinates]
+            except (ValueError, TypeError, IndexError):
+                return jsonify({'error': 'Invalid coordinates'}), 400
+
+            # Use parameterized query with ST_MakePolygon
+            points = [f"ST_MakePoint(%s, %s)" for _ in validated_coords]
+            coords_str = ','.join(points)
+            query = f"SELECT ST_Area(ST_MakePolygon(ST_MakeLine(ARRAY[{coords_str}]::geometry[]))) as area"
+            params = [val for coord in validated_coords for val in coord]
+            result = execute_query(query, params)
 
             return jsonify({'area': result[0]['area'], 'unit': 'square meters'})
 
         elif measurement_type == 'elevation_profile':
             # Get elevation profile along a line
-            elevations = []
-            for coord in coordinates:
-                # Query elevation at each point (simplified)
-                query = f"""
+            # Validate all coordinates first
+            try:
+                validated_coords = [(float(c[0]), float(c[1])) for c in coordinates]
+            except (ValueError, TypeError, IndexError):
+                return jsonify({'error': 'Invalid coordinate format'}), 400
+
+            # Single query with LATERAL join to avoid N+1 problem
+            coord_points = ','.join([f"({i}, ST_SetSRID(ST_MakePoint(%s, %s), 4326))"
+                                     for i in range(len(validated_coords))])
+            params = [val for coord in validated_coords for val in coord]
+
+            query = f"""
+                WITH coords AS (
+                    SELECT * FROM (VALUES {coord_points}) AS t(idx, geom)
+                )
+                SELECT c.idx, sp.elevation
+                FROM coords c
+                CROSS JOIN LATERAL (
                     SELECT elevation
-                    FROM survey_points
-                    WHERE ST_DWithin(geometry, ST_SetSRID(ST_MakePoint({coord[0]}, {coord[1]}), 4326), 10)
-                    ORDER BY ST_Distance(geometry, ST_SetSRID(ST_MakePoint({coord[0]}, {coord[1]}), 4326))
+                    FROM survey_points sp
+                    WHERE ST_DWithin(sp.geometry, c.geom, 10)
+                    ORDER BY ST_Distance(sp.geometry, c.geom)
                     LIMIT 1
-                """
-                result = execute_query(query)
-                if result:
-                    elevations.append(result[0]['elevation'])
+                ) sp
+                ORDER BY c.idx
+            """
+            result = execute_query(query, params)
+            elevations = [row['elevation'] for row in result] if result else []
 
             return jsonify({'elevations': elevations, 'count': len(elevations)})
 
