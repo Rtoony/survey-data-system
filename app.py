@@ -21652,10 +21652,10 @@ def process_nl_query():
         if not nl_query:
             return jsonify({'error': 'Query is required'}), 400
 
-        # Get OpenAI API key from environment
-        openai_api_key = os.environ.get('OPENAI_API_KEY')
-        if not openai_api_key:
-            return jsonify({'error': 'OpenAI API key not configured'}), 500
+        # Get Anthropic API key from environment
+        anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if not anthropic_api_key:
+            return jsonify({'error': 'Anthropic API key not configured'}), 500
 
         # Build system prompt with schema context
         system_prompt = """You are a SQL expert for a PostgreSQL/PostGIS CAD/GIS database.
@@ -21686,26 +21686,26 @@ Output: {
   "complexity": 0.6
 }"""
 
-        # Call OpenAI API (using SDK v1.0+)
-        from openai import OpenAI
-        client = OpenAI(api_key=openai_api_key)
+        # Call Anthropic API (using Claude Opus)
+        from anthropic import Anthropic
+        client = Anthropic(api_key=anthropic_api_key)
 
         start_time = datetime.now()
 
-        response = client.chat.completions.create(
-            model=data.get('model', 'gpt-4'),
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Generate SQL for: {nl_query}"}
-            ],
+        response = client.messages.create(
+            model=data.get('model', 'claude-opus-4-20250514'),
+            max_tokens=1000,
             temperature=0.1,
-            max_tokens=1000
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": f"Generate SQL for: {nl_query}"}
+            ]
         )
 
         processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
         # Parse response
-        ai_response = response.choices[0].message.content
+        ai_response = response.content[0].text
 
         # Try to extract JSON if present
         try:
@@ -21747,10 +21747,13 @@ Output: {
             RETURNING query_id
         """
 
+        # Calculate total tokens (Anthropic uses input_tokens + output_tokens)
+        total_tokens = response.usage.input_tokens + response.usage.output_tokens
+
         execute_query(history_query, (
             query_id, nl_query, generated_sql, explanation,
-            data.get('model', 'gpt-4'),
-            response.usage.total_tokens,
+            data.get('model', 'claude-opus-4-20250514'),
+            total_tokens,
             int(processing_time),
             intent,
             complexity
@@ -21763,7 +21766,7 @@ Output: {
             'intent': intent,
             'complexity': complexity,
             'processing_time_ms': int(processing_time),
-            'tokens_used': response.usage.total_tokens
+            'tokens_used': total_tokens
         })
 
     except Exception as e:
