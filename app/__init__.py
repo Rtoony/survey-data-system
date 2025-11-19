@@ -77,6 +77,13 @@ def create_app(config_name: str = None) -> Flask:
     from app.blueprints.projects import projects_bp
     from app.blueprints.standards import standards_bp
     from app.blueprints.gis_engine import gis_bp
+    # Phase 13 extracted blueprints
+    from app.blueprints.blocks_management import blocks_bp
+    from app.blueprints.details_management import details_bp
+    from app.blueprints.pipe_networks import pipes_bp
+    from app.blueprints.specialized_tools import specialized_tools_bp
+    from app.blueprints.survey_codes import survey_codes_bp
+    from app.blueprints.classification import classification_bp
 
     flask_app.register_blueprint(auth_bp)
     flask_app.register_blueprint(graphrag_bp)
@@ -85,5 +92,12 @@ def create_app(config_name: str = None) -> Flask:
     flask_app.register_blueprint(projects_bp)
     flask_app.register_blueprint(standards_bp)
     flask_app.register_blueprint(gis_bp)
+    # Phase 13 blueprints
+    flask_app.register_blueprint(blocks_bp)
+    flask_app.register_blueprint(details_bp)
+    flask_app.register_blueprint(pipes_bp)
+    flask_app.register_blueprint(specialized_tools_bp)
+    flask_app.register_blueprint(survey_codes_bp)
+    flask_app.register_blueprint(classification_bp)
 
     return flask_app
