@@ -12,6 +12,7 @@ import os
 from app.extensions import cors, cache
 from app.config import config
 from database import DB_CONFIG
+from app.db_session import init_app as init_db_session
 
 
 class CustomJSONProvider(DefaultJSONProvider):
@@ -55,6 +56,9 @@ def create_app(config_name: str = None) -> Flask:
     # Initialize extensions
     cors.init_app(flask_app)
     cache.init_app(flask_app)
+
+    # Initialize database session management
+    init_db_session(flask_app)
 
     # Debug: Print database configuration status
     print("=" * 50)
