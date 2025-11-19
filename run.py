@@ -15,8 +15,10 @@ app = create_app()
 # Make the app instance available to the legacy module
 sys.modules['__main__'].app = app
 
-# Import legacy routes from app.py using importlib to avoid naming conflict
-# This registers all @app.route decorators onto our app instance
+# Import legacy routes from app.py
+# Note: app.py contains remaining routes that haven't been migrated to blueprints yet
+# Phase 4: Project CRUD routes have been extracted to app/blueprints/projects.py
+# Remaining routes will be migrated in future phases
 spec = importlib.util.spec_from_file_location("legacy_routes", "app.py")
 legacy_routes_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(legacy_routes_module)

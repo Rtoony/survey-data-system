@@ -70,10 +70,12 @@ def create_app(config_name: str = None) -> Flask:
     from api.graphrag_routes import graphrag_bp
     from api.ai_search_routes import ai_search_bp
     from api.quality_routes import quality_bp
+    from app.blueprints.projects import projects_bp
 
     flask_app.register_blueprint(auth_bp)
     flask_app.register_blueprint(graphrag_bp)
     flask_app.register_blueprint(ai_search_bp)
     flask_app.register_blueprint(quality_bp)
+    flask_app.register_blueprint(projects_bp)
 
     return flask_app
