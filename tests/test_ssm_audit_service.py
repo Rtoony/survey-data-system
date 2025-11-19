@@ -11,19 +11,41 @@ Tests verify:
 """
 import pytest
 import json
+from sqlalchemy import select, delete
 from services.ssm_audit_service import (
     SSMAuditService,
-    MOCK_SNAPSHOT_DB,
     MOCK_AUDIT_LOG,
     MOCK_STANDARDS_MAPPINGS
 )
+from data.ssm_schema import ssm_snapshots
+from database import get_db
+
+
+def get_snapshot_by_id(snapshot_id: str):
+    """Helper function to retrieve a snapshot from the database by ID."""
+    stmt = select(ssm_snapshots).where(ssm_snapshots.c.id == snapshot_id)
+    with get_db() as conn:
+        result = conn.execute(stmt).fetchone()
+    return dict(result._mapping) if result else None
+
+
+def get_all_snapshots():
+    """Helper function to retrieve all snapshots from the database."""
+    stmt = select(ssm_snapshots)
+    with get_db() as conn:
+        results = conn.execute(stmt).fetchall()
+    return [dict(row._mapping) for row in results]
 
 
 @pytest.fixture
 def audit_service():
     """Fixture to create a fresh SSMAuditService instance for each test."""
-    # Clear mock data before each test
-    MOCK_SNAPSHOT_DB.clear()
+    # Clear the ssm_snapshots table before each test
+    with get_db() as conn:
+        conn.execute(delete(ssm_snapshots))
+        conn.commit()
+
+    # Clear mock audit log
     MOCK_AUDIT_LOG.clear()
 
     # Reset MOCK_STANDARDS_MAPPINGS to initial state
@@ -48,11 +70,11 @@ class TestSnapshotCreation:
         assert len(snapshot_id) == 36  # UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
     def test_create_snapshot_stores_configuration(self, audit_service):
-        """Verify snapshot is stored in MOCK_SNAPSHOT_DB."""
+        """Verify snapshot is stored in the database."""
         snapshot_id = audit_service.create_snapshot("Test Version")
 
-        assert snapshot_id in MOCK_SNAPSHOT_DB
-        snapshot = MOCK_SNAPSHOT_DB[snapshot_id]
+        snapshot = get_snapshot_by_id(snapshot_id)
+        assert snapshot is not None
 
         assert snapshot['version_name'] == "Test Version"
         assert 'configuration_jsonb' in snapshot
@@ -63,14 +85,14 @@ class TestSnapshotCreation:
         """Verify snapshot can be created with custom user_id."""
         snapshot_id = audit_service.create_snapshot("Test Version", user_id=42)
 
-        snapshot = MOCK_SNAPSHOT_DB[snapshot_id]
+        snapshot = get_snapshot_by_id(snapshot_id)
         assert snapshot['user_id'] == 42
 
     def test_create_snapshot_captures_mappings(self, audit_service):
         """Verify snapshot captures the current state of MOCK_STANDARDS_MAPPINGS."""
         snapshot_id = audit_service.create_snapshot("Initial Snapshot")
 
-        snapshot = MOCK_SNAPSHOT_DB[snapshot_id]
+        snapshot = get_snapshot_by_id(snapshot_id)
         config = snapshot['configuration_jsonb']
 
         assert 'mappings' in config
@@ -88,11 +110,11 @@ class TestSnapshotCreation:
         snapshot_id_v2 = audit_service.create_snapshot("V2")
 
         # V1 snapshot should still have original value (300, not 999)
-        config_v1 = MOCK_SNAPSHOT_DB[snapshot_id_v1]['configuration_jsonb']
+        config_v1 = get_snapshot_by_id(snapshot_id_v1)['configuration_jsonb']
         assert config_v1['mappings'][0]['priority'] == 300
 
         # V2 snapshot should have new value
-        config_v2 = MOCK_SNAPSHOT_DB[snapshot_id_v2]['configuration_jsonb']
+        config_v2 = get_snapshot_by_id(snapshot_id_v2)['configuration_jsonb']
         assert config_v2['mappings'][0]['priority'] == 999
 
     def test_create_multiple_snapshots(self, audit_service):
@@ -102,7 +124,7 @@ class TestSnapshotCreation:
         id3 = audit_service.create_snapshot("Version 3")
 
         assert id1 != id2 != id3
-        assert len(MOCK_SNAPSHOT_DB) == 3
+        assert len(get_all_snapshots()) == 3
 
 
 class TestAuditLog:
@@ -241,20 +263,20 @@ class TestVersionManagement:
     def test_snapshot_immutability(self, audit_service):
         """Verify snapshots are immutable after creation."""
         id_v1 = audit_service.create_snapshot("V1")
-        original_config = MOCK_SNAPSHOT_DB[id_v1]['configuration_jsonb'].copy()
+        original_config = get_snapshot_by_id(id_v1)['configuration_jsonb'].copy()
 
         # Modify current mappings
         MOCK_STANDARDS_MAPPINGS[0]['priority'] = 999
 
         # Original snapshot should remain unchanged
-        snapshot_config = MOCK_SNAPSHOT_DB[id_v1]['configuration_jsonb']
+        snapshot_config = get_snapshot_by_id(id_v1)['configuration_jsonb']
         assert snapshot_config['mappings'][0]['priority'] == original_config['mappings'][0]['priority']
 
     def test_snapshot_includes_metadata(self, audit_service):
         """Verify snapshots include metadata (timestamp, user)."""
         snapshot_id = audit_service.create_snapshot("Test")
 
-        snapshot = MOCK_SNAPSHOT_DB[snapshot_id]
+        snapshot = get_snapshot_by_id(snapshot_id)
         config = snapshot['configuration_jsonb']
 
         assert 'metadata' in config
@@ -265,7 +287,7 @@ class TestVersionManagement:
         """Verify snapshots capture rulesets."""
         snapshot_id = audit_service.create_snapshot("Test")
 
-        config = MOCK_SNAPSHOT_DB[snapshot_id]['configuration_jsonb']
+        config = get_snapshot_by_id(snapshot_id)['configuration_jsonb']
 
         assert 'rulesets' in config
         assert isinstance(config['rulesets'], list)
@@ -281,7 +303,7 @@ class TestVersionManagement:
 
         for name in test_names:
             snapshot_id = audit_service.create_snapshot(name)
-            assert MOCK_SNAPSHOT_DB[snapshot_id]['version_name'] == name
+            assert get_snapshot_by_id(snapshot_id)['version_name'] == name
 
 
 class TestServiceInitialization:
@@ -339,7 +361,7 @@ class TestIntegrationScenarios:
         """Verify snapshots enable configuration rollback."""
         # Create good configuration
         id_good = audit_service.create_snapshot("Known Good Config")
-        good_config = MOCK_SNAPSHOT_DB[id_good]['configuration_jsonb']
+        good_config = get_snapshot_by_id(id_good)['configuration_jsonb']
 
         # Make breaking changes
         MOCK_STANDARDS_MAPPINGS[0]['priority'] = 9999
@@ -347,7 +369,7 @@ class TestIntegrationScenarios:
 
         # Verify we can access the good config
         assert good_config['mappings'][0]['priority'] == 300
-        assert MOCK_SNAPSHOT_DB[id_bad]['configuration_jsonb']['mappings'][0]['priority'] == 9999
+        assert get_snapshot_by_id(id_bad)['configuration_jsonb']['mappings'][0]['priority'] == 9999
 
     def test_compliance_audit_trail(self, audit_service):
         """Verify audit trail supports compliance requirements."""

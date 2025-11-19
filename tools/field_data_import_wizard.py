@@ -8,16 +8,15 @@ import logging
 import csv
 from io import StringIO
 import json
+from database import get_db, execute_query  # ADDED: Central database imports
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # --- Mocked Dependency (Phase 25) ---
+# NOTE: The actual normalization service should be imported here.
+# We retain a minimal mock class for structural integrity, but it should be moved to imports.
 class MockDataNormalizationService:
-    """
-    Mock service for data normalization to ensure stability.
-    Simulates data cleanup and calculation (e.g., adding DEPTH).
-    """
     def normalize_attributes(self, raw_attributes: Dict[str, Any]) -> Dict[str, Any]:
         """Simulates data cleanup and calculation (e.g., adding DEPTH)."""
         normalized = raw_attributes.copy()
@@ -125,6 +124,41 @@ class FieldDataImportWizard:
             "normalized_data_staging": normalized_data,
             "import_error_report": error_report
         }
+
+    def upload_normalized_data(self, normalized_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Mocks inserting the batch of cleaned, normalized data into the database
+        using the central get_db() context manager.
+
+        Args:
+            normalized_data: List of normalized data points ready for database insertion
+
+        Returns:
+            Dictionary containing:
+                - status: SUCCESS or FAILURE
+                - count: Number of records processed
+                - message: Status message or error details
+        """
+        if not normalized_data:
+            return {"status": "SUCCESS", "count": 0, "message": "No data to upload."}
+
+        try:
+            # NOTE: The real implementation would construct a bulk INSERT statement here.
+            with get_db() as conn:
+                # Mock execution of the bulk insert
+                logger.info(f"MOCK DB UPLOAD: Executing bulk INSERT for {len(normalized_data)} points.")
+                # conn.execute(bulk_insert_stmt)
+                # conn.commit()
+                pass
+
+            return {
+                "status": "SUCCESS",
+                "count": len(normalized_data),
+                "message": "Data staged and uploaded successfully."
+            }
+        except Exception as e:
+            logger.error(f"FATAL UPLOAD ERROR: Failed to insert data into database: {e}")
+            return {"status": "FAILURE", "error": str(e)}
 
 # --- Example Execution ---
 if __name__ == '__main__':

@@ -1,23 +1,16 @@
 """
-Tests for GKGSyncService - Phase 33: Project Override Layer
+Tests for GKGSyncService - Phase 33: Project Override Layer (Refactored for Omega 2)
 """
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from services.gkg_sync_service import GKGSyncService
 
 
 @pytest.fixture
-def mock_db_url():
-    """Provide a mock database URL for testing."""
-    return "postgresql://test:test@localhost:5432/test_db"
-
-
-@pytest.fixture
-def gkg_service(mock_db_url):
-    """Create a GKGSyncService instance with mocked database."""
-    with patch('services.gkg_sync_service.create_engine'):
-        service = GKGSyncService(mock_db_url)
-        return service
+def gkg_service():
+    """Create a GKGSyncService instance (now uses centralized DB connection management)."""
+    service = GKGSyncService()
+    return service
 
 
 class TestProjectOverrideLayer:
@@ -144,28 +137,9 @@ class TestMappingResolution:
 class TestServiceInitialization:
     """Test suite for service initialization."""
 
-    def test_service_initialization(self, mock_db_url):
-        """Test that the service initializes correctly."""
-        with patch('services.gkg_sync_service.create_engine') as mock_engine:
-            service = GKGSyncService(mock_db_url)
+    def test_service_initialization(self):
+        """Test that the service initializes correctly with centralized DB management."""
+        service = GKGSyncService()
 
-            # Verify engine was created with correct parameters
-            mock_engine.assert_called_once_with(
-                mock_db_url,
-                pool_size=5,
-                max_overflow=10
-            )
-
-            # Verify graph client was initialized
-            assert service.graph_client is not None
-
-    def test_get_connection_context_manager(self, gkg_service):
-        """Test that connection context manager works correctly."""
-        mock_conn = MagicMock()
-        gkg_service.engine.connect = MagicMock(return_value=mock_conn)
-
-        with gkg_service._get_connection() as conn:
-            assert conn == mock_conn
-
-        # Verify connection was closed
-        mock_conn.close.assert_called_once()
+        # Verify graph client was initialized
+        assert service.graph_client is not None

@@ -42,6 +42,7 @@ ssm_mappings = Table(
     Column('conditions', JSONB, nullable=False, default={}),
 
     Column('priority', Integer, default=100, index=True, comment='Higher number wins tie-breaks.'),
+    Column('is_active', Boolean, default=True, comment='Flag to enable/disable mappings without deletion'),
 
     # CAD Output Components
     Column('cad_layer', String(100), nullable=False),
@@ -64,6 +65,17 @@ ssm_rulesets = Table(
     Column('configuration', JSONB, nullable=False, default={}),
 
     comment='Defines sets of automation rules for mappings.'
+)
+
+# 5. Snapshots Table (Version Control / Audit Trail)
+ssm_snapshots = Table(
+    'ssm_snapshots', SSM_METADATA,
+    Column('id', String(36), primary_key=True, comment='UUID for the snapshot'),
+    Column('version_name', String(255), nullable=False, comment='User-friendly version identifier'),
+    Column('timestamp', String(50), nullable=False, comment='ISO timestamp of snapshot creation'),
+    Column('user_id', Integer, nullable=False, comment='ID of the user who created the snapshot'),
+    Column('configuration_jsonb', JSONB, nullable=False, comment='Immutable JSON blob of the entire SSM configuration'),
+    comment='Stores immutable snapshots of the entire standards configuration for version control and audit.'
 )
 
 if __name__ == '__main__':
