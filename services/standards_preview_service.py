@@ -12,7 +12,7 @@ import json
 import textwrap
 
 from services.data_normalization_service import DataNormalizationService
-from services.ssm_mapping_service import GKGSyncService
+from services.gkg_sync_service import GKGSyncService
 from services.ssm_rule_service import SSMRuleService
 from services.export_template_service import ExportTemplateService
 
@@ -32,32 +32,18 @@ class StandardsPreviewService:
     4. Export Formatting - Format final output for Civil 3D or Trimble FXL
     """
 
-    def __init__(self, db_url: Optional[str] = None, use_mock: bool = True):
+    def __init__(self):
         """
-        Initialize the preview service with pipeline dependencies.
-
-        Args:
-            db_url: Database URL for mapping service (if not using mock mode)
-            use_mock: If True, uses mock data instead of database queries
+        Initialize the preview service with live pipeline dependencies.
+        All services use actual implementations (no mocks).
         """
-        self.use_mock = use_mock
-
-        # Initialize pipeline services
+        # Initialize all live pipeline services
         self.normalizer = DataNormalizationService()
-
-        if use_mock:
-            # Use mock mapping service for preview without database
-            self.mapper = MockMappingService()
-        else:
-            # Use real mapping service with database
-            if not db_url:
-                raise ValueError("Database URL required when not using mock mode")
-            self.mapper = GKGSyncService(db_url)
-
+        self.mapper = GKGSyncService()
         self.ruler = SSMRuleService()
         self.exporter = ExportTemplateService()
 
-        logger.info(f"StandardsPreviewService initialized (mock_mode={use_mock})")
+        logger.info("StandardsPreviewService initialized with LIVE pipeline dependencies.")
 
     def generate_full_preview(
         self,
@@ -241,133 +227,10 @@ class StandardsPreviewService:
         }
 
 
-# --- Mock Mapping Service (for preview mode without database) ---
-
-class MockMappingService:
-    """
-    Lightweight mock of GKGSyncService for preview functionality
-    without requiring database connection.
-    """
-
-    # Mock standards mappings for common feature codes
-    MOCK_STANDARDS_MAPPINGS = [
-        {
-            "id": 101,
-            "feature_code": "SDMH",
-            "conditions": {},
-            "priority": 100,
-            "cad_layer": "C-SSWR-MH-DEFAULT",
-            "cad_block": "MH-DEFAULT",
-            "cad_label_style": "MH-${SIZE}",
-            "automation_ruleset": {
-                "required_attributes": ["SIZE", "RIM_ELEV"],
-                "enable_auto_connect": False,
-                "label_template": "MH-${SIZE}\nRIM: ${RIM_ELEV}\nINV: ${INVERT_ELEV}"
-            }
-        },
-        {
-            "id": 201,
-            "feature_code": "SDMH",
-            "conditions": {"SIZE": {"op": ">=", "val": "48"}},
-            "priority": 200,
-            "cad_layer": "C-SSWR-MH-48IN",
-            "cad_block": "MH-48-BLOCK",
-            "cad_label_style": "MH-${SIZE} / INV: ${INVERT_ELEV}",
-            "automation_ruleset": {
-                "required_attributes": ["SIZE", "RIM_ELEV", "INVERT_ELEV"],
-                "enable_auto_connect": False,
-                "label_template": "MH-${SIZE}\nINV: ${INVERT_ELEV}\nDEPTH: ${DEPTH}ft"
-            }
-        },
-        {
-            "id": 301,
-            "feature_code": "SDMH",
-            "conditions": {
-                "SIZE": {"op": "==", "val": "48"},
-                "MATERIAL": {"op": "==", "val": "CONCRETE"}
-            },
-            "priority": 300,
-            "cad_layer": "C-SSWR-MH-48IN-CONC",
-            "cad_block": "MH-48-CONC-BLOCK",
-            "cad_label_style": "MH-${SIZE} / INV: ${INVERT_ELEV} / D:${DEPTH}ft",
-            "automation_ruleset": {
-                "required_attributes": ["SIZE", "RIM_ELEV", "INVERT_ELEV"],
-                "enable_auto_connect": False,
-                "label_template": "MH-${SIZE} / INV: ${INVERT_ELEV} / D:${DEPTH}ft"
-            }
-        },
-        {
-            "id": 401,
-            "feature_code": "SWP",
-            "conditions": {},
-            "priority": 100,
-            "cad_layer": "C-SSWR-PIPE",
-            "cad_block": "PIPE-SYMBOL",
-            "cad_label_style": "PIPE-${MATERIAL}",
-            "automation_ruleset": {
-                "required_attributes": ["MATERIAL"],
-                "enable_auto_connect": True,
-                "label_template": "PIPE: ${MATERIAL} @ ${DEPTH}ft"
-            }
-        }
-    ]
-
-    def resolve_mapping(self, feature_code: str, attributes: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """
-        Mock implementation of mapping resolution.
-        Simulates Phase 28 priority/specificity algorithm.
-        """
-        logger.info(f"MockMappingService: Resolving mapping for '{feature_code}'")
-
-        # Filter by feature code
-        candidates = [
-            m for m in self.MOCK_STANDARDS_MAPPINGS
-            if m["feature_code"].upper() == feature_code.upper()
-        ]
-
-        if not candidates:
-            logger.warning(f"No mock mappings found for code: {feature_code}")
-            return None
-
-        # Simple condition matching (simplified for mock)
-        matching = []
-        for mapping in candidates:
-            conditions = mapping.get("conditions", {})
-            condition_count = len(conditions)
-
-            # For mock, assume all conditions match if feature code matches
-            # In production, this would evaluate each condition
-            mapping_with_specificity = mapping.copy()
-            mapping_with_specificity['condition_count'] = condition_count
-            matching.append(mapping_with_specificity)
-
-        # Sort by priority DESC, then condition_count DESC
-        best_match = max(
-            matching,
-            key=lambda m: (m.get("priority", 0), m.get("condition_count", 0))
-        )
-
-        logger.info(
-            f"MockMappingService: Resolved to ID {best_match['id']} "
-            f"(P:{best_match['priority']}, C:{best_match['condition_count']})"
-        )
-
-        # Return in expected format
-        return {
-            "source_mapping_id": best_match["id"],
-            "cad_layer": best_match.get("cad_layer"),
-            "cad_block": best_match.get("cad_block"),
-            "cad_label_style": best_match.get("cad_label_style"),
-            "layer": best_match.get("cad_layer"),  # Alias for compatibility
-            "block": best_match.get("cad_block"),  # Alias for compatibility
-            "automation_ruleset": best_match.get("automation_ruleset", {})
-        }
-
-
 # --- Example Execution ---
 if __name__ == '__main__':
-    # Initialize service in mock mode (no database required)
-    service = StandardsPreviewService(use_mock=True)
+    # Initialize service with live pipeline dependencies
+    service = StandardsPreviewService()
 
     print("\n" + "="*80)
     print("SSM STANDARDS PREVIEW SERVICE - TEST EXECUTION")

@@ -3,7 +3,7 @@ Comprehensive unit tests for StandardsPreviewService.
 
 Tests cover:
 - Full pipeline orchestration (normalization -> mapping -> rules -> export)
-- Mock mode operation (no database required)
+- Live service integration (using mock data within services)
 - Multiple export formats (Civil 3D, Trimble FXL)
 - Error handling and recovery
 - Pipeline logging and status tracking
@@ -14,7 +14,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, Any
 
-from services.standards_preview_service import StandardsPreviewService, MockMappingService
+from services.standards_preview_service import StandardsPreviewService
 
 
 # ============================================================================
@@ -23,69 +23,8 @@ from services.standards_preview_service import StandardsPreviewService, MockMapp
 
 @pytest.fixture
 def preview_service():
-    """Create StandardsPreviewService instance in mock mode."""
-    return StandardsPreviewService(use_mock=True)
-
-
-@pytest.fixture
-def mock_mapping_service():
-    """Create MockMappingService instance."""
-    return MockMappingService()
-
-
-# ============================================================================
-# Mock Mapping Service Tests
-# ============================================================================
-
-class TestMockMappingService:
-    """Tests for the MockMappingService component."""
-
-    def test_resolve_mapping_basic(self, mock_mapping_service):
-        """Test basic mapping resolution for SDMH feature code."""
-        result = mock_mapping_service.resolve_mapping("SDMH", {})
-
-        assert result is not None
-        assert result["source_mapping_id"] is not None
-        assert "cad_layer" in result
-        assert "cad_block" in result
-
-    def test_resolve_mapping_case_insensitive(self, mock_mapping_service):
-        """Test that feature code matching is case-insensitive."""
-        result_lower = mock_mapping_service.resolve_mapping("sdmh", {})
-        result_upper = mock_mapping_service.resolve_mapping("SDMH", {})
-
-        assert result_lower is not None
-        assert result_upper is not None
-        assert result_lower["source_mapping_id"] == result_upper["source_mapping_id"]
-
-    def test_resolve_mapping_priority_sorting(self, mock_mapping_service):
-        """Test that highest priority mapping is selected."""
-        # SDMH has multiple mappings with priorities 100, 200, 300
-        result = mock_mapping_service.resolve_mapping("SDMH", {"SIZE": 48})
-
-        # Should select the highest priority (300), which is mapping ID 301
-        assert result["source_mapping_id"] == 301
-
-    def test_resolve_mapping_unknown_code(self, mock_mapping_service):
-        """Test that unknown feature codes return None."""
-        result = mock_mapping_service.resolve_mapping("UNKNOWN_CODE", {})
-
-        assert result is None
-
-    def test_resolve_mapping_includes_automation_ruleset(self, mock_mapping_service):
-        """Test that resolved mapping includes automation_ruleset."""
-        result = mock_mapping_service.resolve_mapping("SDMH", {})
-
-        assert result is not None
-        assert "automation_ruleset" in result
-        assert isinstance(result["automation_ruleset"], dict)
-
-    def test_resolve_mapping_pipe_feature(self, mock_mapping_service):
-        """Test mapping resolution for pipe feature with auto-connect."""
-        result = mock_mapping_service.resolve_mapping("SWP", {})
-
-        assert result is not None
-        assert result["automation_ruleset"]["enable_auto_connect"] is True
+    """Create StandardsPreviewService instance with live services."""
+    return StandardsPreviewService()
 
 
 # ============================================================================
@@ -308,7 +247,7 @@ class TestErrorHandling:
     @patch('services.standards_preview_service.SSMRuleService')
     def test_rule_execution_exception_handling(self, mock_rule_class):
         """Test handling of exceptions in rule execution step."""
-        service = StandardsPreviewService(use_mock=True)
+        service = StandardsPreviewService()
 
         # Configure mock to raise exception
         mock_instance = Mock()
@@ -401,34 +340,19 @@ class TestPipelineIntegration:
 class TestInitialization:
     """Tests for service initialization."""
 
-    def test_initialization_mock_mode(self):
-        """Test initialization in mock mode."""
-        service = StandardsPreviewService(use_mock=True)
+    def test_initialization_creates_all_services(self):
+        """Test initialization creates all required services."""
+        service = StandardsPreviewService()
 
-        assert service.use_mock is True
-        assert isinstance(service.mapper, MockMappingService)
         assert service.normalizer is not None
+        assert service.mapper is not None
         assert service.ruler is not None
         assert service.exporter is not None
-
-    def test_initialization_requires_db_url_in_real_mode(self):
-        """Test that real mode requires database URL."""
-        with pytest.raises(ValueError, match="Database URL required"):
-            StandardsPreviewService(use_mock=False)
-
-    @patch('services.standards_preview_service.GKGSyncService')
-    def test_initialization_real_mode_with_db_url(self, mock_gkg_service):
-        """Test initialization in real mode with database URL."""
-        db_url = "postgresql://user:pass@localhost/db"
-        service = StandardsPreviewService(db_url=db_url, use_mock=False)
-
-        assert service.use_mock is False
-        mock_gkg_service.assert_called_once_with(db_url)
 
     @patch('services.standards_preview_service.logger')
     def test_initialization_logging(self, mock_logger):
         """Test that initialization is logged."""
-        service = StandardsPreviewService(use_mock=True)
+        service = StandardsPreviewService()
 
         # Verify logging occurred
         assert mock_logger.info.called

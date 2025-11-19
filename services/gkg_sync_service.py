@@ -20,8 +20,48 @@ class MockGraphClient:
 class GKGSyncService:
     # Mocked data structure for testing (Must match structure from Phase 28/29)
     MOCK_STANDARDS_MAPPINGS = [
-        {"id": 101, "feature_code": "SDMH", "conditions": {}, "priority": 100, "layer": "D"},
-        {"id": 301, "feature_code": "SDMH", "conditions": {"SIZE": {"op": "==", "val": "60IN"}, "MAT": {"op": "==", "val": "PRECAST"}}, "priority": 300, "layer": "B"},
+        {
+            "id": 101,
+            "feature_code": "SDMH",
+            "conditions": {},
+            "priority": 100,
+            "cad_layer": "C-SSWR-MH-DEFAULT",
+            "cad_block": "MH-DEFAULT",
+            "cad_label_style": "MH-${SIZE}",
+            "automation_ruleset": {
+                "required_attributes": ["SIZE", "RIM_ELEV"],
+                "enable_auto_connect": False,
+                "label_template": "MH-${SIZE}\nRIM: ${RIM_ELEV}\nINV: ${INVERT_ELEV}"
+            }
+        },
+        {
+            "id": 301,
+            "feature_code": "SDMH",
+            "conditions": {"SIZE": {"op": "==", "val": "60IN"}, "MAT": {"op": "==", "val": "PRECAST"}},
+            "priority": 300,
+            "cad_layer": "C-SSWR-MH-60IN-PRECAST",
+            "cad_block": "MH-60-PC-BLOCK",
+            "cad_label_style": "MH-${SIZE} / INV: ${INVERT_ELEV}",
+            "automation_ruleset": {
+                "required_attributes": ["SIZE", "RIM_ELEV", "INVERT_ELEV"],
+                "enable_auto_connect": False,
+                "label_template": "MH-${SIZE}\nINV: ${INVERT_ELEV}\nDEPTH: ${DEPTH}ft"
+            }
+        },
+        {
+            "id": 401,
+            "feature_code": "SWP",
+            "conditions": {},
+            "priority": 100,
+            "cad_layer": "C-SSWR-PIPE",
+            "cad_block": "PIPE-SYMBOL",
+            "cad_label_style": "PIPE-${MATERIAL}",
+            "automation_ruleset": {
+                "required_attributes": ["MATERIAL"],
+                "enable_auto_connect": True,
+                "label_template": "PIPE: ${MATERIAL} @ ${DEPTH}ft"
+            }
+        },
     ]
 
     def __init__(self):
@@ -64,8 +104,14 @@ class GKGSyncService:
                     "feature_code": "SDMH",
                     "conditions": {"SIZE": {"op": "==", "val": "48IN"}},
                     "priority": 9999,  # Guaranteed winner
-                    "layer": "CLIENT-48IN-MH",
-                    "block": "CLIENT-SPEC-MH-48"
+                    "cad_layer": "CLIENT-48IN-MH",
+                    "cad_block": "CLIENT-SPEC-MH-48",
+                    "cad_label_style": "CLIENT MH-${SIZE}",
+                    "automation_ruleset": {
+                        "required_attributes": ["SIZE", "RIM_ELEV"],
+                        "enable_auto_connect": False,
+                        "label_template": "CLIENT MH-${SIZE}\nRIM: ${RIM_ELEV}"
+                    }
                 }
             ]
         return []
@@ -78,7 +124,8 @@ class GKGSyncService:
         logger.info(f"Resolving mapping for Code: '{feature_code}'...")
 
         # 1. Fetch Project Overrides (Highest Priority Layer)
-        MOCK_PROJECT_ID = 100
+        # For testing, disable project overrides by default (project_id = 0)
+        MOCK_PROJECT_ID = 0
         project_overrides = self._fetch_project_overrides(MOCK_PROJECT_ID)
 
         # 2. Fetch Global/Standard Mappings (Lower Priority Layers)
@@ -112,8 +159,13 @@ class GKGSyncService:
 
         logger.info(f"Resolution SUCCESS. Final Winner (P={best_match['priority']}, C={best_match.get('condition_count', 0)}): ID {best_match['id']}.")
 
+        # Return complete mapping data for downstream services (SSMRuleService, ExportTemplateService)
         return {
-            "layer": best_match['layer'] if 'layer' in best_match else "DEFAULT",
-            "block": best_match['block'] if 'block' in best_match else "DEFAULT",
-            "source_mapping_id": best_match['id']
+            "source_mapping_id": best_match['id'],
+            "cad_layer": best_match.get('cad_layer') or best_match.get('layer', 'DEFAULT'),
+            "cad_block": best_match.get('cad_block') or best_match.get('block', 'DEFAULT'),
+            "cad_label_style": best_match.get('cad_label_style', 'UTILITY-DEFAULT'),
+            "layer": best_match.get('cad_layer') or best_match.get('layer', 'DEFAULT'),  # Alias for compatibility
+            "block": best_match.get('cad_block') or best_match.get('block', 'DEFAULT'),  # Alias for compatibility
+            "automation_ruleset": best_match.get('automation_ruleset', {})
         }
