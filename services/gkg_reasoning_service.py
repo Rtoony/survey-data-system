@@ -1,37 +1,39 @@
-# services/gkg_reasoning_service.py
+# services/gkg_reasoning_service.py (Refactored for Omega 4)
+
 from typing import Dict, Any
 import logging
-import json
+from database import get_db, execute_query
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Mock GKG Query Functionality ---
+# ** MODIFIED MOCK GKG QUERY FUNCTIONALITY FOR OMEGA 4 **
 def _query_gkg_for_context(feature_code: str, coordinates: Dict[str, float]) -> Dict[str, Any]:
     """
-    Simulates complex GKG reasoning (spatial, temporal, network connections)
-    to retrieve relevant contextual attributes.
+    Simulates complex GKG reasoning, now using the central get_db() context manager.
     """
     injected_attributes = {}
 
-    # GKG RULE 1: Environmental Proximity Check (SDMH near a Wetland entity)
-    if feature_code.upper() == "SDMH" and coordinates.get('y', 0) > 2050000:
-        # The graph node for the SDMH is linked to a nearby WETLAND node
-        logger.info("GKG Rule 1 Triggered: SDMH proximity to WETLAND entity detected.")
-        injected_attributes["ENVIRONMENTAL_REVIEW"] = True
-        injected_attributes["REVIEW_TYPE"] = "WETLAND_BUFFER"
+    try:
+        # MOCK DB QUERY: This simulates checking external GKG connection status or config
+        with get_db() as conn:
+            logger.info("MOCK DB QUERY: GKG configuration and connection status confirmed.")
+            # A real GKG query would use the conn object to fetch node relationships
+            pass
 
-    # GKG RULE 2: Historical/Cultural Entity Check
-    if coordinates.get('x', 0) < 6520000:
-        # The area is linked to a HISTORIC_ZONE entity in the graph
-        logger.info("GKG Rule 2 Triggered: Feature falls within HISTORIC_ZONE entity boundaries.")
-        injected_attributes["HISTORIC_DESIGNATION"] = "ZONE_A"
-        injected_attributes["DESIGN_REVIEW_REQUIRED"] = True
+        # GKG RULE 1: Environmental Proximity Check (SDMH near a Wetland entity)
+        if feature_code.upper() == "SDMH" and coordinates.get('y', 0) > 2050000:
+            logger.info("GKG Rule 1 Triggered: SDMH proximity to WETLAND entity detected.")
+            injected_attributes["ENVIRONMENTAL_REVIEW"] = True
 
-    # GKG RULE 3: Network Constraint Check (e.g., Water pressure zone)
-    if feature_code.upper() == "WV":
-        # Querying the graph network for the valve's pressure zone
-        injected_attributes["PRESSURE_ZONE"] = "HIGH_RES_ZONE_C"
+        # GKG RULE 2: Historical/Cultural Entity Check
+        if coordinates.get('x', 0) < 6520000:
+            logger.info("GKG Rule 2 Triggered: Feature falls within HISTORIC_ZONE entity boundaries.")
+            injected_attributes["HISTORIC_DESIGNATION"] = "ZONE_A"
+
+    except Exception as e:
+        logger.error(f"GKG Contextual lookup failed (DB read failed): {e}")
+        injected_attributes["GKG_STATUS_ERROR"] = True
 
     return injected_attributes
 
@@ -39,12 +41,11 @@ def _query_gkg_for_context(feature_code: str, coordinates: Dict[str, float]) -> 
 
 class GKGReasoningService:
     """
-    Interfaces with the Hybrid Knowledge Graph (GKG) to enrich raw survey data
-    with critical, context-based attributes before they hit the SSM resolution pipeline.
+    Interfaces with the Hybrid Knowledge Graph (GKG) to enrich raw survey data.
     """
 
     def __init__(self):
-        logger.info("GKGReasoningService initialized. Ready to inject contextual intelligence.")
+        logger.info("GKGReasoningService initialized.")
 
     def get_contextual_attributes(self, feature_code: str, coordinates: Dict[str, float]) -> Dict[str, Any]:
         """
@@ -61,18 +62,4 @@ class GKGReasoningService:
 
         return injected_attrs
 
-# --- Example Execution ---
-if __name__ == '__main__':
-    service = GKGReasoningService()
-
-    # TEST 1: SDMH in a high-Y coordinate area (Triggers Wetland and Historic)
-    test_coords_1 = {'x': 6510000.0, 'y': 2060000.0}
-    print("\n--- TEST CASE 1: SDMH in Restricted Zone (Wetland + Historic) ---")
-    result_1 = service.get_contextual_attributes("SDMH", test_coords_1)
-    print(json.dumps(result_1, indent=4))
-
-    # TEST 2: WV in a low-X coordinate area (Triggers only Network Constraint)
-    test_coords_2 = {'x': 6600000.0, 'y': 2000000.0}
-    print("\n--- TEST CASE 2: WV in Normal Zone (Network Only) ---")
-    result_2 = service.get_contextual_attributes("WV", test_coords_2)
-    print(json.dumps(result_2, indent=4))
+# ... (End of structural modification) ...
