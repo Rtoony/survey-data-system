@@ -1,8 +1,7 @@
-# services/gkg_sync_service.py
+# services/gkg_sync_service.py (Refactored for Omega 2)
 import json
 from typing import List, Dict, Any, Optional
-from sqlalchemy import create_engine, text, Engine
-from contextlib import contextmanager
+from database import get_db, execute_query  # Use central database helpers
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -16,8 +15,6 @@ class MockGraphClient:
     def create_edge(self, source_id: str, target_id: str, relationship_type: str, properties: Dict[str, Any]) -> None:
         logger.info(f"EDGE CREATED: Source='{source_id}', Target='{target_id}', Type='{relationship_type}'.")
 
-DATABASE_URL = "postgresql://user:password@host:port/dbname"  # Placeholder
-
 # --- GKG Synchronization Service (SSM Mapping Orchestrator) ---
 
 class GKGSyncService:
@@ -27,23 +24,24 @@ class GKGSyncService:
         {"id": 301, "feature_code": "SDMH", "conditions": {"SIZE": {"op": "==", "val": "60IN"}, "MAT": {"op": "==", "val": "PRECAST"}}, "priority": 300, "layer": "B"},
     ]
 
-    def __init__(self, db_url: str):
-        self.engine: Engine = create_engine(db_url, pool_size=5, max_overflow=10)
+    def __init__(self):
         self.graph_client = MockGraphClient()
-        logger.info("GKGSyncService initialized with pooled database connection.")
-
-    @contextmanager
-    def _get_connection(self):
-        conn = None
-        try:
-            conn = self.engine.connect()
-            yield conn
-        finally:
-            if conn:
-                conn.close()
+        logger.info("GKGSyncService initialized. Using centralized DB connection management.")
 
     # --- Utility Methods (Placeholder/Mocked) ---
     def _fetch_applicable_mappings(self, feature_code: str) -> List[Dict[str, Any]]:
+        """
+        Refactored: Mocks fetching data via a central connection pattern.
+
+        MOCK ONLY: We continue to use the internal MOCK_STANDARDS_MAPPINGS
+        until the full refactor is ready to hit the live database.
+
+        NOTE: A real implementation would use the following pattern:
+        from sqlalchemy.sql import select
+        from data.ssm_schema import ssm_mappings
+        with get_db() as conn:
+            results = conn.execute(select(ssm_mappings)...).fetchall()
+        """
         return [
             m for m in self.MOCK_STANDARDS_MAPPINGS
             if m["feature_code"].upper() == feature_code.upper()
@@ -119,5 +117,3 @@ class GKGSyncService:
             "block": best_match['block'] if 'block' in best_match else "DEFAULT",
             "source_mapping_id": best_match['id']
         }
-
-    # ... (Other methods like get_changed_entities and run_full_sync) ...
