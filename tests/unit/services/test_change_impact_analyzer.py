@@ -7,96 +7,8 @@ import unittest
 import json
 import logging
 from unittest.mock import MagicMock, patch, call
-from services.change_impact_analyzer import (
-    ChangeImpactAnalyzerService,
-    MockGKGSyncService
-)
-
-
-class TestMockGKGSyncService(unittest.TestCase):
-    """Test suite for MockGKGSyncService resolution logic."""
-
-    def setUp(self):
-        """Initialize the mock service before each test."""
-        self.mock_service = MockGKGSyncService()
-
-    def test_resolve_mapping_small_feature_baseline(self):
-        """Test resolution for small feature without override (baseline behavior)."""
-        result = self.mock_service.resolve_mapping(
-            feature_code="SDMH",
-            attributes={"SIZE": 30}
-        )
-
-        self.assertEqual(result["source_mapping_id"], 100)
-        self.assertEqual(result["layer"], "DEFAULT_LAYER")
-        self.assertEqual(result["priority"], 100)
-
-    def test_resolve_mapping_large_feature_baseline(self):
-        """Test resolution for large feature without override (baseline behavior)."""
-        result = self.mock_service.resolve_mapping(
-            feature_code="SDMH",
-            attributes={"SIZE": 60}
-        )
-
-        self.assertEqual(result["source_mapping_id"], 300)
-        self.assertEqual(result["layer"], "OLD_LAYER_LARGE")
-        self.assertEqual(result["priority"], 300)
-
-    def test_resolve_mapping_large_feature_with_override(self):
-        """Test resolution for large feature with proposed override applied."""
-        proposed_override = {
-            "id": 500,
-            "priority": 9999
-        }
-
-        result = self.mock_service.resolve_mapping(
-            feature_code="SDMH",
-            attributes={"SIZE": 60},
-            proposed_override=proposed_override
-        )
-
-        self.assertEqual(result["source_mapping_id"], 500)
-        self.assertEqual(result["layer"], "NEW_LAYER")
-        self.assertEqual(result["priority"], 9999)
-
-    def test_resolve_mapping_small_feature_with_override_not_applied(self):
-        """Test that override does not apply to small features (SIZE <= 40)."""
-        proposed_override = {
-            "id": 500,
-            "priority": 9999
-        }
-
-        result = self.mock_service.resolve_mapping(
-            feature_code="SDMH",
-            attributes={"SIZE": 30},
-            proposed_override=proposed_override
-        )
-
-        # Override should not apply, should get default layer
-        self.assertEqual(result["source_mapping_id"], 100)
-        self.assertEqual(result["layer"], "DEFAULT_LAYER")
-
-    def test_resolve_mapping_boundary_condition_size_40(self):
-        """Test resolution at boundary condition (SIZE = 40, not > 40)."""
-        result = self.mock_service.resolve_mapping(
-            feature_code="SDMH",
-            attributes={"SIZE": 40}
-        )
-
-        # SIZE must be > 40, so 40 should use default layer
-        self.assertEqual(result["source_mapping_id"], 100)
-        self.assertEqual(result["layer"], "DEFAULT_LAYER")
-
-    def test_resolve_mapping_boundary_condition_size_41(self):
-        """Test resolution just above boundary (SIZE = 41, which is > 40)."""
-        result = self.mock_service.resolve_mapping(
-            feature_code="SDMH",
-            attributes={"SIZE": 41}
-        )
-
-        # SIZE = 41 > 40, should use large layer
-        self.assertEqual(result["source_mapping_id"], 300)
-        self.assertEqual(result["layer"], "OLD_LAYER_LARGE")
+from services.change_impact_analyzer import ChangeImpactAnalyzerService
+from services.gkg_sync_service import GKGSyncService
 
 
 class TestChangeImpactAnalyzerService(unittest.TestCase):
@@ -107,14 +19,19 @@ class TestChangeImpactAnalyzerService(unittest.TestCase):
         self.service = ChangeImpactAnalyzerService()
 
     def test_service_initialization(self):
-        """Test that the service initializes correctly with mock dependencies."""
+        """Test that the service initializes correctly with live dependencies."""
         self.assertIsNotNone(self.service.mapping_service)
-        self.assertIsInstance(self.service.mapping_service, MockGKGSyncService)
+        self.assertIsInstance(self.service.mapping_service, GKGSyncService)
 
-    def test_mock_fetch_historical_data(self):
-        """Test that mock historical data is fetched correctly."""
+    @patch('services.change_impact_analyzer.get_db')
+    def test_fetch_historical_data(self, mock_get_db):
+        """Test that historical data is fetched correctly using get_db()."""
+        # Mock the database context manager
+        mock_conn = MagicMock()
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
         project_id = 123
-        data = self.service._mock_fetch_historical_data(project_id)
+        data = self.service._fetch_historical_data(project_id)
 
         self.assertEqual(len(data), 5)
         self.assertTrue(all('id' in point for point in data))
@@ -122,9 +39,14 @@ class TestChangeImpactAnalyzerService(unittest.TestCase):
         self.assertTrue(all('SIZE' in point for point in data))
         self.assertTrue(all(point['project_id'] == project_id for point in data))
 
-    def test_mock_historical_data_size_distribution(self):
-        """Test that mock data includes both large and small features."""
-        data = self.service._mock_fetch_historical_data(123)
+    @patch('services.change_impact_analyzer.get_db')
+    def test_historical_data_size_distribution(self, mock_get_db):
+        """Test that historical data includes both large and small features."""
+        # Mock the database context manager
+        mock_conn = MagicMock()
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
+        data = self.service._fetch_historical_data(123)
 
         large_features = [p for p in data if p['SIZE'] > 40]
         small_features = [p for p in data if p['SIZE'] <= 40]
@@ -132,8 +54,13 @@ class TestChangeImpactAnalyzerService(unittest.TestCase):
         self.assertEqual(len(large_features), 3)  # 60, 48, 72
         self.assertEqual(len(small_features), 2)  # 36, 30
 
-    def test_analyze_change_impact_high_impact(self):
+    @patch('services.change_impact_analyzer.get_db')
+    def test_analyze_change_impact_high_impact(self, mock_get_db):
         """Test impact analysis with a rule that affects large features (critical impact at 60%)."""
+        # Mock the database context manager
+        mock_conn = MagicMock()
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
         proposed_conditions = json.dumps({"SIZE": {"operator": ">", "value": 40}})
 
         report = self.service.analyze_change_impact(
@@ -165,7 +92,7 @@ class TestChangeImpactAnalyzerService(unittest.TestCase):
             self.assertIn("old_layer", affected)
             self.assertIn("new_layer", affected)
             self.assertEqual(affected["new_mapping_id"], 500)
-            self.assertEqual(affected["new_layer"], "NEW_LAYER")
+            self.assertEqual(affected["new_layer"], "PROPOSED_NEW_LAYER")
 
     def test_analyze_change_impact_no_impact(self):
         """Test impact analysis with a rule that affects no features (zero impact)."""
@@ -174,7 +101,7 @@ class TestChangeImpactAnalyzerService(unittest.TestCase):
         # we can simulate zero impact by making override not apply
         # Let's mock the service to always return baseline
 
-        with patch.object(self.service, '_mock_fetch_historical_data') as mock_fetch:
+        with patch.object(self.service, '_fetch_historical_data') as mock_fetch:
             # Use only small features
             mock_fetch.return_value = [
                 {"id": 1, "feature_code": "SDMH", "SIZE": 30, "project_id": 123},
@@ -198,7 +125,7 @@ class TestChangeImpactAnalyzerService(unittest.TestCase):
 
     def test_analyze_change_impact_partial_impact(self):
         """Test impact analysis with moderate/partial impact."""
-        with patch.object(self.service, '_mock_fetch_historical_data') as mock_fetch:
+        with patch.object(self.service, '_fetch_historical_data') as mock_fetch:
             # Use mix: 2 large, 8 small -> 20% impact
             mock_fetch.return_value = [
                 {"id": i, "feature_code": "SDMH", "SIZE": 60 if i <= 2 else 30, "project_id": 123}
@@ -236,7 +163,7 @@ class TestChangeImpactAnalyzerService(unittest.TestCase):
 
     def test_analyze_change_impact_empty_dataset(self):
         """Test impact analysis with empty historical dataset."""
-        with patch.object(self.service, '_mock_fetch_historical_data') as mock_fetch:
+        with patch.object(self.service, '_fetch_historical_data') as mock_fetch:
             mock_fetch.return_value = []
 
             proposed_conditions = json.dumps({"SIZE": {"operator": ">", "value": 40}})
@@ -288,8 +215,13 @@ class TestChangeImpactAnalyzerService(unittest.TestCase):
         self.assertIn("HIGH RISK", self.service._generate_recommendation(59.99))
         self.assertIn("CRITICAL RISK", self.service._generate_recommendation(60.0))
 
-    def test_impact_report_includes_attributes(self):
+    @patch('services.change_impact_analyzer.get_db')
+    def test_impact_report_includes_attributes(self, mock_get_db):
         """Test that impact report includes point attributes for traceability."""
+        # Mock the database context manager
+        mock_conn = MagicMock()
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
         proposed_conditions = json.dumps({"SIZE": {"operator": ">", "value": 40}})
 
         report = self.service.analyze_change_impact(
@@ -305,8 +237,13 @@ class TestChangeImpactAnalyzerService(unittest.TestCase):
             # Attributes should include SIZE but not id/project_id/feature_code
             self.assertIn("SIZE", affected["attributes"])
 
-    def test_analyze_change_impact_report_structure(self):
+    @patch('services.change_impact_analyzer.get_db')
+    def test_analyze_change_impact_report_structure(self, mock_get_db):
         """Test that the impact report has all required fields."""
+        # Mock the database context manager
+        mock_conn = MagicMock()
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
         proposed_conditions = json.dumps({"SIZE": {"operator": ">", "value": 40}})
 
         report = self.service.analyze_change_impact(

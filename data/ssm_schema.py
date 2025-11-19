@@ -67,7 +67,18 @@ ssm_rulesets = Table(
     comment='Defines sets of automation rules for mappings.'
 )
 
-# 5. Snapshots Table (Version Control / Audit Trail)
+# 5. Standards Lookup Table (Data Normalization Support)
+ssm_standards_lookup = Table(
+    'ssm_standards_lookup', SSM_METADATA,
+    Column('id', Integer, primary_key=True),
+    Column('raw_value', String(100), nullable=False, index=True, comment='Raw/abbreviated value from survey data'),
+    Column('standardized_value', String(100), nullable=False, comment='Standardized/expanded value'),
+    Column('category', String(50), comment='Category of standardization (e.g., MATERIAL, TYPE)'),
+    UniqueConstraint('raw_value', 'category', name='uq_ssm_standard_raw_category'),
+    comment='Lookup table for standardizing abbreviated or variant survey attribute values.'
+)
+
+# 6. Snapshots Table (Version Control / Audit Trail)
 ssm_snapshots = Table(
     'ssm_snapshots', SSM_METADATA,
     Column('id', String(36), primary_key=True, comment='UUID for the snapshot'),
