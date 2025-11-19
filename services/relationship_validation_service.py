@@ -17,7 +17,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tools.db_utils import execute_query, get_db
+from database import get_db, execute_query as db_execute_query
+from tools.db_utils import execute_query
 from typing import Dict, List, Optional, Any
 import json
 from datetime import datetime

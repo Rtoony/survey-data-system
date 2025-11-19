@@ -13,15 +13,17 @@ BASE_URL = "http://localhost:5000"
 
 class TestStandardProtection:
     """Test suite for Standard Protection workflow"""
-    
-    def __init__(self):
+
+    def setup_method(self):
+        """Setup method called before each test method"""
         self.session = requests.Session()
         self.test_project_id = None
         self.test_set_id = None
         self.test_standard_note_id = None
         self.test_modified_note_id = None
-    
-    def setup(self):
+        self._setup_test_data()
+
+    def _setup_test_data(self):
         """Setup test data - find or create test project, set, and standard note"""
         print("\n=== Setting up test data ===")
         

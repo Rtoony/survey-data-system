@@ -8,7 +8,29 @@ This module provides:
 - Common test utilities
 """
 
+# ============================================================================
+# EVENTLET SAFETY: Prevent monkey-patching deadlocks during testing
+# ============================================================================
+# This MUST be at the very top before any other imports
+import sys
 import os
+
+# Disable eventlet monkey-patching in test environment
+os.environ['EVENTLET_NO_GREENDNS'] = 'yes'
+
+# If eventlet is imported, ensure it doesn't monkey-patch
+try:
+    import eventlet
+    # Check if already patched - if so, we can't unpatch safely
+    if eventlet.patcher.is_monkey_patched('socket'):
+        print("WARNING: eventlet has already monkey-patched socket. Tests may hang.")
+    else:
+        # Prevent future patching
+        eventlet.monkey_patch = lambda *args, **kwargs: None
+except ImportError:
+    # eventlet not installed, no problem
+    pass
+
 import pytest
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -49,11 +71,16 @@ def db_connection(db_config):
     """
     Create a database connection for the entire test session.
     This is reused across all tests for better performance.
+
+    If connection fails, skips the test gracefully instead of crashing.
     """
-    conn = psycopg2.connect(**db_config)
-    conn.autocommit = False
-    yield conn
-    conn.close()
+    try:
+        conn = psycopg2.connect(**db_config)
+        conn.autocommit = False
+        yield conn
+        conn.close()
+    except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
+        pytest.skip(f"Skipping integration test: No local DB available ({str(e)[:100]})")
 
 
 @pytest.fixture
@@ -81,8 +108,17 @@ def db_transaction(db_connection):
 
 @contextmanager
 def get_test_cursor(db_config):
-    """Context manager for database cursor in tests."""
-    conn = psycopg2.connect(**db_config)
+    """
+    Context manager for database cursor in tests.
+
+    If connection fails, skips the test gracefully instead of crashing.
+    """
+    try:
+        conn = psycopg2.connect(**db_config)
+    except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
+        pytest.skip(f"Skipping integration test: No local DB available ({str(e)[:100]})")
+        return  # This won't be reached, but makes the control flow clear
+
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         yield cursor
@@ -101,13 +137,33 @@ def get_test_cursor(db_config):
 
 @pytest.fixture(scope="session")
 def app():
-    """Create Flask application for testing."""
-    # Import app here to avoid circular imports
-    from app import app as flask_app
+    """
+    Create Flask application for testing using the factory pattern.
 
-    flask_app.config['TESTING'] = True
+    Note: Legacy routes from app.py are NOT automatically loaded in this fixture.
+    The app.py module creates its own app instance and cannot easily be integrated
+    into the factory pattern without major refactoring.
+
+    Tests should focus on the new blueprint-based architecture.
+    Integration tests that need legacy routes should use the real app.py module.
+
+    EVENTLET SAFETY:
+    - This fixture does NOT start any background workers
+    - SocketIO is not initialized (use mock_socketio fixture if needed)
+    - No async tasks are spawned during app creation
+    """
+    # Import the factory function
+    from app import create_app
+
+    # Create app instance with testing config
+    flask_app = create_app(config_name='testing')
+
+    # Additional test-specific config
     flask_app.config['WTF_CSRF_ENABLED'] = False
     flask_app.config['SERVER_NAME'] = 'localhost:5000'
+
+    # Ensure no background workers are started
+    flask_app.config['TESTING'] = True
 
     return flask_app
 
@@ -299,6 +355,127 @@ def mock_dxf_doc():
     return mock
 
 
+@pytest.fixture
+def mock_db_cursor():
+    """
+    Mock database cursor that prevents ANY network calls.
+    Returns sample data for testing without database connection.
+    """
+    mock_cursor = MagicMock()
+
+    # Sample project data
+    sample_projects = [
+        {
+            'project_id': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+            'project_name': 'Test Project 1',
+            'project_number': 'PRJ-001',
+            'client_name': 'Test Client',
+            'description': 'Sample project for testing',
+            'quality_score': 0.85,
+            'tags': '{}',
+            'attributes': '{}'
+        },
+        {
+            'project_id': 'a1b2c3d4-58cc-4372-a567-0e02b2c3d480',
+            'project_name': 'Test Project 2',
+            'project_number': 'PRJ-002',
+            'client_name': 'Another Client',
+            'description': 'Another sample project',
+            'quality_score': 0.75,
+            'tags': '{}',
+            'attributes': '{}'
+        }
+    ]
+
+    # Configure mock cursor to return sample data
+    mock_cursor.fetchall.return_value = sample_projects
+    mock_cursor.fetchone.return_value = sample_projects[0] if sample_projects else None
+    mock_cursor.rowcount = len(sample_projects)
+    mock_cursor.description = [('project_id',), ('project_name',), ('project_number',)]
+
+    # Mock execute method
+    mock_cursor.execute.return_value = None
+
+    return mock_cursor
+
+
+@pytest.fixture
+def mock_db_connection(mock_db_cursor):
+    """
+    Mock database connection that prevents ANY network calls.
+    Returns a mock connection with a mock cursor.
+    """
+    mock_conn = MagicMock()
+    mock_conn.cursor.return_value = mock_db_cursor
+    mock_conn.autocommit = True
+    mock_conn.commit.return_value = None
+    mock_conn.rollback.return_value = None
+    mock_conn.close.return_value = None
+
+    return mock_conn
+
+
+@pytest.fixture
+def mock_db(monkeypatch, mock_db_connection):
+    """
+    Mock the entire database module to prevent ANY network calls during tests.
+    This patches psycopg2.connect and database.get_db.
+
+    Usage in tests:
+        def test_something(mock_db):
+            # No actual database calls will be made
+            result = some_function_that_uses_db()
+            assert result is not None
+    """
+    # Mock psycopg2.connect
+    monkeypatch.setattr('psycopg2.connect', lambda **kwargs: mock_db_connection)
+
+    # Mock database.get_db context manager
+    @contextmanager
+    def mock_get_db():
+        yield mock_db_connection
+
+    monkeypatch.setattr('database.get_db', mock_get_db)
+
+    # Mock database.execute_query
+    def mock_execute_query(query, params=None):
+        # Return sample data based on query content
+        if 'projects' in query.lower():
+            return [
+                {
+                    'project_id': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+                    'project_name': 'Test Project 1',
+                    'project_number': 'PRJ-001'
+                }
+            ]
+        return []
+
+    monkeypatch.setattr('database.execute_query', mock_execute_query)
+
+    return mock_db_connection
+
+
+@pytest.fixture
+def mock_socketio():
+    """
+    Mock Flask-SocketIO for testing without eventlet dependency.
+
+    IMPORTANT: Uses async_mode='threading' to avoid eventlet deadlocks.
+    This fixture prevents any eventlet monkey-patching during tests.
+    """
+    mock = MagicMock()
+
+    # Configure to use threading mode (not eventlet)
+    mock.async_mode = 'threading'
+
+    # Mock common SocketIO methods
+    mock.emit.return_value = None
+    mock.send.return_value = None
+    mock.on.return_value = lambda f: f  # Decorator passthrough
+
+    return mock
+
+
 # ============================================================================
 # File System Fixtures
 # ============================================================================
@@ -380,7 +557,25 @@ def pytest_configure(config):
 
 
 def pytest_collection_modifyitems(config, items):
-    """Automatically mark tests based on their location."""
+    """
+    Automatically mark tests based on their location.
+
+    Also performs eventlet safety checks during collection.
+    """
+    # Check for eventlet monkey-patching after collection
+    try:
+        import eventlet
+        if eventlet.patcher.is_monkey_patched('socket'):
+            import warnings
+            warnings.warn(
+                "Eventlet has monkey-patched socket! Tests may deadlock. "
+                "Check imports in test files for eventlet.monkey_patch() calls.",
+                RuntimeWarning,
+                stacklevel=2
+            )
+    except ImportError:
+        pass  # eventlet not installed
+
     for item in items:
         # Mark tests in unit/ as unit tests
         if "unit" in str(item.fspath):

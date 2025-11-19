@@ -223,7 +223,7 @@ def find_duplicates():
         return jsonify({'error': str(e)}), 500
 
 
-@ai_search_bp.route('/autocomplete', methods='GET'])
+@ai_search_bp.route('/autocomplete', methods=['GET'])
 def autocomplete():
     """
     Semantic autocomplete suggestions

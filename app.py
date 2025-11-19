@@ -1,19 +1,38 @@
 """
 ACAD-GIS Schema Explorer & Data Manager
 A companion tool for viewing and managing your Supabase database
+
+LEGACY MODULE: This module contains route definitions and will be refactored in Phase 2.
+Infrastructure (extensions, config) has been moved to app/ package.
 """
 
-from flask import Flask, render_template, jsonify, request, send_file, make_response, redirect, url_for, session
-from flask.json.provider import DefaultJSONProvider
-from flask_cors import CORS
-from flask_caching import Cache
+# ============================================================================
+# IMPORTS FROM REFACTORED ARCHITECTURE
+# ============================================================================
+# Import the Flask app instance created by the application factory
+# This app will be provided by run.py when this module is loaded
+# For now, we create a temporary reference that will be replaced
+try:
+    # Try to get app from the calling context (when loaded by run.py)
+    from __main__ import app
+except ImportError:
+    # Fallback: create app using factory (for direct execution or imports)
+    from app import create_app
+    app = create_app()
+
+# Import extensions from the new architecture
+from app.extensions import cache
+
+# ============================================================================
+# STANDARD LIBRARY AND THIRD-PARTY IMPORTS
+# ============================================================================
+from flask import render_template, jsonify, request, send_file, make_response, redirect, url_for, session
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
 import csv
 import io
 import uuid
-from dotenv import load_dotenv
 from contextlib import contextmanager
 from werkzeug.utils import secure_filename
 from dxf_importer import DXFImporter
@@ -33,61 +52,6 @@ from services.project_mapping_service import ProjectMappingService
 from project_mapping_registry import get_supported_entity_types
 from database import get_db, execute_query, DB_CONFIG
 from pyproj import Transformer
-
-# Load environment variables (works with both .env file and Replit secrets)
-load_dotenv()
-
-# Import auth blueprint
-from auth.routes import auth_bp
-
-# Import GraphRAG and AI API blueprints
-from api.graphrag_routes import graphrag_bp
-from api.ai_search_routes import ai_search_bp
-from api.quality_routes import quality_bp
-
-# Custom JSON provider for datetime, date, Decimal, and UUID objects (Flask 2.2+)
-class CustomJSONProvider(DefaultJSONProvider):
-    def default(self, o):  # type: ignore[override]
-        if isinstance(o, (datetime, date)):
-            return o.isoformat()
-        if isinstance(o, Decimal):
-            return float(o)
-        if isinstance(o, uuid.UUID):
-            return str(o)
-        return super().default(o)
-
-app = Flask(__name__)
-app.json = CustomJSONProvider(app)
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-CORS(app)
-
-# Configure caching
-app.config['CACHE_TYPE'] = 'SimpleCache'  # In-memory cache
-app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes default
-cache = Cache(app)
-
-# Register authentication blueprint
-app.register_blueprint(auth_bp)
-
-# Register GraphRAG and AI API blueprints
-app.register_blueprint(graphrag_bp)
-app.register_blueprint(ai_search_bp)
-app.register_blueprint(quality_bp)
-
-# Configure session settings for security
-app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
-app.config['SESSION_COOKIE_HTTPONLY'] = os.getenv('SESSION_COOKIE_HTTPONLY', 'true').lower() == 'true'
-app.config['SESSION_COOKIE_SAMESITE'] = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
-app.config['PERMANENT_SESSION_LIFETIME'] = int(os.getenv('SESSION_TIMEOUT_HOURS', '8')) * 3600  # Convert hours to seconds
-
-# Debug: Check if DB credentials are available
-print("=" * 50)
-print("Database Configuration Status:")
-print(f"DB_HOST: {'SET' if DB_CONFIG['host'] else 'MISSING'}")
-print(f"DB_USER: {'SET' if DB_CONFIG['user'] else 'MISSING'}")
-print(f"DB_NAME: {'SET' if DB_CONFIG['database'] else 'MISSING'}")
-print(f"DB_PASSWORD: {'SET' if DB_CONFIG['password'] else 'MISSING'}")
-print("=" * 50)
 
 # ============================================
 # ACTIVE PROJECT & COORDINATE HELPERS
