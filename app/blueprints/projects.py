@@ -3,7 +3,7 @@ Projects Blueprint
 Handles all project-related routes including CRUD operations, survey points, and page rendering
 """
 from flask import Blueprint, render_template, jsonify, request, session
-from database import get_db, execute_query, DB_CONFIG
+from database import get_db, execute_query
 
 # Create the projects blueprint
 projects_bp = Blueprint('projects', __name__)
@@ -231,15 +231,15 @@ def create_project():
         if not project_name:
             return jsonify({'error': 'project_name is required'}), 400
 
-        # If no coordinate system specified, get the default (EPSG:2226)
-        if not default_coordinate_system_id:
-            from services.coordinate_system_service import CoordinateSystemService
-            crs_service = CoordinateSystemService(DB_CONFIG)
-            default_cs = crs_service.get_coordinate_system_by_epsg('EPSG:2226')
-            if default_cs:
-                default_coordinate_system_id = default_cs['system_id']
-
         with get_db() as conn:
+            # If no coordinate system specified, get the default (EPSG:2226)
+            if not default_coordinate_system_id:
+                from services.coordinate_system_service import CoordinateSystemService
+                crs_service = CoordinateSystemService({})
+                default_cs = crs_service.get_coordinate_system_by_epsg('EPSG:2226', conn)
+                if default_cs:
+                    default_coordinate_system_id = default_cs['system_id']
+
             with conn.cursor() as cur:
                 # If client_id is provided, fetch client_name from clients table
                 if client_id:
