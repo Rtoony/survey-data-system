@@ -58,7 +58,7 @@ import tempfile
 from weasyprint import HTML, CSS
 from services.project_mapping_service import ProjectMappingService
 from project_mapping_registry import get_supported_entity_types
-from database import get_db, execute_query, DB_CONFIG
+from database import get_db, execute_query
 from pyproj import Transformer
 
 # ============================================
@@ -8295,87 +8295,8 @@ def quality_dashboard_page():
 # ============================================
 # SURVEY STANDARDS MANAGER (SSM) API - PHASE 44
 # ============================================
-
-# Create SSM Blueprint
-from flask import Blueprint
-from sqlalchemy.sql import select
-from data.ssm_schema import ssm_feature_codes, ssm_attributes, ssm_mappings
-from app.db_session import get_db_connection
-import logging
-
-# Set up logging for SSM API
-ssm_logger = logging.getLogger('ssm_api')
-
-# Create a Blueprint for the Survey Standards Manager (SSM)
-ssm_bp = Blueprint('ssm_api', __name__, url_prefix='/api/v1/ssm')
-
-@ssm_bp.route('/feature_codes', methods=['GET'])
-def list_feature_codes():
-    """Retrieves the master list of all feature codes."""
-    try:
-        with get_db_connection() as conn:
-            stmt = select(ssm_feature_codes)
-            results = conn.execute(stmt).fetchall()
-            feature_codes = [dict(row._mapping) for row in results]
-            ssm_logger.info(f"Retrieved {len(feature_codes)} feature codes.")
-            return jsonify(feature_codes), 200
-    except Exception as e:
-        ssm_logger.error(f"Error listing feature codes: {e}")
-        return jsonify({"error": "Failed to retrieve feature codes."}), 500
-
-@ssm_bp.route('/attributes/<string:feature_code>', methods=['GET'])
-def list_attributes_for_code(feature_code):
-    """Retrieves attributes defined for a specific feature code."""
-    try:
-        with get_db_connection() as conn:
-            code_stmt = select(ssm_feature_codes.c.id).where(ssm_feature_codes.c.code == feature_code.upper())
-            code_id = conn.execute(code_stmt).scalar_one_or_none()
-            if not code_id:
-                return jsonify({"error": f"Feature code '{feature_code}' not found."}), 404
-            stmt = select(ssm_attributes).where(ssm_attributes.c.feature_code_id == code_id)
-            results = conn.execute(stmt).fetchall()
-            attributes = [dict(row._mapping) for row in results]
-            return jsonify(attributes), 200
-    except Exception as e:
-        ssm_logger.error(f"Error listing attributes for {feature_code}: {e}")
-        return jsonify({"error": "Failed to retrieve attributes."}), 500
-
-@ssm_bp.route('/mappings/<string:feature_code>', methods=['GET'])
-def list_mappings_for_code(feature_code):
-    """Retrieves all conditional mappings for a feature code."""
-    try:
-        with get_db_connection() as conn:
-            stmt = select(ssm_mappings).join(
-                ssm_feature_codes,
-                ssm_mappings.c.feature_code_id == ssm_feature_codes.c.id
-            ).where(ssm_feature_codes.c.code == feature_code.upper())
-            results = conn.execute(stmt).fetchall()
-            mappings = [dict(row._mapping) for row in results]
-            return jsonify(mappings), 200
-    except Exception as e:
-        ssm_logger.error(f"Error listing mappings for {feature_code}: {e}")
-        return jsonify({"error": "Failed to retrieve mappings."}), 500
-
-@ssm_bp.route('/mappings/all', methods=['GET'])
-def list_all_mappings():
-    """Retrieves all conditional mappings across all feature codes."""
-    try:
-        with get_db_connection() as conn:
-            stmt = select(ssm_mappings)
-            results = conn.execute(stmt).fetchall()
-            mappings = [dict(row._mapping) for row in results]
-            ssm_logger.info(f"Retrieved all {len(mappings)} mappings.")
-            return jsonify(mappings), 200
-    except Exception as e:
-        ssm_logger.error(f"Error listing all mappings: {e}")
-        return jsonify({"error": "Failed to retrieve all mappings."}), 500
-
-# Register the SSM Blueprint
-try:
-    app.register_blueprint(ssm_bp)
-    print("✓ Survey Standards Manager (SSM) API routes registered at /api/v1/ssm")
-except Exception as e:
-    print(f"⚠ Could not register SSM API routes: {e}")
+# SSM Blueprint has been moved to app/blueprints/ssm.py
+# and is now registered in the application factory (app/__init__.py)
 
 # ============================================
 # CAD STANDARDS VOCABULARY API
