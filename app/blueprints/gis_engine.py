@@ -9,7 +9,7 @@ import uuid
 import json
 from psycopg2.extras import RealDictCursor
 
-from database import get_db, execute_query, DB_CONFIG
+from database import get_db, execute_query
 from dxf_importer import DXFImporter
 from dxf_exporter import DXFExporter
 from map_export_service import MapExportService
