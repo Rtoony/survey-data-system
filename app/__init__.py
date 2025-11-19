@@ -11,7 +11,6 @@ import os
 
 from app.extensions import cors, cache
 from app.config import config
-from database import DB_CONFIG
 from app.db_session import init_app as init_db_session
 
 
@@ -63,10 +62,7 @@ def create_app(config_name: str = None) -> Flask:
     # Debug: Print database configuration status
     print("=" * 50)
     print("Database Configuration Status:")
-    print(f"DB_HOST: {'SET' if DB_CONFIG['host'] else 'MISSING'}")
-    print(f"DB_USER: {'SET' if DB_CONFIG['user'] else 'MISSING'}")
-    print(f"DB_NAME: {'SET' if DB_CONFIG['database'] else 'MISSING'}")
-    print(f"DB_PASSWORD: {'SET' if DB_CONFIG['password'] else 'MISSING'}")
+    print(f"SQLAlchemy Engine: {'Initialized' if flask_app.config.get('SQLALCHEMY_DATABASE_URI') else 'MISSING'}")
     print("=" * 50)
 
     # Register blueprints

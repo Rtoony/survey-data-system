@@ -10,7 +10,8 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional, Dict, Any, List
 from flask import session, request, jsonify
-from database import execute_query
+from sqlalchemy import text
+from app.db_session import get_db_connection
 
 
 class AuthService:
@@ -40,22 +41,24 @@ class AuthService:
             return None
 
         try:
-            result = execute_query("""
-                SELECT
-                    user_id,
-                    replit_user_id,
-                    username,
-                    email,
-                    full_name,
-                    role,
-                    is_active,
-                    last_login,
-                    created_at
-                FROM users
-                WHERE user_id = %s AND is_active = true
-            """, (session['user_id'],))
+            with get_db_connection() as conn:
+                result = conn.execute(text("""
+                    SELECT
+                        user_id,
+                        replit_user_id,
+                        username,
+                        email,
+                        full_name,
+                        role,
+                        is_active,
+                        last_login,
+                        created_at
+                    FROM users
+                    WHERE user_id = :user_id AND is_active = true
+                """), {"user_id": session['user_id']})
 
-            return dict(result[0]) if result else None
+                row = result.fetchone()
+                return dict(row._mapping) if row else None
         except Exception as e:
             print(f"Error getting current user: {e}")
             return None
@@ -73,24 +76,26 @@ class AuthService:
         """
         expires_at = datetime.now() + timedelta(hours=self.session_timeout_hours)
 
-        result = execute_query("""
-            INSERT INTO user_sessions (
-                user_id,
-                session_token,
-                ip_address,
-                user_agent,
-                expires_at
-            ) VALUES (%s, %s, %s, %s, %s)
-            RETURNING session_id, created_at, expires_at
-        """, (
-            user_id,
-            session_token,
-            request.remote_addr,
-            request.headers.get('User-Agent'),
-            expires_at
-        ))
+        with get_db_connection() as conn:
+            result = conn.execute(text("""
+                INSERT INTO user_sessions (
+                    user_id,
+                    session_token,
+                    ip_address,
+                    user_agent,
+                    expires_at
+                ) VALUES (:user_id, :session_token, :ip_address, :user_agent, :expires_at)
+                RETURNING session_id, created_at, expires_at
+            """), {
+                "user_id": user_id,
+                "session_token": session_token,
+                "ip_address": request.remote_addr,
+                "user_agent": request.headers.get('User-Agent'),
+                "expires_at": expires_at
+            })
 
-        return dict(result[0]) if result else {}
+            row = result.fetchone()
+            return dict(row._mapping) if row else {}
 
     def update_session_activity(self, session_token: str) -> None:
         """
@@ -100,11 +105,12 @@ class AuthService:
             session_token: Flask session token
         """
         try:
-            execute_query("""
-                UPDATE user_sessions
-                SET last_activity = CURRENT_TIMESTAMP
-                WHERE session_token = %s AND is_active = true
-            """, (session_token,))
+            with get_db_connection() as conn:
+                conn.execute(text("""
+                    UPDATE user_sessions
+                    SET last_activity = CURRENT_TIMESTAMP
+                    WHERE session_token = :session_token AND is_active = true
+                """), {"session_token": session_token})
         except Exception as e:
             print(f"Error updating session activity: {e}")
 
@@ -116,11 +122,12 @@ class AuthService:
             session_token: Flask session token
         """
         try:
-            execute_query("""
-                UPDATE user_sessions
-                SET is_active = false
-                WHERE session_token = %s
-            """, (session_token,))
+            with get_db_connection() as conn:
+                conn.execute(text("""
+                    UPDATE user_sessions
+                    SET is_active = false
+                    WHERE session_token = :session_token
+                """), {"session_token": session_token})
         except Exception as e:
             print(f"Error invalidating session: {e}")
 
@@ -132,8 +139,10 @@ class AuthService:
             Number of sessions deleted
         """
         try:
-            result = execute_query("SELECT cleanup_expired_sessions()")
-            return result[0]['cleanup_expired_sessions'] if result else 0
+            with get_db_connection() as conn:
+                result = conn.execute(text("SELECT cleanup_expired_sessions()"))
+                row = result.fetchone()
+                return row[0] if row else 0
         except Exception as e:
             print(f"Error cleaning up sessions: {e}")
             return 0
@@ -235,45 +244,50 @@ class AuthService:
                               self.initial_admin_email and
                               email.lower() == self.initial_admin_email.lower())
 
-            # Check if this is the first user (becomes admin)
-            user_count = execute_query("SELECT COUNT(*) as count FROM users WHERE replit_user_id != 'initial-admin'")
-            is_first_user = user_count and user_count[0]['count'] == 0
+            with get_db_connection() as conn:
+                # Check if this is the first user (becomes admin)
+                count_result = conn.execute(text(
+                    "SELECT COUNT(*) as count FROM users WHERE replit_user_id != 'initial-admin'"
+                ))
+                count_row = count_result.fetchone()
+                is_first_user = count_row and count_row[0] == 0
 
-            default_role = 'ADMIN' if (is_initial_admin or is_first_user) else 'VIEWER'
+                default_role = 'ADMIN' if (is_initial_admin or is_first_user) else 'VIEWER'
 
-            # Create or update user
-            result = execute_query("""
-                INSERT INTO users (
-                    replit_user_id,
-                    username,
-                    email,
-                    full_name,
-                    role,
-                    last_login
-                ) VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-                ON CONFLICT (replit_user_id) DO UPDATE SET
-                    username = EXCLUDED.username,
-                    email = EXCLUDED.email,
-                    full_name = EXCLUDED.full_name,
-                    last_login = CURRENT_TIMESTAMP,
-                    updated_at = CURRENT_TIMESTAMP
-                RETURNING
-                    user_id,
-                    replit_user_id,
-                    username,
-                    email,
-                    full_name,
-                    role,
-                    is_active
-            """, (
-                str(replit_user['id']),
-                replit_user.get('username', ''),
-                replit_user.get('email', ''),
-                replit_user.get('name', replit_user.get('full_name', '')),
-                default_role
-            ))
+                # Create or update user
+                result = conn.execute(text("""
+                    INSERT INTO users (
+                        replit_user_id,
+                        username,
+                        email,
+                        full_name,
+                        role,
+                        last_login
+                    ) VALUES (:replit_user_id, :username, :email, :full_name, :role, CURRENT_TIMESTAMP)
+                    ON CONFLICT (replit_user_id) DO UPDATE SET
+                        username = EXCLUDED.username,
+                        email = EXCLUDED.email,
+                        full_name = EXCLUDED.full_name,
+                        last_login = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP
+                    RETURNING
+                        user_id,
+                        replit_user_id,
+                        username,
+                        email,
+                        full_name,
+                        role,
+                        is_active
+                """), {
+                    "replit_user_id": str(replit_user['id']),
+                    "username": replit_user.get('username', ''),
+                    "email": replit_user.get('email', ''),
+                    "full_name": replit_user.get('name', replit_user.get('full_name', '')),
+                    "role": default_role
+                })
 
-            return dict(result[0]) if result else None
+                row = result.fetchone()
+                return dict(row._mapping) if row else None
         except Exception as e:
             print(f"Error creating/updating user: {e}")
             return None
@@ -311,35 +325,37 @@ class AuthService:
         user_id = user['user_id'] if user else None
 
         try:
-            execute_query("""
-                INSERT INTO audit_log (
-                    user_id,
-                    username,
-                    action,
-                    table_name,
-                    record_id,
-                    project_id,
-                    old_values,
-                    new_values,
-                    ip_address,
-                    user_agent,
-                    success,
-                    error_message
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (
-                user_id,
-                username,
-                action,
-                table_name,
-                record_id,
-                project_id,
-                json.dumps(old_values) if old_values else None,
-                json.dumps(new_values) if new_values else None,
-                request.remote_addr if request else None,
-                request.headers.get('User-Agent') if request else None,
-                success,
-                error_message
-            ))
+            with get_db_connection() as conn:
+                conn.execute(text("""
+                    INSERT INTO audit_log (
+                        user_id,
+                        username,
+                        action,
+                        table_name,
+                        record_id,
+                        project_id,
+                        old_values,
+                        new_values,
+                        ip_address,
+                        user_agent,
+                        success,
+                        error_message
+                    ) VALUES (:user_id, :username, :action, :table_name, :record_id, :project_id,
+                              :old_values, :new_values, :ip_address, :user_agent, :success, :error_message)
+                """), {
+                    "user_id": user_id,
+                    "username": username,
+                    "action": action,
+                    "table_name": table_name,
+                    "record_id": record_id,
+                    "project_id": project_id,
+                    "old_values": json.dumps(old_values) if old_values else None,
+                    "new_values": json.dumps(new_values) if new_values else None,
+                    "ip_address": request.remote_addr if request else None,
+                    "user_agent": request.headers.get('User-Agent') if request else None,
+                    "success": success,
+                    "error_message": error_message
+                })
         except Exception as e:
             # Don't fail the main operation if audit logging fails
             print(f"Error creating audit log: {e}")
@@ -399,27 +415,63 @@ class AuthService:
         where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
         try:
-            result = execute_query(f"""
-                SELECT
-                    log_id,
-                    username,
-                    action,
-                    table_name,
-                    record_id,
-                    project_id,
-                    old_values,
-                    new_values,
-                    ip_address,
-                    success,
-                    error_message,
-                    timestamp
-                FROM audit_log
-                {where_clause}
-                ORDER BY timestamp DESC
-                LIMIT %s
-            """, params + [limit])
+            with get_db_connection() as conn:
+                # Build parameter dict
+                param_dict = {}
+                for i, param in enumerate(params):
+                    param_dict[f"param{i}"] = param
+                param_dict["limit"] = limit
 
-            return [dict(row) for row in result] if result else []
+                # Build query with named parameters
+                query_conditions = []
+                if user_id:
+                    query_conditions.append("user_id = :param0")
+                    idx = 1
+                else:
+                    idx = 0
+
+                if action:
+                    query_conditions.append(f"action = :param{idx}")
+                    idx += 1
+
+                if table_name:
+                    query_conditions.append(f"table_name = :param{idx}")
+                    idx += 1
+
+                if project_id:
+                    query_conditions.append(f"project_id = :param{idx}")
+                    idx += 1
+
+                if start_date:
+                    query_conditions.append(f"timestamp >= :param{idx}")
+                    idx += 1
+
+                if end_date:
+                    query_conditions.append(f"timestamp <= :param{idx}")
+
+                where_clause = f"WHERE {' AND '.join(query_conditions)}" if query_conditions else ""
+
+                result = conn.execute(text(f"""
+                    SELECT
+                        log_id,
+                        username,
+                        action,
+                        table_name,
+                        record_id,
+                        project_id,
+                        old_values,
+                        new_values,
+                        ip_address,
+                        success,
+                        error_message,
+                        timestamp
+                    FROM audit_log
+                    {where_clause}
+                    ORDER BY timestamp DESC
+                    LIMIT :limit
+                """), param_dict)
+
+                return [dict(row._mapping) for row in result]
         except Exception as e:
             print(f"Error querying audit logs: {e}")
             return []

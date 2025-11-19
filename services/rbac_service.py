@@ -5,7 +5,8 @@ Handles permission checking, role management, and project-level access control
 
 from typing import Optional, Dict, Any, List
 from enum import Enum
-from database import execute_query
+from sqlalchemy import text
+from app.db_session import get_db_connection
 
 
 class UserRole(str, Enum):
