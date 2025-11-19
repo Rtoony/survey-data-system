@@ -45,6 +45,13 @@ TOOL_MANIFEST: Dict[str, Dict[str, Any]] = {
         "phase": 39,
         "is_specialized": True
     },
+    "GKG_CLUSTERING": {
+        "title": "Cross-Project Asset Clustering Tool",
+        "description": "Leverage the Knowledge Graph to find similar physical assets across all projects for anomaly detection.",
+        "api_route": "/api/v1/gkg/clustering",
+        "phase": 40,
+        "is_specialized": True
+    },
 
     # --- Documentation & Compliance Tools ---
     "NOTE_MANAGER": {
