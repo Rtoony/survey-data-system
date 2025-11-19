@@ -92,6 +92,7 @@ def get_active_project():
             SELECT p.*
             FROM projects p
             WHERE p.project_id = %s
+              AND p.is_archived = FALSE
         """
         projects = execute_query(project_query, (active_project_id,))
 
@@ -99,7 +100,7 @@ def get_active_project():
             session.pop('active_project_id', None)
             return jsonify({
                 'active_project': None,
-                'message': 'Previously selected project no longer exists'
+                'message': 'Previously selected project no longer exists or has been archived'
             })
 
         project = projects[0]
@@ -130,16 +131,17 @@ def set_active_project():
                 'message': 'Active project cleared'
             })
 
-        # Verify project exists
+        # Verify project exists and is not archived
         project_query = """
             SELECT p.*
             FROM projects p
             WHERE p.project_id = %s
+              AND p.is_archived = FALSE
         """
         projects = execute_query(project_query, (project_id,))
 
         if not projects:
-            return jsonify({'error': 'Project not found'}), 404
+            return jsonify({'error': 'Project not found or is archived'}), 404
 
         # Set active project in session
         session['active_project_id'] = str(project_id)
@@ -158,15 +160,55 @@ def set_active_project():
 
 @projects_bp.route('/api/projects')
 def get_projects():
-    """Get all projects"""
+    """
+    Get all active (non-archived) projects.
+
+    To retrieve archived projects, use /api/projects/archived
+    """
+    try:
+        # Query parameter to optionally include archived projects
+        include_archived = request.args.get('include_archived', 'false').lower() == 'true'
+
+        if include_archived:
+            query = """
+                SELECT p.*
+                FROM projects p
+                ORDER BY p.created_at DESC
+            """
+        else:
+            # Default: exclude archived projects
+            query = """
+                SELECT p.*
+                FROM projects p
+                WHERE p.is_archived = FALSE
+                ORDER BY p.created_at DESC
+            """
+
+        projects = execute_query(query)
+        return jsonify({'projects': projects})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@projects_bp.route('/api/projects/archived')
+def get_archived_projects():
+    """
+    Get all archived projects.
+
+    This is useful for compliance reporting and restoration workflows.
+    """
     try:
         query = """
             SELECT p.*
             FROM projects p
-            ORDER BY p.created_at DESC
+            WHERE p.is_archived = TRUE
+            ORDER BY p.archived_at DESC
         """
         projects = execute_query(query)
-        return jsonify({'projects': projects})
+        return jsonify({
+            'archived_projects': projects,
+            'count': len(projects)
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -239,34 +281,150 @@ def create_project():
 
 @projects_bp.route('/api/projects/<project_id>', methods=['DELETE'])
 def delete_project(project_id):
-    """Delete a project"""
+    """
+    Archive a project (soft delete) with audit trail.
+
+    This implements the first stage of the two-stage deletion process.
+    The project is marked as archived but NOT permanently deleted.
+
+    Returns HTTP 202 Accepted to indicate asynchronous/soft deletion.
+    """
     try:
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                # Delete project (cascades will handle related entities)
-                cur.execute('DELETE FROM projects WHERE project_id = %s', (project_id,))
-                conn.commit()
-        return jsonify({'success': True})
+        from services.project_management import ProjectManagementService
+        from flask import request as flask_request
+
+        # Extract user context from session/request
+        user_id = session.get('user_id')
+        username = session.get('username', 'Anonymous')
+        ip_address = flask_request.remote_addr
+        user_agent = flask_request.headers.get('User-Agent')
+
+        # Call the archive service
+        result = ProjectManagementService.archive_project(
+            project_id=project_id,
+            user_id=user_id,
+            username=username,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+
+        if not result['success']:
+            return jsonify(result), 400
+
+        # Return 202 Accepted (async processing/soft delete)
+        return jsonify({
+            'success': True,
+            'archived': True,
+            'project_id': result['project_id'],
+            'archived_at': result['archived_at'],
+            'message': result['message']
+        }), 202
+
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@projects_bp.route('/api/projects/<project_id>/unarchive', methods=['POST'])
+def unarchive_project(project_id):
+    """
+    Restore an archived project.
+
+    This allows undoing an accidental archive operation or reactivating
+    a project that was archived prematurely.
+    """
+    try:
+        from services.project_management import ProjectManagementService
+        from flask import request as flask_request
+
+        # Extract user context from session/request
+        user_id = session.get('user_id')
+        username = session.get('username', 'Anonymous')
+        ip_address = flask_request.remote_addr
+        user_agent = flask_request.headers.get('User-Agent')
+
+        # Call the unarchive service
+        result = ProjectManagementService.unarchive_project(
+            project_id=project_id,
+            user_id=user_id,
+            username=username,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+
+        if not result['success']:
+            return jsonify(result), 400
+
+        return jsonify({
+            'success': True,
+            'restored': True,
+            'project_id': result['project_id'],
+            'restored_at': result['restored_at'],
+            'message': result['message']
+        }), 200
+
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@projects_bp.route('/api/projects/<project_id>/archive-status')
+def get_project_archive_status(project_id):
+    """
+    Check the archive status of a project.
+
+    Returns information about whether the project is archived,
+    when it was archived, and how long until it's eligible for permanent deletion.
+    """
+    try:
+        from services.project_management import ProjectManagementService
+
+        result = ProjectManagementService.get_project_archive_status(project_id)
+        return jsonify(result), 200
+
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @projects_bp.route('/api/projects/<project_id>')
 def get_project(project_id):
-    """Get a single project by ID"""
+    """
+    Get a single project by ID.
+
+    By default, only returns non-archived projects.
+    Use ?include_archived=true to retrieve archived projects.
+    """
     try:
-        query = """
-            SELECT
-                p.*,
-                c.client_name as client_name_from_ref
-            FROM projects p
-            LEFT JOIN clients c ON p.client_id = c.client_id
-            WHERE p.project_id = %s
-        """
+        include_archived = request.args.get('include_archived', 'false').lower() == 'true'
+
+        if include_archived:
+            query = """
+                SELECT
+                    p.*,
+                    c.client_name as client_name_from_ref
+                FROM projects p
+                LEFT JOIN clients c ON p.client_id = c.client_id
+                WHERE p.project_id = %s
+            """
+        else:
+            query = """
+                SELECT
+                    p.*,
+                    c.client_name as client_name_from_ref
+                FROM projects p
+                LEFT JOIN clients c ON p.client_id = c.client_id
+                WHERE p.project_id = %s
+                  AND p.is_archived = FALSE
+            """
+
         result = execute_query(query, (project_id,))
 
         if not result:
-            return jsonify({'error': 'Project not found'}), 404
+            return jsonify({'error': 'Project not found or is archived'}), 404
 
         project_data = result[0]
         if project_data.get('client_name_from_ref'):

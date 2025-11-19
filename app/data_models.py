@@ -113,11 +113,20 @@ projects = Table(
     Column('updated_at', DateTime, nullable=False, server_default=TIMESTAMP_DEFAULT,
            comment='Timestamp when record was last updated'),
 
+    # Archiving & Deletion (Two-Stage Deletion Process)
+    Column('is_archived', Boolean, nullable=False, server_default=text('false'),
+           comment='Soft delete flag - project is archived but not permanently deleted'),
+    Column('archived_at', DateTime, nullable=True,
+           comment='Timestamp when project was archived'),
+    Column('archived_by', UUID, nullable=True,
+           comment='User ID who archived the project'),
+
     # Indexes
     Index('idx_projects_name', 'project_name'),
     Index('idx_projects_number', 'project_number'),
     Index('idx_projects_entity', 'entity_id'),
     Index('idx_projects_search', 'search_vector', postgresql_using='gin'),
+    Index('idx_projects_archived', 'is_archived'),
 
     comment='Master table for civil engineering projects'
 )
