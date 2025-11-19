@@ -1,5 +1,8 @@
-# services/data_normalization_service.py
-from typing import Dict, Any
+# services/data_normalization_service.py (Refactored for Omega 4)
+from typing import Dict, Any, List
+from sqlalchemy.sql import select
+from database import get_db, execute_query
+from data.ssm_schema import ssm_standards_lookup
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -7,25 +10,56 @@ logger = logging.getLogger(__name__)
 
 class DataNormalizationService:
     """
-    Cleans, standardizes, and performs derived calculations on raw survey attributes
-    to prepare them for the conditional mapping engine.
+    Cleans, standardizes, and performs derived calculations on raw survey attributes.
+    Now uses live database tables for standardization lookups.
     """
-
-    # Mock lookup for common standardization and conversions
-    STANDARD_LOOKUP = {
-        "CONC": "CONCRETE",
-        "PVC": "PVC",
-        "BRICK": "BRICK",
-        "STEEL": "STEEL",
-        "DI": "DUCTILE_IRON",
-        "CI": "CAST_IRON"
-    }
 
     # Attributes that should be aggressively converted to uppercase strings for matching
     STRING_MATCH_KEYS = ["MATERIAL", "TYPE", "OWNER", "JURISDICTION"]
 
     def __init__(self):
-        logger.info("DataNormalizationService initialized.")
+        # Placeholder dictionary for the Standardization Tables
+        self.standard_lookup: Dict[str, str] = {}
+        self.__load_lookup_tables()
+        logger.info("DataNormalizationService initialized. Lookups loaded via centralized DB.")
+
+    def __load_lookup_tables(self):
+        """
+        Refactored: Loads the standardization dictionary from a live database table
+        (ssm_standards_lookup) during service initialization.
+        """
+        try:
+            # Query the database for standardization lookups
+            with get_db() as conn:
+                logger.info("Loading standardization lookups from ssm.ssm_standards_lookup.")
+                query = select(
+                    ssm_standards_lookup.c.raw_value,
+                    ssm_standards_lookup.c.standardized_value
+                )
+                result = conn.execute(query)
+                rows = result.fetchall()
+
+                # Build the lookup dictionary from database results
+                for row in rows:
+                    raw_value = row.raw_value.strip().upper()
+                    standardized_value = row.standardized_value.strip().upper()
+                    self.standard_lookup[raw_value] = standardized_value
+
+                logger.info(f"Loaded {len(self.standard_lookup)} standardization lookups from database.")
+
+        except Exception as e:
+            logger.warning(f"Could not load standardization lookups from DB: {e}")
+            logger.warning("Falling back to minimal hardcoded lookup table.")
+            # Ensure the service can still function with a minimal/empty lookup if DB fails
+            # MOCK DATA REMAINS until live DB integration is finalized
+            self.standard_lookup = {
+                "CONC": "CONCRETE",
+                "PVC": "PVC",
+                "BRICK": "BRICK",
+                "STEEL": "STEEL",
+                "DI": "DUCTILE_IRON",
+                "CI": "CAST_IRON"
+            }
 
     def _clean_text_attributes(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
         """Performs standardization and case conversion on specific string attributes."""
@@ -34,8 +68,8 @@ class DataNormalizationService:
             if key in attributes and isinstance(attributes[key], str):
                 raw_value = attributes[key].strip().upper()
 
-                # Check for common typos/abbreviations
-                attributes[key] = self.STANDARD_LOOKUP.get(raw_value, raw_value)
+                # Use the live-loaded lookup table
+                attributes[key] = self.standard_lookup.get(raw_value, raw_value)
 
         return attributes
 

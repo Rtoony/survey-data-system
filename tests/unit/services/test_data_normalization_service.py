@@ -11,7 +11,7 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from typing import Dict, Any
 
 from services.data_normalization_service import DataNormalizationService
@@ -22,9 +22,43 @@ from services.data_normalization_service import DataNormalizationService
 # ============================================================================
 
 @pytest.fixture
-def normalization_service():
-    """Create DataNormalizationService instance."""
-    return DataNormalizationService()
+def mock_db_connection():
+    """Mock database connection for testing."""
+    # Create a mock result that simulates database rows
+    mock_result = MagicMock()
+
+    # Simulate rows returned from ssm_standards_lookup table
+    class MockRow:
+        def __init__(self, raw_value, standardized_value):
+            self.raw_value = raw_value
+            self.standardized_value = standardized_value
+
+    mock_rows = [
+        MockRow("CONC", "CONCRETE"),
+        MockRow("PVC", "PVC"),
+        MockRow("BRICK", "BRICK"),
+        MockRow("STEEL", "STEEL"),
+        MockRow("DI", "DUCTILE_IRON"),
+        MockRow("CI", "CAST_IRON"),
+    ]
+
+    mock_result.fetchall.return_value = mock_rows
+
+    # Create a mock connection
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value = mock_result
+    mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+    mock_conn.__exit__ = MagicMock(return_value=False)
+
+    return mock_conn
+
+@pytest.fixture
+def normalization_service(mock_db_connection):
+    """Create DataNormalizationService instance with mocked database."""
+    with patch('services.data_normalization_service.get_db') as mock_get_db:
+        mock_get_db.return_value = mock_db_connection
+        service = DataNormalizationService()
+    return service
 
 
 # ============================================================================
@@ -376,16 +410,20 @@ class TestEdgeCases:
         assert result["DEPTH"] == 0.0  # Rounds to 0.00
 
     @patch('services.data_normalization_service.logger')
-    def test_logging_on_initialization(self, mock_logger, normalization_service):
+    @patch('services.data_normalization_service.get_db')
+    def test_logging_on_initialization(self, mock_get_db, mock_logger, mock_db_connection):
         """Test that initialization is logged."""
+        mock_get_db.return_value = mock_db_connection
         # Create a new instance to trigger the log
         service = DataNormalizationService()
         # Logger should have been called (already called in fixture too)
         assert mock_logger.info.called
 
     @patch('services.data_normalization_service.logger')
-    def test_logging_on_normalization(self, mock_logger):
+    @patch('services.data_normalization_service.get_db')
+    def test_logging_on_normalization(self, mock_get_db, mock_logger, mock_db_connection):
         """Test that normalization process is logged."""
+        mock_get_db.return_value = mock_db_connection
         service = DataNormalizationService()
         mock_logger.reset_mock()
 
@@ -401,3 +439,37 @@ class TestEdgeCases:
         info_calls = [call[0][0] for call in mock_logger.info.call_args_list]
         assert any("Starting attribute normalization" in call for call in info_calls)
         assert any("Normalization complete" in call for call in info_calls)
+
+    @patch('services.data_normalization_service.get_db')
+    def test_database_loading_success(self, mock_get_db, mock_db_connection):
+        """Test that standardization lookups are loaded from database on initialization."""
+        mock_get_db.return_value = mock_db_connection
+        service = DataNormalizationService()
+
+        # Verify lookups were loaded
+        assert len(service.standard_lookup) > 0
+        assert service.standard_lookup["CONC"] == "CONCRETE"
+        assert service.standard_lookup["DI"] == "DUCTILE_IRON"
+
+    @patch('services.data_normalization_service.logger')
+    @patch('services.data_normalization_service.get_db')
+    def test_database_loading_fallback(self, mock_get_db, mock_logger):
+        """Test that service falls back to hardcoded lookups if database fails."""
+        # Simulate database connection failure
+        mock_get_db.side_effect = Exception("Database connection failed")
+
+        service = DataNormalizationService()
+
+        # Verify warning was logged
+        warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
+        assert any("Could not load standardization lookups from DB" in call for call in warning_calls)
+        assert any("Falling back to minimal hardcoded lookup table" in call for call in warning_calls)
+
+        # Verify fallback lookups are available
+        assert len(service.standard_lookup) > 0
+        assert service.standard_lookup["CONC"] == "CONCRETE"
+
+        # Verify the service still works with fallback data
+        raw_attributes = {"MATERIAL": "conc"}
+        result = service.normalize_attributes(raw_attributes)
+        assert result["MATERIAL"] == "CONCRETE"
