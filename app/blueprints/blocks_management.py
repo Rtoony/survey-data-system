@@ -11,10 +11,29 @@ import tempfile
 from typing import Dict, List, Any
 from werkzeug.utils import secure_filename
 
-from database import get_db, execute_query, DB_CONFIG
+from database import get_db, execute_query
 from app.extensions import cache
 
 blocks_bp = Blueprint('blocks', __name__)
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def _get_db_config() -> Dict[str, str]:
+    """
+    Build database configuration dictionary for legacy extractor classes.
+    This recreates the DB_CONFIG format that extractor classes expect.
+    """
+    return {
+        'host': os.getenv('PGHOST') or os.getenv('DB_HOST'),
+        'port': os.getenv('PGPORT') or os.getenv('DB_PORT', '5432'),
+        'database': os.getenv('PGDATABASE') or os.getenv('DB_NAME', 'postgres'),
+        'user': os.getenv('PGUSER') or os.getenv('DB_USER', 'postgres'),
+        'password': os.getenv('PGPASSWORD') or os.getenv('DB_PASSWORD')
+    }
+
 
 # ============================================================================
 # PAGE ROUTES
@@ -247,7 +266,7 @@ def extract_blocks_from_dxf():
         import ezdxf
         from batch_block_extractor import BatchBlockExtractor
 
-        extractor = BatchBlockExtractor(DB_CONFIG)
+        extractor = BatchBlockExtractor(_get_db_config())
         extracted_blocks = []
         errors = []
 
@@ -372,7 +391,7 @@ def extract_cad_elements():
 
         from batch_cad_extractor import BatchCADExtractor
 
-        extractor = BatchCADExtractor(DB_CONFIG)
+        extractor = BatchCADExtractor(_get_db_config())
         extracted_elements = []
         errors = []
 

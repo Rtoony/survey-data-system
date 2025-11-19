@@ -7,12 +7,31 @@ from flask import Blueprint, render_template, jsonify, request, send_file, make_
 from typing import Dict, List, Any, Optional
 import csv
 import io
+import os
 import uuid
 from werkzeug.utils import secure_filename
-from database import get_db, execute_query, DB_CONFIG
+from database import get_db, execute_query
 from app.extensions import cache
 
 survey_codes_bp = Blueprint('survey_codes', __name__)
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def _get_db_config() -> Dict[str, str]:
+    """
+    Build database configuration dictionary for legacy parser classes.
+    This recreates the DB_CONFIG format that parser classes expect.
+    """
+    return {
+        'host': os.getenv('PGHOST') or os.getenv('DB_HOST'),
+        'port': os.getenv('PGPORT') or os.getenv('DB_PORT', '5432'),
+        'database': os.getenv('PGDATABASE') or os.getenv('DB_NAME', 'postgres'),
+        'user': os.getenv('PGUSER') or os.getenv('DB_USER', 'postgres'),
+        'password': os.getenv('PGPASSWORD') or os.getenv('DB_PASSWORD')
+    }
 
 # ============================================================================
 # PAGE ROUTES
@@ -355,7 +374,7 @@ def parse_survey_code():
         if not code:
             return jsonify({'error': 'code is required'}), 400
 
-        parser = SurveyCodeParser(DB_CONFIG)
+        parser = SurveyCodeParser(_get_db_config())
         parsed = parser.parse_code(code)
 
         if parsed.get('valid'):
@@ -378,7 +397,7 @@ def simulate_field_sequence():
         if not shots:
             return jsonify({'error': 'shots array is required'}), 400
 
-        parser = SurveyCodeParser(DB_CONFIG)
+        parser = SurveyCodeParser(_get_db_config())
         result = parser.simulate_field_sequence(shots)
 
         return jsonify(result)
@@ -396,7 +415,7 @@ def process_batch_validation(codes: List[str]) -> Dict[str, Any]:
     """Shared helper for batch validation logic"""
     from survey_code_parser import SurveyCodeParser
 
-    parser = SurveyCodeParser(DB_CONFIG)
+    parser = SurveyCodeParser(_get_db_config())
     result = parser.batch_validate(codes)
 
     results_token = str(uuid.uuid4())
@@ -519,7 +538,7 @@ def get_connectivity_rules():
     from survey_code_parser import SurveyCodeParser
 
     try:
-        parser = SurveyCodeParser(DB_CONFIG)
+        parser = SurveyCodeParser(_get_db_config())
         rules = parser.get_connectivity_rules()
         return jsonify(rules)
     except Exception as e:

@@ -5,9 +5,28 @@ Extracted from app.py during Phase 13 refactoring
 """
 from flask import Blueprint, render_template, jsonify, request, session, Response
 from typing import Dict, List, Any, Optional
-from database import get_db, execute_query, DB_CONFIG
+import os
+from database import get_db, execute_query
 
 classification_bp = Blueprint('classification', __name__)
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def _get_db_config() -> Dict[str, str]:
+    """
+    Build database configuration dictionary for legacy service classes.
+    This recreates the DB_CONFIG format that service classes expect.
+    """
+    return {
+        'host': os.getenv('PGHOST') or os.getenv('DB_HOST'),
+        'port': os.getenv('PGPORT') or os.getenv('DB_PORT', '5432'),
+        'database': os.getenv('PGDATABASE') or os.getenv('DB_NAME', 'postgres'),
+        'user': os.getenv('PGUSER') or os.getenv('DB_USER', 'postgres'),
+        'password': os.getenv('PGPASSWORD') or os.getenv('DB_PASSWORD')
+    }
 
 
 # ============================================
@@ -45,7 +64,7 @@ def get_classification_review_queue() -> tuple[Dict[str, Any], int]:
         from services.classification_service import ClassificationService
 
         with get_db() as conn:
-            service = ClassificationService(DB_CONFIG, conn=conn)
+            service = ClassificationService(_get_db_config(), conn=conn)
             entities = service.get_review_queue(
                 project_id=project_id,
                 min_confidence=min_confidence,
@@ -80,7 +99,7 @@ def reclassify_entity() -> tuple[Dict[str, Any], int]:
         from services.classification_service import ClassificationService
 
         with get_db() as conn:
-            service = ClassificationService(DB_CONFIG, conn=conn)
+            service = ClassificationService(_get_db_config(), conn=conn)
             result = service.reclassify_entity(entity_id, new_type, user_notes)
 
         return jsonify(result)
@@ -106,7 +125,7 @@ def bulk_reclassify() -> tuple[Dict[str, Any], int]:
         from services.classification_service import ClassificationService
 
         with get_db() as conn:
-            service = ClassificationService(DB_CONFIG, conn=conn)
+            service = ClassificationService(_get_db_config(), conn=conn)
             result = service.bulk_reclassify(entity_ids, new_type, user_notes)
 
         return jsonify(result)
@@ -124,7 +143,7 @@ def get_ai_classification_suggestions(entity_id: str) -> tuple[Dict[str, Any], i
         from services.ai_classification_service import AIClassificationService
 
         with get_db() as conn:
-            ai_service = AIClassificationService(DB_CONFIG, conn=conn)
+            ai_service = AIClassificationService(_get_db_config(), conn=conn)
             suggestions = ai_service.get_ai_suggestions(entity_id, limit=limit)
 
         return jsonify({
@@ -146,7 +165,7 @@ def get_spatial_context(entity_id: str) -> tuple[Dict[str, Any], int]:
         from services.ai_classification_service import AIClassificationService
 
         with get_db() as conn:
-            ai_service = AIClassificationService(DB_CONFIG, conn=conn)
+            ai_service = AIClassificationService(_get_db_config(), conn=conn)
             context = ai_service.get_spatial_context(entity_id, search_radius_feet=search_radius)
 
         return jsonify({
@@ -169,7 +188,7 @@ def get_classification_analytics() -> tuple[Dict[str, Any], int]:
         from services.ai_classification_service import AIClassificationService
 
         with get_db() as conn:
-            ai_service = AIClassificationService(DB_CONFIG, conn=conn)
+            ai_service = AIClassificationService(_get_db_config(), conn=conn)
             analytics = ai_service.get_classification_analytics(
                 project_id=project_id,
                 days_back=days_back
@@ -194,7 +213,7 @@ def get_geometry_preview(entity_id: str) -> tuple[Response, int]:
         from services.geometry_preview_service import GeometryPreviewService
 
         with get_db() as conn:
-            preview_service = GeometryPreviewService(DB_CONFIG, conn=conn)
+            preview_service = GeometryPreviewService(_get_db_config(), conn=conn)
             svg = preview_service.generate_svg(entity_id, width=width, height=height)
 
         return Response(svg, mimetype='image/svg+xml')
@@ -215,7 +234,7 @@ def get_geometry_thumbnail(entity_id: str) -> tuple[Response, int]:
         from services.geometry_preview_service import GeometryPreviewService
 
         with get_db() as conn:
-            preview_service = GeometryPreviewService(DB_CONFIG, conn=conn)
+            preview_service = GeometryPreviewService(_get_db_config(), conn=conn)
             svg = preview_service.generate_thumbnail(entity_id, size=size)
 
         return Response(svg, mimetype='image/svg+xml')
