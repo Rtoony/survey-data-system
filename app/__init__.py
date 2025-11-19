@@ -8,10 +8,14 @@ from datetime import datetime, date
 from decimal import Decimal
 import uuid
 import os
+import logging
 
 from app.extensions import cors, cache
 from app.config import config
 from app.db_session import init_app as init_db_session
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 class CustomJSONProvider(DefaultJSONProvider):
@@ -59,11 +63,9 @@ def create_app(config_name: str = None) -> Flask:
     # Initialize database session management
     init_db_session(flask_app)
 
-    # Debug: Print database configuration status
-    print("=" * 50)
-    print("Database Configuration Status:")
-    print(f"SQLAlchemy Engine: {'Initialized' if flask_app.config.get('SQLALCHEMY_DATABASE_URI') else 'MISSING'}")
-    print("=" * 50)
+    # Log database configuration status (secure, no credentials)
+    db_uri_configured = 'SQLALCHEMY_DATABASE_URI' in flask_app.config
+    logger.info(f"Database configuration status: {'Initialized' if db_uri_configured else 'MISSING'}")
 
     # Register blueprints
     from auth.routes import auth_bp

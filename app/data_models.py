@@ -42,6 +42,7 @@ from sqlalchemy import (
     String, Text, Integer, Numeric, Boolean, DateTime, Date,
     ARRAY, UUID, text
 )
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from geoalchemy2 import Geometry
 
 # ============================================================================
@@ -100,11 +101,11 @@ projects = Table(
     # Flexible Attributes
     Column('tags', ARRAY(Text), nullable=True,
            comment='Flexible tagging system for categorization'),
-    Column('attributes', Text, nullable=True,  # JSONB
+    Column('attributes', JSONB, nullable=True,
            comment='Additional flexible attributes as JSON'),
 
     # Full-Text Search
-    Column('search_vector', Text, nullable=True,  # tsvector
+    Column('search_vector', TSVECTOR, nullable=True,
            comment='Generated full-text search vector'),
 
     # Audit Fields
@@ -210,11 +211,11 @@ survey_points = Table(
     # Flexible Attributes
     Column('tags', ARRAY(Text), nullable=True,
            comment='Flexible tagging system'),
-    Column('attributes', Text, nullable=True,  # JSONB
+    Column('attributes', JSONB, nullable=True,
            comment='Additional attributes as JSON'),
 
     # Full-Text Search
-    Column('search_vector', Text, nullable=True,  # tsvector
+    Column('search_vector', TSVECTOR, nullable=True,
            comment='Full-text search vector'),
 
     # Usage Tracking
@@ -288,11 +289,11 @@ easements = Table(
     # Flexible Attributes
     Column('tags', ARRAY(Text), nullable=True,
            comment='Flexible tagging system'),
-    Column('attributes', Text, nullable=True,  # JSONB
+    Column('attributes', JSONB, nullable=True,
            comment='Additional attributes as JSON'),
 
     # Full-Text Search
-    Column('search_vector', Text, nullable=True,  # tsvector
+    Column('search_vector', TSVECTOR, nullable=True,
            comment='Full-text search vector'),
 
     # Usage Tracking
@@ -360,11 +361,11 @@ block_definitions = Table(
     # Flexible Attributes
     Column('tags', ARRAY(Text), nullable=True,
            comment='Flexible tagging system'),
-    Column('attributes', Text, nullable=True,  # JSONB
+    Column('attributes', JSONB, nullable=True,
            comment='Additional attributes as JSON'),
 
     # Full-Text Search
-    Column('search_vector', Text, nullable=True,  # tsvector
+    Column('search_vector', TSVECTOR, nullable=True,
            comment='Full-text search vector'),
 
     # File References
@@ -428,7 +429,7 @@ attribute_codes = Table(
            comment='Date when code expires'),
 
     # Flexible Attributes
-    Column('attributes', Text, nullable=True,  # JSONB
+    Column('attributes', JSONB, nullable=True,
            comment='Additional code attributes as JSON'),
 
     # Audit Fields
@@ -475,7 +476,7 @@ entity_relationships = Table(
            comment='Flag indicating AI-generated relationship'),
 
     # Flexible Attributes
-    Column('attributes', Text, nullable=True,  # JSONB
+    Column('attributes', JSONB, nullable=True,
            comment='Additional relationship metadata as JSON'),
 
     # Audit Fields
@@ -539,11 +540,11 @@ horizontal_alignments = Table(
     # Flexible Attributes
     Column('tags', ARRAY(Text), nullable=True,
            comment='Flexible tagging system'),
-    Column('attributes', Text, nullable=True,  # JSONB
+    Column('attributes', JSONB, nullable=True,
            comment='Additional attributes as JSON'),
 
     # Full-Text Search
-    Column('search_vector', Text, nullable=True,  # tsvector
+    Column('search_vector', TSVECTOR, nullable=True,
            comment='Full-text search vector'),
 
     # Usage Tracking
@@ -606,11 +607,11 @@ drawing_hatches = Table(
     # Flexible Attributes
     Column('tags', ARRAY(Text), nullable=True,
            comment='Flexible tagging system'),
-    Column('attributes', Text, nullable=True,  # JSONB
+    Column('attributes', JSONB, nullable=True,
            comment='Additional attributes as JSON'),
 
     # Full-Text Search
-    Column('search_vector', Text, nullable=True,  # tsvector
+    Column('search_vector', TSVECTOR, nullable=True,
            comment='Full-text search vector'),
 
     # Audit Fields
@@ -655,9 +656,9 @@ audit_log = Table(
            comment='When the action occurred'),
 
     # Change Details
-    Column('old_values', Text, nullable=True,  # JSONB
+    Column('old_values', JSONB, nullable=True,
            comment='Previous values before change (JSON)'),
-    Column('new_values', Text, nullable=True,  # JSONB
+    Column('new_values', JSONB, nullable=True,
            comment='New values after change (JSON)'),
 
     # Context
@@ -696,7 +697,7 @@ ai_query_cache = Table(
            comment='Generated SQL query'),
     Column('result_count', Integer, nullable=True,
            comment='Number of results returned'),
-    Column('result_data', Text, nullable=True,  # JSONB
+    Column('result_data', JSONB, nullable=True,
            comment='Cached result data (if applicable)'),
 
     # Performance Metrics

@@ -44,11 +44,23 @@ import uuid
 # Load environment variables
 load_dotenv()
 
+# Safety check: Ensure critical test environment variables are set
+# This prevents accidentally connecting to production databases
+_required_test_vars = ['TEST_PGDATABASE']
+_missing_vars = [var for var in _required_test_vars if not os.getenv(var)]
+
+if _missing_vars:
+    raise EnvironmentError(
+        f"CRITICAL SAFETY ERROR: Required test environment variables not set: {', '.join(_missing_vars)}. "
+        f"This prevents accidentally connecting to production databases. "
+        f"Please set these variables in your .env file or environment before running tests."
+    )
+
 # Test database configuration
 TEST_DB_CONFIG = {
     'host': os.getenv('TEST_PGHOST') or os.getenv('PGHOST', 'localhost'),
     'port': os.getenv('TEST_PGPORT') or os.getenv('PGPORT', '5432'),
-    'database': os.getenv('TEST_PGDATABASE') or os.getenv('PGDATABASE', 'postgres'),
+    'database': os.getenv('TEST_PGDATABASE'),  # Required, validated above
     'user': os.getenv('TEST_PGUSER') or os.getenv('PGUSER', 'postgres'),
     'password': os.getenv('TEST_PGPASSWORD') or os.getenv('PGPASSWORD', ''),
     'sslmode': os.getenv('TEST_SSLMODE', 'require'),
